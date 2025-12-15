@@ -1,0 +1,9 @@
+version: v2
+modules:
+  - path: src/grpc/proto
+lint:
+  use:
+    - MINIMAL
+breaking:
+  use:
+    - FILE

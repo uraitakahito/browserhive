@@ -1,0 +1,8 @@
+/node_modules/
+/dist/
+/output/
+Dockerfile
+docker-entrypoint.sh
+
+# Generated proto files
+src/grpc/generated/
