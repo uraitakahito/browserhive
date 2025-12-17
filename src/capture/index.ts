@@ -53,6 +53,7 @@ export {
   validateLabels,
   generateFilename,
   hideScrollbars,
+  isSuccessHttpStatus,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "./page-capturer.js";

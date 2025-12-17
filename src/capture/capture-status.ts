@@ -11,6 +11,9 @@ export const CAPTURE_STATUS_DEFINITIONS = {
   timeout: {
     isSuccess: false,
   },
+  httpError: {
+    isSuccess: false,
+  },
 } as const;
 
 /** CaptureStatus type (auto-derived from definitions) */
@@ -21,6 +24,7 @@ export const captureStatus = {
   success: "success",
   failed: "failed",
   timeout: "timeout",
+  httpError: "httpError",
 } as const satisfies Record<string, CaptureStatus>;
 
 /**

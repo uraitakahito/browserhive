@@ -29,6 +29,8 @@ export interface CaptureResult {
   task: CaptureTask;
   /** Result status */
   status: CaptureStatus;
+  /** HTTP response status code (e.g., 200, 403, 404, 500) */
+  httpStatusCode?: number;
   pngPath?: string;
   jpegPath?: string;
   htmlPath?: string;
