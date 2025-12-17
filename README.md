@@ -127,7 +127,19 @@ LOG_LEVEL=info npx tsx bin/server.ts --browser-url http://chromium-server-1:9222
 
 See [docs/grpcurl-usage.md](docs/grpcurl-usage.md) for detailed grpcurl usage examples.
 
-#### Proto file
+### Example: CSV Client
+
+Example client that sends capture requests from a CSV file (fire-and-forget).
+
+The client sends requests and receives acceptance confirmations. Actual captures are processed asynchronously by the server. Check server logs for completion status.
+
+**Usage:**
+
+```sh
+npx tsx examples/csv-client.ts --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
+```
+
+## Proto file
 
 The proto file is located at `src/grpc/proto/browserhive/v1/capture.proto`.
 
@@ -139,18 +151,6 @@ To regenerate types manually:
 
 ```sh
 npm run proto:generate
-```
-
-### Example: CSV Client
-
-Example client that sends capture requests from a CSV file (fire-and-forget).
-
-The client sends requests and receives acceptance confirmations. Actual captures are processed asynchronously by the server. Check server logs for completion status.
-
-**Usage:**
-
-```sh
-npx tsx examples/csv-client.ts --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
 ```
 
 ## TLS (Transport Layer Security)
