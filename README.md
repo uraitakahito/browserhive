@@ -58,40 +58,52 @@ flowchart TB
 
 ## Setup
 
-### Chromium Server
+### Prerequisites
 
-**BrowserHive requires a separate Chromium server. Please refer to the README of [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker) to start the Chromium server.**
-
-### Launching the development Docker container
-
-Please download the required files by following these steps:
-
-```
-curl -L -O https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/heads/main/Dockerfile
-curl -L -O https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/heads/main/docker-entrypoint.sh
-chmod 755 docker-entrypoint.sh
-```
-
-**Detailed environment setup instructions are described at the beginning of the `Dockerfile`. Only the container start command differs from what's written in the Dockerfile. Please use the following command.**
+Run the setup script:
 
 ```sh
-#
-# Build the Docker image:
-#
-PROJECT=$(basename `pwd`) && docker image build -t $PROJECT-image . --build-arg user_id=`id -u` --build-arg group_id=`id -g` --build-arg TZ=Asia/Tokyo
-#
-# Create a volume to persist the command history executed inside the Docker container.
-# It is stored in the volume because the dotfiles configuration redirects the shell history there.
-#   https://github.com/uraitakahito/dotfiles/blob/b80664a2735b0442ead639a9d38cdbe040b81ab0/zsh/myzshrc#L298-L305
-#
-docker volume create $PROJECT-zsh-history
-#
-# If you start two Chromium servers as shown in the linked reference (https://github.com/uraitakahito/chromium-server-docker/blob/6e08d1982c4ad78b845147d1e58f782e3d8ae3f2/Dockerfile#L48-L55), it will look like this:
-#
-docker container run -d --rm --init --mount type=volume,source=$PROJECT-zsh-history,target=/zsh-volume --mount type=bind,src=/run/host-services/ssh-auth.sock,dst=/run/host-services/ssh-auth.sock -e SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock --mount type=bind,src=`pwd`,dst=/app --network chromium-network --name $PROJECT-container $PROJECT-image
+./setup.sh
+```
+
+This will:
+- Download Dockerfile and docker-entrypoint.sh
+- Clone the chromium-server-docker repository
+- Create a .env file
+
+### Starting the Development Environment
+
+```sh
+docker compose up -d
+```
+
+### Logging into the Container
+
+```sh
+docker exec -it browserhive-container /bin/zsh
+```
+
+Or use [fdshell](https://github.com/uraitakahito/dotfiles/blob/056c1b0132e720c08b4cb26bc9497b069db6e15d/zsh/myzshrc#L119-L127) (if dotfiles are configured):
+
+```sh
+fdshell /bin/zsh
+```
+
+### First-time Setup
+
+```sh
+docker exec -it browserhive-container sudo chown -R $(id -u):$(id -g) /zsh-volume
+```
+
+### Stopping the Environment
+
+```sh
+docker compose down
 ```
 
 ## Usage
+
+Please run the following commands inside the Docker container.
 
 ### Build
 
@@ -125,7 +137,19 @@ LOG_LEVEL=info npx tsx bin/server.ts --browser-url http://chromium-server-1:9222
 
 See [docs/grpcurl-usage.md](docs/grpcurl-usage.md) for detailed grpcurl usage examples.
 
-#### Proto file
+### Example: CSV Client
+
+Example client that sends capture requests from a CSV file (fire-and-forget).
+
+The client sends requests and receives acceptance confirmations. Actual captures are processed asynchronously by the server. Check server logs for completion status.
+
+**Usage:**
+
+```sh
+npx tsx examples/csv-client.ts --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
+```
+
+## Proto file
 
 The proto file is located at `src/grpc/proto/browserhive/v1/capture.proto`.
 
@@ -137,18 +161,6 @@ To regenerate types manually:
 
 ```sh
 npm run proto:generate
-```
-
-### Example: CSV Client
-
-Example client that sends capture requests from a CSV file (fire-and-forget).
-
-The client sends requests and receives acceptance confirmations. Actual captures are processed asynchronously by the server. Check server logs for completion status.
-
-**Usage:**
-
-```sh
-npx tsx examples/csv-client.ts --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
 ```
 
 ## TLS (Transport Layer Security)

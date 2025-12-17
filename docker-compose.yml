@@ -1,0 +1,78 @@
+services:
+  # BrowserHive development container
+  browserhive:
+    build:
+      context: .
+      args:
+        user_id: ${USER_ID}
+        group_id: ${GROUP_ID}
+        TZ: ${TZ:-Asia/Tokyo}
+    container_name: browserhive-container
+    init: true
+    volumes:
+      - .:/app
+      - zsh-history:/zsh-volume
+      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
+    environment:
+      - SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock
+    networks:
+      - chromium-network
+    depends_on:
+      chromium-server-1:
+        condition: service_healthy
+      chromium-server-2:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
+
+  # Chromium Server 1 (development)
+  # NOTE: Uses docker/development/Dockerfile (different from chromium-server-2)
+  chromium-server-1:
+    build:
+      context: ./chromium-server-docker
+      dockerfile: docker/development/Dockerfile
+      args:
+        user_id: ${USER_ID}
+        group_id: ${GROUP_ID}
+    container_name: chromium-server-1
+    init: true
+    ports:
+      - "9222:9222"
+    networks:
+      - chromium-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9222/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Chromium Server 2 (production)
+  # NOTE: Uses docker/production/Dockerfile (different from chromium-server-1)
+  chromium-server-2:
+    build:
+      context: ./chromium-server-docker
+      dockerfile: docker/production/Dockerfile
+      args:
+        user_id: ${USER_ID}
+        group_id: ${GROUP_ID}
+    container_name: chromium-server-2
+    init: true
+    ports:
+      - "9223:9222"
+    networks:
+      - chromium-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9222/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  zsh-history:
+    name: browserhive-zsh-history
+
+networks:
+  chromium-network:
+    name: chromium-network

@@ -3,6 +3,8 @@
 /output/
 Dockerfile
 docker-entrypoint.sh
+.env
+chromium-server-docker/
 
 # Generated proto files
 src/grpc/generated/
