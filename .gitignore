@@ -8,3 +8,9 @@ chromium-server-docker/
 
 # Generated proto files
 src/grpc/generated/
+
+# VSCode settings
+.vscode/extensions.json
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json
