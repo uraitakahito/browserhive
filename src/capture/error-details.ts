@@ -10,6 +10,7 @@ import type { ErrorDetails } from "./types.js";
  * Standard HTTP status text mapping
  * Used as fallback when HTTP/2 doesn't provide status text
  */
+/* eslint-disable @typescript-eslint/naming-convention */
 const HTTP_STATUS_TEXT: Record<number, string> = {
   // 3xx Redirection
   300: "Multiple Choices",
@@ -33,6 +34,7 @@ const HTTP_STATUS_TEXT: Record<number, string> = {
   503: "Service Unavailable",
   504: "Gateway Timeout",
 };
+/* eslint-enable @typescript-eslint/naming-convention */
 
 /**
  * Get HTTP status text, using standard mapping as fallback for HTTP/2
