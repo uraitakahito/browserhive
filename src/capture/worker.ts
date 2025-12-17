@@ -12,7 +12,13 @@ import type {
   CaptureResult,
   WorkerInfo,
   ErrorRecord,
+  ErrorDetails,
 } from "./types.js";
+import {
+  createConnectionError,
+  createInternalError,
+  errorDetailsFromException,
+} from "./error-details.js";
 import { WorkerStatusManager } from "./worker-status-manager.js";
 import { captureStatus, isSuccessStatus } from "./capture-status.js";
 
@@ -37,9 +43,9 @@ export class Worker {
   /**
    * Add error to history (FIFO, max 10 entries)
    */
-  private addError(message: string, task?: CaptureTask): void {
+  private addError(errorDetails: ErrorDetails, task?: CaptureTask): void {
     const record: ErrorRecord = {
-      message,
+      ...errorDetails,
       timestamp: new Date().toISOString(),
       ...(task && {
         task: {
@@ -66,7 +72,7 @@ export class Worker {
       this.statusManager.toError();
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.addError(errorMessage);
+      this.addError(createConnectionError(errorMessage));
       this.errorCount++;
       return false;
     }
@@ -89,7 +95,9 @@ export class Worker {
       return {
         task,
         status: captureStatus.failed,
-        error: `Worker ${this.id} is not available (status: ${this.statusManager.current})`,
+        errorDetails: createInternalError(
+          `Worker ${this.id} is not available (status: ${this.statusManager.current})`
+        ),
         captureProcessingTimeMs: 0,
         timestamp: new Date().toISOString(),
         workerId: this.id,
@@ -109,27 +117,26 @@ export class Worker {
 
       if (!isSuccessStatus(result.status)) {
         this.errorCount++;
-        this.addError(result.error ?? "Unknown error", task);
+        this.addError(
+          result.errorDetails ?? createInternalError("Unknown error"),
+          task
+        );
       }
 
       return result;
     } catch (error) {
       this.errorCount++;
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.addError(errorMessage, task);
+      const errorDetails = errorDetailsFromException(error);
+      this.addError(errorDetails, task);
 
-      if (
-        errorMessage.includes("disconnect") ||
-        errorMessage.includes("closed")
-      ) {
+      if (errorDetails.type === "connection") {
         this.statusManager.toError();
       }
 
       return {
         task,
         status: captureStatus.failed,
-        error: errorMessage,
+        errorDetails,
         captureProcessingTimeMs: 0,
         timestamp: new Date().toISOString(),
         workerId: this.id,

@@ -25,6 +25,15 @@ enum WorkerStatus {
   WORKER_STATUS_STOPPED = 4;
 }
 
+// Error type enum
+enum ErrorType {
+  ERROR_TYPE_UNSPECIFIED = 0;
+  ERROR_TYPE_HTTP = 1;           // HTTP error (4xx, 5xx, 3xx)
+  ERROR_TYPE_TIMEOUT = 2;        // Timeout
+  ERROR_TYPE_CONNECTION = 3;     // Connection error
+  ERROR_TYPE_INTERNAL = 4;       // Internal error
+}
+
 // Capture options - flags for each output format
 message CaptureOptions {
   bool png = 1;
@@ -52,14 +61,26 @@ message ErrorTaskInfo {
 
 // Error record with timestamp and task context
 message ErrorRecord {
-  // Error message
-  string message = 1;
+  // Error type
+  ErrorType type = 1;
+
+  // Human-readable error message
+  string message = 2;
+
+  // HTTP status code (only valid when type is ERROR_TYPE_HTTP)
+  optional int32 http_status_code = 3;
+
+  // HTTP status text (e.g., "Not Modified", "Not Found")
+  optional string http_status_text = 4;
+
+  // Timeout duration in ms (only valid when type is ERROR_TYPE_TIMEOUT)
+  optional int32 timeout_ms = 5;
 
   // Timestamp when error occurred (ISO 8601 format)
-  string timestamp = 2;
+  string timestamp = 6;
 
   // Task information (optional, not set for non-task errors like connection failures)
-  optional ErrorTaskInfo task = 3;
+  optional ErrorTaskInfo task = 7;
 }
 
 // Worker information

@@ -6,6 +6,7 @@ import type { BrowserOptions } from "../config/index.js";
 import type { WorkerStatus } from "./worker-status.js";
 import type { CaptureOptions } from "./capture-mode.js";
 import type { CaptureStatus } from "./capture-status.js";
+import type { ErrorType } from "./error-type.js";
 
 export type ValidationResult =
   | { valid: true }
@@ -24,6 +25,14 @@ export interface CaptureTask {
   captureOptions: CaptureOptions;
 }
 
+export interface ErrorDetails {
+  type: ErrorType;
+  message: string;
+  httpStatusCode?: number;
+  httpStatusText?: string;
+  timeoutMs?: number;
+}
+
 export interface CaptureResult {
   /** The task that was processed */
   task: CaptureTask;
@@ -34,7 +43,7 @@ export interface CaptureResult {
   pngPath?: string;
   jpegPath?: string;
   htmlPath?: string;
-  error?: string;
+  errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;
   workerId: string;
@@ -46,8 +55,7 @@ export interface ErrorTaskInfo {
   labels: string[];
 }
 
-export interface ErrorRecord {
-  message: string;
+export interface ErrorRecord extends ErrorDetails {
   /** Timestamp when error occurred (ISO 8601 format) */
   timestamp: string;
   /** Task information (optional, not set for non-task errors like connection failures) */

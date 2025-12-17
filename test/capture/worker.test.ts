@@ -88,7 +88,10 @@ describe("Worker", () => {
       const info = worker.getInfo();
       expect(info.status).toBe("error");
       expect(info.errorHistory).toHaveLength(1);
-      expect(info.errorHistory[0]?.message).toBe("Connection failed");
+      expect(info.errorHistory[0]).toMatchObject({
+        type: "connection",
+        message: "Connection failed",
+      });
       expect(info.errorHistory[0]?.task).toBeUndefined();
     });
 
@@ -133,7 +136,7 @@ describe("Worker", () => {
       const result = await worker.process(task);
 
       expect(result.status).toBe(captureStatus.failed);
-      expect(result.error).toContain("not available");
+      expect(result.errorDetails?.message).toContain("not available");
       expect(result.workerId).toBe("worker-1");
     });
 
@@ -183,7 +186,10 @@ describe("Worker", () => {
       mockCapture.mockResolvedValue({
         task,
         status: captureStatus.failed,
-        error: "Capture failed",
+        errorDetails: {
+          type: "internal",
+          message: "Capture failed",
+        },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
         workerId: "worker-1",
@@ -200,7 +206,11 @@ describe("Worker", () => {
       mockCapture.mockResolvedValue({
         task,
         status: captureStatus.failed,
-        error: "Navigation timeout",
+        errorDetails: {
+          type: "timeout",
+          message: "Navigation timeout",
+          timeoutMs: 30000,
+        },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
         workerId: "worker-1",
@@ -210,7 +220,11 @@ describe("Worker", () => {
 
       const info = worker.getInfo();
       expect(info.errorHistory).toHaveLength(1);
-      expect(info.errorHistory[0]?.message).toBe("Navigation timeout");
+      expect(info.errorHistory[0]).toMatchObject({
+        type: "timeout",
+        message: "Navigation timeout",
+        timeoutMs: 30000,
+      });
       expect(info.errorHistory[0]?.task).toEqual({
         taskId: task.taskId,
         url: task.url,
@@ -226,7 +240,7 @@ describe("Worker", () => {
       const result = await worker.process(task);
 
       expect(result.status).toBe(captureStatus.failed);
-      expect(result.error).toBe("Unexpected error");
+      expect(result.errorDetails?.message).toBe("Unexpected error");
       expect(worker.getInfo().errorCount).toBe(1);
     });
 
@@ -328,7 +342,10 @@ describe("Worker", () => {
         mockCapture.mockResolvedValue({
           task,
           status: captureStatus.failed,
-          error: `Error ${String(i)}`,
+          errorDetails: {
+            type: "internal",
+            message: `Error ${String(i)}`,
+          },
           captureProcessingTimeMs: 100,
           timestamp: new Date().toISOString(),
           workerId: "worker-1",
@@ -350,7 +367,10 @@ describe("Worker", () => {
         mockCapture.mockResolvedValue({
           task,
           status: captureStatus.failed,
-          error: `Error ${String(i)}`,
+          errorDetails: {
+            type: "internal",
+            message: `Error ${String(i)}`,
+          },
           captureProcessingTimeMs: 100,
           timestamp: new Date().toISOString(),
           workerId: "worker-1",
@@ -374,7 +394,10 @@ describe("Worker", () => {
       mockCapture.mockResolvedValue({
         task,
         status: captureStatus.failed,
-        error: "Page load failed",
+        errorDetails: {
+          type: "internal",
+          message: "Page load failed",
+        },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
         workerId: "worker-1",
@@ -396,7 +419,10 @@ describe("Worker", () => {
       mockCapture.mockResolvedValue({
         task,
         status: captureStatus.failed,
-        error: "Error",
+        errorDetails: {
+          type: "internal",
+          message: "Error",
+        },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
         workerId: "worker-1",
@@ -407,6 +433,35 @@ describe("Worker", () => {
       const info = worker.getInfo();
       const timestamp = info.errorHistory[0]?.timestamp;
       expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+    });
+
+    it("should include HTTP error details in errorHistory", async () => {
+      await worker.connect();
+      const task = createTask();
+      mockCapture.mockResolvedValue({
+        task,
+        status: captureStatus.httpError,
+        httpStatusCode: 404,
+        errorDetails: {
+          type: "http",
+          message: "HTTP 404: Not Found",
+          httpStatusCode: 404,
+          httpStatusText: "Not Found",
+        },
+        captureProcessingTimeMs: 100,
+        timestamp: new Date().toISOString(),
+        workerId: "worker-1",
+      });
+
+      await worker.process(task);
+
+      const info = worker.getInfo();
+      expect(info.errorHistory[0]).toMatchObject({
+        type: "http",
+        message: "HTTP 404: Not Found",
+        httpStatusCode: 404,
+        httpStatusText: "Not Found",
+      });
     });
   });
 });

@@ -11,6 +11,11 @@ import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ValidationResult } from "./types.js";
 import type { CaptureTask, CaptureResult } from "./types.js";
 import { captureStatus } from "./capture-status.js";
+import {
+  createHttpError,
+  errorDetailsFromException,
+} from "./error-details.js";
+import { errorType } from "./error-type.js";
 
 /**
  * CSS to hide scrollbars in Chromium
@@ -192,12 +197,11 @@ export class PageCapturer {
       if (!isSuccessHttpStatus(httpStatusCode)) {
         const captureProcessingTimeMs = Date.now() - startTime;
         const statusText = response?.statusText();
-        const errorMessage = statusText ? `HTTP ${String(httpStatusCode)}: ${statusText}` : `HTTP ${String(httpStatusCode)}`;
         return {
           task,
           status: captureStatus.httpError,
           httpStatusCode,
-          error: errorMessage,
+          errorDetails: createHttpError(httpStatusCode, statusText),
           captureProcessingTimeMs,
           timestamp: new Date().toISOString(),
           workerId,
@@ -242,14 +246,13 @@ export class PageCapturer {
       };
     } catch (error) {
       const captureProcessingTimeMs = Date.now() - startTime;
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const isTimeout = errorMessage.includes("Timeout");
+      const errorDetails = errorDetailsFromException(error);
+      const isTimeout = errorDetails.type === errorType.timeout;
 
       return {
         task,
         status: isTimeout ? captureStatus.timeout : captureStatus.failed,
-        error: errorMessage,
+        errorDetails,
         captureProcessingTimeMs,
         timestamp: new Date().toISOString(),
         workerId,
