@@ -12,7 +12,7 @@
     "proto:breaking": "buf breaking --against .git#branch=main",
     "build": "npm run proto:generate && tsc",
     "test": "npm run proto:generate && vitest run",
-    "lint": "eslint .",
+    "lint": "npm run proto:generate && eslint .",
     "server": "node dist/bin/server.js"
   },
   "keywords": [],
