@@ -13,6 +13,7 @@ import {
   captureOptionsFromProto,
   validateCaptureOptions,
   workerStatusToProto,
+  errorTypeToProto,
   validateFilename,
   validateLabels,
 } from "../capture/index.js";
@@ -169,8 +170,18 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
         processed_count: w.processedCount,
         error_count: w.errorCount,
         error_history: w.errorHistory.map((e) => ({
+          type: errorTypeToProto(e.type),
           message: e.message,
           timestamp: e.timestamp,
+          ...(e.httpStatusCode !== undefined && {
+            http_status_code: e.httpStatusCode,
+          }),
+          ...(e.httpStatusText !== undefined && {
+            http_status_text: e.httpStatusText,
+          }),
+          ...(e.timeoutMs !== undefined && {
+            timeout_ms: e.timeoutMs,
+          }),
           ...(e.task && {
             task: {
               task_id: e.task.taskId,

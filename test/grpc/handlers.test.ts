@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { createCaptureServiceHandlers } from "../../src/grpc/handlers.js";
 import type { WorkerPool } from "../../src/capture/index.js";
 import type { CaptureRequest, CaptureAcceptance, Empty, StatusResponse } from "../../src/grpc/generated/browserhive/v1/capture.js";
-import { WorkerStatus } from "../../src/grpc/generated/browserhive/v1/capture.js";
+import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type * as grpc from "@grpc/grpc-js";
 
 describe("createCaptureServiceHandlers", () => {
@@ -443,7 +443,9 @@ describe("createCaptureServiceHandlers", () => {
               errorCount: 1,
               errorHistory: [
                 {
+                  type: "timeout",
                   message: "Connection timeout",
+                  timeoutMs: 30000,
                   timestamp: "2024-01-15T10:30:00.000Z",
                   task: {
                     taskId: "task-123",
@@ -461,6 +463,7 @@ describe("createCaptureServiceHandlers", () => {
               errorCount: 2,
               errorHistory: [
                 {
+                  type: "connection",
                   message: "Browser disconnected",
                   timestamp: "2024-01-15T10:35:00.000Z",
                 },
@@ -501,7 +504,9 @@ describe("createCaptureServiceHandlers", () => {
             error_count: 1,
             error_history: [
               {
+                type: ErrorType.ERROR_TYPE_TIMEOUT,
                 message: "Connection timeout",
+                timeout_ms: 30000,
                 timestamp: "2024-01-15T10:30:00.000Z",
                 task: {
                   task_id: "task-123",
@@ -519,6 +524,7 @@ describe("createCaptureServiceHandlers", () => {
             error_count: 2,
             error_history: [
               {
+                type: ErrorType.ERROR_TYPE_CONNECTION,
                 message: "Browser disconnected",
                 timestamp: "2024-01-15T10:35:00.000Z",
               },

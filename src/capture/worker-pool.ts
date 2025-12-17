@@ -188,7 +188,7 @@ export class WorkerPool {
               taskLabels: task.labels,
               taskId: task.taskId,
               ...(task.correlationId && { correlationId: task.correlationId }),
-              error: result.error ?? "Unknown error",
+              error: result.errorDetails?.message ?? "Unknown error",
               url: task.url,
             },
             "Task failed"

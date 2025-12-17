@@ -11,6 +11,11 @@ import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ValidationResult } from "./types.js";
 import type { CaptureTask, CaptureResult } from "./types.js";
 import { captureStatus } from "./capture-status.js";
+import {
+  createHttpError,
+  errorDetailsFromException,
+} from "./error-details.js";
+import { errorType } from "./error-type.js";
 
 /**
  * CSS to hide scrollbars in Chromium
@@ -156,6 +161,13 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
   await page.addStyleTag({ content: HIDE_SCROLLBAR_CSS });
 };
 
+/**
+ * Check if HTTP status code indicates success (2xx)
+ */
+export const isSuccessHttpStatus = (statusCode: number): boolean => {
+  return statusCode >= 200 && statusCode < 300;
+};
+
 export class PageCapturer {
   constructor(private config: CaptureConfig) {}
 
@@ -171,7 +183,7 @@ export class PageCapturer {
       page = await browser.newPage();
       await configureViewport(page, this.config);
 
-      await withTimeout(
+      const response = await withTimeout(
         page.goto(task.url, {
           waitUntil: "domcontentloaded",
           timeout: this.config.timeouts.pageLoad,
@@ -179,6 +191,22 @@ export class PageCapturer {
         this.config.timeouts.pageLoad,
         `Navigation to ${task.url}`
       );
+
+      const httpStatusCode = response?.status() ?? 0;
+
+      if (!isSuccessHttpStatus(httpStatusCode)) {
+        const captureProcessingTimeMs = Date.now() - startTime;
+        const statusText = response?.statusText();
+        return {
+          task,
+          status: captureStatus.httpError,
+          httpStatusCode,
+          errorDetails: createHttpError(httpStatusCode, statusText),
+          captureProcessingTimeMs,
+          timestamp: new Date().toISOString(),
+          workerId,
+        };
+      }
 
       await page.evaluate(
         (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
@@ -208,6 +236,7 @@ export class PageCapturer {
       return {
         task,
         status: captureStatus.success,
+        httpStatusCode,
         captureProcessingTimeMs,
         timestamp: new Date().toISOString(),
         workerId,
@@ -217,14 +246,13 @@ export class PageCapturer {
       };
     } catch (error) {
       const captureProcessingTimeMs = Date.now() - startTime;
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const isTimeout = errorMessage.includes("Timeout");
+      const errorDetails = errorDetailsFromException(error);
+      const isTimeout = errorDetails.type === errorType.timeout;
 
       return {
         task,
         status: isTimeout ? captureStatus.timeout : captureStatus.failed,
-        error: errorMessage,
+        errorDetails,
         captureProcessingTimeMs,
         timestamp: new Date().toISOString(),
         workerId,

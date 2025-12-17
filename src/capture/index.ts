@@ -22,11 +22,26 @@ export {
 
 // Capture Status
 export type { CaptureStatus } from "./capture-status.js";
+export { captureStatus, isSuccessStatus } from "./capture-status.js";
+
+// Error Type
+export type { ErrorType } from "./error-type.js";
 export {
-  CAPTURE_STATUS_DEFINITIONS,
-  captureStatus,
-  isSuccessStatus,
-} from "./capture-status.js";
+  ERROR_TYPE_DEFINITIONS,
+  ALL_ERROR_TYPES,
+  errorTypeToProto,
+  errorType,
+} from "./error-type.js";
+
+// Error Details
+export type { ErrorDetails } from "./types.js";
+export {
+  createHttpError,
+  createTimeoutError,
+  createConnectionError,
+  createInternalError,
+  errorDetailsFromException,
+} from "./error-details.js";
 
 // Worker Status
 export type { WorkerStatus } from "./worker-status.js";
@@ -53,6 +68,7 @@ export {
   validateLabels,
   generateFilename,
   hideScrollbars,
+  isSuccessHttpStatus,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "./page-capturer.js";

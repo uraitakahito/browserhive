@@ -1,32 +1,13 @@
-/**
- * Unified Capture Status definitions
- */
-export const CAPTURE_STATUS_DEFINITIONS = {
-  success: {
-    isSuccess: true,
-  },
-  failed: {
-    isSuccess: false,
-  },
-  timeout: {
-    isSuccess: false,
-  },
-} as const;
-
-/** CaptureStatus type (auto-derived from definitions) */
-export type CaptureStatus = keyof typeof CAPTURE_STATUS_DEFINITIONS;
-
-/** Status constants (for direct reference) */
 export const captureStatus = {
   success: "success",
   failed: "failed",
   timeout: "timeout",
-} as const satisfies Record<string, CaptureStatus>;
+  httpError: "httpError",
+} as const;
 
-/**
- * Check if status indicates success
- */
+export type CaptureStatus = (typeof captureStatus)[keyof typeof captureStatus];
+
 export const isSuccessStatus = (status: CaptureStatus): boolean => {
-  return CAPTURE_STATUS_DEFINITIONS[status].isSuccess;
+  return status === captureStatus.success;
 };
 

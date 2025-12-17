@@ -5,6 +5,7 @@ import {
   generateFilename,
   withTimeout,
   hideScrollbars,
+  isSuccessHttpStatus,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "../../src/capture/page-capturer.js";
@@ -347,5 +348,43 @@ describe("hideScrollbars", () => {
     // Chromium (WebKit/Blink)
     expect(capturedCss).toContain("::-webkit-scrollbar");
     expect(capturedCss).toContain("display: none");
+  });
+});
+
+describe("isSuccessHttpStatus", () => {
+  it("should return true for 200", () => {
+    expect(isSuccessHttpStatus(200)).toBe(true);
+  });
+
+  it("should return true for 2xx status codes", () => {
+    expect(isSuccessHttpStatus(201)).toBe(true);
+    expect(isSuccessHttpStatus(204)).toBe(true);
+    expect(isSuccessHttpStatus(299)).toBe(true);
+  });
+
+  it("should return false for 4xx status codes", () => {
+    expect(isSuccessHttpStatus(400)).toBe(false);
+    expect(isSuccessHttpStatus(403)).toBe(false);
+    expect(isSuccessHttpStatus(404)).toBe(false);
+  });
+
+  it("should return false for 5xx status codes", () => {
+    expect(isSuccessHttpStatus(500)).toBe(false);
+    expect(isSuccessHttpStatus(502)).toBe(false);
+    expect(isSuccessHttpStatus(503)).toBe(false);
+  });
+
+  it("should return false for 3xx status codes", () => {
+    expect(isSuccessHttpStatus(301)).toBe(false);
+    expect(isSuccessHttpStatus(302)).toBe(false);
+  });
+
+  it("should return false for 1xx status codes", () => {
+    expect(isSuccessHttpStatus(100)).toBe(false);
+    expect(isSuccessHttpStatus(101)).toBe(false);
+  });
+
+  it("should return false for 0 (no response)", () => {
+    expect(isSuccessHttpStatus(0)).toBe(false);
   });
 });
