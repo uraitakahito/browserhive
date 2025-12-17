@@ -22,11 +22,7 @@ export {
 
 // Capture Status
 export type { CaptureStatus } from "./capture-status.js";
-export {
-  CAPTURE_STATUS_DEFINITIONS,
-  captureStatus,
-  isSuccessStatus,
-} from "./capture-status.js";
+export { captureStatus, isSuccessStatus } from "./capture-status.js";
 
 // Worker Status
 export type { WorkerStatus } from "./worker-status.js";
