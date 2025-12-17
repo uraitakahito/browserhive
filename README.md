@@ -93,6 +93,8 @@ docker container run -d --rm --init --mount type=volume,source=$PROJECT-zsh-hist
 
 ## Usage
 
+Please run the following commands inside the Docker container.
+
 ### Build
 
 Build the TypeScript source code before running:
