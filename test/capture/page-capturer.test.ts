@@ -6,6 +6,8 @@ import {
   withTimeout,
   hideScrollbars,
   isSuccessHttpStatus,
+  setUserAgent,
+  setAcceptLanguage,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "../../src/capture/page-capturer.js";
@@ -386,5 +388,57 @@ describe("isSuccessHttpStatus", () => {
 
   it("should return false for 0 (no response)", () => {
     expect(isSuccessHttpStatus(0)).toBe(false);
+  });
+});
+
+describe("setUserAgent", () => {
+  it("should call page.setUserAgent when userAgent is provided", async () => {
+    const mockSetUserAgent = vi.fn<(options: { userAgent: string }) => Promise<void>>();
+    const mockPage = {
+      setUserAgent: mockSetUserAgent,
+    } as unknown as Page;
+
+    await setUserAgent(mockPage, "Custom User-Agent");
+
+    expect(mockSetUserAgent).toHaveBeenCalledTimes(1);
+    expect(mockSetUserAgent).toHaveBeenCalledWith({ userAgent: "Custom User-Agent" });
+  });
+
+  it("should not call page.setUserAgent when userAgent is undefined", async () => {
+    const mockSetUserAgent = vi.fn<(options: { userAgent: string }) => Promise<void>>();
+    const mockPage = {
+      setUserAgent: mockSetUserAgent,
+    } as unknown as Page;
+
+    await setUserAgent(mockPage, undefined);
+
+    expect(mockSetUserAgent).not.toHaveBeenCalled();
+  });
+});
+
+describe("setAcceptLanguage", () => {
+  it("should call page.setExtraHTTPHeaders when acceptLanguage is provided", async () => {
+    const mockSetExtraHTTPHeaders = vi.fn<(headers: Record<string, string>) => Promise<void>>();
+    const mockPage = {
+      setExtraHTTPHeaders: mockSetExtraHTTPHeaders,
+    } as unknown as Page;
+
+    await setAcceptLanguage(mockPage, "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7");
+
+    expect(mockSetExtraHTTPHeaders).toHaveBeenCalledTimes(1);
+    expect(mockSetExtraHTTPHeaders).toHaveBeenCalledWith({
+      "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+    });
+  });
+
+  it("should not call page.setExtraHTTPHeaders when acceptLanguage is undefined", async () => {
+    const mockSetExtraHTTPHeaders = vi.fn<(headers: Record<string, string>) => Promise<void>>();
+    const mockPage = {
+      setExtraHTTPHeaders: mockSetExtraHTTPHeaders,
+    } as unknown as Page;
+
+    await setAcceptLanguage(mockPage, undefined);
+
+    expect(mockSetExtraHTTPHeaders).not.toHaveBeenCalled();
   });
 });

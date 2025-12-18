@@ -37,6 +37,10 @@ export interface CaptureConfig {
   screenshot: ScreenshotConfig;
   /** Reject capture requests for URLs already in the queue */
   rejectDuplicateUrls: boolean;
+  /** Custom User-Agent string (uses browser default if undefined) */
+  userAgent?: string;
+  /** Accept-Language header value (e.g., "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7") */
+  acceptLanguage?: string;
 }
 
 /** Worker configuration (middle layer) */
