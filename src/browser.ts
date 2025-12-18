@@ -49,9 +49,14 @@
  * @see https://bugs.chromium.org/p/chromium/issues/detail?id=813540
  */
 import http from "node:http";
-import puppeteer, { type Browser } from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import type { Browser } from "puppeteer";
 import type { BrowserOptions } from "./config/index.js";
 import { DEFAULT_BROWSER_SLOW_MO_MS } from "./config/index.js";
+
+// Apply stealth plugin to avoid bot detection
+puppeteer.use(StealthPlugin());
 
 interface VersionResponse {
   webSocketDebuggerUrl: string;
