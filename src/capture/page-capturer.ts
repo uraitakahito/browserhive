@@ -166,6 +166,17 @@ export const setUserAgent = async (
   }
 };
 
+export const setAcceptLanguage = async (
+  page: Page,
+  acceptLanguage: string | undefined
+): Promise<void> => {
+  if (acceptLanguage !== undefined) {
+    await page.setExtraHTTPHeaders({
+      "Accept-Language": acceptLanguage,
+    });
+  }
+};
+
 /**
  * Hide scrollbars by injecting CSS
  */
@@ -195,6 +206,7 @@ export class PageCapturer {
       page = await browser.newPage();
       await configureViewport(page, this.config);
       await setUserAgent(page, this.config.userAgent);
+      await setAcceptLanguage(page, this.config.acceptLanguage);
 
       const response = await withTimeout(
         page.goto(task.url, {

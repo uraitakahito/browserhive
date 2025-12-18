@@ -59,6 +59,7 @@ interface ParsedOptions {
   tlsCert?: string;
   tlsKey?: string;
   userAgent?: string;
+  acceptLanguage?: string;
 }
 
 const buildTlsConfig = (opts: ParsedOptions): TlsConfig | undefined => {
@@ -98,6 +99,7 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
         },
         rejectDuplicateUrls: opts.rejectDuplicateUrls,
         ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
+        ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
       },
     },
   };
@@ -186,6 +188,10 @@ export const createProgram = (): Command => {
       "Custom User-Agent string (uses browser default if not specified)"
     )
     .option(
+      "--accept-language <string>",
+      "Accept-Language header value (e.g., 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7')"
+    )
+    .option(
       "--tls-cert <path>",
       "TLS certificate file path (enables TLS when specified with --tls-key)"
     )
@@ -241,6 +247,7 @@ export const logServerConfig = (config: ServerConfig): void => {
       },
       rejectDuplicateUrls: capture.rejectDuplicateUrls,
       userAgent: capture.userAgent ?? "(browser default)",
+      acceptLanguage: capture.acceptLanguage ?? "(browser default)",
     },
     "Server configuration"
   );

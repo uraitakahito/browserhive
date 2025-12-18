@@ -7,6 +7,7 @@ import {
   hideScrollbars,
   isSuccessHttpStatus,
   setUserAgent,
+  setAcceptLanguage,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "../../src/capture/page-capturer.js";
@@ -412,5 +413,32 @@ describe("setUserAgent", () => {
     await setUserAgent(mockPage, undefined);
 
     expect(mockSetUserAgent).not.toHaveBeenCalled();
+  });
+});
+
+describe("setAcceptLanguage", () => {
+  it("should call page.setExtraHTTPHeaders when acceptLanguage is provided", async () => {
+    const mockSetExtraHTTPHeaders = vi.fn<(headers: Record<string, string>) => Promise<void>>();
+    const mockPage = {
+      setExtraHTTPHeaders: mockSetExtraHTTPHeaders,
+    } as unknown as Page;
+
+    await setAcceptLanguage(mockPage, "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7");
+
+    expect(mockSetExtraHTTPHeaders).toHaveBeenCalledTimes(1);
+    expect(mockSetExtraHTTPHeaders).toHaveBeenCalledWith({
+      "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+    });
+  });
+
+  it("should not call page.setExtraHTTPHeaders when acceptLanguage is undefined", async () => {
+    const mockSetExtraHTTPHeaders = vi.fn<(headers: Record<string, string>) => Promise<void>>();
+    const mockPage = {
+      setExtraHTTPHeaders: mockSetExtraHTTPHeaders,
+    } as unknown as Page;
+
+    await setAcceptLanguage(mockPage, undefined);
+
+    expect(mockSetExtraHTTPHeaders).not.toHaveBeenCalled();
   });
 });
