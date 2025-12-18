@@ -20,6 +20,7 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
     expect(DEFAULT_CAPTURE_CONFIG.viewport.width).toBe(1280);
     expect(DEFAULT_CAPTURE_CONFIG.viewport.height).toBe(800);
     expect(DEFAULT_CAPTURE_CONFIG.screenshot.fullPage).toBe(false);
+    expect(DEFAULT_CAPTURE_CONFIG.userAgent).toBeUndefined();
   });
 });
 
@@ -85,6 +86,14 @@ describe("createTestCaptureConfig", () => {
 
     expect(config.screenshot.fullPage).toBe(true);
     expect(config.screenshot.quality).toBe(80);
+  });
+
+  it("should override userAgent", () => {
+    const config = createTestCaptureConfig({
+      userAgent: "Custom User-Agent",
+    });
+
+    expect(config.userAgent).toBe("Custom User-Agent");
   });
 
   it("should not modify default config", () => {

@@ -6,6 +6,7 @@ import {
   withTimeout,
   hideScrollbars,
   isSuccessHttpStatus,
+  setUserAgent,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "../../src/capture/page-capturer.js";
@@ -386,5 +387,30 @@ describe("isSuccessHttpStatus", () => {
 
   it("should return false for 0 (no response)", () => {
     expect(isSuccessHttpStatus(0)).toBe(false);
+  });
+});
+
+describe("setUserAgent", () => {
+  it("should call page.setUserAgent when userAgent is provided", async () => {
+    const mockSetUserAgent = vi.fn<(options: { userAgent: string }) => Promise<void>>();
+    const mockPage = {
+      setUserAgent: mockSetUserAgent,
+    } as unknown as Page;
+
+    await setUserAgent(mockPage, "Custom User-Agent");
+
+    expect(mockSetUserAgent).toHaveBeenCalledTimes(1);
+    expect(mockSetUserAgent).toHaveBeenCalledWith({ userAgent: "Custom User-Agent" });
+  });
+
+  it("should not call page.setUserAgent when userAgent is undefined", async () => {
+    const mockSetUserAgent = vi.fn<(options: { userAgent: string }) => Promise<void>>();
+    const mockPage = {
+      setUserAgent: mockSetUserAgent,
+    } as unknown as Page;
+
+    await setUserAgent(mockPage, undefined);
+
+    expect(mockSetUserAgent).not.toHaveBeenCalled();
   });
 });

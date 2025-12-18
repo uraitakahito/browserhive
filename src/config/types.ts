@@ -37,6 +37,8 @@ export interface CaptureConfig {
   screenshot: ScreenshotConfig;
   /** Reject capture requests for URLs already in the queue */
   rejectDuplicateUrls: boolean;
+  /** Custom User-Agent string (uses browser default if undefined) */
+  userAgent?: string;
 }
 
 /** Worker configuration (middle layer) */

@@ -155,6 +155,18 @@ const configureViewport = async (page: Page, config: CaptureConfig): Promise<voi
 };
 
 /**
+ * Set custom User-Agent if configured
+ */
+export const setUserAgent = async (
+  page: Page,
+  userAgent: string | undefined
+): Promise<void> => {
+  if (userAgent !== undefined) {
+    await page.setUserAgent({ userAgent });
+  }
+};
+
+/**
  * Hide scrollbars by injecting CSS
  */
 export const hideScrollbars = async (page: Page): Promise<void> => {
@@ -182,6 +194,7 @@ export class PageCapturer {
     try {
       page = await browser.newPage();
       await configureViewport(page, this.config);
+      await setUserAgent(page, this.config.userAgent);
 
       const response = await withTimeout(
         page.goto(task.url, {

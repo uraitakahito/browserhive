@@ -58,6 +58,7 @@ interface ParsedOptions {
   rejectDuplicateUrls: boolean;
   tlsCert?: string;
   tlsKey?: string;
+  userAgent?: string;
 }
 
 const buildTlsConfig = (opts: ParsedOptions): TlsConfig | undefined => {
@@ -96,6 +97,7 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
           ...(opts.screenshotQuality !== undefined && { quality: opts.screenshotQuality }),
         },
         rejectDuplicateUrls: opts.rejectDuplicateUrls,
+        ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
       },
     },
   };
@@ -180,6 +182,10 @@ export const createProgram = (): Command => {
       false
     )
     .option(
+      "--user-agent <string>",
+      "Custom User-Agent string (uses browser default if not specified)"
+    )
+    .option(
       "--tls-cert <path>",
       "TLS certificate file path (enables TLS when specified with --tls-key)"
     )
@@ -234,6 +240,7 @@ export const logServerConfig = (config: ServerConfig): void => {
         ...(capture.screenshot.quality !== undefined && { quality: capture.screenshot.quality }),
       },
       rejectDuplicateUrls: capture.rejectDuplicateUrls,
+      userAgent: capture.userAgent ?? "(browser default)",
     },
     "Server configuration"
   );
