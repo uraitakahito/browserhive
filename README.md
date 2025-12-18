@@ -2,6 +2,11 @@
 
 A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker). The `BrowserHive` component in the Architecture diagram below represents this application's responsibility.
 
+- **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
+- **Worker pool**: Multiple workers process capture tasks concurrently
+- **Multiple output formats**: PNG, JPEG screenshots and HTML capture
+- **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
+
 ## Architecture
 
 ```mermaid
