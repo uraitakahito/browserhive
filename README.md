@@ -88,12 +88,6 @@ docker compose up -d
 docker exec -it browserhive-container /bin/zsh
 ```
 
-Or use [fdshell](https://github.com/uraitakahito/dotfiles/blob/056c1b0132e720c08b4cb26bc9497b069db6e15d/zsh/myzshrc#L119-L127) (if dotfiles are configured):
-
-```sh
-fdshell /bin/zsh
-```
-
 ### First-time Setup
 
 ```sh
