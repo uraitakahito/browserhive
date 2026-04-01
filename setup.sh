@@ -4,11 +4,23 @@ set -e
 echo "Starting BrowserHive setup..."
 
 # Download required files
-echo "Downloading Dockerfile..."
-curl -L -O https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/heads/main/Dockerfile
+BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/1.2.0"
+
+echo "Downloading Dockerfile.dev..."
+if ! curl -fL -O "${BASE_URL}/Dockerfile.dev"; then
+  echo "ERROR: Failed to download Dockerfile.dev from:" >&2
+  echo "  ${BASE_URL}/Dockerfile.dev" >&2
+  echo "Please check if the URL is accessible." >&2
+  exit 1
+fi
 
 echo "Downloading docker-entrypoint.sh..."
-curl -L -O https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/heads/main/docker-entrypoint.sh
+if ! curl -fL -O "${BASE_URL}/docker-entrypoint.sh"; then
+  echo "ERROR: Failed to download docker-entrypoint.sh from:" >&2
+  echo "  ${BASE_URL}/docker-entrypoint.sh" >&2
+  echo "Please check if the URL is accessible." >&2
+  exit 1
+fi
 chmod 755 docker-entrypoint.sh
 
 # Clone chromium-server-docker (if not exists)

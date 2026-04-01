@@ -3,6 +3,7 @@ services:
   browserhive:
     build:
       context: .
+      dockerfile: Dockerfile.dev
       args:
         user_id: ${USER_ID}
         group_id: ${GROUP_ID}
