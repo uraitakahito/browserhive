@@ -72,7 +72,7 @@ Run the setup script:
 ```
 
 This will:
-- Download Dockerfile and docker-entrypoint.sh
+- Download Dockerfile.dev and docker-entrypoint.sh
 - Clone the chromium-server-docker repository
 - Create a .env file
 
