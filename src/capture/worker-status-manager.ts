@@ -44,8 +44,8 @@ export class WorkerStatusManager {
     this._status = next;
   }
 
-  toIdle(): void {
-    this.transitionTo("idle");
+  toReady(): void {
+    this.transitionTo("ready");
   }
 
   toBusy(): void {

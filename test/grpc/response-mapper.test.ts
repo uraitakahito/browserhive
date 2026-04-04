@@ -13,8 +13,8 @@ import type { CoordinatorStatus } from "../../src/capture/capture-coordinator.js
 import { createTestCaptureConfig } from "../helpers/config.js";
 
 describe("workerStatusToProto", () => {
-  it("should convert idle to WORKER_STATUS_IDLE", () => {
-    expect(workerStatusToProto("idle")).toBe(WorkerStatus.WORKER_STATUS_IDLE);
+  it("should convert ready to WORKER_STATUS_READY", () => {
+    expect(workerStatusToProto("ready")).toBe(WorkerStatus.WORKER_STATUS_READY);
   });
 
   it("should convert busy to WORKER_STATUS_BUSY", () => {
@@ -178,7 +178,7 @@ describe("workerInfoToProto", () => {
     const worker: WorkerInfo = {
       index: 0,
       browserProfile: { browserURL: "http://browser1:9222", capture: createTestCaptureConfig() },
-      status: "idle",
+      status: "ready",
       processedCount: 5,
       errorCount: 0,
       errorHistory: [],
@@ -189,7 +189,7 @@ describe("workerInfoToProto", () => {
     expect(result).toEqual({
       index: 0,
       browser_options: { browser_url: "http://browser1:9222" },
-      status: WorkerStatus.WORKER_STATUS_IDLE,
+      status: WorkerStatus.WORKER_STATUS_READY,
       processed_count: 5,
       error_count: 0,
       error_history: [],
@@ -247,7 +247,7 @@ describe("coordinatorStatusToResponse", () => {
         {
           index: 0,
           browserProfile: { browserURL: "http://browser1:9222", capture: createTestCaptureConfig() },
-          status: "idle",
+          status: "ready",
           processedCount: 5,
           errorCount: 0,
           errorHistory: [],
@@ -278,7 +278,7 @@ describe("coordinatorStatusToResponse", () => {
     expect(response.total_workers).toBe(3);
     expect(response.is_running).toBe(true);
     expect(response.workers).toHaveLength(2);
-    expect(response.workers[0]!.status).toBe(WorkerStatus.WORKER_STATUS_IDLE);
+    expect(response.workers[0]!.status).toBe(WorkerStatus.WORKER_STATUS_READY);
     expect(response.workers[1]!.status).toBe(WorkerStatus.WORKER_STATUS_ERROR);
     expect(response.workers[1]!.error_history[0]).toEqual({
       type: ErrorType.ERROR_TYPE_CONNECTION,

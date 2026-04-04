@@ -70,7 +70,7 @@ export class Worker {
   async connect(): Promise<boolean> {
     try {
       this.browser = await connectBrowser(this.profile);
-      this.statusManager.toIdle();
+      this.statusManager.toReady();
       return true;
     } catch (error) {
       this.statusManager.toError();
@@ -149,7 +149,7 @@ export class Worker {
       };
     } finally {
       if (this.statusManager.current === "busy") {
-        this.statusManager.toIdle();
+        this.statusManager.toReady();
       }
     }
   }
