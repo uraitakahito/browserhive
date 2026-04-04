@@ -45,8 +45,6 @@ export class CaptureServer {
     this.workerPool = new WorkerPool(this.config.worker);
     await this.workerPool.initialize();
 
-    this.workerPool.start();
-
     const handlers = createCaptureServiceHandlers(this.workerPool);
 
     // Use ts-proto generated service definition

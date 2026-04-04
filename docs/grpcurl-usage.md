@@ -1,6 +1,6 @@
 # grpcurl Usage Guide
 
-grpcurl is a tool for calling gRPC services from the command line. This project has Server Reflection enabled, so you can call the API without proto files.
+This project has Server Reflection enabled, so you can call the API without proto files.
 
 ## Basic Usage
 

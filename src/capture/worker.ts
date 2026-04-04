@@ -21,6 +21,7 @@ import {
 } from "./error-details.js";
 import { WorkerStatusManager } from "./worker-status-manager.js";
 import { captureStatus, isSuccessStatus } from "./capture-status.js";
+import { createChildLogger, type Logger } from "../logger.js";
 
 const MAX_ERROR_HISTORY = 10;
 
@@ -31,6 +32,7 @@ export class Worker {
   private errorCount = 0;
   private errorHistory: ErrorRecord[] = [];
   private pageCapturer: PageCapturer;
+  public readonly logger: Logger;
 
   constructor(
     public readonly id: string,
@@ -38,6 +40,7 @@ export class Worker {
     config: CaptureConfig
   ) {
     this.pageCapturer = new PageCapturer(config);
+    this.logger = createChildLogger({ workerId: id, browserURL: browserOptions.browserURL });
   }
 
   /**
