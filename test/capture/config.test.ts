@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
-  DEFAULT_SERVER_CONFIG,
+  DEFAULT_BROWSERHIVE_CONFIG,
 } from "../../src/config/index.js";
 import {
   createTestCaptureConfig,
   createTestCoordinatorConfig,
-  createTestServerConfig,
+  createTestBrowserHiveConfig,
 } from "../helpers/config.js";
 
 describe("DEFAULT_CAPTURE_CONFIG", () => {
@@ -39,13 +39,13 @@ describe("DEFAULT_COORDINATOR_CONFIG", () => {
   });
 });
 
-describe("DEFAULT_SERVER_CONFIG", () => {
+describe("DEFAULT_BROWSERHIVE_CONFIG", () => {
   it("should have correct default port", () => {
-    expect(DEFAULT_SERVER_CONFIG.port).toBe(50051);
+    expect(DEFAULT_BROWSERHIVE_CONFIG.port).toBe(50051);
   });
 
   it("should contain DEFAULT_COORDINATOR_CONFIG", () => {
-    expect(DEFAULT_SERVER_CONFIG.coordinator).toEqual(DEFAULT_COORDINATOR_CONFIG);
+    expect(DEFAULT_BROWSERHIVE_CONFIG.coordinator).toEqual(DEFAULT_COORDINATOR_CONFIG);
   });
 });
 
@@ -152,19 +152,19 @@ describe("createTestCoordinatorConfig", () => {
   });
 });
 
-describe("createTestServerConfig", () => {
+describe("createTestBrowserHiveConfig", () => {
   it("should return default config when no overrides", () => {
-    const config = createTestServerConfig();
+    const config = createTestBrowserHiveConfig();
     expect(config.port).toBe(50051);
   });
 
   it("should override port", () => {
-    const config = createTestServerConfig({ port: 8080 });
+    const config = createTestBrowserHiveConfig({ port: 8080 });
     expect(config.port).toBe(8080);
   });
 
   it("should override nested coordinator config", () => {
-    const config = createTestServerConfig({
+    const config = createTestBrowserHiveConfig({
       coordinator: { browsers: [{ browserURL: "http://browser:9222" }] },
     });
 

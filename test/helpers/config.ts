@@ -3,11 +3,11 @@
  *
  * Helper functions for creating test configurations.
  */
-import type { CaptureConfig, CoordinatorConfig, ServerConfig } from "../../src/config/index.js";
+import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig } from "../../src/config/index.js";
 import {
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
-  DEFAULT_SERVER_CONFIG,
+  DEFAULT_BROWSERHIVE_CONFIG,
 } from "../../src/config/index.js";
 
 /** Deep partial type for nested object overrides */
@@ -55,12 +55,12 @@ export const createTestCoordinatorConfig = (
 });
 
 /**
- * Create a test ServerConfig with optional overrides
+ * Create a test BrowserHiveConfig with optional overrides
  */
-export const createTestServerConfig = (
-  overrides: DeepPartial<ServerConfig> = {}
-): ServerConfig => ({
-  port: overrides.port ?? DEFAULT_SERVER_CONFIG.port,
+export const createTestBrowserHiveConfig = (
+  overrides: DeepPartial<BrowserHiveConfig> = {}
+): BrowserHiveConfig => ({
+  port: overrides.port ?? DEFAULT_BROWSERHIVE_CONFIG.port,
   ...(overrides.tls && { tls: overrides.tls }),
   coordinator: createTestCoordinatorConfig(overrides.coordinator),
 });

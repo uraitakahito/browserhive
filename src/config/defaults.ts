@@ -1,4 +1,4 @@
-import type { CaptureConfig, CoordinatorConfig, ServerConfig } from "./types.js";
+import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig } from "./types.js";
 
 /**
  * Default slowMo value for browser connections.
@@ -44,7 +44,7 @@ export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
   capture: DEFAULT_CAPTURE_CONFIG,
 };
 
-export const DEFAULT_SERVER_CONFIG: ServerConfig = {
+export const DEFAULT_BROWSERHIVE_CONFIG: BrowserHiveConfig = {
   port: 50051,
   coordinator: DEFAULT_COORDINATOR_CONFIG,
 };

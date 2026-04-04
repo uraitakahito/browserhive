@@ -5,8 +5,8 @@
  */
 import { Command, InvalidArgumentError } from "commander";
 import { BrowserHive } from "../browserhive.js";
-import type { ServerConfig, TlsConfig } from "../config/index.js";
-import { DEFAULT_SERVER_CONFIG } from "../config/index.js";
+import type { BrowserHiveConfig, TlsConfig } from "../config/index.js";
+import { DEFAULT_BROWSERHIVE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
 
 
@@ -73,7 +73,7 @@ const buildTlsConfig = (opts: ParsedOptions): TlsConfig | undefined => {
   return undefined;
 };
 
-const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
+const buildServerConfig = (opts: ParsedOptions): BrowserHiveConfig => {
   const tls = buildTlsConfig(opts);
 
   return {
@@ -106,7 +106,7 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
 };
 
 export const createProgram = (): Command => {
-  const defaults = DEFAULT_SERVER_CONFIG;
+  const defaults = DEFAULT_BROWSERHIVE_CONFIG;
   const defaultWorker = defaults.coordinator;
   const defaultCapture = defaultWorker.capture;
 
@@ -207,7 +207,7 @@ export const createProgram = (): Command => {
   return program;
 };
 
-export const parseCliOptions = (argv: string[]): ServerConfig => {
+export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
   const program = createProgram();
   program.parse(argv);
 
@@ -221,7 +221,7 @@ export const parseCliOptions = (argv: string[]): ServerConfig => {
   return buildServerConfig(opts);
 };
 
-export const logServerConfig = (config: ServerConfig): void => {
+export const logServerConfig = (config: BrowserHiveConfig): void => {
   const worker = config.coordinator;
   const capture = worker.capture;
 
@@ -261,7 +261,7 @@ export interface ServerControl {
 }
 
 export const startServer = async (
-  config: ServerConfig
+  config: BrowserHiveConfig
 ): Promise<ServerControl> => {
   const server = new BrowserHive(config);
 

@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import { ReflectionService } from "@grpc/reflection";
-import type { ServerConfig } from "./config/index.js";
+import type { BrowserHiveConfig } from "./config/index.js";
 import { createCaptureServiceHandlers } from "./grpc/handlers.js";
 import { CaptureCoordinator } from "./capture/capture-coordinator.js";
 import { logger } from "./logger.js";
@@ -42,9 +42,9 @@ const loadProtoDefinitionForReflection = () => {
 export class BrowserHive {
   private server: grpc.Server;
   private coordinator: CaptureCoordinator;
-  private config: ServerConfig;
+  private config: BrowserHiveConfig;
 
-  constructor(config: ServerConfig) {
+  constructor(config: BrowserHiveConfig) {
     this.config = config;
     this.server = new grpc.Server();
     this.coordinator = new CaptureCoordinator(config.coordinator);
