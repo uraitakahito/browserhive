@@ -28,12 +28,11 @@ describe("WorkerStatusManager", () => {
       }).toThrow("Invalid status transition: stopped -> busy");
     });
 
-    it("should allow same-state transition (idempotent)", () => {
+    it("should throw on same-state transition", () => {
       const manager = new WorkerStatusManager("idle");
       expect(() => {
         manager.transitionTo("idle");
-      }).not.toThrow();
-      expect(manager.current).toBe("idle");
+      }).toThrow("Invalid status transition: idle -> idle");
     });
   });
 

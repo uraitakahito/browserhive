@@ -20,6 +20,7 @@ import {
   errorDetailsFromException,
 } from "./error-details.js";
 import { WorkerStatusManager } from "./worker-status-manager.js";
+import { canTransitionTo } from "./worker-status.js";
 import { captureStatus, isSuccessStatus } from "./capture-status.js";
 import { createChildLogger, type Logger } from "../logger.js";
 
@@ -91,7 +92,9 @@ export class Worker {
       }
       this.browser = null;
     }
-    this.statusManager.toStopped();
+    if (canTransitionTo(this.statusManager.current, "stopped")) {
+      this.statusManager.toStopped();
+    }
   }
 
   async process(task: CaptureTask): Promise<CaptureResult> {

@@ -31,9 +31,6 @@ export class WorkerStatusManager {
    * @throws Error if the transition is invalid
    */
   transitionTo(next: WorkerStatus): void {
-    if (this._status === next) {
-      return; // Allow transition to the same state (idempotency)
-    }
     if (!canTransitionTo(this._status, next)) {
       throw new Error(
         `Invalid status transition: ${this._status} -> ${next}`
