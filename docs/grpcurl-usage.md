@@ -91,7 +91,7 @@ Generated filenames follow this format:
 
 ### GetStatus RPC
 
-Gets the current status of the queue and worker pool.
+Gets the current status of the queue and capture coordinator.
 
 ```bash
 grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
@@ -119,7 +119,7 @@ grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
 | `completed` | int32 | Number of completed tasks |
 | `healthy_workers` | int32 | Number of healthy workers |
 | `total_workers` | int32 | Total number of workers |
-| `is_running` | bool | Whether the worker pool is running |
+| `is_running` | bool | Whether the capture coordinator is running |
 
 ## TLS (Transport Layer Security)
 

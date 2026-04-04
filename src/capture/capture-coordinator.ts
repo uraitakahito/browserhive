@@ -1,7 +1,7 @@
 /**
- * Worker Pool
+ * Capture Coordinator
  *
- * Manages a pool of workers that process capture tasks concurrently.
+ * Coordinates capture task processing across multiple workers.
  */
 import type { WorkerConfig } from "../config/index.js";
 import { TaskQueue, type TaskCounts } from "./task-queue.js";
@@ -19,7 +19,7 @@ import { logger } from "../logger.js";
  */
 const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
 
-export interface PoolStatus {
+export interface CoordinatorStatus {
   taskCounts: TaskCounts;
   healthyWorkers: number;
   totalWorkers: number;
@@ -32,7 +32,7 @@ export interface EnqueueResult {
   error?: string;
 }
 
-export class WorkerPool {
+export class CaptureCoordinator {
   private workers: Worker[] = [];
   private taskQueue: TaskQueue;
   private running = false;
@@ -43,7 +43,7 @@ export class WorkerPool {
   }
 
   /**
-   * Initialize the worker pool by connecting all workers
+   * Initialize the capture coordinator by connecting all workers
    */
   async initialize(): Promise<void> {
     const connectionPromises = this.config.browsers.map(
@@ -84,7 +84,7 @@ export class WorkerPool {
 
     logger.info(
       { healthyCount, totalCount: this.workers.length },
-      "Worker pool initialized"
+      "Capture coordinator initialized"
     );
   }
 
@@ -119,7 +119,7 @@ export class WorkerPool {
       worker.disconnect()
     );
     await Promise.all(disconnectPromises);
-    logger.info("Worker pool shut down");
+    logger.info("Capture coordinator shut down");
   }
 
   get isRunning(): boolean {
@@ -130,7 +130,7 @@ export class WorkerPool {
     return this.workers.filter((w) => w.isHealthy).length;
   }
 
-  getStatus(): PoolStatus {
+  getStatus(): CoordinatorStatus {
     return {
       taskCounts: this.taskQueue.getStatus(),
       healthyWorkers: this.workers.filter((w) => w.isHealthy).length,

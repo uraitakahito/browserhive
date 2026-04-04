@@ -11,7 +11,7 @@ import * as protoLoader from "@grpc/proto-loader";
 import { ReflectionService } from "@grpc/reflection";
 import type { ServerConfig } from "../config/index.js";
 import { createCaptureServiceHandlers } from "./handlers.js";
-import { WorkerPool } from "../capture/worker-pool.js";
+import { CaptureCoordinator } from "../capture/capture-coordinator.js";
 import { logger } from "../logger.js";
 import { CaptureServiceService } from "./generated/browserhive/v1/capture.js";
 
@@ -40,19 +40,19 @@ const loadProtoDefinitionForReflection = () => {
 
 export class CaptureServer {
   private server: grpc.Server;
-  private workerPool: WorkerPool;
+  private coordinator: CaptureCoordinator;
   private config: ServerConfig;
 
   constructor(config: ServerConfig) {
     this.config = config;
     this.server = new grpc.Server();
-    this.workerPool = new WorkerPool(config.worker);
+    this.coordinator = new CaptureCoordinator(config.worker);
   }
 
   async initialize(): Promise<void> {
-    await this.workerPool.initialize();
+    await this.coordinator.initialize();
 
-    const handlers = createCaptureServiceHandlers(this.workerPool);
+    const handlers = createCaptureServiceHandlers(this.coordinator);
 
     // Use ts-proto generated service definition
     this.server.addService(CaptureServiceService, {
@@ -115,7 +115,7 @@ export class CaptureServer {
   async shutdown(): Promise<void> {
     logger.info("Shutting down gRPC server");
 
-    await this.workerPool.shutdown();
+    await this.coordinator.shutdown();
 
     // Shutdown gRPC server with timeout fallback to forceShutdown
     return new Promise((resolve) => {

@@ -3,7 +3,7 @@
 A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker). The `BrowserHive` component in the Architecture diagram below represents this application's responsibility.
 
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
-- **Worker pool**: Multiple workers process capture tasks concurrently
+- **Capture coordinator**: Multiple workers process capture tasks concurrently
 - **Multiple output formats**: PNG, JPEG screenshots and HTML capture
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 
@@ -22,7 +22,7 @@ flowchart TB
             SubmitCaptureHandler[SubmitCaptureHandler<br/>validate & enqueue]
             GetStatusHandler[GetStatusHandler<br/>return status]
         end
-        subgraph WorkerPool
+        subgraph CaptureCoordinator
             Queue[TaskQueue]
             Worker1[Worker 1]
             Worker2[Worker 2]
@@ -115,7 +115,7 @@ This command:
 
 Start the gRPC server to accept capture requests via Protocol Buffers.
 
-The server uses a **fire-and-forget** pattern: requests are accepted immediately and processed asynchronously by a worker pool. Multiple browser URLs can be specified to enable parallel processing.
+The server uses a **fire-and-forget** pattern: requests are accepted immediately and processed asynchronously by the capture coordinator. Multiple browser URLs can be specified to enable parallel processing.
 
 ```sh
 LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --output ./output/capture --reject-duplicate-urls --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" | pino-pretty
