@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import type { WorkerConfig } from "../../src/config/index.js";
+import type { BrowserProfile } from "../../src/config/index.js";
 import type { CaptureTask, CaptureResult } from "../../src/capture/types.js";
 import type { Browser } from "puppeteer";
 import { createTestCaptureConfig } from "../helpers/config.js";
@@ -25,8 +25,8 @@ vi.mock("../../src/capture/page-capturer.js", () => ({
 import { Worker } from "../../src/capture/worker.js";
 import connectBrowser from "../../src/browser.js";
 
-const createWorkerConfig = (browserURL = "http://chromium:9222"): WorkerConfig => ({
-  endpoint: { browserURL },
+const createBrowserProfile = (browserURL = "http://chromium:9222"): BrowserProfile => ({
+  browserURL,
   capture: createTestCaptureConfig(),
 });
 
@@ -55,7 +55,7 @@ describe("Worker", () => {
     // Setup connectBrowser mock
     vi.mocked(connectBrowser).mockResolvedValue(mockBrowser as Browser);
 
-    worker = new Worker(0, createWorkerConfig());
+    worker = new Worker(0, createBrowserProfile());
   });
 
   describe("connect", () => {
@@ -63,9 +63,9 @@ describe("Worker", () => {
       const result = await worker.connect();
 
       expect(result).toBe(true);
-      expect(connectBrowser).toHaveBeenCalledWith({
-        browserURL: "http://chromium:9222",
-      });
+      expect(connectBrowser).toHaveBeenCalledWith(
+        expect.objectContaining({ browserURL: "http://chromium:9222" })
+      );
     });
 
     it("should set status to idle on successful connection", async () => {
@@ -328,7 +328,7 @@ describe("Worker", () => {
       const info = worker.getInfo();
 
       expect(info.index).toBe(0);
-      expect(info.browserEndpoint).toEqual({ browserURL: "http://chromium:9222" });
+      expect(info.browserProfile).toEqual({ browserURL: "http://chromium:9222", capture: expect.any(Object) as object });
       expect(info.status).toBe("idle");
       expect(info.processedCount).toBe(0);
       expect(info.errorCount).toBe(0);

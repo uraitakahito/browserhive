@@ -10,6 +10,7 @@ import {
 import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type { CaptureOptions, ErrorRecord, WorkerInfo } from "../../src/capture/index.js";
 import type { CoordinatorStatus } from "../../src/capture/capture-coordinator.js";
+import { createTestCaptureConfig } from "../helpers/config.js";
 
 describe("workerStatusToProto", () => {
   it("should convert idle to WORKER_STATUS_IDLE", () => {
@@ -176,7 +177,7 @@ describe("workerInfoToProto", () => {
   it("should convert worker info with empty error history", () => {
     const worker: WorkerInfo = {
       index: 0,
-      browserEndpoint: { browserURL: "http://browser1:9222" },
+      browserProfile: { browserURL: "http://browser1:9222", capture: createTestCaptureConfig() },
       status: "idle",
       processedCount: 5,
       errorCount: 0,
@@ -198,7 +199,7 @@ describe("workerInfoToProto", () => {
   it("should convert worker info with error history", () => {
     const worker: WorkerInfo = {
       index: 1,
-      browserEndpoint: { browserURL: "http://browser2:9222" },
+      browserProfile: { browserURL: "http://browser2:9222", capture: createTestCaptureConfig() },
       status: "busy",
       processedCount: 3,
       errorCount: 1,
@@ -245,7 +246,7 @@ describe("coordinatorStatusToResponse", () => {
       workers: [
         {
           index: 0,
-          browserEndpoint: { browserURL: "http://browser1:9222" },
+          browserProfile: { browserURL: "http://browser1:9222", capture: createTestCaptureConfig() },
           status: "idle",
           processedCount: 5,
           errorCount: 0,
@@ -253,7 +254,7 @@ describe("coordinatorStatusToResponse", () => {
         },
         {
           index: 1,
-          browserEndpoint: { browserURL: "http://browser2:9222" },
+          browserProfile: { browserURL: "http://browser2:9222", capture: createTestCaptureConfig() },
           status: "error",
           processedCount: 2,
           errorCount: 2,

@@ -39,16 +39,14 @@ export interface CaptureConfig {
 
 /** Coordinator configuration (middle layer) */
 export interface CoordinatorConfig {
-  /** List of browser endpoint configurations */
-  browserEndpoints: BrowserEndpoint[];
+  /** List of browser profile configurations */
+  browserProfiles: BrowserProfile[];
   /** Maximum retry count for failed capture tasks */
   maxRetries: number;
   /** Queue poll interval in milliseconds when queue is empty */
   queuePollIntervalMs: number;
   /** Reject capture requests for URLs already in the queue */
   rejectDuplicateUrls: boolean;
-  /** Capture configuration */
-  capture: CaptureConfig;
 }
 
 /** Server TLS configuration */
@@ -78,16 +76,12 @@ export interface BrowserHiveConfig {
   coordinator: CoordinatorConfig;
 }
 
-/** Browser endpoint configuration */
-export interface BrowserEndpoint {
+/** Browser profile configuration (connection settings + capture settings) */
+export interface BrowserProfile {
   /** Remote browser URL (e.g., http://puppeteer:9222) */
   browserURL: string;
   /** Slow down Puppeteer operations by the specified milliseconds */
   slowMo?: number;
-}
-
-/** Worker configuration (browser connection + capture settings) */
-export interface WorkerConfig {
-  endpoint: BrowserEndpoint;
+  /** Capture configuration for this browser */
   capture: CaptureConfig;
 }

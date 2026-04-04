@@ -429,7 +429,7 @@ describe("createCaptureServiceHandlers", () => {
           workers: [
             {
               index: 0,
-              browserEndpoint: { browserURL: "http://browser1:9222" },
+              browserProfile: { browserURL: "http://browser1:9222" },
               status: "idle",
               processedCount: 5,
               errorCount: 0,
@@ -437,7 +437,7 @@ describe("createCaptureServiceHandlers", () => {
             },
             {
               index: 1,
-              browserEndpoint: { browserURL: "http://browser2:9222" },
+              browserProfile: { browserURL: "http://browser2:9222" },
               status: "busy",
               processedCount: 3,
               errorCount: 1,
@@ -457,7 +457,7 @@ describe("createCaptureServiceHandlers", () => {
             },
             {
               index: 2,
-              browserEndpoint: { browserURL: "http://browser3:9222" },
+              browserProfile: { browserURL: "http://browser3:9222" },
               status: "error",
               processedCount: 2,
               errorCount: 2,
@@ -551,7 +551,7 @@ describe("createCaptureServiceHandlers", () => {
           workers: [
             {
               index: 0,
-              browserEndpoint: { browserURL: "http://browser1:9222" },
+              browserProfile: { browserURL: "http://browser1:9222" },
               status: "stopped",
               processedCount: 0,
               errorCount: 0,
@@ -559,7 +559,7 @@ describe("createCaptureServiceHandlers", () => {
             },
             {
               index: 1,
-              browserEndpoint: { browserURL: "http://browser2:9222" },
+              browserProfile: { browserURL: "http://browser2:9222" },
               status: "stopped",
               processedCount: 0,
               errorCount: 0,

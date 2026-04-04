@@ -5,8 +5,7 @@ export type {
   CaptureConfig,
   CoordinatorConfig,
   BrowserHiveConfig,
-  BrowserEndpoint,
-  WorkerConfig,
+  BrowserProfile,
   TlsConfig,
   ClientTlsConfig,
 } from "./types.js";

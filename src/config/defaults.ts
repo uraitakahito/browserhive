@@ -37,11 +37,10 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
 };
 
 export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
-  browserEndpoints: [],
+  browserProfiles: [],
   maxRetries: 2,
   queuePollIntervalMs: 50,
   rejectDuplicateUrls: false,
-  capture: DEFAULT_CAPTURE_CONFIG,
 };
 
 export const DEFAULT_BROWSERHIVE_CONFIG: BrowserHiveConfig = {
