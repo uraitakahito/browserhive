@@ -1,7 +1,8 @@
 /**
- * gRPC Server
+ * BrowserHive
  *
- * Sets up and runs the gRPC server for CaptureService.
+ * Top-level application class that wires together the gRPC transport
+ * layer and the CaptureCoordinator.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -9,11 +10,11 @@ import { dirname, join } from "node:path";
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import { ReflectionService } from "@grpc/reflection";
-import type { ServerConfig } from "../config/index.js";
-import { createCaptureServiceHandlers } from "./handlers.js";
-import { CaptureCoordinator } from "../capture/capture-coordinator.js";
-import { logger } from "../logger.js";
-import { CaptureServiceService } from "./generated/browserhive/v1/capture.js";
+import type { ServerConfig } from "./config/index.js";
+import { createCaptureServiceHandlers } from "./grpc/handlers.js";
+import { CaptureCoordinator } from "./capture/capture-coordinator.js";
+import { logger } from "./logger.js";
+import { CaptureServiceService } from "./grpc/generated/browserhive/v1/capture.js";
 
 /**
  * Timeout for tryShutdown before falling back to forceShutdown.
@@ -23,8 +24,8 @@ import { CaptureServiceService } from "./generated/browserhive/v1/capture.js";
 const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 4000;
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
-// Navigate from dist/src/grpc to project root, then to src/grpc/proto
-const projectRoot = join(currentDir, "..", "..", "..");
+// Navigate from dist/src to project root, then to src/grpc/proto
+const projectRoot = join(currentDir, "..", "..");
 const PROTO_PATH = join(projectRoot, "src", "grpc", "proto", "browserhive", "v1", "capture.proto");
 
 /** Load proto definition for reflection service (grpcurl support) */
@@ -38,7 +39,7 @@ const loadProtoDefinitionForReflection = () => {
   });
 };
 
-export class CaptureServer {
+export class BrowserHive {
   private server: grpc.Server;
   private coordinator: CaptureCoordinator;
   private config: ServerConfig;

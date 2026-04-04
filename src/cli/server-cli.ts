@@ -4,7 +4,7 @@
  * CLI logic for the gRPC capture server.
  */
 import { Command, InvalidArgumentError } from "commander";
-import { CaptureServer } from "../grpc/server.js";
+import { BrowserHive } from "../browserhive.js";
 import type { ServerConfig, TlsConfig } from "../config/index.js";
 import { DEFAULT_SERVER_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -263,7 +263,7 @@ export interface ServerControl {
 export const startServer = async (
   config: ServerConfig
 ): Promise<ServerControl> => {
-  const server = new CaptureServer(config);
+  const server = new BrowserHive(config);
 
   await server.initialize();
   await server.start();
