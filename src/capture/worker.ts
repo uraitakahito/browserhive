@@ -20,7 +20,6 @@ import {
   errorDetailsFromException,
 } from "./error-details.js";
 import { WorkerStatusManager } from "./worker-status-manager.js";
-import { canTransitionTo } from "./worker-status.js";
 import { captureStatus, isSuccessStatus } from "./capture-status.js";
 import { createChildLogger, type Logger } from "../logger.js";
 
@@ -92,7 +91,7 @@ export class Worker {
       }
       this.browser = null;
     }
-    if (canTransitionTo(this.statusManager.current, "stopped")) {
+    if (this.statusManager.canTransitionTo("stopped")) {
       this.statusManager.toStopped();
     }
   }

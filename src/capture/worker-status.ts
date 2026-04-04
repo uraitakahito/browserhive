@@ -41,11 +41,3 @@ export const isHealthyStatus = (status: WorkerStatus): boolean => {
   return WORKER_STATUS_DEFINITIONS[status].healthy;
 };
 
-export const canTransitionTo = (
-  from: WorkerStatus,
-  to: WorkerStatus
-): boolean => {
-  return (
-    WORKER_STATUS_DEFINITIONS[from].allowedTransitions as readonly WorkerStatus[]
-  ).includes(to);
-};
