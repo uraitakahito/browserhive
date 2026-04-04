@@ -36,10 +36,10 @@ export const createCaptureServiceHandlers = (coordinator: CaptureCoordinator) =>
       return;
     }
 
-    if (!coordinator.isRunning || coordinator.healthyWorkerCount === 0) {
+    if (!coordinator.isRunning || coordinator.operationalWorkerCount === 0) {
       callback({
         code: grpcStatus.UNAVAILABLE,
-        message: "No healthy workers available",
+        message: "No operational workers available",
       });
       return;
     }

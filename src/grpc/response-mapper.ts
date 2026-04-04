@@ -92,7 +92,7 @@ export const coordinatorStatusToResponse = (status: CoordinatorStatus): StatusRe
     pending: status.taskCounts.pending,
     processing: status.taskCounts.processing,
     completed: status.taskCounts.completed,
-    healthy_workers: status.healthyWorkers,
+    operational_workers: status.operationalWorkers,
     total_workers: status.totalWorkers,
     is_running: status.isRunning,
     workers: status.workers.map(workerInfoToProto),

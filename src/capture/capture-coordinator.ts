@@ -20,7 +20,7 @@ const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
 
 export interface CoordinatorStatus {
   taskCounts: TaskCounts;
-  healthyWorkers: number;
+  operationalWorkers: number;
   totalWorkers: number;
   isRunning: boolean;
   workers: WorkerInfo[];
@@ -72,22 +72,22 @@ export class CaptureCoordinator {
 
     this.workers = await Promise.all(connectionPromises);
 
-    const healthyCount = this.workers.filter((w) => w.isHealthy).length;
-    if (healthyCount === 0) {
+    const operationalCount = this.workers.filter((w) => w.isOperational).length;
+    if (operationalCount === 0) {
       throw new Error("No workers available. All browser connections failed.");
     }
 
     this.running = true;
 
-    const healthyWorkers = this.workers.filter((w) => w.isHealthy);
+    const operationalWorkers = this.workers.filter((w) => w.isOperational);
 
     // Start worker loops (non-blocking)
-    this.workerLoopPromises = healthyWorkers.map((worker) =>
+    this.workerLoopPromises = operationalWorkers.map((worker) =>
       this.workerLoop(worker)
     );
 
     logger.info(
-      { healthyCount, totalCount: this.workers.length },
+      { operationalCount, totalCount: this.workers.length },
       "Capture coordinator initialized"
     );
   }
@@ -130,14 +130,14 @@ export class CaptureCoordinator {
     return this.running;
   }
 
-  get healthyWorkerCount(): number {
-    return this.workers.filter((w) => w.isHealthy).length;
+  get operationalWorkerCount(): number {
+    return this.workers.filter((w) => w.isOperational).length;
   }
 
   getStatus(): CoordinatorStatus {
     return {
       taskCounts: this.taskQueue.getStatus(),
-      healthyWorkers: this.workers.filter((w) => w.isHealthy).length,
+      operationalWorkers: this.workers.filter((w) => w.isOperational).length,
       totalWorkers: this.workers.length,
       isRunning: this.running,
       workers: this.workers.map((w) => w.getInfo()),
@@ -148,7 +148,7 @@ export class CaptureCoordinator {
    * Worker loop - continuously process tasks while running
    */
   private async workerLoop(worker: Worker): Promise<void> {
-    while (this.running && worker.isHealthy) {
+    while (this.running && worker.isOperational) {
       const task = this.taskQueue.dequeue();
       if (!task) {
         await this.sleep(this.config.queuePollIntervalMs);

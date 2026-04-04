@@ -276,29 +276,29 @@ describe("Worker", () => {
     });
   });
 
-  describe("isHealthy", () => {
+  describe("isOperational", () => {
     it("should return false when not connected", () => {
-      expect(worker.isHealthy).toBe(false);
+      expect(worker.isOperational).toBe(false);
     });
 
     it("should return true when connected", async () => {
       await worker.connect();
 
-      expect(worker.isHealthy).toBe(true);
+      expect(worker.isOperational).toBe(true);
     });
 
     it("should return false after disconnect", async () => {
       await worker.connect();
       await worker.disconnect();
 
-      expect(worker.isHealthy).toBe(false);
+      expect(worker.isOperational).toBe(false);
     });
 
     it("should return false when in error state", async () => {
       vi.mocked(connectBrowser).mockRejectedValue(new Error("Error"));
       await worker.connect();
 
-      expect(worker.isHealthy).toBe(false);
+      expect(worker.isOperational).toBe(false);
     });
   });
 

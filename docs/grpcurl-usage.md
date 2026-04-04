@@ -104,7 +104,7 @@ grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
   "pending": 5,
   "processing": 2,
   "completed": 10,
-  "healthyWorkers": 2,
+  "operationalWorkers": 2,
   "totalWorkers": 2,
   "isRunning": true
 }
@@ -117,7 +117,7 @@ grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
 | `pending` | int32 | Number of tasks waiting in queue |
 | `processing` | int32 | Number of tasks being processed |
 | `completed` | int32 | Number of completed tasks |
-| `healthy_workers` | int32 | Number of healthy workers |
+| `operational_workers` | int32 | Number of operational workers |
 | `total_workers` | int32 | Total number of workers |
 | `is_running` | bool | Whether the capture coordinator is running |
 

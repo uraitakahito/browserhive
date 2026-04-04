@@ -97,7 +97,7 @@ export class Worker {
   }
 
   async process(task: CaptureTask): Promise<CaptureResult> {
-    if (!this.browser || !this.statusManager.canProcess) {
+    if (!this.browser || !this.isIdle) {
       return {
         task,
         status: captureStatus.failed,
@@ -165,11 +165,11 @@ export class Worker {
     };
   }
 
-  get isHealthy(): boolean {
+  get isOperational(): boolean {
     return this.browser !== null && this.statusManager.isHealthy;
   }
 
   get isIdle(): boolean {
-    return this.statusManager.canProcess && this.isHealthy;
+    return this.browser !== null && this.statusManager.canProcess;
   }
 }

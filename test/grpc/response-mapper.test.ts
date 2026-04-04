@@ -239,7 +239,7 @@ describe("coordinatorStatusToResponse", () => {
   it("should convert full coordinator status to StatusResponse", () => {
     const status: CoordinatorStatus = {
       taskCounts: { pending: 5, processing: 2, completed: 10 },
-      healthyWorkers: 2,
+      operationalWorkers: 2,
       totalWorkers: 3,
       isRunning: true,
       workers: [
@@ -273,7 +273,7 @@ describe("coordinatorStatusToResponse", () => {
     expect(response.pending).toBe(5);
     expect(response.processing).toBe(2);
     expect(response.completed).toBe(10);
-    expect(response.healthy_workers).toBe(2);
+    expect(response.operational_workers).toBe(2);
     expect(response.total_workers).toBe(3);
     expect(response.is_running).toBe(true);
     expect(response.workers).toHaveLength(2);
@@ -289,7 +289,7 @@ describe("coordinatorStatusToResponse", () => {
   it("should convert empty coordinator status", () => {
     const status: CoordinatorStatus = {
       taskCounts: { pending: 0, processing: 0, completed: 0 },
-      healthyWorkers: 0,
+      operationalWorkers: 0,
       totalWorkers: 0,
       isRunning: false,
       workers: [],
