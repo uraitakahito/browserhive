@@ -56,7 +56,12 @@ import type { BrowserOptions } from "./config/index.js";
 import { DEFAULT_BROWSER_SLOW_MO_MS } from "./config/index.js";
 
 // Apply stealth plugin to avoid bot detection
-puppeteer.use(StealthPlugin());
+// Disable user-agent-override evasion: BrowserHive sets User-Agent via page.setUserAgent(),
+// and this evasion pulls in puppeteer-extra-plugin-user-preferences → user-data-dir → rimraf@3
+// which causes npm deprecation warnings (rimraf@3, glob@7, inflight@1).
+const stealth = StealthPlugin();
+stealth.enabledEvasions.delete('user-agent-override');
+puppeteer.use(stealth);
 
 interface VersionResponse {
   webSocketDebuggerUrl: string;

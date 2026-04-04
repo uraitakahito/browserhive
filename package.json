@@ -41,7 +41,27 @@
     "puppeteer-extra": "Puppeteer wrapper that allows plugins. Used with stealth plugin to avoid bot detection.",
     "puppeteer-extra-plugin-stealth": "Stealth plugin for puppeteer-extra. Applies various evasion techniques to avoid headless browser detection."
   },
+  "//overrides": {
+    "puppeteer-extra-plugin-user-data-dir > rimraf": [
+      "puppeteer-extra-plugin-stealth depends on user-preferences -> user-data-dir -> rimraf@3.",
+      "rimraf@3 pulls in deprecated glob@7 and inflight@1, causing npm ci warnings.",
+      "The puppeteer-extra monorepo is unmaintained since March 2023 (GitHub Issue #914).",
+      "We override rimraf to the project-level v6 ($rimraf) to eliminate these warnings.",
+      "rimraf v4+ has a breaking API change (Promise instead of callback), but this is safe",
+      "because we disable the stealth user-agent-override evasion in src/browser.ts,",
+      "so user-data-dir's rimraf call (deleteUserDataDir) is never executed at runtime."
+    ]
+  },
+  "overrides": {
+    "puppeteer-extra-plugin-user-data-dir": {
+      "rimraf": "$rimraf"
+    }
+  },
+  "//devDependencies-rimraf": {
+    "rimraf": "Only used as the override target for puppeteer-extra-plugin-user-data-dir. See //overrides for details."
+  },
   "devDependencies": {
+    "rimraf": "^6.0.1",
     "@bufbuild/buf": "^1.61.0",
     "@eslint/js": "^10.0.1",
     "@types/estree": "^1.0.8",
