@@ -67,18 +67,16 @@ export class Worker {
     }
   }
 
-  async connect(): Promise<boolean> {
+  async connect(): Promise<void> {
     try {
       this.browser = await connectBrowser(this.profile);
       this.statusManager.toReady();
-      return true;
     } catch (error) {
       this.statusManager.toError();
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.addError(createConnectionError(errorMessage));
       this.errorCount++;
-      return false;
     }
   }
 

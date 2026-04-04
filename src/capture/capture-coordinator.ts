@@ -51,9 +51,9 @@ export class CaptureCoordinator {
     const connectionPromises = this.config.browserProfiles.map(
       async (profile, index) => {
         const worker = new Worker(index, profile);
-        const connected = await worker.connect();
+        await worker.connect();
 
-        if (connected) {
+        if (worker.isOperational) {
           worker.logger.info("Connected to browser");
         } else {
           const latestError = worker.getInfo().errorHistory[0]?.message ?? "Unknown error";
