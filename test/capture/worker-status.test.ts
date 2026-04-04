@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   WORKER_STATUS_DEFINITIONS,
-  isHealthyStatus,
   ALL_WORKER_STATUSES,
 } from "../../src/capture/worker-status.js";
 import type { WorkerStatus } from "../../src/capture/worker-status.js";
@@ -39,18 +38,6 @@ describe("worker-status", () => {
       expect(ALL_WORKER_STATUSES).toContain("error");
       expect(ALL_WORKER_STATUSES).toContain("stopped");
       expect(ALL_WORKER_STATUSES).toHaveLength(4);
-    });
-  });
-
-  describe("isHealthyStatus", () => {
-    it("should return true for idle and busy", () => {
-      expect(isHealthyStatus("idle")).toBe(true);
-      expect(isHealthyStatus("busy")).toBe(true);
-    });
-
-    it("should return false for error and stopped", () => {
-      expect(isHealthyStatus("error")).toBe(false);
-      expect(isHealthyStatus("stopped")).toBe(false);
     });
   });
 

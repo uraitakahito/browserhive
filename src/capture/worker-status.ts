@@ -33,7 +33,3 @@ export const ALL_WORKER_STATUSES = Object.keys(
   WORKER_STATUS_DEFINITIONS
 ) as WorkerStatus[];
 
-export const isHealthyStatus = (status: WorkerStatus): boolean => {
-  return WORKER_STATUS_DEFINITIONS[status].healthy;
-};
-
