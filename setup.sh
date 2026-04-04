@@ -32,17 +32,24 @@ fi
 echo "Cloning chromium-server-docker at tag ${CHROMIUM_SERVER_TAG}..."
 git -c advice.detachedHead=false clone --depth 1 --branch "${CHROMIUM_SERVER_TAG}" https://github.com/uraitakahito/chromium-server-docker.git
 
-# Create .env file (if not exists)
-if [ ! -f .env ]; then
-  cat > .env << EOF
+# Generate .env file (always regenerated to reflect current host state)
+GH_TOKEN=""
+if command -v gh &> /dev/null; then
+  GH_TOKEN=$(gh auth token 2>/dev/null || true)
+fi
+if [ -z "$GH_TOKEN" ]; then
+  echo "WARNING: gh CLI not found or not authenticated. GH_TOKEN will be empty." >&2
+  echo "  Install gh: https://cli.github.com/" >&2
+  echo "  Then run: gh auth login" >&2
+fi
+
+cat > .env << EOF
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 TZ=Asia/Tokyo
+GH_TOKEN=${GH_TOKEN}
 EOF
-  echo "Created .env file"
-else
-  echo ".env file already exists. Skipping."
-fi
+echo "Created .env file"
 
 echo ""
 echo "Setup complete!"

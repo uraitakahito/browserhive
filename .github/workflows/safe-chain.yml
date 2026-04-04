@@ -20,4 +20,6 @@ jobs:
           npm i -g @aikidosec/safe-chain
           safe-chain setup-ci
       - name: Install dependencies
+        env:
+          SAFE_CHAIN_MINIMUM_PACKAGE_AGE_HOURS: 5
         run: npm ci
