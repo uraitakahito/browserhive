@@ -439,8 +439,9 @@ describe("setAcceptLanguage", () => {
 
     await setAcceptLanguage(mockPage, "en-US");
 
-    const headers = mockSetExtraHTTPHeaders.mock.calls[0]![0];
-    expect(Object.keys(headers)).toEqual(["Accept-Language"]);
+    expect(mockSetExtraHTTPHeaders).toHaveBeenCalledWith({
+      "Accept-Language": "en-US",
+    });
   });
 
   it("should not call page.setExtraHTTPHeaders when acceptLanguage is undefined", async () => {
