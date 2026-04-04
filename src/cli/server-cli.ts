@@ -81,14 +81,15 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
     ...(tls && { tls }),
     worker: {
       browsers: opts.browserUrl.map((url) => ({ browserURL: url })),
+      maxRetries: opts.maxRetries,
+      queuePollIntervalMs: opts.queuePollIntervalMs,
+      rejectDuplicateUrls: opts.rejectDuplicateUrls,
       capture: {
         outputDir: opts.output,
         timeouts: {
           pageLoad: opts.pageLoadTimeout,
           capture: opts.captureTimeout,
         },
-        maxRetries: opts.maxRetries,
-        queuePollIntervalMs: opts.queuePollIntervalMs,
         viewport: {
           width: opts.viewportWidth,
           height: opts.viewportHeight,
@@ -97,7 +98,6 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
           fullPage: opts.screenshotFullPage,
           ...(opts.screenshotQuality !== undefined && { quality: opts.screenshotQuality }),
         },
-        rejectDuplicateUrls: opts.rejectDuplicateUrls,
         ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
         ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
       },
@@ -107,7 +107,8 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
 
 export const createProgram = (): Command => {
   const defaults = DEFAULT_SERVER_CONFIG;
-  const defaultCapture = defaults.worker.capture;
+  const defaultWorker = defaults.worker;
+  const defaultCapture = defaultWorker.capture;
 
   const program = new Command();
 
@@ -146,15 +147,15 @@ export const createProgram = (): Command => {
     )
     .option(
       "--max-retries <n>",
-      `Max retry count for failed capture tasks (default: ${String(defaultCapture.maxRetries)})`,
+      `Max retry count for failed capture tasks (default: ${String(defaultWorker.maxRetries)})`,
       parseNonNegativeInt,
-      defaultCapture.maxRetries
+      defaultWorker.maxRetries
     )
     .option(
       "--queue-poll-interval <ms>",
-      `Queue poll interval in milliseconds when queue is empty (default: ${String(defaultCapture.queuePollIntervalMs)})`,
+      `Queue poll interval in milliseconds when queue is empty (default: ${String(defaultWorker.queuePollIntervalMs)})`,
       parsePositiveInt,
-      defaultCapture.queuePollIntervalMs
+      defaultWorker.queuePollIntervalMs
     )
     .option(
       "--viewport-width <px>",
@@ -221,7 +222,8 @@ export const parseCliOptions = (argv: string[]): ServerConfig => {
 };
 
 export const logServerConfig = (config: ServerConfig): void => {
-  const capture = config.worker.capture;
+  const worker = config.worker;
+  const capture = worker.capture;
 
   logger.info(
     {
@@ -229,14 +231,14 @@ export const logServerConfig = (config: ServerConfig): void => {
       tls: config.tls
         ? { enabled: true, certPath: config.tls.certPath }
         : { enabled: false },
-      browsers: config.worker.browsers.map((b) => b.browserURL),
+      browsers: worker.browsers.map((b) => b.browserURL),
       outputDir: capture.outputDir,
       timeouts: {
         pageLoad: capture.timeouts.pageLoad,
         capture: capture.timeouts.capture,
       },
-      maxRetries: capture.maxRetries,
-      queuePollIntervalMs: capture.queuePollIntervalMs,
+      maxRetries: worker.maxRetries,
+      queuePollIntervalMs: worker.queuePollIntervalMs,
       viewport: {
         width: capture.viewport.width,
         height: capture.viewport.height,
@@ -245,7 +247,7 @@ export const logServerConfig = (config: ServerConfig): void => {
         fullPage: capture.screenshot.fullPage,
         ...(capture.screenshot.quality !== undefined && { quality: capture.screenshot.quality }),
       },
-      rejectDuplicateUrls: capture.rejectDuplicateUrls,
+      rejectDuplicateUrls: worker.rejectDuplicateUrls,
       userAgent: capture.userAgent ?? "(browser default)",
       acceptLanguage: capture.acceptLanguage ?? "(browser default)",
     },

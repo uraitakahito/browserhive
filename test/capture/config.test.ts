@@ -16,7 +16,6 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
     expect(DEFAULT_CAPTURE_CONFIG.outputDir).toBe("");
     expect(DEFAULT_CAPTURE_CONFIG.timeouts.pageLoad).toBe(30000);
     expect(DEFAULT_CAPTURE_CONFIG.timeouts.capture).toBe(10000);
-    expect(DEFAULT_CAPTURE_CONFIG.maxRetries).toBe(2);
     expect(DEFAULT_CAPTURE_CONFIG.viewport.width).toBe(1280);
     expect(DEFAULT_CAPTURE_CONFIG.viewport.height).toBe(800);
     expect(DEFAULT_CAPTURE_CONFIG.screenshot.fullPage).toBe(false);
@@ -27,6 +26,12 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
 describe("DEFAULT_WORKER_CONFIG", () => {
   it("should have empty browsers by default", () => {
     expect(DEFAULT_WORKER_CONFIG.browsers).toEqual([]);
+  });
+
+  it("should have correct default values for pool settings", () => {
+    expect(DEFAULT_WORKER_CONFIG.maxRetries).toBe(2);
+    expect(DEFAULT_WORKER_CONFIG.queuePollIntervalMs).toBe(50);
+    expect(DEFAULT_WORKER_CONFIG.rejectDuplicateUrls).toBe(false);
   });
 
   it("should contain DEFAULT_CAPTURE_CONFIG", () => {
@@ -53,11 +58,9 @@ describe("createTestCaptureConfig", () => {
   it("should override top-level properties", () => {
     const config = createTestCaptureConfig({
       outputDir: "/custom/output",
-      maxRetries: 5,
     });
 
     expect(config.outputDir).toBe("/custom/output");
-    expect(config.maxRetries).toBe(5);
     expect(config.timeouts).toEqual(DEFAULT_CAPTURE_CONFIG.timeouts);
   });
 
@@ -134,6 +137,18 @@ describe("createTestWorkerConfig", () => {
     });
 
     expect(config.capture.outputDir).toBe("/custom");
+  });
+
+  it("should override pool settings", () => {
+    const config = createTestWorkerConfig({
+      maxRetries: 5,
+      queuePollIntervalMs: 100,
+      rejectDuplicateUrls: true,
+    });
+
+    expect(config.maxRetries).toBe(5);
+    expect(config.queuePollIntervalMs).toBe(100);
+    expect(config.rejectDuplicateUrls).toBe(true);
   });
 });
 
