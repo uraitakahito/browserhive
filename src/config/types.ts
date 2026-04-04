@@ -85,3 +85,9 @@ export interface BrowserOptions {
   /** Slow down Puppeteer operations by the specified milliseconds */
   slowMo?: number;
 }
+
+/** Worker configuration (browser connection + capture settings) */
+export interface WorkerConfig {
+  browser: BrowserOptions;
+  capture: CaptureConfig;
+}
