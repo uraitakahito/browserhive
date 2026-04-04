@@ -16,8 +16,6 @@ export type {
 export type { CaptureOptions } from "./capture-mode.js";
 export {
   validateCaptureOptions,
-  captureOptionsFromProto,
-  captureOptionsToProto,
 } from "./capture-mode.js";
 
 // Capture Status
@@ -29,7 +27,6 @@ export type { ErrorType } from "./error-type.js";
 export {
   ERROR_TYPE_DEFINITIONS,
   ALL_ERROR_TYPES,
-  errorTypeToProto,
   errorType,
 } from "./error-type.js";
 
@@ -48,7 +45,6 @@ export type { WorkerStatus } from "./worker-status.js";
 export {
   WORKER_STATUS_DEFINITIONS,
   ALL_WORKER_STATUSES,
-  workerStatusToProto,
   canProcess,
   isHealthyStatus,
   canTransitionTo,

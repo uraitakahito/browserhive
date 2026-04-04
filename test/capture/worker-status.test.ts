@@ -4,11 +4,9 @@ import {
   canProcess,
   isHealthyStatus,
   canTransitionTo,
-  workerStatusToProto,
   ALL_WORKER_STATUSES,
 } from "../../src/capture/worker-status.js";
 import type { WorkerStatus } from "../../src/capture/worker-status.js";
-import { WorkerStatus as ProtoWorkerStatus } from "../../src/grpc/generated/browserhive/v1/capture.js";
 
 describe("worker-status", () => {
   describe("WORKER_STATUS_DEFINITIONS", () => {
@@ -29,19 +27,10 @@ describe("worker-status", () => {
         expect(config).toHaveProperty("canProcess");
         expect(config).toHaveProperty("healthy");
         expect(config).toHaveProperty("allowedTransitions");
-        expect(config).toHaveProperty("proto");
         expect(typeof config.canProcess).toBe("boolean");
         expect(typeof config.healthy).toBe("boolean");
         expect(Array.isArray(config.allowedTransitions)).toBe(true);
       }
-    });
-
-    it("should have unique proto values for each status", () => {
-      const protoValues = Object.values(WORKER_STATUS_DEFINITIONS).map(
-        (config) => config.proto
-      );
-      const uniqueValues = new Set(protoValues);
-      expect(uniqueValues.size).toBe(protoValues.length);
     });
   });
 
@@ -123,24 +112,6 @@ describe("worker-status", () => {
         expect(canTransitionTo("stopped", "busy")).toBe(false);
         expect(canTransitionTo("stopped", "stopped")).toBe(false);
       });
-    });
-  });
-
-  describe("workerStatusToProto", () => {
-    it("should convert idle to WORKER_STATUS_IDLE", () => {
-      expect(workerStatusToProto("idle")).toBe(ProtoWorkerStatus.WORKER_STATUS_IDLE);
-    });
-
-    it("should convert busy to WORKER_STATUS_BUSY", () => {
-      expect(workerStatusToProto("busy")).toBe(ProtoWorkerStatus.WORKER_STATUS_BUSY);
-    });
-
-    it("should convert error to WORKER_STATUS_ERROR", () => {
-      expect(workerStatusToProto("error")).toBe(ProtoWorkerStatus.WORKER_STATUS_ERROR);
-    });
-
-    it("should convert stopped to WORKER_STATUS_STOPPED", () => {
-      expect(workerStatusToProto("stopped")).toBe(ProtoWorkerStatus.WORKER_STATUS_STOPPED);
     });
   });
 });

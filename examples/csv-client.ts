@@ -11,7 +11,8 @@ import {
   type ClientOptions,
 } from "../src/cli/client-cli.js";
 import type { ClientTlsConfig } from "../src/config/types.js";
-import { captureOptionsToProto, type CaptureOptions } from "../src/capture/index.js";
+import type { CaptureOptions } from "../src/capture/index.js";
+import { captureOptionsToProto } from "../src/grpc/response-mapper.js";
 import { logger } from "../src/logger.js";
 
 /** Labels separator in CSV file (pipe character) */

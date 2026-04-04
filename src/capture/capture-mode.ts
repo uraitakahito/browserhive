@@ -1,7 +1,6 @@
 /**
  * Capture Options - Flag-based capture format configuration
  */
-import { CaptureOptions as ProtoCaptureOptions } from "../grpc/generated/browserhive/v1/capture.js";
 import type { ValidationResult } from "./types.js";
 
 /**
@@ -22,32 +21,3 @@ export const validateCaptureOptions = (options: CaptureOptions): ValidationResul
   return { valid: true };
 };
 
-/**
- * Convert Proto CaptureOptions to TypeScript CaptureOptions
- */
-export const captureOptionsFromProto = (
-  proto: ProtoCaptureOptions | undefined
-): CaptureOptions => {
-  if (!proto) {
-    return { png: false, jpeg: false, html: false };
-  }
-
-  return {
-    png: proto.png,
-    jpeg: proto.jpeg,
-    html: proto.html,
-  };
-};
-
-/**
- * Convert TypeScript CaptureOptions to Proto CaptureOptions
- */
-export const captureOptionsToProto = (
-  options: CaptureOptions
-): ProtoCaptureOptions => {
-  return {
-    png: options.png,
-    jpeg: options.jpeg,
-    html: options.html,
-  };
-};

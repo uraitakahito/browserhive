@@ -4,21 +4,14 @@
  * Request handlers for CaptureService RPCs.
  * Uses fire-and-forget pattern: enqueues tasks and returns immediately.
  */
-import { randomUUID } from "node:crypto";
 import { status as grpcStatus } from "@grpc/grpc-js";
 import type * as grpc from "@grpc/grpc-js";
 import type { ServerUnaryCall, sendUnaryData } from "@grpc/grpc-js";
 import type { CaptureRequest, CaptureAcceptance, Empty, StatusResponse } from "./generated/browserhive/v1/capture.js";
-import {
-  captureOptionsFromProto,
-  validateCaptureOptions,
-  workerStatusToProto,
-  errorTypeToProto,
-  validateFilename,
-  validateLabels,
-} from "../capture/index.js";
-import type { CaptureTask, WorkerPool } from "../capture/index.js";
+import type { WorkerPool } from "../capture/index.js";
 import { createChildLogger } from "../logger.js";
+import { captureRequestToTask } from "./request-mapper.js";
+import { poolStatusToResponse } from "./response-mapper.js";
 
 /** Create handlers for CaptureService */
 export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
@@ -32,52 +25,15 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     call: ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
     callback: sendUnaryData<CaptureAcceptance>
   ) => {
-    const request = call.request;
+    const result = captureRequestToTask(call.request);
 
-    if (!request.url || request.url.trim() === "") {
+    if (!result.success) {
       callback(null, {
         accepted: false,
         task_id: "",
-        error: "url is required",
+        error: result.error,
       });
       return;
-    }
-
-    // Convert Proto CaptureOptions to TypeScript CaptureOptions
-    const captureOptions = captureOptionsFromProto(request.capture_options);
-    const optionsValidation = validateCaptureOptions(captureOptions);
-    if (!optionsValidation.valid) {
-      callback(null, {
-        accepted: false,
-        task_id: "",
-        error: optionsValidation.error,
-      });
-      return;
-    }
-
-    const trimmedLabels = request.labels.map((l) => l.trim()).filter((l) => l !== "");
-    if (trimmedLabels.length > 0) {
-      const labelsValidation = validateLabels(trimmedLabels);
-      if (!labelsValidation.valid) {
-        callback(null, {
-          accepted: false,
-          task_id: "",
-          error: labelsValidation.error,
-        });
-        return;
-      }
-    }
-
-    if (request.correlation_id) {
-      const correlationIdValidation = validateFilename(request.correlation_id);
-      if (!correlationIdValidation.valid) {
-        callback(null, {
-          accepted: false,
-          task_id: "",
-          error: correlationIdValidation.error,
-        });
-        return;
-      }
     }
 
     if (!workerPool.isRunning || workerPool.healthyWorkerCount === 0) {
@@ -88,15 +44,7 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
       return;
     }
 
-    const taskId = randomUUID();
-    const task: CaptureTask = {
-      taskId,
-      labels: trimmedLabels,
-      url: request.url.trim(),
-      retryCount: 0,
-      captureOptions,
-      ...(request.correlation_id && { correlationId: request.correlation_id }),
-    };
+    const { task } = result;
 
     // Enqueue task (fire-and-forget)
     const enqueueResult = workerPool.enqueueTask(task);
@@ -125,8 +73,8 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     // Return immediately with acceptance confirmation
     callback(null, {
       accepted: true,
-      task_id: taskId,
-      ...(request.correlation_id && { correlation_id: request.correlation_id }),
+      task_id: task.taskId,
+      ...(task.correlationId && { correlation_id: task.correlationId }),
     });
   };
 
@@ -139,48 +87,7 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     _call: ServerUnaryCall<Empty, StatusResponse>,
     callback: sendUnaryData<StatusResponse>
   ) => {
-    const status = workerPool.getStatus();
-
-    const response: StatusResponse = {
-      pending: status.taskCounts.pending,
-      processing: status.taskCounts.processing,
-      completed: status.taskCounts.completed,
-      healthy_workers: status.healthyWorkers,
-      total_workers: status.totalWorkers,
-      is_running: status.isRunning,
-      workers: status.workers.map((w) => ({
-        id: w.id,
-        browser_options: {
-          browser_url: w.browserOptions.browserURL,
-        },
-        status: workerStatusToProto(w.status),
-        processed_count: w.processedCount,
-        error_count: w.errorCount,
-        error_history: w.errorHistory.map((e) => ({
-          type: errorTypeToProto(e.type),
-          message: e.message,
-          timestamp: e.timestamp,
-          ...(e.httpStatusCode !== undefined && {
-            http_status_code: e.httpStatusCode,
-          }),
-          ...(e.httpStatusText !== undefined && {
-            http_status_text: e.httpStatusText,
-          }),
-          ...(e.timeoutMs !== undefined && {
-            timeout_ms: e.timeoutMs,
-          }),
-          ...(e.task && {
-            task: {
-              task_id: e.task.taskId,
-              url: e.task.url,
-              labels: e.task.labels,
-            },
-          }),
-        })),
-      })),
-    };
-
-    callback(null, response);
+    callback(null, poolStatusToResponse(workerPool.getStatus()));
   };
 
   return { submitCapture, getStatus };
