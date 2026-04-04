@@ -14,7 +14,7 @@ describe("createCaptureServiceHandlers", () => {
   beforeEach(() => {
     mockCaptureCoordinator = {
       isRunning: true,
-      healthyWorkerCount: 1,
+      operationalWorkerCount: 1,
       enqueueTask: vi.fn().mockReturnValue({ success: true }),
     } as unknown as CaptureCoordinator;
 
@@ -202,7 +202,7 @@ describe("createCaptureServiceHandlers", () => {
       it("should return error when worker pool is not running", () => {
         mockCaptureCoordinator = {
           isRunning: false,
-          healthyWorkerCount: 1,
+          operationalWorkerCount: 1,
           enqueueTask: vi.fn(),
         } as unknown as CaptureCoordinator;
         handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
@@ -216,14 +216,14 @@ describe("createCaptureServiceHandlers", () => {
 
         expect(mockCallback).toHaveBeenCalledWith({
           code: 14, // UNAVAILABLE
-          message: "No healthy workers available",
+          message: "No operational workers available",
         });
       });
 
       it("should return error when no healthy workers", () => {
         mockCaptureCoordinator = {
           isRunning: true,
-          healthyWorkerCount: 0,
+          operationalWorkerCount: 0,
           enqueueTask: vi.fn(),
         } as unknown as CaptureCoordinator;
         handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
@@ -237,7 +237,7 @@ describe("createCaptureServiceHandlers", () => {
 
         expect(mockCallback).toHaveBeenCalledWith({
           code: 14, // UNAVAILABLE
-          message: "No healthy workers available",
+          message: "No operational workers available",
         });
       });
     });
@@ -367,7 +367,7 @@ describe("createCaptureServiceHandlers", () => {
       it("should reject duplicate URL when enqueueTask returns failure", () => {
         mockCaptureCoordinator = {
           isRunning: true,
-          healthyWorkerCount: 1,
+          operationalWorkerCount: 1,
           enqueueTask: vi.fn().mockReturnValue({
             success: false,
             error: "URL already in queue: https://example.com",
@@ -415,7 +415,7 @@ describe("createCaptureServiceHandlers", () => {
     it("should return current queue and worker pool status with worker details", () => {
       mockCaptureCoordinator = {
         isRunning: true,
-        healthyWorkerCount: 2,
+        operationalWorkerCount: 2,
         enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
           taskCounts: {
@@ -423,7 +423,7 @@ describe("createCaptureServiceHandlers", () => {
             processing: 2,
             completed: 10,
           },
-          healthyWorkers: 2,
+          operationalWorkers: 2,
           totalWorkers: 3,
           isRunning: true,
           workers: [
@@ -484,7 +484,7 @@ describe("createCaptureServiceHandlers", () => {
         pending: 5,
         processing: 2,
         completed: 10,
-        healthy_workers: 2,
+        operational_workers: 2,
         total_workers: 3,
         is_running: true,
         workers: [
@@ -537,7 +537,7 @@ describe("createCaptureServiceHandlers", () => {
     it("should return status even when pool is not running", () => {
       mockCaptureCoordinator = {
         isRunning: false,
-        healthyWorkerCount: 0,
+        operationalWorkerCount: 0,
         enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
           taskCounts: {
@@ -545,7 +545,7 @@ describe("createCaptureServiceHandlers", () => {
             processing: 0,
             completed: 0,
           },
-          healthyWorkers: 0,
+          operationalWorkers: 0,
           totalWorkers: 2,
           isRunning: false,
           workers: [
@@ -580,7 +580,7 @@ describe("createCaptureServiceHandlers", () => {
         pending: 0,
         processing: 0,
         completed: 0,
-        healthy_workers: 0,
+        operational_workers: 0,
         total_workers: 2,
         is_running: false,
         workers: [

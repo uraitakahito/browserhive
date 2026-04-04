@@ -148,8 +148,8 @@ message StatusResponse {
   // Number of completed tasks
   int32 completed = 3;
 
-  // Number of healthy workers
-  int32 healthy_workers = 5;
+  // Number of operational workers
+  int32 operational_workers = 5;
 
   // Total number of workers
   int32 total_workers = 6;
