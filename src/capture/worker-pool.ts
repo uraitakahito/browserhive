@@ -66,34 +66,19 @@ export class WorkerPool {
       throw new Error("No workers available. All browser connections failed.");
     }
 
-    logger.info(
-      { healthyCount, totalCount: this.workers.length },
-      "Worker pool initialized"
-    );
-  }
-
-  /**
-   * Start background worker loops
-   * Workers will continuously process tasks from the queue
-   */
-  start(): void {
-    if (this.running) {
-      return;
-    }
-
     this.running = true;
-    const healthyWorkers = this.workers.filter((w) => w.isHealthy);
 
-    if (healthyWorkers.length === 0) {
-      throw new Error("No healthy workers available");
-    }
+    const healthyWorkers = this.workers.filter((w) => w.isHealthy);
 
     // Start worker loops (non-blocking)
     this.workerLoopPromises = healthyWorkers.map((worker) =>
       this.workerLoop(worker)
     );
 
-    logger.info({ workerCount: healthyWorkers.length }, "Started worker loops");
+    logger.info(
+      { healthyCount, totalCount: this.workers.length },
+      "Worker pool initialized"
+    );
   }
 
   enqueueTask(task: CaptureTask): EnqueueResult {
