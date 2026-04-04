@@ -38,7 +38,10 @@ export class CaptureCoordinator {
   private running = false;
   private workerLoopPromises: Promise<void>[] = [];
 
-  constructor(private config: CoordinatorConfig) {
+  private config: CoordinatorConfig;
+
+  constructor(config: CoordinatorConfig) {
+    this.config = config;
     this.taskQueue = new TaskQueue();
   }
 

@@ -34,11 +34,16 @@ export class Worker {
   private pageCapturer: PageCapturer;
   public readonly logger: Logger;
 
+  public readonly id: string;
+  public readonly browserOptions: BrowserOptions;
+
   constructor(
-    public readonly id: string,
-    public readonly browserOptions: BrowserOptions,
+    id: string,
+    browserOptions: BrowserOptions,
     config: CaptureConfig
   ) {
+    this.id = id;
+    this.browserOptions = browserOptions;
     this.pageCapturer = new PageCapturer(config);
     this.logger = createChildLogger({ workerId: id, browserURL: browserOptions.browserURL });
   }
