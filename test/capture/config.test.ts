@@ -24,18 +24,14 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
 });
 
 describe("DEFAULT_COORDINATOR_CONFIG", () => {
-  it("should have empty browserEndpoints by default", () => {
-    expect(DEFAULT_COORDINATOR_CONFIG.browserEndpoints).toEqual([]);
+  it("should have empty browserProfiles by default", () => {
+    expect(DEFAULT_COORDINATOR_CONFIG.browserProfiles).toEqual([]);
   });
 
   it("should have correct default values for pool settings", () => {
     expect(DEFAULT_COORDINATOR_CONFIG.maxRetries).toBe(2);
     expect(DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs).toBe(50);
     expect(DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls).toBe(false);
-  });
-
-  it("should contain DEFAULT_CAPTURE_CONFIG", () => {
-    expect(DEFAULT_COORDINATOR_CONFIG.capture).toEqual(DEFAULT_CAPTURE_CONFIG);
   });
 });
 
@@ -113,30 +109,20 @@ describe("createTestCaptureConfig", () => {
 describe("createTestCoordinatorConfig", () => {
   it("should return default config when no overrides", () => {
     const config = createTestCoordinatorConfig();
-    expect(config.browserEndpoints).toEqual([]);
-    expect(config.capture).toEqual(DEFAULT_CAPTURE_CONFIG);
+    expect(config.browserProfiles).toEqual([]);
   });
 
-  it("should override browserEndpoints", () => {
+  it("should override browserProfiles", () => {
     const config = createTestCoordinatorConfig({
-      browserEndpoints: [
-        { browserURL: "http://chromium-1:9222" },
-        { browserURL: "http://chromium-2:9222" },
+      browserProfiles: [
+        { browserURL: "http://chromium-1:9222", capture: DEFAULT_CAPTURE_CONFIG },
+        { browserURL: "http://chromium-2:9222", capture: DEFAULT_CAPTURE_CONFIG },
       ],
     });
 
-    expect(config.browserEndpoints).toEqual([
-      { browserURL: "http://chromium-1:9222" },
-      { browserURL: "http://chromium-2:9222" },
-    ]);
-  });
-
-  it("should override nested capture config", () => {
-    const config = createTestCoordinatorConfig({
-      capture: { outputDir: "/custom" },
-    });
-
-    expect(config.capture.outputDir).toBe("/custom");
+    expect(config.browserProfiles).toHaveLength(2);
+    expect(config.browserProfiles[0]!.browserURL).toBe("http://chromium-1:9222");
+    expect(config.browserProfiles[1]!.browserURL).toBe("http://chromium-2:9222");
   });
 
   it("should override pool settings", () => {
@@ -165,9 +151,10 @@ describe("createTestBrowserHiveConfig", () => {
 
   it("should override nested coordinator config", () => {
     const config = createTestBrowserHiveConfig({
-      coordinator: { browserEndpoints: [{ browserURL: "http://browser:9222" }] },
+      coordinator: { browserProfiles: [{ browserURL: "http://browser:9222", capture: DEFAULT_CAPTURE_CONFIG }] },
     });
 
-    expect(config.coordinator.browserEndpoints).toEqual([{ browserURL: "http://browser:9222" }]);
+    expect(config.coordinator.browserProfiles).toHaveLength(1);
+    expect(config.coordinator.browserProfiles[0]!.browserURL).toBe("http://browser:9222");
   });
 });

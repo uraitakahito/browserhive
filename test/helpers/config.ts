@@ -3,7 +3,7 @@
  *
  * Helper functions for creating test configurations.
  */
-import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig } from "../../src/config/index.js";
+import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig, BrowserProfile } from "../../src/config/index.js";
 import {
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
@@ -44,14 +44,21 @@ export const createTestCaptureConfig = (
 /**
  * Create a test CoordinatorConfig with optional overrides
  */
+export const createTestBrowserProfile = (
+  browserURL: string,
+  captureOverrides: DeepPartial<CaptureConfig> = {}
+): BrowserProfile => ({
+  browserURL,
+  capture: createTestCaptureConfig(captureOverrides),
+});
+
 export const createTestCoordinatorConfig = (
   overrides: DeepPartial<CoordinatorConfig> = {}
 ): CoordinatorConfig => ({
-  browserEndpoints: overrides.browserEndpoints ?? DEFAULT_COORDINATOR_CONFIG.browserEndpoints,
+  browserProfiles: overrides.browserProfiles ?? DEFAULT_COORDINATOR_CONFIG.browserProfiles,
   maxRetries: overrides.maxRetries ?? DEFAULT_COORDINATOR_CONFIG.maxRetries,
   queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs,
   rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls,
-  capture: createTestCaptureConfig(overrides.capture),
 });
 
 /**

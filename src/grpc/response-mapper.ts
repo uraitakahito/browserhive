@@ -78,7 +78,7 @@ export const workerInfoToProto = (worker: WorkerInfo): ProtoWorkerInfo => {
   return {
     index: worker.index,
     browser_options: {
-      browser_url: worker.browserEndpoint.browserURL,
+      browser_url: worker.browserProfile.browserURL,
     },
     status: workerStatusToProto(worker.status),
     processed_count: worker.processedCount,

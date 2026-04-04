@@ -5,7 +5,7 @@
  */
 import type { Browser } from "puppeteer";
 import connectBrowser from "../browser.js";
-import type { WorkerConfig } from "../config/index.js";
+import type { BrowserProfile } from "../config/index.js";
 import { PageCapturer } from "./page-capturer.js";
 import type {
   CaptureTask,
@@ -35,13 +35,13 @@ export class Worker {
   public readonly logger: Logger;
 
   public readonly index: number;
-  private readonly config: WorkerConfig;
+  private readonly profile: BrowserProfile;
 
-  constructor(index: number, config: WorkerConfig) {
+  constructor(index: number, profile: BrowserProfile) {
     this.index = index;
-    this.config = config;
-    this.pageCapturer = new PageCapturer(config.capture);
-    this.logger = createChildLogger({ workerIndex: index, browserURL: config.endpoint.browserURL });
+    this.profile = profile;
+    this.pageCapturer = new PageCapturer(profile.capture);
+    this.logger = createChildLogger({ workerIndex: index, browserURL: profile.browserURL });
   }
 
   /**
@@ -69,7 +69,7 @@ export class Worker {
 
   async connect(): Promise<boolean> {
     try {
-      this.browser = await connectBrowser(this.config.endpoint);
+      this.browser = await connectBrowser(this.profile);
       this.statusManager.toIdle();
       return true;
     } catch (error) {
@@ -157,7 +157,7 @@ export class Worker {
   getInfo(): WorkerInfo {
     return {
       index: this.index,
-      browserEndpoint: this.config.endpoint,
+      browserProfile: this.profile,
       status: this.statusManager.current,
       processedCount: this.processedCount,
       errorCount: this.errorCount,

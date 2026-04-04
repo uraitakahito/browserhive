@@ -5,8 +5,8 @@
  */
 import { Command, InvalidArgumentError } from "commander";
 import { BrowserHive } from "../browserhive.js";
-import type { BrowserHiveConfig, TlsConfig } from "../config/index.js";
-import { DEFAULT_BROWSERHIVE_CONFIG } from "../config/index.js";
+import type { BrowserHiveConfig, TlsConfig, CaptureConfig } from "../config/index.js";
+import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
 
 
@@ -76,31 +76,32 @@ const buildTlsConfig = (opts: ParsedOptions): TlsConfig | undefined => {
 const buildServerConfig = (opts: ParsedOptions): BrowserHiveConfig => {
   const tls = buildTlsConfig(opts);
 
+  const capture: CaptureConfig = {
+    outputDir: opts.output,
+    timeouts: {
+      pageLoad: opts.pageLoadTimeout,
+      capture: opts.captureTimeout,
+    },
+    viewport: {
+      width: opts.viewportWidth,
+      height: opts.viewportHeight,
+    },
+    screenshot: {
+      fullPage: opts.screenshotFullPage,
+      ...(opts.screenshotQuality !== undefined && { quality: opts.screenshotQuality }),
+    },
+    ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
+    ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
+  };
+
   return {
     port: opts.port,
     ...(tls && { tls }),
     coordinator: {
-      browserEndpoints: opts.browserUrl.map((url) => ({ browserURL: url })),
+      browserProfiles: opts.browserUrl.map((url) => ({ browserURL: url, capture })),
       maxRetries: opts.maxRetries,
       queuePollIntervalMs: opts.queuePollIntervalMs,
       rejectDuplicateUrls: opts.rejectDuplicateUrls,
-      capture: {
-        outputDir: opts.output,
-        timeouts: {
-          pageLoad: opts.pageLoadTimeout,
-          capture: opts.captureTimeout,
-        },
-        viewport: {
-          width: opts.viewportWidth,
-          height: opts.viewportHeight,
-        },
-        screenshot: {
-          fullPage: opts.screenshotFullPage,
-          ...(opts.screenshotQuality !== undefined && { quality: opts.screenshotQuality }),
-        },
-        ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
-        ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
-      },
     },
   };
 };
@@ -108,7 +109,7 @@ const buildServerConfig = (opts: ParsedOptions): BrowserHiveConfig => {
 export const createProgram = (): Command => {
   const defaults = DEFAULT_BROWSERHIVE_CONFIG;
   const defaultWorker = defaults.coordinator;
-  const defaultCapture = defaultWorker.capture;
+  const defaultCapture = DEFAULT_CAPTURE_CONFIG;
 
   const program = new Command();
 
@@ -222,8 +223,8 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
 };
 
 export const logServerConfig = (config: BrowserHiveConfig): void => {
-  const worker = config.coordinator;
-  const capture = worker.capture;
+  const coordinator = config.coordinator;
+  const capture = coordinator.browserProfiles[0]?.capture ?? DEFAULT_CAPTURE_CONFIG;
 
   logger.info(
     {
@@ -231,14 +232,14 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       tls: config.tls
         ? { enabled: true, certPath: config.tls.certPath }
         : { enabled: false },
-      browserEndpoints: worker.browserEndpoints.map((b) => b.browserURL),
+      browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL),
       outputDir: capture.outputDir,
       timeouts: {
         pageLoad: capture.timeouts.pageLoad,
         capture: capture.timeouts.capture,
       },
-      maxRetries: worker.maxRetries,
-      queuePollIntervalMs: worker.queuePollIntervalMs,
+      maxRetries: coordinator.maxRetries,
+      queuePollIntervalMs: coordinator.queuePollIntervalMs,
       viewport: {
         width: capture.viewport.width,
         height: capture.viewport.height,
@@ -247,7 +248,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
         fullPage: capture.screenshot.fullPage,
         ...(capture.screenshot.quality !== undefined && { quality: capture.screenshot.quality }),
       },
-      rejectDuplicateUrls: worker.rejectDuplicateUrls,
+      rejectDuplicateUrls: coordinator.rejectDuplicateUrls,
       userAgent: capture.userAgent ?? "(browser default)",
       acceptLanguage: capture.acceptLanguage ?? "(browser default)",
     },
