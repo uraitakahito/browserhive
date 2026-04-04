@@ -2,6 +2,7 @@
  * Configuration Module (Barrel File)
  */
 export type {
+  BrowserConnectOptions,
   CaptureConfig,
   CoordinatorConfig,
   BrowserHiveConfig,

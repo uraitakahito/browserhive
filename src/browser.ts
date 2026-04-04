@@ -52,7 +52,7 @@ import http from "node:http";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import type { Browser } from "puppeteer";
-import type { BrowserProfile } from "./config/index.js";
+import type { BrowserConnectOptions } from "./config/index.js";
 import { DEFAULT_BROWSER_SLOW_MO_MS } from "./config/index.js";
 
 // Apply stealth plugin to avoid bot detection
@@ -154,7 +154,7 @@ const fetchWebSocketEndpoint = async (browserURL: string): Promise<string> => {
   return replaceWsUrlHost(wsUrl, targetHost);
 };
 
-const connectBrowser = async (options: Pick<BrowserProfile, "browserURL" | "slowMo">): Promise<Browser> => {
+const connectBrowser = async (options: BrowserConnectOptions): Promise<Browser> => {
   const { browserURL, slowMo = DEFAULT_BROWSER_SLOW_MO_MS } = options;
   const wsEndpoint = await fetchWebSocketEndpoint(browserURL);
 

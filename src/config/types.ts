@@ -76,12 +76,16 @@ export interface BrowserHiveConfig {
   coordinator: CoordinatorConfig;
 }
 
-/** Browser profile configuration (connection settings + capture settings) */
-export interface BrowserProfile {
+/** Browser connection options for connecting to a remote Chromium instance */
+export interface BrowserConnectOptions {
   /** Remote browser URL (e.g., http://puppeteer:9222) */
   browserURL: string;
   /** Slow down Puppeteer operations by the specified milliseconds */
   slowMo?: number;
+}
+
+/** Browser profile configuration (connection settings + capture settings) */
+export interface BrowserProfile extends BrowserConnectOptions {
   /** Capture configuration for this browser */
   capture: CaptureConfig;
 }
