@@ -78,14 +78,12 @@ const submitRequest = async (
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
 
-  /* eslint-disable @typescript-eslint/naming-convention */
   const request: CaptureRequest = {
     url: record.url,
     labels: record.labels,
     correlation_id: correlationId,
     capture_options: captureOptionsToProto(captureOptions),
   };
-  /* eslint-enable @typescript-eslint/naming-convention */
 
   try {
     const response: CaptureAcceptance = await submitter.submit(request);

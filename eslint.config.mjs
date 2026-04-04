@@ -155,6 +155,11 @@ export default defineConfig(
           selector: 'enumMember',
           format: ['PascalCase'],
         },
+        // Object literal properties: allow external formats (HTTP headers, API contracts)
+        {
+          selector: 'objectLiteralProperty',
+          format: null,
+        },
         // Import: camelCase + PascalCase
         {
           selector: 'import',

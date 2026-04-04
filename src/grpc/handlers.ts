@@ -35,13 +35,11 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     const request = call.request;
 
     if (!request.url || request.url.trim() === "") {
-      /* eslint-disable @typescript-eslint/naming-convention */
       callback(null, {
         accepted: false,
         task_id: "",
         error: "url is required",
       });
-      /* eslint-enable @typescript-eslint/naming-convention */
       return;
     }
 
@@ -49,13 +47,11 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     const captureOptions = captureOptionsFromProto(request.capture_options);
     const optionsValidation = validateCaptureOptions(captureOptions);
     if (!optionsValidation.valid) {
-      /* eslint-disable @typescript-eslint/naming-convention */
       callback(null, {
         accepted: false,
         task_id: "",
         error: optionsValidation.error,
       });
-      /* eslint-enable @typescript-eslint/naming-convention */
       return;
     }
 
@@ -63,13 +59,11 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     if (trimmedLabels.length > 0) {
       const labelsValidation = validateLabels(trimmedLabels);
       if (!labelsValidation.valid) {
-        /* eslint-disable @typescript-eslint/naming-convention */
         callback(null, {
           accepted: false,
           task_id: "",
           error: labelsValidation.error,
         });
-        /* eslint-enable @typescript-eslint/naming-convention */
         return;
       }
     }
@@ -77,13 +71,11 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     if (request.correlation_id) {
       const correlationIdValidation = validateFilename(request.correlation_id);
       if (!correlationIdValidation.valid) {
-        /* eslint-disable @typescript-eslint/naming-convention */
         callback(null, {
           accepted: false,
           task_id: "",
           error: correlationIdValidation.error,
         });
-        /* eslint-enable @typescript-eslint/naming-convention */
         return;
       }
     }
@@ -110,13 +102,11 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     const enqueueResult = workerPool.enqueueTask(task);
 
     if (!enqueueResult.success) {
-      /* eslint-disable @typescript-eslint/naming-convention */
       callback(null, {
         accepted: false,
         task_id: "",
         error: enqueueResult.error,
       });
-      /* eslint-enable @typescript-eslint/naming-convention */
       return;
     }
 
@@ -133,13 +123,11 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     );
 
     // Return immediately with acceptance confirmation
-    /* eslint-disable @typescript-eslint/naming-convention */
     callback(null, {
       accepted: true,
       task_id: taskId,
       ...(request.correlation_id && { correlation_id: request.correlation_id }),
     });
-    /* eslint-enable @typescript-eslint/naming-convention */
   };
 
   /**
@@ -153,7 +141,6 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
   ) => {
     const status = workerPool.getStatus();
 
-    /* eslint-disable @typescript-eslint/naming-convention */
     const response: StatusResponse = {
       pending: status.queue.pending,
       processing: status.queue.processing,
@@ -192,7 +179,6 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
         })),
       })),
     };
-    /* eslint-enable @typescript-eslint/naming-convention */
 
     callback(null, response);
   };
