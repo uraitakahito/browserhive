@@ -1,10 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Starting BrowserHive setup..."
-
-# Download required files
+# Configuration
 BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/1.2.0"
+CHROMIUM_SERVER_TAG="0.1.0"
+
+echo "Starting BrowserHive setup..."
 
 echo "Downloading Dockerfile.dev..."
 if ! curl -fL -O "${BASE_URL}/Dockerfile.dev"; then
@@ -24,7 +25,6 @@ fi
 chmod 755 docker-entrypoint.sh
 
 # Clone chromium-server-docker at pinned tag
-CHROMIUM_SERVER_TAG="0.1.0"
 if [ -d "chromium-server-docker" ]; then
   echo "Removing existing chromium-server-docker..."
   rm -rf chromium-server-docker
