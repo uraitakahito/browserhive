@@ -80,7 +80,7 @@ const buildServerConfig = (opts: ParsedOptions): BrowserHiveConfig => {
     port: opts.port,
     ...(tls && { tls }),
     coordinator: {
-      browsers: opts.browserUrl.map((url) => ({ browserURL: url })),
+      browserEndpoints: opts.browserUrl.map((url) => ({ browserURL: url })),
       maxRetries: opts.maxRetries,
       queuePollIntervalMs: opts.queuePollIntervalMs,
       rejectDuplicateUrls: opts.rejectDuplicateUrls,
@@ -231,7 +231,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       tls: config.tls
         ? { enabled: true, certPath: config.tls.certPath }
         : { enabled: false },
-      browsers: worker.browsers.map((b) => b.browserURL),
+      browserEndpoints: worker.browserEndpoints.map((b) => b.browserURL),
       outputDir: capture.outputDir,
       timeouts: {
         pageLoad: capture.timeouts.pageLoad,

@@ -2,7 +2,7 @@
  * Capture Task and Result Types
  */
 
-import type { BrowserOptions } from "../config/index.js";
+import type { BrowserEndpoint } from "../config/index.js";
 import type { WorkerStatus } from "./worker-status.js";
 import type { CaptureOptions } from "./capture-mode.js";
 import type { CaptureStatus } from "./capture-status.js";
@@ -64,7 +64,7 @@ export interface ErrorRecord extends ErrorDetails {
 
 export interface WorkerInfo {
   index: number;
-  browserOptions: BrowserOptions;
+  browserEndpoint: BrowserEndpoint;
   status: WorkerStatus;
   processedCount: number;
   errorCount: number;

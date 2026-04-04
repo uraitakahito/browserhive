@@ -176,7 +176,7 @@ describe("workerInfoToProto", () => {
   it("should convert worker info with empty error history", () => {
     const worker: WorkerInfo = {
       index: 0,
-      browserOptions: { browserURL: "http://browser1:9222" },
+      browserEndpoint: { browserURL: "http://browser1:9222" },
       status: "idle",
       processedCount: 5,
       errorCount: 0,
@@ -198,7 +198,7 @@ describe("workerInfoToProto", () => {
   it("should convert worker info with error history", () => {
     const worker: WorkerInfo = {
       index: 1,
-      browserOptions: { browserURL: "http://browser2:9222" },
+      browserEndpoint: { browserURL: "http://browser2:9222" },
       status: "busy",
       processedCount: 3,
       errorCount: 1,
@@ -245,7 +245,7 @@ describe("coordinatorStatusToResponse", () => {
       workers: [
         {
           index: 0,
-          browserOptions: { browserURL: "http://browser1:9222" },
+          browserEndpoint: { browserURL: "http://browser1:9222" },
           status: "idle",
           processedCount: 5,
           errorCount: 0,
@@ -253,7 +253,7 @@ describe("coordinatorStatusToResponse", () => {
         },
         {
           index: 1,
-          browserOptions: { browserURL: "http://browser2:9222" },
+          browserEndpoint: { browserURL: "http://browser2:9222" },
           status: "error",
           processedCount: 2,
           errorCount: 2,

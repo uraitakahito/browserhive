@@ -328,7 +328,7 @@ describe("Worker", () => {
       const info = worker.getInfo();
 
       expect(info.index).toBe(0);
-      expect(info.browserOptions).toEqual({ browserURL: "http://chromium:9222" });
+      expect(info.browserEndpoint).toEqual({ browserURL: "http://chromium:9222" });
       expect(info.status).toBe("idle");
       expect(info.processedCount).toBe(0);
       expect(info.errorCount).toBe(0);

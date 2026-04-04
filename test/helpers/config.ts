@@ -47,7 +47,7 @@ export const createTestCaptureConfig = (
 export const createTestCoordinatorConfig = (
   overrides: DeepPartial<CoordinatorConfig> = {}
 ): CoordinatorConfig => ({
-  browsers: overrides.browsers ?? DEFAULT_COORDINATOR_CONFIG.browsers,
+  browserEndpoints: overrides.browserEndpoints ?? DEFAULT_COORDINATOR_CONFIG.browserEndpoints,
   maxRetries: overrides.maxRetries ?? DEFAULT_COORDINATOR_CONFIG.maxRetries,
   queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs,
   rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls,
