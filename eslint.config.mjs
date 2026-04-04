@@ -36,7 +36,6 @@ export default defineConfig(
   {
     files: ['src/**/*.ts', 'test/**/*.ts', 'examples/**/*.ts'],
     plugins: {
-      // @ts-expect-error Type mismatch between eslint-plugin-import-x and ESLint Plugin type
       'import-x': importXPlugin,
     },
     settings: {
