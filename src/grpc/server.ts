@@ -15,6 +15,13 @@ import { WorkerPool } from "../capture/worker-pool.js";
 import { logger } from "../logger.js";
 import { CaptureServiceService } from "./generated/browserhive/v1/capture.js";
 
+/**
+ * Timeout for tryShutdown before falling back to forceShutdown.
+ * tryShutdown waits for all HTTP/2 connections to close, which can hang
+ * indefinitely if a client connection lingers.
+ */
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 4000;
+
 const currentDir = dirname(fileURLToPath(import.meta.url));
 // Navigate from dist/src/grpc to project root, then to src/grpc/proto
 const projectRoot = join(currentDir, "..", "..", "..");
@@ -112,9 +119,25 @@ export class CaptureServer {
       await this.workerPool.shutdown();
     }
 
-    // Shutdown gRPC server
+    // Shutdown gRPC server with timeout fallback to forceShutdown
     return new Promise((resolve) => {
+      let settled = false;
+
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        logger.warn(
+          { timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS },
+          "tryShutdown timed out, forcing shutdown"
+        );
+        this.server.forceShutdown();
+        resolve();
+      }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
+
       this.server.tryShutdown((error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
         if (error) {
           logger.error({ err: error }, "Error during server shutdown");
         }

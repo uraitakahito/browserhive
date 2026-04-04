@@ -11,6 +11,14 @@ import { isHealthyStatus } from "./worker-status.js";
 import { isSuccessStatus } from "./capture-status.js";
 import { logger } from "../logger.js";
 
+/**
+ * Timeout for waiting worker loops to finish during shutdown.
+ * If a worker is mid-capture (e.g., page load), the loop won't exit
+ * until the current task completes. This timeout prevents blocking
+ * the entire shutdown chain.
+ */
+const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
+
 export interface PoolStatus {
   taskCounts: TaskCounts;
   healthyWorkers: number;
@@ -96,8 +104,16 @@ export class WorkerPool {
   async shutdown(): Promise<void> {
     this.running = false;
 
-    // Wait for worker loops to finish current tasks
-    await Promise.all(this.workerLoopPromises);
+    // Wait for worker loops to finish current tasks, with timeout
+    await Promise.race([
+      Promise.all(this.workerLoopPromises),
+      this.sleep(WORKER_SHUTDOWN_TIMEOUT_MS).then(() => {
+        logger.warn(
+          { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
+          "Worker loop drain timed out, proceeding to disconnect"
+        );
+      }),
+    ]);
 
     const disconnectPromises = this.workers.map((worker) =>
       worker.disconnect()
