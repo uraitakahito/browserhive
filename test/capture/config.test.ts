@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_CAPTURE_CONFIG,
-  DEFAULT_WORKER_CONFIG,
-  DEFAULT_SERVER_CONFIG,
+  DEFAULT_COORDINATOR_CONFIG,
+  DEFAULT_BROWSERHIVE_CONFIG,
 } from "../../src/config/index.js";
 import {
   createTestCaptureConfig,
-  createTestWorkerConfig,
-  createTestServerConfig,
+  createTestCoordinatorConfig,
+  createTestBrowserHiveConfig,
 } from "../helpers/config.js";
 
 describe("DEFAULT_CAPTURE_CONFIG", () => {
@@ -23,29 +23,29 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
   });
 });
 
-describe("DEFAULT_WORKER_CONFIG", () => {
+describe("DEFAULT_COORDINATOR_CONFIG", () => {
   it("should have empty browsers by default", () => {
-    expect(DEFAULT_WORKER_CONFIG.browsers).toEqual([]);
+    expect(DEFAULT_COORDINATOR_CONFIG.browsers).toEqual([]);
   });
 
   it("should have correct default values for pool settings", () => {
-    expect(DEFAULT_WORKER_CONFIG.maxRetries).toBe(2);
-    expect(DEFAULT_WORKER_CONFIG.queuePollIntervalMs).toBe(50);
-    expect(DEFAULT_WORKER_CONFIG.rejectDuplicateUrls).toBe(false);
+    expect(DEFAULT_COORDINATOR_CONFIG.maxRetries).toBe(2);
+    expect(DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs).toBe(50);
+    expect(DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls).toBe(false);
   });
 
   it("should contain DEFAULT_CAPTURE_CONFIG", () => {
-    expect(DEFAULT_WORKER_CONFIG.capture).toEqual(DEFAULT_CAPTURE_CONFIG);
+    expect(DEFAULT_COORDINATOR_CONFIG.capture).toEqual(DEFAULT_CAPTURE_CONFIG);
   });
 });
 
-describe("DEFAULT_SERVER_CONFIG", () => {
+describe("DEFAULT_BROWSERHIVE_CONFIG", () => {
   it("should have correct default port", () => {
-    expect(DEFAULT_SERVER_CONFIG.port).toBe(50051);
+    expect(DEFAULT_BROWSERHIVE_CONFIG.port).toBe(50051);
   });
 
-  it("should contain DEFAULT_WORKER_CONFIG", () => {
-    expect(DEFAULT_SERVER_CONFIG.worker).toEqual(DEFAULT_WORKER_CONFIG);
+  it("should contain DEFAULT_COORDINATOR_CONFIG", () => {
+    expect(DEFAULT_BROWSERHIVE_CONFIG.coordinator).toEqual(DEFAULT_COORDINATOR_CONFIG);
   });
 });
 
@@ -110,15 +110,15 @@ describe("createTestCaptureConfig", () => {
   });
 });
 
-describe("createTestWorkerConfig", () => {
+describe("createTestCoordinatorConfig", () => {
   it("should return default config when no overrides", () => {
-    const config = createTestWorkerConfig();
+    const config = createTestCoordinatorConfig();
     expect(config.browsers).toEqual([]);
     expect(config.capture).toEqual(DEFAULT_CAPTURE_CONFIG);
   });
 
   it("should override browsers", () => {
-    const config = createTestWorkerConfig({
+    const config = createTestCoordinatorConfig({
       browsers: [
         { browserURL: "http://chromium-1:9222" },
         { browserURL: "http://chromium-2:9222" },
@@ -132,7 +132,7 @@ describe("createTestWorkerConfig", () => {
   });
 
   it("should override nested capture config", () => {
-    const config = createTestWorkerConfig({
+    const config = createTestCoordinatorConfig({
       capture: { outputDir: "/custom" },
     });
 
@@ -140,7 +140,7 @@ describe("createTestWorkerConfig", () => {
   });
 
   it("should override pool settings", () => {
-    const config = createTestWorkerConfig({
+    const config = createTestCoordinatorConfig({
       maxRetries: 5,
       queuePollIntervalMs: 100,
       rejectDuplicateUrls: true,
@@ -152,22 +152,22 @@ describe("createTestWorkerConfig", () => {
   });
 });
 
-describe("createTestServerConfig", () => {
+describe("createTestBrowserHiveConfig", () => {
   it("should return default config when no overrides", () => {
-    const config = createTestServerConfig();
+    const config = createTestBrowserHiveConfig();
     expect(config.port).toBe(50051);
   });
 
   it("should override port", () => {
-    const config = createTestServerConfig({ port: 8080 });
+    const config = createTestBrowserHiveConfig({ port: 8080 });
     expect(config.port).toBe(8080);
   });
 
-  it("should override nested worker config", () => {
-    const config = createTestServerConfig({
-      worker: { browsers: [{ browserURL: "http://browser:9222" }] },
+  it("should override nested coordinator config", () => {
+    const config = createTestBrowserHiveConfig({
+      coordinator: { browsers: [{ browserURL: "http://browser:9222" }] },
     });
 
-    expect(config.worker.browsers).toEqual([{ browserURL: "http://browser:9222" }]);
+    expect(config.coordinator.browsers).toEqual([{ browserURL: "http://browser:9222" }]);
   });
 });

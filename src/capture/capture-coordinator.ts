@@ -3,7 +3,7 @@
  *
  * Coordinates capture task processing across multiple workers.
  */
-import type { WorkerConfig } from "../config/index.js";
+import type { CoordinatorConfig } from "../config/index.js";
 import { TaskQueue, type TaskCounts } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
@@ -38,7 +38,7 @@ export class CaptureCoordinator {
   private running = false;
   private workerLoopPromises: Promise<void>[] = [];
 
-  constructor(private config: WorkerConfig) {
+  constructor(private config: CoordinatorConfig) {
     this.taskQueue = new TaskQueue();
   }
 

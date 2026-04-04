@@ -1,4 +1,4 @@
-import type { CaptureConfig, WorkerConfig, ServerConfig } from "./types.js";
+import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig } from "./types.js";
 
 /**
  * Default slowMo value for browser connections.
@@ -36,7 +36,7 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   },
 };
 
-export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
+export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
   browsers: [],
   maxRetries: 2,
   queuePollIntervalMs: 50,
@@ -44,7 +44,7 @@ export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
   capture: DEFAULT_CAPTURE_CONFIG,
 };
 
-export const DEFAULT_SERVER_CONFIG: ServerConfig = {
+export const DEFAULT_BROWSERHIVE_CONFIG: BrowserHiveConfig = {
   port: 50051,
-  worker: DEFAULT_WORKER_CONFIG,
+  coordinator: DEFAULT_COORDINATOR_CONFIG,
 };
