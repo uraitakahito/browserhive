@@ -26,7 +26,7 @@ import { Worker } from "../../src/capture/worker.js";
 import connectBrowser from "../../src/browser.js";
 
 const createWorkerConfig = (browserURL = "http://chromium:9222"): WorkerConfig => ({
-  browser: { browserURL },
+  endpoint: { browserURL },
   capture: createTestCaptureConfig(),
 });
 
