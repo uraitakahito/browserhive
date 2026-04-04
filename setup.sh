@@ -23,13 +23,14 @@ if ! curl -fL -O "${BASE_URL}/docker-entrypoint.sh"; then
 fi
 chmod 755 docker-entrypoint.sh
 
-# Clone chromium-server-docker (if not exists)
-if [ ! -d "chromium-server-docker" ]; then
-  echo "Cloning chromium-server-docker..."
-  git clone --depth 1 https://github.com/uraitakahito/chromium-server-docker.git
-else
-  echo "chromium-server-docker already exists. Skipping."
+# Clone chromium-server-docker at pinned tag
+CHROMIUM_SERVER_TAG="0.1.0"
+if [ -d "chromium-server-docker" ]; then
+  echo "Removing existing chromium-server-docker..."
+  rm -rf chromium-server-docker
 fi
+echo "Cloning chromium-server-docker at tag ${CHROMIUM_SERVER_TAG}..."
+git -c advice.detachedHead=false clone --depth 1 --branch "${CHROMIUM_SERVER_TAG}" https://github.com/uraitakahito/chromium-server-docker.git
 
 # Create .env file (if not exists)
 if [ ! -f .env ]; then
