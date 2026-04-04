@@ -192,7 +192,11 @@ export const isSuccessHttpStatus = (statusCode: number): boolean => {
 };
 
 export class PageCapturer {
-  constructor(private config: CaptureConfig) {}
+  private config: CaptureConfig;
+
+  constructor(config: CaptureConfig) {
+    this.config = config;
+  }
 
   async capture(
     browser: Browser,

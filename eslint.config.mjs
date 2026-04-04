@@ -9,19 +9,20 @@ export default defineConfig(
   // Global ignores
   //
   {
-    ignores: ['dist/**', 'node_modules/**', '.Trash-*/**'],
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'src/grpc/generated/**', '.Trash-*/**'],
   },
 
   //
-  // Base configurations (TypeScript files only)
+  // Base configurations
+  //
+  eslint.configs.recommended,
+  tseslint.configs.strictTypeChecked,
+  tseslint.configs.stylisticTypeChecked,
+
+  //
+  // TypeScript parser options
   //
   {
-    files: ['src/**/*.ts', 'test/**/*.ts', 'examples/**/*.ts'],
-    extends: [
-      eslint.configs.recommended,
-      tseslint.configs.strictTypeChecked,
-      tseslint.configs.stylisticTypeChecked,
-    ],
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -34,7 +35,6 @@ export default defineConfig(
   // Import plugin configuration
   //
   {
-    files: ['src/**/*.ts', 'test/**/*.ts', 'examples/**/*.ts'],
     plugins: {
       'import-x': importXPlugin,
     },
@@ -71,6 +71,41 @@ export default defineConfig(
   },
 
   //
+  // Runtime syntax extension restrictions (erasable syntax only)
+  //
+  // TypeScript などのスーパーセット言語固有の新しいランタイム機能によって
+  // JavaScript の構文を拡張することは、次のような理由により、よくないことと考えられています。
+  // - ランタイム構文の拡張は、JavaScript の新しいバージョンの新しい構文と競合する可能性がある
+  // - JavaScript に不慣れなプログラマーにとって、どこまでが JavaScript かを理解するのが困難になる
+  // - トランスパイラーの複雑さが増加する
+  //
+  {
+    rules: {
+      // Parameter Properties の禁止
+      // https://typescript-eslint.io/rules/parameter-properties/
+      '@typescript-eslint/parameter-properties': ['error', { prefer: 'class-property' }],
+
+      // Enums, Export Assignment, Decorators の禁止
+      // https://eslint.org/docs/latest/rules/no-restricted-syntax
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSEnumDeclaration',
+          message: 'Enums are not allowed. Use a union type or a const object instead.',
+        },
+        {
+          selector: 'TSExportAssignment',
+          message: 'Export assignment (`export =`) is not allowed. Use ES module export syntax instead.',
+        },
+        {
+          selector: 'Decorator',
+          message: 'Legacy experimental decorators are not allowed.',
+        },
+      ],
+    },
+  },
+
+  //
   // Test-specific rules (all test files)
   //
   {
@@ -95,10 +130,9 @@ export default defineConfig(
   },
 
   //
-  // Custom rules
+  // Naming convention rules
   //
   {
-    files: ['src/**/*.ts', 'test/**/*.ts', 'examples/**/*.ts'],
     ignores: ['test/capture/worker.test.ts', 'test/grpc/handlers.test.ts'],
     rules: {
       // Naming convention (TypeScript Handbook + JavaScript conventions + ESLint recommendations)
@@ -148,12 +182,12 @@ export default defineConfig(
         // Enum: PascalCase
         {
           selector: 'enum',
-          format: ['PascalCase'],
+          format: ['UPPER_CASE'],
         },
-        // Enum member: PascalCase
+        // Enum member: UPPER_CASE
         {
           selector: 'enumMember',
-          format: ['PascalCase'],
+          format: ['UPPER_CASE'],
         },
         // Object literal properties: allow external formats (HTTP headers, API contracts)
         {
@@ -168,5 +202,4 @@ export default defineConfig(
       ],
     },
   },
-
 );
