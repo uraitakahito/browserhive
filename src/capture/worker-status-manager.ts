@@ -5,30 +5,29 @@ import {
   type WorkerStatus,
   WORKER_STATUS_DEFINITIONS,
 } from "./worker-status.js";
+import { StateMachine } from "./state-machine.js";
 
 export class WorkerStatusManager {
-  private _status: WorkerStatus;
+  private machine: StateMachine<WorkerStatus>;
 
   constructor(initialStatus: WorkerStatus = "stopped") {
-    this._status = initialStatus;
+    this.machine = new StateMachine(WORKER_STATUS_DEFINITIONS, initialStatus);
   }
 
   get current(): WorkerStatus {
-    return this._status;
+    return this.machine.current;
   }
 
   get canProcess(): boolean {
-    return WORKER_STATUS_DEFINITIONS[this._status].canProcess;
+    return WORKER_STATUS_DEFINITIONS[this.machine.current].canProcess;
   }
 
   get isHealthy(): boolean {
-    return WORKER_STATUS_DEFINITIONS[this._status].healthy;
+    return WORKER_STATUS_DEFINITIONS[this.machine.current].healthy;
   }
 
   canTransitionTo(next: WorkerStatus): boolean {
-    return (
-      WORKER_STATUS_DEFINITIONS[this._status].allowedTransitions as readonly WorkerStatus[]
-    ).includes(next);
+    return this.machine.canTransitionTo(next);
   }
 
   /**
@@ -36,12 +35,7 @@ export class WorkerStatusManager {
    * @throws Error if the transition is invalid
    */
   transitionTo(next: WorkerStatus): void {
-    if (!this.canTransitionTo(next)) {
-      throw new Error(
-        `Invalid status transition: ${this._status} -> ${next}`
-      );
-    }
-    this._status = next;
+    this.machine.transitionTo(next);
   }
 
   toReady(): void {

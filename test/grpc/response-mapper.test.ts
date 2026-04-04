@@ -9,7 +9,7 @@ import {
 } from "../../src/grpc/response-mapper.js";
 import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type { CaptureOptions, ErrorRecord, WorkerInfo } from "../../src/capture/index.js";
-import type { CoordinatorStatus } from "../../src/capture/capture-coordinator.js";
+import type { CoordinatorStatusReport } from "../../src/capture/capture-coordinator.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
 
 describe("workerStatusToProto", () => {
@@ -238,7 +238,7 @@ describe("workerInfoToProto", () => {
 
 describe("coordinatorStatusToResponse", () => {
   it("should convert full coordinator status to StatusResponse", () => {
-    const status: CoordinatorStatus = {
+    const status: CoordinatorStatusReport = {
       taskCounts: { pending: 5, processing: 2, completed: 10 },
       operationalWorkers: 2,
       totalWorkers: 3,
@@ -288,7 +288,7 @@ describe("coordinatorStatusToResponse", () => {
   });
 
   it("should convert empty coordinator status", () => {
-    const status: CoordinatorStatus = {
+    const status: CoordinatorStatusReport = {
       taskCounts: { pending: 0, processing: 0, completed: 0 },
       operationalWorkers: 0,
       totalWorkers: 0,

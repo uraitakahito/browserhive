@@ -8,6 +8,7 @@ import { TaskQueue, type TaskCounts } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
 import { isSuccessStatus } from "./capture-status.js";
+import { CoordinatorLifecycleManager } from "./coordinator-lifecycle-manager.js";
 import { logger } from "../logger.js";
 
 /**
@@ -18,7 +19,7 @@ import { logger } from "../logger.js";
  */
 const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
 
-export interface CoordinatorStatus {
+export interface CoordinatorStatusReport {
   taskCounts: TaskCounts;
   operationalWorkers: number;
   totalWorkers: number;
@@ -34,7 +35,7 @@ export interface EnqueueResult {
 export class CaptureCoordinator {
   private workers: Worker[] = [];
   private taskQueue: TaskQueue;
-  private running = false;
+  private lifecycleManager = new CoordinatorLifecycleManager();
   private workerLoopPromises: Promise<void>[] = [];
 
   private config: CoordinatorConfig;
@@ -48,6 +49,8 @@ export class CaptureCoordinator {
    * Initialize the capture coordinator by connecting all workers
    */
   async initialize(): Promise<void> {
+    this.lifecycleManager.toInitializing();
+
     const connectionPromises = this.config.browserProfiles.map(
       async (profile, index) => {
         const worker = new Worker(index, profile);
@@ -71,10 +74,11 @@ export class CaptureCoordinator {
 
     const operationalCount = this.workers.filter((w) => w.isOperational).length;
     if (operationalCount === 0) {
+      this.lifecycleManager.toStopped();
       throw new Error("No workers available. All browser connections failed.");
     }
 
-    this.running = true;
+    this.lifecycleManager.toRunning();
 
     const operationalWorkers = this.workers.filter((w) => w.isOperational);
 
@@ -103,7 +107,11 @@ export class CaptureCoordinator {
   }
 
   async shutdown(): Promise<void> {
-    this.running = false;
+    if (!this.lifecycleManager.canTransitionTo("shuttingDown")) {
+      return;
+    }
+
+    this.lifecycleManager.toShuttingDown();
 
     // Wait for worker loops to finish current tasks, with timeout
     await Promise.race([
@@ -120,23 +128,25 @@ export class CaptureCoordinator {
       worker.disconnect()
     );
     await Promise.all(disconnectPromises);
+
+    this.lifecycleManager.toStopped();
     logger.info("Capture coordinator shut down");
   }
 
   get isRunning(): boolean {
-    return this.running;
+    return this.lifecycleManager.isRunning;
   }
 
   get operationalWorkerCount(): number {
     return this.workers.filter((w) => w.isOperational).length;
   }
 
-  getStatus(): CoordinatorStatus {
+  getStatus(): CoordinatorStatusReport {
     return {
       taskCounts: this.taskQueue.getStatus(),
       operationalWorkers: this.workers.filter((w) => w.isOperational).length,
       totalWorkers: this.workers.length,
-      isRunning: this.running,
+      isRunning: this.lifecycleManager.isRunning,
       workers: this.workers.map((w) => w.getInfo()),
     };
   }
@@ -145,7 +155,7 @@ export class CaptureCoordinator {
    * Worker loop - continuously process tasks while running
    */
   private async workerLoop(worker: Worker): Promise<void> {
-    while (this.running && worker.isOperational) {
+    while (this.lifecycleManager.isRunning && worker.isOperational) {
       const task = this.taskQueue.dequeue();
       if (!task) {
         await this.sleep(this.config.queuePollIntervalMs);
