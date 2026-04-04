@@ -48,6 +48,9 @@ export const createTestWorkerConfig = (
   overrides: DeepPartial<WorkerConfig> = {}
 ): WorkerConfig => ({
   browsers: overrides.browsers ?? DEFAULT_WORKER_CONFIG.browsers,
+  maxRetries: overrides.maxRetries ?? DEFAULT_WORKER_CONFIG.maxRetries,
+  queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_WORKER_CONFIG.queuePollIntervalMs,
+  rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_WORKER_CONFIG.rejectDuplicateUrls,
   capture: createTestCaptureConfig(overrides.capture),
 });
 

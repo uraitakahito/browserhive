@@ -24,10 +24,6 @@ export interface CaptureConfig {
     /** Capture operation timeout in milliseconds */
     capture: number;
   };
-  /** Maximum retry count for failed capture tasks */
-  maxRetries: number;
-  /** Queue poll interval in milliseconds when queue is empty */
-  queuePollIntervalMs: number;
   /** Viewport dimensions */
   viewport: {
     width: number;
@@ -35,8 +31,6 @@ export interface CaptureConfig {
   };
   /** Screenshot options */
   screenshot: ScreenshotConfig;
-  /** Reject capture requests for URLs already in the queue */
-  rejectDuplicateUrls: boolean;
   /** Custom User-Agent string (uses browser default if undefined) */
   userAgent?: string;
   /** Accept-Language header value (e.g., "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7") */
@@ -47,6 +41,12 @@ export interface CaptureConfig {
 export interface WorkerConfig {
   /** List of browser connection options */
   browsers: BrowserOptions[];
+  /** Maximum retry count for failed capture tasks */
+  maxRetries: number;
+  /** Queue poll interval in milliseconds when queue is empty */
+  queuePollIntervalMs: number;
+  /** Reject capture requests for URLs already in the queue */
+  rejectDuplicateUrls: boolean;
   /** Capture configuration */
   capture: CaptureConfig;
 }

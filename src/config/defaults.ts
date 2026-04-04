@@ -27,8 +27,6 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     pageLoad: 30000,
     capture: 10000,
   },
-  maxRetries: 2,
-  queuePollIntervalMs: 50,
   viewport: {
     width: 1280,
     height: 800,
@@ -36,11 +34,13 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   screenshot: {
     fullPage: false,
   },
-  rejectDuplicateUrls: false,
 };
 
 export const DEFAULT_WORKER_CONFIG: WorkerConfig = {
   browsers: [],
+  maxRetries: 2,
+  queuePollIntervalMs: 50,
+  rejectDuplicateUrls: false,
   capture: DEFAULT_CAPTURE_CONFIG,
 };
 

@@ -81,7 +81,7 @@ export class WorkerPool {
   }
 
   enqueueTask(task: CaptureTask): EnqueueResult {
-    if (this.config.capture.rejectDuplicateUrls) {
+    if (this.config.rejectDuplicateUrls) {
       if (this.taskQueue.hasUrl(task.url)) {
         return {
           success: false,
@@ -131,7 +131,7 @@ export class WorkerPool {
     while (this.running && worker.isHealthy) {
       const task = this.taskQueue.dequeue();
       if (!task) {
-        await this.sleep(this.config.capture.queuePollIntervalMs);
+        await this.sleep(this.config.queuePollIntervalMs);
         continue;
       }
 
@@ -145,7 +145,7 @@ export class WorkerPool {
             taskId: task.taskId,
             ...(task.correlationId && { correlationId: task.correlationId }),
             attempt: task.retryCount + 1,
-            maxRetries: this.config.capture.maxRetries,
+            maxRetries: this.config.maxRetries,
             url: task.url,
           },
           "Retrying task"
@@ -194,6 +194,6 @@ export class WorkerPool {
   }
 
   private shouldRetry(task: CaptureTask): boolean {
-    return task.retryCount < this.config.capture.maxRetries;
+    return task.retryCount < this.config.maxRetries;
   }
 }
