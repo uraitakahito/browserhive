@@ -40,16 +40,16 @@ const loadProtoDefinitionForReflection = () => {
 
 export class CaptureServer {
   private server: grpc.Server;
-  private workerPool: WorkerPool | null = null;
+  private workerPool: WorkerPool;
   private config: ServerConfig;
 
   constructor(config: ServerConfig) {
     this.config = config;
     this.server = new grpc.Server();
+    this.workerPool = new WorkerPool(config.worker);
   }
 
   async initialize(): Promise<void> {
-    this.workerPool = new WorkerPool(this.config.worker);
     await this.workerPool.initialize();
 
     const handlers = createCaptureServiceHandlers(this.workerPool);
@@ -115,9 +115,7 @@ export class CaptureServer {
   async shutdown(): Promise<void> {
     logger.info("Shutting down gRPC server");
 
-    if (this.workerPool) {
-      await this.workerPool.shutdown();
-    }
+    await this.workerPool.shutdown();
 
     // Shutdown gRPC server with timeout fallback to forceShutdown
     return new Promise((resolve) => {
