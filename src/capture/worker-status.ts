@@ -5,7 +5,7 @@
  * Proto mappings are handled by grpc/response-mapper.ts.
  */
 export const WORKER_STATUS_DEFINITIONS = {
-  idle: {
+  ready: {
     canProcess: true,
     healthy: true,
     allowedTransitions: ["busy", "error", "stopped"] as const,
@@ -13,17 +13,17 @@ export const WORKER_STATUS_DEFINITIONS = {
   busy: {
     canProcess: false,
     healthy: true,
-    allowedTransitions: ["idle", "error", "stopped"] as const,
+    allowedTransitions: ["ready", "error", "stopped"] as const,
   },
   error: {
     canProcess: false,
     healthy: false,
-    allowedTransitions: ["idle", "stopped"] as const,
+    allowedTransitions: ["ready", "stopped"] as const,
   },
   stopped: {
     canProcess: false,
     healthy: false,
-    allowedTransitions: ["idle", "error"] as const,
+    allowedTransitions: ["ready", "error"] as const,
   },
 } as const;
 

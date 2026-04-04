@@ -9,7 +9,7 @@ describe("worker-status", () => {
   describe("WORKER_STATUS_DEFINITIONS", () => {
     it("should define all WorkerStatus values", () => {
       const expectedStatuses: WorkerStatus[] = [
-        "idle",
+        "ready",
         "busy",
         "error",
         "stopped",
@@ -33,7 +33,7 @@ describe("worker-status", () => {
 
   describe("ALL_WORKER_STATUSES", () => {
     it("should contain all worker statuses", () => {
-      expect(ALL_WORKER_STATUSES).toContain("idle");
+      expect(ALL_WORKER_STATUSES).toContain("ready");
       expect(ALL_WORKER_STATUSES).toContain("busy");
       expect(ALL_WORKER_STATUSES).toContain("error");
       expect(ALL_WORKER_STATUSES).toContain("stopped");

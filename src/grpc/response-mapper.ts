@@ -21,7 +21,7 @@ import type {
 import type { CoordinatorStatus } from "../capture/capture-coordinator.js";
 
 const WORKER_STATUS_PROTO_MAP: Record<WorkerStatus, ProtoWorkerStatus> = {
-  idle: ProtoWorkerStatus.WORKER_STATUS_IDLE,
+  ready: ProtoWorkerStatus.WORKER_STATUS_READY,
   busy: ProtoWorkerStatus.WORKER_STATUS_BUSY,
   error: ProtoWorkerStatus.WORKER_STATUS_ERROR,
   stopped: ProtoWorkerStatus.WORKER_STATUS_STOPPED,

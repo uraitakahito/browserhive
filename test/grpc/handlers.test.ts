@@ -430,7 +430,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 0,
               browserProfile: { browserURL: "http://browser1:9222" },
-              status: "idle",
+              status: "ready",
               processedCount: 5,
               errorCount: 0,
               errorHistory: [],
@@ -491,7 +491,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 0,
             browser_options: { browser_url: "http://browser1:9222" },
-            status: WorkerStatus.WORKER_STATUS_IDLE,
+            status: WorkerStatus.WORKER_STATUS_READY,
             processed_count: 5,
             error_count: 0,
             error_history: [],

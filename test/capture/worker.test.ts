@@ -68,11 +68,11 @@ describe("Worker", () => {
       );
     });
 
-    it("should set status to idle on successful connection", async () => {
+    it("should set status to ready on successful connection", async () => {
       await worker.connect();
 
       const info = worker.getInfo();
-      expect(info.status).toBe("idle");
+      expect(info.status).toBe("ready");
     });
 
     it("should return false on connection failure", async () => {
@@ -259,7 +259,7 @@ describe("Worker", () => {
       expect(worker.getInfo().status).toBe("error");
     });
 
-    it("should set status back to idle after successful processing", async () => {
+    it("should set status back to ready after successful processing", async () => {
       await worker.connect();
       const task = createTask();
       mockCapture.mockResolvedValue({
@@ -272,7 +272,7 @@ describe("Worker", () => {
 
       await worker.process(task);
 
-      expect(worker.getInfo().status).toBe("idle");
+      expect(worker.getInfo().status).toBe("ready");
     });
   });
 
@@ -307,7 +307,7 @@ describe("Worker", () => {
       expect(worker.isIdle).toBe(false);
     });
 
-    it("should return true when connected and idle", async () => {
+    it("should return true when connected and ready", async () => {
       await worker.connect();
 
       expect(worker.isIdle).toBe(true);
@@ -329,7 +329,7 @@ describe("Worker", () => {
 
       expect(info.index).toBe(0);
       expect(info.browserProfile).toEqual({ browserURL: "http://chromium:9222", capture: expect.any(Object) as object });
-      expect(info.status).toBe("idle");
+      expect(info.status).toBe("ready");
       expect(info.processedCount).toBe(0);
       expect(info.errorCount).toBe(0);
       expect(info.errorHistory).toEqual([]);
