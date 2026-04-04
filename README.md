@@ -22,8 +22,8 @@ flowchart TB
             SubmitCaptureHandler[SubmitCaptureHandler<br/>validate & enqueue]
             GetStatusHandler[GetStatusHandler<br/>return status]
         end
-        Queue[TaskQueue]
         subgraph WorkerPool
+            Queue[TaskQueue]
             Worker1[Worker 1]
             Worker2[Worker 2]
             Worker3[Worker N]
