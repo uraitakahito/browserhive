@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   WORKER_STATUS_DEFINITIONS,
-  canProcess,
   isHealthyStatus,
   ALL_WORKER_STATUSES,
 } from "../../src/capture/worker-status.js";
@@ -40,15 +39,6 @@ describe("worker-status", () => {
       expect(ALL_WORKER_STATUSES).toContain("error");
       expect(ALL_WORKER_STATUSES).toContain("stopped");
       expect(ALL_WORKER_STATUSES).toHaveLength(4);
-    });
-  });
-
-  describe("canProcess", () => {
-    it("should return true only for idle", () => {
-      expect(canProcess("idle")).toBe(true);
-      expect(canProcess("busy")).toBe(false);
-      expect(canProcess("error")).toBe(false);
-      expect(canProcess("stopped")).toBe(false);
     });
   });
 
