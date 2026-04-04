@@ -91,7 +91,9 @@ export class Worker {
       }
       this.browser = null;
     }
-    this.statusManager.toStopped();
+    if (this.statusManager.canTransitionTo("stopped")) {
+      this.statusManager.toStopped();
+    }
   }
 
   async process(task: CaptureTask): Promise<CaptureResult> {

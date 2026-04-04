@@ -4,7 +4,6 @@
 import {
   type WorkerStatus,
   WORKER_STATUS_DEFINITIONS,
-  canTransitionTo,
 } from "./worker-status.js";
 
 export class WorkerStatusManager {
@@ -26,15 +25,18 @@ export class WorkerStatusManager {
     return WORKER_STATUS_DEFINITIONS[this._status].healthy;
   }
 
+  canTransitionTo(next: WorkerStatus): boolean {
+    return (
+      WORKER_STATUS_DEFINITIONS[this._status].allowedTransitions as readonly WorkerStatus[]
+    ).includes(next);
+  }
+
   /**
    * Transition to a new state (with validation)
    * @throws Error if the transition is invalid
    */
   transitionTo(next: WorkerStatus): void {
-    if (this._status === next) {
-      return; // Allow transition to the same state (idempotency)
-    }
-    if (!canTransitionTo(this._status, next)) {
+    if (!this.canTransitionTo(next)) {
       throw new Error(
         `Invalid status transition: ${this._status} -> ${next}`
       );

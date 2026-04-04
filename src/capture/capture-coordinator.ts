@@ -7,7 +7,6 @@ import type { CoordinatorConfig } from "../config/index.js";
 import { TaskQueue, type TaskCounts } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
-import { isHealthyStatus } from "./worker-status.js";
 import { isSuccessStatus } from "./capture-status.js";
 import { logger } from "../logger.js";
 
@@ -157,7 +156,6 @@ export class CaptureCoordinator {
       }
 
       const result = await worker.process(task);
-      const workerInfo = worker.getInfo();
 
       if (!isSuccessStatus(result.status) && this.shouldRetry(task)) {
         worker.logger.info(
@@ -199,14 +197,13 @@ export class CaptureCoordinator {
         }
       }
 
-      // If worker became unhealthy during processing, stop the loop
-      if (!isHealthyStatus(workerInfo.status)) {
-        worker.logger.error(
-          { status: workerInfo.status },
-          "Worker became unhealthy, stopping loop"
-        );
-        break;
-      }
+    }
+
+    const { status } = worker.getInfo();
+    if (status === "error") {
+      worker.logger.error({ status }, "Worker became unhealthy, stopping loop");
+    } else {
+      worker.logger.info({ status }, "Worker loop stopped");
     }
   }
 

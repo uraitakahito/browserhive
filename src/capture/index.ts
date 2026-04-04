@@ -45,9 +45,6 @@ export type { WorkerStatus } from "./worker-status.js";
 export {
   WORKER_STATUS_DEFINITIONS,
   ALL_WORKER_STATUSES,
-  canProcess,
-  isHealthyStatus,
-  canTransitionTo,
 } from "./worker-status.js";
 export { WorkerStatusManager } from "./worker-status-manager.js";
 

@@ -28,12 +28,11 @@ describe("WorkerStatusManager", () => {
       }).toThrow("Invalid status transition: stopped -> busy");
     });
 
-    it("should allow same-state transition (idempotent)", () => {
+    it("should throw on same-state transition", () => {
       const manager = new WorkerStatusManager("idle");
       expect(() => {
         manager.transitionTo("idle");
-      }).not.toThrow();
-      expect(manager.current).toBe("idle");
+      }).toThrow("Invalid status transition: idle -> idle");
     });
   });
 
@@ -60,6 +59,64 @@ describe("WorkerStatusManager", () => {
       const manager = new WorkerStatusManager("idle");
       manager.toStopped();
       expect(manager.current).toBe("stopped");
+    });
+  });
+
+  describe("canTransitionTo", () => {
+    describe("from idle", () => {
+      it("should allow transitions to busy, error, stopped", () => {
+        const manager = new WorkerStatusManager("idle");
+        expect(manager.canTransitionTo("busy")).toBe(true);
+        expect(manager.canTransitionTo("error")).toBe(true);
+        expect(manager.canTransitionTo("stopped")).toBe(true);
+      });
+
+      it("should not allow transition to itself", () => {
+        const manager = new WorkerStatusManager("idle");
+        expect(manager.canTransitionTo("idle")).toBe(false);
+      });
+    });
+
+    describe("from busy", () => {
+      it("should allow transitions to idle, error, stopped", () => {
+        const manager = new WorkerStatusManager("busy");
+        expect(manager.canTransitionTo("idle")).toBe(true);
+        expect(manager.canTransitionTo("error")).toBe(true);
+        expect(manager.canTransitionTo("stopped")).toBe(true);
+      });
+
+      it("should not allow transition to itself", () => {
+        const manager = new WorkerStatusManager("busy");
+        expect(manager.canTransitionTo("busy")).toBe(false);
+      });
+    });
+
+    describe("from error", () => {
+      it("should allow transitions to idle and stopped", () => {
+        const manager = new WorkerStatusManager("error");
+        expect(manager.canTransitionTo("idle")).toBe(true);
+        expect(manager.canTransitionTo("stopped")).toBe(true);
+      });
+
+      it("should not allow transitions to busy or itself", () => {
+        const manager = new WorkerStatusManager("error");
+        expect(manager.canTransitionTo("busy")).toBe(false);
+        expect(manager.canTransitionTo("error")).toBe(false);
+      });
+    });
+
+    describe("from stopped", () => {
+      it("should allow transitions to idle and error", () => {
+        const manager = new WorkerStatusManager("stopped");
+        expect(manager.canTransitionTo("idle")).toBe(true);
+        expect(manager.canTransitionTo("error")).toBe(true);
+      });
+
+      it("should not allow transitions to busy or itself", () => {
+        const manager = new WorkerStatusManager("stopped");
+        expect(manager.canTransitionTo("busy")).toBe(false);
+        expect(manager.canTransitionTo("stopped")).toBe(false);
+      });
     });
   });
 
