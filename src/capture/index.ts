@@ -53,8 +53,8 @@ export { WorkerStatusManager } from "./worker-status-manager.js";
 
 // Classes
 export { Worker } from "./worker.js";
-export { WorkerPool } from "./worker-pool.js";
-export type { PoolStatus, EnqueueResult } from "./worker-pool.js";
+export { CaptureCoordinator } from "./capture-coordinator.js";
+export type { CoordinatorStatus, EnqueueResult } from "./capture-coordinator.js";
 export { TaskQueue } from "./task-queue.js";
 export type { TaskCounts } from "./task-queue.js";
 export { PageCapturer } from "./page-capturer.js";

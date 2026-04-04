@@ -1,24 +1,24 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { createCaptureServiceHandlers } from "../../src/grpc/handlers.js";
-import type { WorkerPool } from "../../src/capture/index.js";
+import type { CaptureCoordinator } from "../../src/capture/index.js";
 import type { CaptureRequest, CaptureAcceptance, Empty, StatusResponse } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type * as grpc from "@grpc/grpc-js";
 
 describe("createCaptureServiceHandlers", () => {
-  let mockWorkerPool: WorkerPool;
+  let mockCaptureCoordinator: CaptureCoordinator;
   let handlers: ReturnType<typeof createCaptureServiceHandlers>;
   let mockCallback: Mock;
   let mockCall: { request: CaptureRequest };
 
   beforeEach(() => {
-    mockWorkerPool = {
+    mockCaptureCoordinator = {
       isRunning: true,
       healthyWorkerCount: 1,
       enqueueTask: vi.fn().mockReturnValue({ success: true }),
-    } as unknown as WorkerPool;
+    } as unknown as CaptureCoordinator;
 
-    handlers = createCaptureServiceHandlers(mockWorkerPool);
+    handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
     mockCallback = vi.fn();
   });
 
@@ -64,7 +64,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should accept when labels is empty array", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
         mockCall = createMockCall({ labels: [] });
 
         handlers.submitCapture(
@@ -82,7 +82,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should accept when labels contains only whitespace (treated as empty)", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
         mockCall = createMockCall({ labels: ["   "] });
 
         handlers.submitCapture(
@@ -200,12 +200,12 @@ describe("createCaptureServiceHandlers", () => {
 
     describe("worker pool unavailable", () => {
       it("should return error when worker pool is not running", () => {
-        mockWorkerPool = {
+        mockCaptureCoordinator = {
           isRunning: false,
           healthyWorkerCount: 1,
           enqueueTask: vi.fn(),
-        } as unknown as WorkerPool;
-        handlers = createCaptureServiceHandlers(mockWorkerPool);
+        } as unknown as CaptureCoordinator;
+        handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
 
         mockCall = createMockCall({});
 
@@ -221,12 +221,12 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should return error when no healthy workers", () => {
-        mockWorkerPool = {
+        mockCaptureCoordinator = {
           isRunning: true,
           healthyWorkerCount: 0,
           enqueueTask: vi.fn(),
-        } as unknown as WorkerPool;
-        handlers = createCaptureServiceHandlers(mockWorkerPool);
+        } as unknown as CaptureCoordinator;
+        handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
 
         mockCall = createMockCall({});
 
@@ -262,7 +262,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should accept multiple valid labels", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
 
         mockCall = createMockCall({
           url: "https://example.com",
@@ -303,7 +303,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should enqueue task with png-only options", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
 
         mockCall = createMockCall({
           url: "https://example.com/page",
@@ -326,7 +326,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should enqueue task with html-only options", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
 
         mockCall = createMockCall({
           url: "https://example.com/page",
@@ -345,7 +345,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should trim url and labels", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
 
         mockCall = createMockCall({
           url: "  https://example.com  ",
@@ -365,16 +365,16 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should reject duplicate URL when enqueueTask returns failure", () => {
-        mockWorkerPool = {
+        mockCaptureCoordinator = {
           isRunning: true,
           healthyWorkerCount: 1,
           enqueueTask: vi.fn().mockReturnValue({
             success: false,
             error: "URL already in queue: https://example.com",
           }),
-        } as unknown as WorkerPool;
+        } as unknown as CaptureCoordinator;
 
-        handlers = createCaptureServiceHandlers(mockWorkerPool);
+        handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
         mockCall = createMockCall({ url: "https://example.com", labels: ["Test"] });
 
         handlers.submitCapture(
@@ -390,7 +390,7 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should include correlationId in task when provided", () => {
-        const enqueueTaskSpy = vi.spyOn(mockWorkerPool, "enqueueTask");
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
 
         mockCall = createMockCall({
           url: "https://example.com",
@@ -413,7 +413,7 @@ describe("createCaptureServiceHandlers", () => {
 
   describe("getStatus handler", () => {
     it("should return current queue and worker pool status with worker details", () => {
-      mockWorkerPool = {
+      mockCaptureCoordinator = {
         isRunning: true,
         healthyWorkerCount: 2,
         enqueueTask: vi.fn(),
@@ -471,9 +471,9 @@ describe("createCaptureServiceHandlers", () => {
             },
           ],
         }),
-      } as unknown as WorkerPool;
+      } as unknown as CaptureCoordinator;
 
-      handlers = createCaptureServiceHandlers(mockWorkerPool);
+      handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
 
       handlers.getStatus(
         {} as grpc.ServerUnaryCall<Empty, StatusResponse>,
@@ -535,7 +535,7 @@ describe("createCaptureServiceHandlers", () => {
     });
 
     it("should return status even when pool is not running", () => {
-      mockWorkerPool = {
+      mockCaptureCoordinator = {
         isRunning: false,
         healthyWorkerCount: 0,
         enqueueTask: vi.fn(),
@@ -567,9 +567,9 @@ describe("createCaptureServiceHandlers", () => {
             },
           ],
         }),
-      } as unknown as WorkerPool;
+      } as unknown as CaptureCoordinator;
 
-      handlers = createCaptureServiceHandlers(mockWorkerPool);
+      handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
 
       handlers.getStatus(
         {} as grpc.ServerUnaryCall<Empty, StatusResponse>,

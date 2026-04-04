@@ -6,10 +6,10 @@ package browserhive.v1;
 service CaptureService {
   // Submit a capture request for a single URL (screenshot and/or HTML)
   // Uses fire-and-forget pattern: returns immediately after accepting the request.
-  // The actual capture is processed asynchronously by the worker pool.
+  // The actual capture is processed asynchronously by the capture coordinator.
   rpc SubmitCapture(CaptureRequest) returns (CaptureAcceptance);
 
-  // Get the current status of the queue and worker pool
+  // Get the current status of the queue and capture coordinator
   rpc GetStatus(Empty) returns (StatusResponse);
 }
 
@@ -154,7 +154,7 @@ message StatusResponse {
   // Total number of workers
   int32 total_workers = 6;
 
-  // Whether the worker pool is running
+  // Whether the capture coordinator is running
   bool is_running = 7;
 
   // Detailed worker information

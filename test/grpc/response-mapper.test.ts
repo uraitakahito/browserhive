@@ -5,11 +5,11 @@ import {
   captureOptionsToProto,
   errorRecordToProto,
   workerInfoToProto,
-  poolStatusToResponse,
+  coordinatorStatusToResponse,
 } from "../../src/grpc/response-mapper.js";
 import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type { CaptureOptions, ErrorRecord, WorkerInfo } from "../../src/capture/index.js";
-import type { PoolStatus } from "../../src/capture/worker-pool.js";
+import type { CoordinatorStatus } from "../../src/capture/capture-coordinator.js";
 
 describe("workerStatusToProto", () => {
   it("should convert idle to WORKER_STATUS_IDLE", () => {
@@ -235,9 +235,9 @@ describe("workerInfoToProto", () => {
   });
 });
 
-describe("poolStatusToResponse", () => {
-  it("should convert full pool status to StatusResponse", () => {
-    const status: PoolStatus = {
+describe("coordinatorStatusToResponse", () => {
+  it("should convert full coordinator status to StatusResponse", () => {
+    const status: CoordinatorStatus = {
       taskCounts: { pending: 5, processing: 2, completed: 10 },
       healthyWorkers: 2,
       totalWorkers: 3,
@@ -268,7 +268,7 @@ describe("poolStatusToResponse", () => {
       ],
     };
 
-    const response = poolStatusToResponse(status);
+    const response = coordinatorStatusToResponse(status);
 
     expect(response.pending).toBe(5);
     expect(response.processing).toBe(2);
@@ -286,8 +286,8 @@ describe("poolStatusToResponse", () => {
     });
   });
 
-  it("should convert empty pool status", () => {
-    const status: PoolStatus = {
+  it("should convert empty coordinator status", () => {
+    const status: CoordinatorStatus = {
       taskCounts: { pending: 0, processing: 0, completed: 0 },
       healthyWorkers: 0,
       totalWorkers: 0,
@@ -295,7 +295,7 @@ describe("poolStatusToResponse", () => {
       workers: [],
     };
 
-    const response = poolStatusToResponse(status);
+    const response = coordinatorStatusToResponse(status);
 
     expect(response.pending).toBe(0);
     expect(response.is_running).toBe(false);

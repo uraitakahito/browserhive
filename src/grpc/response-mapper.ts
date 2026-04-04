@@ -18,7 +18,7 @@ import type {
   ErrorRecord,
   WorkerInfo,
 } from "../capture/index.js";
-import type { PoolStatus } from "../capture/worker-pool.js";
+import type { CoordinatorStatus } from "../capture/capture-coordinator.js";
 
 const WORKER_STATUS_PROTO_MAP: Record<WorkerStatus, ProtoWorkerStatus> = {
   idle: ProtoWorkerStatus.WORKER_STATUS_IDLE,
@@ -87,7 +87,7 @@ export const workerInfoToProto = (worker: WorkerInfo): ProtoWorkerInfo => {
   };
 };
 
-export const poolStatusToResponse = (status: PoolStatus): StatusResponse => {
+export const coordinatorStatusToResponse = (status: CoordinatorStatus): StatusResponse => {
   return {
     pending: status.taskCounts.pending,
     processing: status.taskCounts.processing,

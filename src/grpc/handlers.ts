@@ -8,13 +8,13 @@ import { status as grpcStatus } from "@grpc/grpc-js";
 import type * as grpc from "@grpc/grpc-js";
 import type { ServerUnaryCall, sendUnaryData } from "@grpc/grpc-js";
 import type { CaptureRequest, CaptureAcceptance, Empty, StatusResponse } from "./generated/browserhive/v1/capture.js";
-import type { WorkerPool } from "../capture/index.js";
+import type { CaptureCoordinator } from "../capture/index.js";
 import { createChildLogger } from "../logger.js";
 import { captureRequestToTask } from "./request-mapper.js";
-import { poolStatusToResponse } from "./response-mapper.js";
+import { coordinatorStatusToResponse } from "./response-mapper.js";
 
 /** Create handlers for CaptureService */
-export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
+export const createCaptureServiceHandlers = (coordinator: CaptureCoordinator) => {
   /**
    * SubmitCapture RPC handler
    *
@@ -36,7 +36,7 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
       return;
     }
 
-    if (!workerPool.isRunning || workerPool.healthyWorkerCount === 0) {
+    if (!coordinator.isRunning || coordinator.healthyWorkerCount === 0) {
       callback({
         code: grpcStatus.UNAVAILABLE,
         message: "No healthy workers available",
@@ -47,7 +47,7 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     const { task } = result;
 
     // Enqueue task (fire-and-forget)
-    const enqueueResult = workerPool.enqueueTask(task);
+    const enqueueResult = coordinator.enqueueTask(task);
 
     if (!enqueueResult.success) {
       callback(null, {
@@ -87,7 +87,7 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     _call: ServerUnaryCall<Empty, StatusResponse>,
     callback: sendUnaryData<StatusResponse>
   ) => {
-    callback(null, poolStatusToResponse(workerPool.getStatus()));
+    callback(null, coordinatorStatusToResponse(coordinator.getStatus()));
   };
 
   return { submitCapture, getStatus };
