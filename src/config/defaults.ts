@@ -37,7 +37,7 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
 };
 
 export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
-  browsers: [],
+  browserEndpoints: [],
   maxRetries: 2,
   queuePollIntervalMs: 50,
   rejectDuplicateUrls: false,

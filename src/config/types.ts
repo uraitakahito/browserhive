@@ -39,8 +39,8 @@ export interface CaptureConfig {
 
 /** Coordinator configuration (middle layer) */
 export interface CoordinatorConfig {
-  /** List of browser connection options */
-  browsers: BrowserOptions[];
+  /** List of browser endpoint configurations */
+  browserEndpoints: BrowserEndpoint[];
   /** Maximum retry count for failed capture tasks */
   maxRetries: number;
   /** Queue poll interval in milliseconds when queue is empty */
@@ -78,8 +78,8 @@ export interface BrowserHiveConfig {
   coordinator: CoordinatorConfig;
 }
 
-/** Browser connection configuration */
-export interface BrowserOptions {
+/** Browser endpoint configuration */
+export interface BrowserEndpoint {
   /** Remote browser URL (e.g., http://puppeteer:9222) */
   browserURL: string;
   /** Slow down Puppeteer operations by the specified milliseconds */
@@ -88,6 +88,6 @@ export interface BrowserOptions {
 
 /** Worker configuration (browser connection + capture settings) */
 export interface WorkerConfig {
-  browser: BrowserOptions;
+  browser: BrowserEndpoint;
   capture: CaptureConfig;
 }

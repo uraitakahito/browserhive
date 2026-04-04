@@ -157,7 +157,7 @@ export class Worker {
   getInfo(): WorkerInfo {
     return {
       index: this.index,
-      browserOptions: this.config.browser,
+      browserEndpoint: this.config.browser,
       status: this.statusManager.current,
       processedCount: this.processedCount,
       errorCount: this.errorCount,

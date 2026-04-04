@@ -24,8 +24,8 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
 });
 
 describe("DEFAULT_COORDINATOR_CONFIG", () => {
-  it("should have empty browsers by default", () => {
-    expect(DEFAULT_COORDINATOR_CONFIG.browsers).toEqual([]);
+  it("should have empty browserEndpoints by default", () => {
+    expect(DEFAULT_COORDINATOR_CONFIG.browserEndpoints).toEqual([]);
   });
 
   it("should have correct default values for pool settings", () => {
@@ -113,19 +113,19 @@ describe("createTestCaptureConfig", () => {
 describe("createTestCoordinatorConfig", () => {
   it("should return default config when no overrides", () => {
     const config = createTestCoordinatorConfig();
-    expect(config.browsers).toEqual([]);
+    expect(config.browserEndpoints).toEqual([]);
     expect(config.capture).toEqual(DEFAULT_CAPTURE_CONFIG);
   });
 
-  it("should override browsers", () => {
+  it("should override browserEndpoints", () => {
     const config = createTestCoordinatorConfig({
-      browsers: [
+      browserEndpoints: [
         { browserURL: "http://chromium-1:9222" },
         { browserURL: "http://chromium-2:9222" },
       ],
     });
 
-    expect(config.browsers).toEqual([
+    expect(config.browserEndpoints).toEqual([
       { browserURL: "http://chromium-1:9222" },
       { browserURL: "http://chromium-2:9222" },
     ]);
@@ -165,9 +165,9 @@ describe("createTestBrowserHiveConfig", () => {
 
   it("should override nested coordinator config", () => {
     const config = createTestBrowserHiveConfig({
-      coordinator: { browsers: [{ browserURL: "http://browser:9222" }] },
+      coordinator: { browserEndpoints: [{ browserURL: "http://browser:9222" }] },
     });
 
-    expect(config.coordinator.browsers).toEqual([{ browserURL: "http://browser:9222" }]);
+    expect(config.coordinator.browserEndpoints).toEqual([{ browserURL: "http://browser:9222" }]);
   });
 });

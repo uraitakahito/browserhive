@@ -5,7 +5,7 @@ export type {
   CaptureConfig,
   CoordinatorConfig,
   BrowserHiveConfig,
-  BrowserOptions,
+  BrowserEndpoint,
   WorkerConfig,
   TlsConfig,
   ClientTlsConfig,

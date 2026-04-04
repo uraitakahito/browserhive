@@ -48,10 +48,10 @@ export class CaptureCoordinator {
    * Initialize the capture coordinator by connecting all workers
    */
   async initialize(): Promise<void> {
-    const connectionPromises = this.config.browsers.map(
-      async (browserOptions, index) => {
+    const connectionPromises = this.config.browserEndpoints.map(
+      async (browserEndpoint, index) => {
         const worker = new Worker(index, {
-          browser: browserOptions,
+          browser: browserEndpoint,
           capture: this.config.capture,
         });
         const connected = await worker.connect();
