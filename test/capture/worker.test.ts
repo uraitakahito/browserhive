@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import type { CaptureConfig } from "../../src/config/index.js";
+import type { WorkerConfig } from "../../src/config/index.js";
 import type { CaptureTask, CaptureResult } from "../../src/capture/types.js";
 import type { Browser } from "puppeteer";
 import { createTestCaptureConfig } from "../helpers/config.js";
@@ -25,7 +25,10 @@ vi.mock("../../src/capture/page-capturer.js", () => ({
 import { Worker } from "../../src/capture/worker.js";
 import connectBrowser from "../../src/browser.js";
 
-const createConfig = (): CaptureConfig => createTestCaptureConfig();
+const createWorkerConfig = (browserURL = "http://chromium:9222"): WorkerConfig => ({
+  browser: { browserURL },
+  capture: createTestCaptureConfig(),
+});
 
 const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-uuid-1234",
@@ -52,7 +55,7 @@ describe("Worker", () => {
     // Setup connectBrowser mock
     vi.mocked(connectBrowser).mockResolvedValue(mockBrowser as Browser);
 
-    worker = new Worker(0, { browserURL: "http://chromium:9222" }, createConfig());
+    worker = new Worker(0, createWorkerConfig());
   });
 
   describe("connect", () => {

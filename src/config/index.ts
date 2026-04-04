@@ -6,6 +6,7 @@ export type {
   CoordinatorConfig,
   BrowserHiveConfig,
   BrowserOptions,
+  WorkerConfig,
   TlsConfig,
   ClientTlsConfig,
 } from "./types.js";
