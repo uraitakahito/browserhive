@@ -431,6 +431,18 @@ describe("setAcceptLanguage", () => {
     });
   });
 
+  it("should set the correct header name", async () => {
+    const mockSetExtraHTTPHeaders = vi.fn<(headers: Record<string, string>) => Promise<void>>();
+    const mockPage = {
+      setExtraHTTPHeaders: mockSetExtraHTTPHeaders,
+    } as unknown as Page;
+
+    await setAcceptLanguage(mockPage, "en-US");
+
+    const headers = mockSetExtraHTTPHeaders.mock.calls[0]![0];
+    expect(Object.keys(headers)).toEqual(["Accept-Language"]);
+  });
+
   it("should not call page.setExtraHTTPHeaders when acceptLanguage is undefined", async () => {
     const mockSetExtraHTTPHeaders = vi.fn<(headers: Record<string, string>) => Promise<void>>();
     const mockPage = {
