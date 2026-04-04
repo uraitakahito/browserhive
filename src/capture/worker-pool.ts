@@ -129,7 +129,7 @@ export class WorkerPool {
    * Worker loop - continuously process tasks while running
    */
   private async workerLoop(worker: Worker): Promise<void> {
-    const workerLogger = createChildLogger({ workerId: worker.id });
+    const workerLogger = createChildLogger({ workerId: worker.id, browserURL: worker.browserOptions.browserURL });
 
     while (this.running && worker.isHealthy) {
       const task = this.taskQueue.dequeue();
