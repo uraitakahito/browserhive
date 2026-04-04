@@ -23,4 +23,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
           eslint_flags: '.'
-          fail_level: error
+          fail_level: warning
