@@ -52,7 +52,7 @@ describe("Worker", () => {
     // Setup connectBrowser mock
     vi.mocked(connectBrowser).mockResolvedValue(mockBrowser as Browser);
 
-    worker = new Worker("worker-1", { browserURL: "http://chromium:9222" }, createConfig());
+    worker = new Worker(0, { browserURL: "http://chromium:9222" }, createConfig());
   });
 
   describe("connect", () => {
@@ -137,7 +137,7 @@ describe("Worker", () => {
 
       expect(result.status).toBe(captureStatus.failed);
       expect(result.errorDetails?.message).toContain("not available");
-      expect(result.workerId).toBe("worker-1");
+      expect(result.workerIndex).toBe(0);
     });
 
     it("should process task successfully", async () => {
@@ -150,7 +150,7 @@ describe("Worker", () => {
         htmlPath: "/path/to/page.html",
         captureProcessingTimeMs: 1000,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       };
       mockCapture.mockResolvedValue(expectedResult);
 
@@ -160,7 +160,7 @@ describe("Worker", () => {
       expect(mockCapture).toHaveBeenCalledWith(
         mockBrowser,
         task,
-        "worker-1"
+        0
       );
     });
 
@@ -172,7 +172,7 @@ describe("Worker", () => {
         status: captureStatus.success,
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);
@@ -192,7 +192,7 @@ describe("Worker", () => {
         },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);
@@ -213,7 +213,7 @@ describe("Worker", () => {
         },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);
@@ -264,7 +264,7 @@ describe("Worker", () => {
         status: captureStatus.success,
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);
@@ -324,7 +324,7 @@ describe("Worker", () => {
 
       const info = worker.getInfo();
 
-      expect(info.id).toBe("worker-1");
+      expect(info.index).toBe(0);
       expect(info.browserOptions).toEqual({ browserURL: "http://chromium:9222" });
       expect(info.status).toBe("idle");
       expect(info.processedCount).toBe(0);
@@ -348,7 +348,7 @@ describe("Worker", () => {
           },
           captureProcessingTimeMs: 100,
           timestamp: new Date().toISOString(),
-          workerId: "worker-1",
+          workerIndex: 0,
         });
         await worker.process(task);
       }
@@ -373,7 +373,7 @@ describe("Worker", () => {
           },
           captureProcessingTimeMs: 100,
           timestamp: new Date().toISOString(),
-          workerId: "worker-1",
+          workerIndex: 0,
         });
         await worker.process(task);
       }
@@ -400,7 +400,7 @@ describe("Worker", () => {
         },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);
@@ -425,7 +425,7 @@ describe("Worker", () => {
         },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);
@@ -450,7 +450,7 @@ describe("Worker", () => {
         },
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
-        workerId: "worker-1",
+        workerIndex: 0,
       });
 
       await worker.process(task);

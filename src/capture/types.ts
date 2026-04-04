@@ -46,7 +46,7 @@ export interface CaptureResult {
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;
-  workerId: string;
+  workerIndex: number;
 }
 
 export interface ErrorTaskInfo {
@@ -63,7 +63,7 @@ export interface ErrorRecord extends ErrorDetails {
 }
 
 export interface WorkerInfo {
-  id: string;
+  index: number;
   browserOptions: BrowserOptions;
   status: WorkerStatus;
   processedCount: number;

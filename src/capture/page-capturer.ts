@@ -201,7 +201,7 @@ export class PageCapturer {
   async capture(
     browser: Browser,
     task: CaptureTask,
-    workerId: string
+    workerIndex: number
   ): Promise<CaptureResult> {
     const startTime = Date.now();
     let page: Page | null = null;
@@ -233,7 +233,7 @@ export class PageCapturer {
           errorDetails: createHttpError(httpStatusCode, statusText),
           captureProcessingTimeMs,
           timestamp: new Date().toISOString(),
-          workerId,
+          workerIndex,
         };
       }
 
@@ -268,7 +268,7 @@ export class PageCapturer {
         httpStatusCode,
         captureProcessingTimeMs,
         timestamp: new Date().toISOString(),
-        workerId,
+        workerIndex,
         ...(pngPath !== undefined && { pngPath }),
         ...(jpegPath !== undefined && { jpegPath }),
         ...(htmlPath !== undefined && { htmlPath }),
@@ -284,7 +284,7 @@ export class PageCapturer {
         errorDetails,
         captureProcessingTimeMs,
         timestamp: new Date().toISOString(),
-        workerId,
+        workerIndex,
       };
     } finally {
       if (page) {
