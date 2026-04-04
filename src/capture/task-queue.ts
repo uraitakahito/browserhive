@@ -3,7 +3,7 @@
  */
 import type { CaptureTask } from "./types.js";
 
-export interface QueueStatus {
+export interface TaskCounts {
   pending: number;
   processing: number;
   completed: number;
@@ -68,7 +68,7 @@ export class TaskQueue {
     return this.queue.length > 0;
   }
 
-  getStatus(): QueueStatus {
+  getStatus(): TaskCounts {
     return {
       pending: this.queue.length,
       processing: this.processing.size,

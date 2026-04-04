@@ -4,7 +4,7 @@
  * Manages a pool of workers that process capture tasks concurrently.
  */
 import type { WorkerConfig } from "../config/index.js";
-import { TaskQueue, type QueueStatus } from "./task-queue.js";
+import { TaskQueue, type TaskCounts } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
 import { isHealthyStatus } from "./worker-status.js";
@@ -12,7 +12,7 @@ import { isSuccessStatus } from "./capture-status.js";
 import { logger } from "../logger.js";
 
 export interface PoolStatus {
-  queue: QueueStatus;
+  taskCounts: TaskCounts;
   healthyWorkers: number;
   totalWorkers: number;
   isRunning: boolean;
@@ -116,7 +116,7 @@ export class WorkerPool {
 
   getStatus(): PoolStatus {
     return {
-      queue: this.taskQueue.getStatus(),
+      taskCounts: this.taskQueue.getStatus(),
       healthyWorkers: this.workers.filter((w) => w.isHealthy).length,
       totalWorkers: this.workers.length,
       isRunning: this.running,

@@ -60,7 +60,7 @@ export { Worker } from "./worker.js";
 export { WorkerPool } from "./worker-pool.js";
 export type { PoolStatus, EnqueueResult } from "./worker-pool.js";
 export { TaskQueue } from "./task-queue.js";
-export type { QueueStatus } from "./task-queue.js";
+export type { TaskCounts } from "./task-queue.js";
 export { PageCapturer } from "./page-capturer.js";
 export {
   withTimeout,

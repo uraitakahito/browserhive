@@ -418,7 +418,7 @@ describe("createCaptureServiceHandlers", () => {
         healthyWorkerCount: 2,
         enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
-          queue: {
+          taskCounts: {
             pending: 5,
             processing: 2,
             completed: 10,
@@ -540,7 +540,7 @@ describe("createCaptureServiceHandlers", () => {
         healthyWorkerCount: 0,
         enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
-          queue: {
+          taskCounts: {
             pending: 0,
             processing: 0,
             completed: 0,
