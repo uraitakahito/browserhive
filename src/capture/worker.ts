@@ -34,18 +34,18 @@ export class Worker {
   private pageCapturer: PageCapturer;
   public readonly logger: Logger;
 
-  public readonly id: string;
+  public readonly index: number;
   public readonly browserOptions: BrowserOptions;
 
   constructor(
-    id: string,
+    index: number,
     browserOptions: BrowserOptions,
     config: CaptureConfig
   ) {
-    this.id = id;
+    this.index = index;
     this.browserOptions = browserOptions;
     this.pageCapturer = new PageCapturer(config);
-    this.logger = createChildLogger({ workerId: id, browserURL: browserOptions.browserURL });
+    this.logger = createChildLogger({ workerIndex: index, browserURL: browserOptions.browserURL });
   }
 
   /**
@@ -104,11 +104,11 @@ export class Worker {
         task,
         status: captureStatus.failed,
         errorDetails: createInternalError(
-          `Worker ${this.id} is not available (status: ${this.statusManager.current})`
+          `Worker ${String(this.index)} is not available (status: ${this.statusManager.current})`
         ),
         captureProcessingTimeMs: 0,
         timestamp: new Date().toISOString(),
-        workerId: this.id,
+        workerIndex: this.index,
       };
     }
 
@@ -118,7 +118,7 @@ export class Worker {
       const result = await this.pageCapturer.capture(
         this.browser,
         task,
-        this.id
+        this.index
       );
 
       this.processedCount++;
@@ -147,7 +147,7 @@ export class Worker {
         errorDetails,
         captureProcessingTimeMs: 0,
         timestamp: new Date().toISOString(),
-        workerId: this.id,
+        workerIndex: this.index,
       };
     } finally {
       if (this.statusManager.current === "busy") {
@@ -158,7 +158,7 @@ export class Worker {
 
   getInfo(): WorkerInfo {
     return {
-      id: this.id,
+      index: this.index,
       browserOptions: this.browserOptions,
       status: this.statusManager.current,
       processedCount: this.processedCount,

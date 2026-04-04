@@ -85,8 +85,8 @@ message ErrorRecord {
 
 // Worker information
 message WorkerInfo {
-  // Worker ID
-  string id = 1;
+  // Worker index (0-based, corresponds to browser array position)
+  int32 index = 1;
 
   // Browser connection options
   BrowserOptions browser_options = 2;

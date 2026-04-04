@@ -18,7 +18,7 @@ export const logger = pino({
 
 /**
  * Create a child logger with additional context bindings
- * Useful for adding workerId, browserUrl, etc. to all log entries
+ * Useful for adding workerIndex, browserUrl, etc. to all log entries
  */
 export const createChildLogger = (bindings: LoggerBindings): Logger => {
   return logger.child(bindings);

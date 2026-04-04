@@ -428,7 +428,7 @@ describe("createCaptureServiceHandlers", () => {
           isRunning: true,
           workers: [
             {
-              id: "worker-1",
+              index: 0,
               browserOptions: { browserURL: "http://browser1:9222" },
               status: "idle",
               processedCount: 5,
@@ -436,7 +436,7 @@ describe("createCaptureServiceHandlers", () => {
               errorHistory: [],
             },
             {
-              id: "worker-2",
+              index: 1,
               browserOptions: { browserURL: "http://browser2:9222" },
               status: "busy",
               processedCount: 3,
@@ -456,7 +456,7 @@ describe("createCaptureServiceHandlers", () => {
               ],
             },
             {
-              id: "worker-3",
+              index: 2,
               browserOptions: { browserURL: "http://browser3:9222" },
               status: "error",
               processedCount: 2,
@@ -489,7 +489,7 @@ describe("createCaptureServiceHandlers", () => {
         is_running: true,
         workers: [
           {
-            id: "worker-1",
+            index: 0,
             browser_options: { browser_url: "http://browser1:9222" },
             status: WorkerStatus.WORKER_STATUS_IDLE,
             processed_count: 5,
@@ -497,7 +497,7 @@ describe("createCaptureServiceHandlers", () => {
             error_history: [],
           },
           {
-            id: "worker-2",
+            index: 1,
             browser_options: { browser_url: "http://browser2:9222" },
             status: WorkerStatus.WORKER_STATUS_BUSY,
             processed_count: 3,
@@ -517,7 +517,7 @@ describe("createCaptureServiceHandlers", () => {
             ],
           },
           {
-            id: "worker-3",
+            index: 2,
             browser_options: { browser_url: "http://browser3:9222" },
             status: WorkerStatus.WORKER_STATUS_ERROR,
             processed_count: 2,
@@ -550,7 +550,7 @@ describe("createCaptureServiceHandlers", () => {
           isRunning: false,
           workers: [
             {
-              id: "worker-1",
+              index: 0,
               browserOptions: { browserURL: "http://browser1:9222" },
               status: "stopped",
               processedCount: 0,
@@ -558,7 +558,7 @@ describe("createCaptureServiceHandlers", () => {
               errorHistory: [],
             },
             {
-              id: "worker-2",
+              index: 1,
               browserOptions: { browserURL: "http://browser2:9222" },
               status: "stopped",
               processedCount: 0,
@@ -585,7 +585,7 @@ describe("createCaptureServiceHandlers", () => {
         is_running: false,
         workers: [
           {
-            id: "worker-1",
+            index: 0,
             browser_options: { browser_url: "http://browser1:9222" },
             status: WorkerStatus.WORKER_STATUS_STOPPED,
             processed_count: 0,
@@ -593,7 +593,7 @@ describe("createCaptureServiceHandlers", () => {
             error_history: [],
           },
           {
-            id: "worker-2",
+            index: 1,
             browser_options: { browser_url: "http://browser2:9222" },
             status: WorkerStatus.WORKER_STATUS_STOPPED,
             processed_count: 0,
