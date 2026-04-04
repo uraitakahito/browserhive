@@ -260,12 +260,6 @@ export interface ServerControl {
   shutdown: () => Promise<void>;
 }
 
-/**
- * Create, initialize, and start a CaptureServer instance.
- * The returned control interface allows graceful shutdown.
- *
- * @returns Server control interface with shutdown function
- */
 export const startServer = async (
   config: ServerConfig
 ): Promise<ServerControl> => {
