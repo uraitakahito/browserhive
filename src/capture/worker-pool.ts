@@ -12,7 +12,7 @@ import { isSuccessStatus } from "./capture-status.js";
 import { logger } from "../logger.js";
 
 export interface PoolStatus {
-  queue: TaskCounts;
+  taskCounts: TaskCounts;
   healthyWorkers: number;
   totalWorkers: number;
   isRunning: boolean;
@@ -116,7 +116,7 @@ export class WorkerPool {
 
   getStatus(): PoolStatus {
     return {
-      queue: this.taskQueue.getStatus(),
+      taskCounts: this.taskQueue.getStatus(),
       healthyWorkers: this.workers.filter((w) => w.isHealthy).length,
       totalWorkers: this.workers.length,
       isRunning: this.running,

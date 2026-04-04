@@ -142,9 +142,9 @@ export const createCaptureServiceHandlers = (workerPool: WorkerPool) => {
     const status = workerPool.getStatus();
 
     const response: StatusResponse = {
-      pending: status.queue.pending,
-      processing: status.queue.processing,
-      completed: status.queue.completed,
+      pending: status.taskCounts.pending,
+      processing: status.taskCounts.processing,
+      completed: status.taskCounts.completed,
       healthy_workers: status.healthyWorkers,
       total_workers: status.totalWorkers,
       is_running: status.isRunning,
