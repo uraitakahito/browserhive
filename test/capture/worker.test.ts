@@ -59,10 +59,9 @@ describe("Worker", () => {
   });
 
   describe("connect", () => {
-    it("should return true on successful connection", async () => {
-      const result = await worker.connect();
+    it("should connect to browser with profile", async () => {
+      await worker.connect();
 
-      expect(result).toBe(true);
       expect(connectBrowser).toHaveBeenCalledWith(
         expect.objectContaining({ browserURL: "http://chromium:9222" })
       );
@@ -75,19 +74,12 @@ describe("Worker", () => {
       expect(info.status).toBe("ready");
     });
 
-    it("should return false on connection failure", async () => {
-      vi.mocked(connectBrowser).mockRejectedValue(new Error("Connection failed"));
-
-      const result = await worker.connect();
-
-      expect(result).toBe(false);
-    });
-
     it("should set status to error on connection failure", async () => {
       vi.mocked(connectBrowser).mockRejectedValue(new Error("Connection failed"));
 
       await worker.connect();
 
+      expect(worker.isOperational).toBe(false);
       const info = worker.getInfo();
       expect(info.status).toBe("error");
       expect(info.errorHistory).toHaveLength(1);

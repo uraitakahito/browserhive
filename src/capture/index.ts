@@ -40,6 +40,10 @@ export {
   errorDetailsFromException,
 } from "./error-details.js";
 
+// State Machine
+export { StateMachine } from "./state-machine.js";
+export type { BaseStateDefinition, StateDefinitions } from "./state-machine.js";
+
 // Worker Status
 export type { WorkerStatus } from "./worker-status.js";
 export {
@@ -48,10 +52,18 @@ export {
 } from "./worker-status.js";
 export { WorkerStatusManager } from "./worker-status-manager.js";
 
+// Coordinator Lifecycle
+export type { CoordinatorLifecycle } from "./coordinator-lifecycle.js";
+export {
+  COORDINATOR_LIFECYCLE_DEFINITIONS,
+  ALL_COORDINATOR_LIFECYCLES,
+} from "./coordinator-lifecycle.js";
+export { CoordinatorLifecycleManager } from "./coordinator-lifecycle-manager.js";
+
 // Classes
 export { Worker } from "./worker.js";
 export { CaptureCoordinator } from "./capture-coordinator.js";
-export type { CoordinatorStatus, EnqueueResult } from "./capture-coordinator.js";
+export type { CoordinatorStatusReport, EnqueueResult } from "./capture-coordinator.js";
 export { TaskQueue } from "./task-queue.js";
 export type { TaskCounts } from "./task-queue.js";
 export { PageCapturer } from "./page-capturer.js";
