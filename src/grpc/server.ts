@@ -77,13 +77,11 @@ export class CaptureServer {
     const privateKey = readFileSync(tlsConfig.keyPath);
     const certChain = readFileSync(tlsConfig.certPath);
 
-    /* eslint-disable @typescript-eslint/naming-convention */
     return grpc.ServerCredentials.createSsl(
       null, // CA certificate (null for server-only authentication)
       [{ private_key: privateKey, cert_chain: certChain }],
       false // Client certificate not required
     );
-    /* eslint-enable @typescript-eslint/naming-convention */
   }
 
   async start(): Promise<void> {
