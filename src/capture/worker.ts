@@ -41,7 +41,7 @@ export class Worker {
     this.index = index;
     this.config = config;
     this.pageCapturer = new PageCapturer(config.capture);
-    this.logger = createChildLogger({ workerIndex: index, browserURL: config.browser.browserURL });
+    this.logger = createChildLogger({ workerIndex: index, browserURL: config.endpoint.browserURL });
   }
 
   /**
@@ -69,7 +69,7 @@ export class Worker {
 
   async connect(): Promise<boolean> {
     try {
-      this.browser = await connectBrowser(this.config.browser);
+      this.browser = await connectBrowser(this.config.endpoint);
       this.statusManager.toIdle();
       return true;
     } catch (error) {
@@ -157,7 +157,7 @@ export class Worker {
   getInfo(): WorkerInfo {
     return {
       index: this.index,
-      browserEndpoint: this.config.browser,
+      browserEndpoint: this.config.endpoint,
       status: this.statusManager.current,
       processedCount: this.processedCount,
       errorCount: this.errorCount,

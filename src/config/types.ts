@@ -88,6 +88,6 @@ export interface BrowserEndpoint {
 
 /** Worker configuration (browser connection + capture settings) */
 export interface WorkerConfig {
-  browser: BrowserEndpoint;
+  endpoint: BrowserEndpoint;
   capture: CaptureConfig;
 }
