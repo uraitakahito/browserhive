@@ -9,7 +9,7 @@ import { Worker } from "./worker.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
 import { isHealthyStatus } from "./worker-status.js";
 import { isSuccessStatus } from "./capture-status.js";
-import { createChildLogger, logger } from "../logger.js";
+import { logger } from "../logger.js";
 
 export interface PoolStatus {
   queue: QueueStatus;
@@ -44,12 +44,11 @@ export class WorkerPool {
         const worker = new Worker(workerId, browserOptions, this.config.capture);
         const connected = await worker.connect();
 
-        const workerLogger = createChildLogger({ workerId, browserURL: browserOptions.browserURL });
         if (connected) {
-          workerLogger.info("Connected to browser");
+          worker.logger.info("Connected to browser");
         } else {
           const latestError = worker.getInfo().errorHistory[0]?.message ?? "Unknown error";
-          workerLogger.error(
+          worker.logger.error(
             { error: latestError },
             "Failed to connect to browser"
           );
@@ -129,8 +128,6 @@ export class WorkerPool {
    * Worker loop - continuously process tasks while running
    */
   private async workerLoop(worker: Worker): Promise<void> {
-    const workerLogger = createChildLogger({ workerId: worker.id, browserURL: worker.browserOptions.browserURL });
-
     while (this.running && worker.isHealthy) {
       const task = this.taskQueue.dequeue();
       if (!task) {
@@ -142,7 +139,7 @@ export class WorkerPool {
       const workerInfo = worker.getInfo();
 
       if (!isSuccessStatus(result.status) && this.shouldRetry(task)) {
-        workerLogger.info(
+        worker.logger.info(
           {
             taskLabels: task.labels,
             taskId: task.taskId,
@@ -158,7 +155,7 @@ export class WorkerPool {
         this.taskQueue.markComplete(task.taskId);
 
         if (isSuccessStatus(result.status)) {
-          workerLogger.info(
+          worker.logger.info(
             {
               taskLabels: task.labels,
               taskId: task.taskId,
@@ -168,7 +165,7 @@ export class WorkerPool {
             "Task completed"
           );
         } else {
-          workerLogger.warn(
+          worker.logger.warn(
             {
               taskLabels: task.labels,
               taskId: task.taskId,
@@ -183,7 +180,7 @@ export class WorkerPool {
 
       // If worker became unhealthy during processing, stop the loop
       if (!isHealthyStatus(workerInfo.status)) {
-        workerLogger.error(
+        worker.logger.error(
           { status: workerInfo.status },
           "Worker became unhealthy, stopping loop"
         );
