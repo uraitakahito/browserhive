@@ -1,23 +1,14 @@
 /**
  * Error Type
  *
- * Unified error type definitions. Manages types and Proto mappings in one place.
+ * Unified error type definitions.
+ * Proto mappings are handled by grpc/response-mapper.ts.
  */
-import { ErrorType as ProtoErrorType } from "../grpc/generated/browserhive/v1/capture.js";
-
 export const ERROR_TYPE_DEFINITIONS = {
-  http: {
-    proto: ProtoErrorType.ERROR_TYPE_HTTP,
-  },
-  timeout: {
-    proto: ProtoErrorType.ERROR_TYPE_TIMEOUT,
-  },
-  connection: {
-    proto: ProtoErrorType.ERROR_TYPE_CONNECTION,
-  },
-  internal: {
-    proto: ProtoErrorType.ERROR_TYPE_INTERNAL,
-  },
+  http: {},
+  timeout: {},
+  connection: {},
+  internal: {},
 } as const;
 
 export type ErrorType = keyof typeof ERROR_TYPE_DEFINITIONS;
@@ -36,10 +27,3 @@ export const errorType = {
 export const ALL_ERROR_TYPES = Object.keys(
   ERROR_TYPE_DEFINITIONS
 ) as ErrorType[];
-
-/**
- * Convert TypeScript ErrorType to Proto ErrorType
- */
-export const errorTypeToProto = (type: ErrorType): ProtoErrorType => {
-  return ERROR_TYPE_DEFINITIONS[type].proto;
-};
