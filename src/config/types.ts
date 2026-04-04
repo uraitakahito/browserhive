@@ -2,7 +2,7 @@
  * Configuration Types
  *
  * Hierarchical configuration structure for the application.
- * ServerConfig > WorkerConfig > CaptureConfig
+ * ServerConfig > CoordinatorConfig > CaptureConfig
  */
 
 /** Screenshot configuration compatible with Puppeteer ScreenshotOptions */
@@ -37,8 +37,8 @@ export interface CaptureConfig {
   acceptLanguage?: string;
 }
 
-/** Worker configuration (middle layer) */
-export interface WorkerConfig {
+/** Coordinator configuration (middle layer) */
+export interface CoordinatorConfig {
   /** List of browser connection options */
   browsers: BrowserOptions[];
   /** Maximum retry count for failed capture tasks */
@@ -75,7 +75,7 @@ export interface ServerConfig {
   port: number;
   /** TLS configuration (insecure if undefined) */
   tls?: TlsConfig;
-  worker: WorkerConfig;
+  coordinator: CoordinatorConfig;
 }
 
 /** Browser connection configuration */

@@ -3,10 +3,10 @@
  *
  * Helper functions for creating test configurations.
  */
-import type { CaptureConfig, WorkerConfig, ServerConfig } from "../../src/config/index.js";
+import type { CaptureConfig, CoordinatorConfig, ServerConfig } from "../../src/config/index.js";
 import {
   DEFAULT_CAPTURE_CONFIG,
-  DEFAULT_WORKER_CONFIG,
+  DEFAULT_COORDINATOR_CONFIG,
   DEFAULT_SERVER_CONFIG,
 } from "../../src/config/index.js";
 
@@ -42,15 +42,15 @@ export const createTestCaptureConfig = (
 });
 
 /**
- * Create a test WorkerConfig with optional overrides
+ * Create a test CoordinatorConfig with optional overrides
  */
-export const createTestWorkerConfig = (
-  overrides: DeepPartial<WorkerConfig> = {}
-): WorkerConfig => ({
-  browsers: overrides.browsers ?? DEFAULT_WORKER_CONFIG.browsers,
-  maxRetries: overrides.maxRetries ?? DEFAULT_WORKER_CONFIG.maxRetries,
-  queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_WORKER_CONFIG.queuePollIntervalMs,
-  rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_WORKER_CONFIG.rejectDuplicateUrls,
+export const createTestCoordinatorConfig = (
+  overrides: DeepPartial<CoordinatorConfig> = {}
+): CoordinatorConfig => ({
+  browsers: overrides.browsers ?? DEFAULT_COORDINATOR_CONFIG.browsers,
+  maxRetries: overrides.maxRetries ?? DEFAULT_COORDINATOR_CONFIG.maxRetries,
+  queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs,
+  rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls,
   capture: createTestCaptureConfig(overrides.capture),
 });
 
@@ -62,5 +62,5 @@ export const createTestServerConfig = (
 ): ServerConfig => ({
   port: overrides.port ?? DEFAULT_SERVER_CONFIG.port,
   ...(overrides.tls && { tls: overrides.tls }),
-  worker: createTestWorkerConfig(overrides.worker),
+  coordinator: createTestCoordinatorConfig(overrides.coordinator),
 });

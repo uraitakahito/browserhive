@@ -79,7 +79,7 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
   return {
     port: opts.port,
     ...(tls && { tls }),
-    worker: {
+    coordinator: {
       browsers: opts.browserUrl.map((url) => ({ browserURL: url })),
       maxRetries: opts.maxRetries,
       queuePollIntervalMs: opts.queuePollIntervalMs,
@@ -107,7 +107,7 @@ const buildServerConfig = (opts: ParsedOptions): ServerConfig => {
 
 export const createProgram = (): Command => {
   const defaults = DEFAULT_SERVER_CONFIG;
-  const defaultWorker = defaults.worker;
+  const defaultWorker = defaults.coordinator;
   const defaultCapture = defaultWorker.capture;
 
   const program = new Command();
@@ -222,7 +222,7 @@ export const parseCliOptions = (argv: string[]): ServerConfig => {
 };
 
 export const logServerConfig = (config: ServerConfig): void => {
-  const worker = config.worker;
+  const worker = config.coordinator;
   const capture = worker.capture;
 
   logger.info(

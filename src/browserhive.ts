@@ -47,7 +47,7 @@ export class BrowserHive {
   constructor(config: ServerConfig) {
     this.config = config;
     this.server = new grpc.Server();
-    this.coordinator = new CaptureCoordinator(config.worker);
+    this.coordinator = new CaptureCoordinator(config.coordinator);
   }
 
   async initialize(): Promise<void> {
