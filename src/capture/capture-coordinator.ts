@@ -2,23 +2,31 @@
  * Capture Coordinator
  *
  * Coordinates capture task processing across multiple workers.
+ * Uses the Parent-Child Actor Model: manages a coordinator lifecycle
+ * actor and spawns worker status actors for each browser connection.
  */
+import { createActor, type ActorRefFrom } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
 import { TaskQueue, type TaskCounts } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
-import { isSuccessStatus } from "./capture-status.js";
-import { createActor } from "xstate";
-import { coordinatorLifecycleMachine } from "./coordinator-lifecycle.js";
+import { coordinatorMachine } from "./coordinator-machine.js";
+import {
+  workerStatusMachine,
+  toFlatWorkerStatus,
+  type WorkerMachineContext,
+} from "./worker-status.js";
 import { logger } from "../logger.js";
 
-/**
- * Timeout for waiting worker loops to finish during shutdown.
- * If a worker is mid-capture (e.g., page load), the loop won't exit
- * until the current task completes. This timeout prevents blocking
- * the entire shutdown chain.
- */
+/** Timeout for waiting worker actors to stop during shutdown */
 const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
+
+/** Reference to a spawned worker actor with its associated Worker instance */
+interface WorkerEntry {
+  ref: ActorRefFrom<typeof workerStatusMachine>;
+  worker: Worker;
+  index: number;
+}
 
 export interface CoordinatorStatusReport {
   taskCounts: TaskCounts;
@@ -34,10 +42,9 @@ export interface EnqueueResult {
 }
 
 export class CaptureCoordinator {
-  private workers: Worker[] = [];
+  private workers: WorkerEntry[] = [];
   private taskQueue: TaskQueue;
-  private lifecycleActor = createActor(coordinatorLifecycleMachine).start();
-  private workerLoopPromises: Promise<void>[] = [];
+  private lifecycleActor = createActor(coordinatorMachine).start();
 
   private config: CoordinatorConfig;
 
@@ -48,50 +55,81 @@ export class CaptureCoordinator {
 
   /**
    * Initialize the capture coordinator by connecting all workers
+   * and spawning their status actors.
    */
   async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
 
-    const connectionPromises = this.config.browserProfiles.map(
-      async (profile, index) => {
-        const worker = new Worker(index, profile);
-        await worker.connect();
+    try {
+      // Create and connect workers
+      const connectionPromises = this.config.browserProfiles.map(
+        async (profile, index) => {
+          const worker = new Worker(index, profile);
+          let connected = false;
 
-        if (worker.isOperational) {
-          worker.logger.info("Connected to browser");
-        } else {
-          const latestError = worker.getInfo().errorHistory[0]?.message ?? "Unknown error";
-          worker.logger.error(
-            { error: latestError },
-            "Failed to connect to browser"
-          );
+          try {
+            await worker.connect();
+            worker.logger.info("Connected to browser");
+            connected = true;
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            worker.logger.error({ error: errorMessage }, "Failed to connect to browser");
+          }
+
+          return { worker, connected };
         }
+      );
 
-        return worker;
+      const results = await Promise.all(connectionPromises);
+      const operationalCount = results.filter((r) => r.connected).length;
+
+      if (operationalCount === 0) {
+        this.lifecycleActor.send({ type: "INIT_FAILED" });
+        throw new Error("No workers available. All browser connections failed.");
       }
-    );
 
-    this.workers = await Promise.all(connectionPromises);
+      // Spawn worker status actors for each worker
+      this.workers = results.map(({ worker, connected }) => {
+        const ref = createActor(workerStatusMachine, {
+          id: `worker-${String(worker.index)}`,
+          input: {
+            index: worker.index,
+            browserProfile: worker.profile,
+            worker,
+            taskQueue: this.taskQueue,
+            pollIntervalMs: this.config.queuePollIntervalMs,
+            maxRetries: this.config.maxRetries,
+          },
+        });
+        ref.start();
 
-    const operationalCount = this.workers.filter((w) => w.isOperational).length;
-    if (operationalCount === 0) {
-      this.lifecycleActor.send({ type: "STOP" });
-      throw new Error("No workers available. All browser connections failed.");
+        if (connected) {
+          // Worker is already connected — send CONNECT to enter operational state.
+          // The fromPromise connectBrowser will call worker.connect() again,
+          // but since browser is already set, it will reconnect.
+          // To avoid double-connect, we need a different approach.
+          ref.send({ type: "CONNECT" });
+        }
+        // If not connected, actor stays in "stopped" state
+
+        return { ref, worker, index: worker.index };
+      });
+
+      // Subscribe to worker actors for all-error detection
+      this.subscribeToWorkerErrors();
+
+      this.lifecycleActor.send({ type: "INIT_DONE" });
+
+      logger.info(
+        { operationalCount, totalCount: this.workers.length },
+        "Capture coordinator initialized"
+      );
+    } catch (error) {
+      if (this.lifecycleActor.getSnapshot().can({ type: "INIT_FAILED" })) {
+        this.lifecycleActor.send({ type: "INIT_FAILED" });
+      }
+      throw error;
     }
-
-    this.lifecycleActor.send({ type: "RUN" });
-
-    const operationalWorkers = this.workers.filter((w) => w.isOperational);
-
-    // Start worker loops (non-blocking)
-    this.workerLoopPromises = operationalWorkers.map((worker) =>
-      this.workerLoop(worker)
-    );
-
-    logger.info(
-      { operationalCount, totalCount: this.workers.length },
-      "Capture coordinator initialized"
-    );
   }
 
   enqueueTask(task: CaptureTask): EnqueueResult {
@@ -114,23 +152,55 @@ export class CaptureCoordinator {
 
     this.lifecycleActor.send({ type: "SHUT_DOWN" });
 
-    // Wait for worker loops to finish current tasks, with timeout
+    // Send DISCONNECT to all worker actors
+    for (const entry of this.workers) {
+      entry.ref.send({ type: "DISCONNECT" });
+    }
+
+    // Wait for all worker actors to reach stopped state, with timeout
     await Promise.race([
-      Promise.all(this.workerLoopPromises),
-      this.sleep(WORKER_SHUTDOWN_TIMEOUT_MS).then(() => {
-        logger.warn(
-          { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
-          "Worker loop drain timed out, proceeding to disconnect"
-        );
-      }),
+      Promise.all(
+        this.workers.map(
+          (entry) =>
+            new Promise<void>((resolve) => {
+              // Check if already stopped
+              if (entry.ref.getSnapshot().value === "stopped") {
+                resolve();
+                return;
+              }
+              const subscription = entry.ref.subscribe((snapshot) => {
+                if (snapshot.value === "stopped") {
+                  subscription.unsubscribe();
+                  resolve();
+                }
+              });
+            })
+        )
+      ),
+      new Promise<void>((resolve) =>
+        setTimeout(() => {
+          logger.warn(
+            { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
+            "Worker shutdown timed out, proceeding to disconnect"
+          );
+          resolve();
+        }, WORKER_SHUTDOWN_TIMEOUT_MS)
+      ),
     ]);
 
-    const disconnectPromises = this.workers.map((worker) =>
-      worker.disconnect()
+    // Force disconnect any workers that didn't stop gracefully
+    await Promise.all(
+      this.workers.map(async (entry) => {
+        await entry.worker.disconnect();
+      })
     );
-    await Promise.all(disconnectPromises);
 
-    this.lifecycleActor.send({ type: "STOP" });
+    // Stop all worker actors
+    for (const entry of this.workers) {
+      entry.ref.stop();
+    }
+
+    this.lifecycleActor.send({ type: "SHUTDOWN_DONE" });
     logger.info("Capture coordinator shut down");
   }
 
@@ -139,87 +209,52 @@ export class CaptureCoordinator {
   }
 
   get operationalWorkerCount(): number {
-    return this.workers.filter((w) => w.isOperational).length;
+    return this.workers.filter(
+      (entry) => entry.ref.getSnapshot().hasTag("healthy")
+    ).length;
   }
 
   getStatus(): CoordinatorStatusReport {
     return {
       taskCounts: this.taskQueue.getStatus(),
-      operationalWorkers: this.workers.filter((w) => w.isOperational).length,
+      operationalWorkers: this.operationalWorkerCount,
       totalWorkers: this.workers.length,
-      isRunning: this.lifecycleActor.getSnapshot().hasTag("running"),
-      workers: this.workers.map((w) => w.getInfo()),
+      isRunning: this.isRunning,
+      workers: this.workers.map((entry) => this.workerEntryToInfo(entry)),
+    };
+  }
+
+  private workerEntryToInfo(entry: WorkerEntry): WorkerInfo {
+    const snapshot = entry.ref.getSnapshot();
+    const ctx: WorkerMachineContext = snapshot.context;
+    return {
+      index: ctx.index,
+      browserProfile: ctx.browserProfile,
+      status: toFlatWorkerStatus(snapshot),
+      processedCount: ctx.processedCount,
+      errorCount: ctx.errorCount,
+      errorHistory: [...ctx.errorHistory],
     };
   }
 
   /**
-   * Worker loop - continuously process tasks while running
+   * Subscribe to each worker actor and detect when all workers are in error.
+   * When all workers become unhealthy, auto-trigger shutdown.
    */
-  private async workerLoop(worker: Worker): Promise<void> {
-    while (this.lifecycleActor.getSnapshot().hasTag("running") && worker.isOperational) {
-      const task = this.taskQueue.dequeue();
-      if (!task) {
-        await this.sleep(this.config.queuePollIntervalMs);
-        continue;
-      }
+  private subscribeToWorkerErrors(): void {
+    for (const entry of this.workers) {
+      entry.ref.subscribe(() => {
+        if (!this.isRunning) return;
 
-      const result = await worker.process(task);
-
-      if (!isSuccessStatus(result.status) && this.shouldRetry(task)) {
-        worker.logger.info(
-          {
-            taskLabels: task.labels,
-            taskId: task.taskId,
-            ...(task.correlationId && { correlationId: task.correlationId }),
-            attempt: task.retryCount + 1,
-            maxRetries: this.config.maxRetries,
-            url: task.url,
-          },
-          "Retrying task"
+        const allUnhealthy = this.workers.every(
+          (w) => !w.ref.getSnapshot().hasTag("healthy")
         );
-        this.taskQueue.requeue(task);
-      } else {
-        this.taskQueue.markComplete(task.taskId);
 
-        if (isSuccessStatus(result.status)) {
-          worker.logger.info(
-            {
-              taskLabels: task.labels,
-              taskId: task.taskId,
-              ...(task.correlationId && { correlationId: task.correlationId }),
-              url: task.url,
-            },
-            "Task completed"
-          );
-        } else {
-          worker.logger.warn(
-            {
-              taskLabels: task.labels,
-              taskId: task.taskId,
-              ...(task.correlationId && { correlationId: task.correlationId }),
-              error: result.errorDetails?.message ?? "Unknown error",
-              url: task.url,
-            },
-            "Task failed"
-          );
+        if (allUnhealthy && this.workers.length > 0) {
+          logger.error("All workers are unhealthy, initiating shutdown");
+          this.lifecycleActor.send({ type: "ALL_WORKERS_ERROR" });
         }
-      }
-
+      });
     }
-
-    const { status } = worker.getInfo();
-    if (status === "error") {
-      worker.logger.error({ status }, "Worker became unhealthy, stopping loop");
-    } else {
-      worker.logger.info({ status }, "Worker loop stopped");
-    }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private shouldRetry(task: CaptureTask): boolean {
-    return task.retryCount < this.config.maxRetries;
   }
 }

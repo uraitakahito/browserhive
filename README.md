@@ -61,6 +61,60 @@ flowchart TB
     Worker3 --> Files
 ```
 
+## State Machines
+
+The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. The `CaptureCoordinator` spawns a worker status actor for each browser connection.
+
+### Coordinator Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> created
+    created --> initializing : INITIALIZE
+    initializing --> running : INIT_DONE
+    initializing --> stopped : INIT_FAILED
+    running --> shuttingDown : SHUT_DOWN
+    running --> shuttingDown : ALL_WORKERS_ERROR
+    shuttingDown --> stopped : SHUTDOWN_DONE
+    stopped --> [*]
+```
+
+### Worker Status
+
+Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures.
+
+```mermaid
+stateDiagram-v2
+    [*] --> stopped
+    stopped --> connecting : CONNECT
+
+    connecting --> operational : success
+    connecting --> error : failure
+
+    state operational {
+        [*] --> idle
+        idle --> processing : TASK_STARTED
+        processing --> idle : TASK_DONE
+        processing --> idle : TASK_FAILED
+    }
+
+    operational --> error : CONNECTION_LOST
+    operational --> disconnecting : DISCONNECT
+
+    error --> disconnecting : DISCONNECT
+
+    disconnecting --> stopped : done
+```
+
+| State | Tags | Description |
+|-------|------|-------------|
+| `stopped` | | Initial state, not connected |
+| `connecting` | | Connecting to remote browser (invoke) |
+| `operational.idle` | `healthy`, `canProcess` | Ready to accept tasks |
+| `operational.processing` | `healthy` | Processing a capture task |
+| `error` | | Connection lost or connect failure |
+| `disconnecting` | | Disconnecting browser (invoke) |
+
 ## Setup
 
 ### Prerequisites

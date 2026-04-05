@@ -40,19 +40,25 @@ export {
   errorDetailsFromException,
 } from "./error-details.js";
 
-// Worker Status
+// Worker Status (XState machine with compound states and context)
 export type { WorkerStatus } from "./worker-status.js";
+export type { WorkerMachineContext, WorkerMachineInput, WorkerMachineSnapshot } from "./worker-status.js";
 export {
   ALL_WORKER_STATUSES,
   workerStatusMachine,
+  toFlatWorkerStatus,
 } from "./worker-status.js";
 
-// Coordinator Lifecycle
-export type { CoordinatorLifecycle } from "./coordinator-lifecycle.js";
+// Worker Loop (fromCallback actor for task processing)
+export type { WorkerLoopInput, WorkerLoopEvent } from "./worker-loop.js";
+export { workerLoopCallback } from "./worker-loop.js";
+
+// Coordinator Machine (lifecycle management)
+export type { CoordinatorLifecycle } from "./coordinator-machine.js";
 export {
   ALL_COORDINATOR_LIFECYCLES,
-  coordinatorLifecycleMachine,
-} from "./coordinator-lifecycle.js";
+  coordinatorMachine,
+} from "./coordinator-machine.js";
 
 // Classes
 export { Worker } from "./worker.js";

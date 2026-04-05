@@ -130,6 +130,17 @@ export default defineConfig(
   },
 
   //
+  // Worker status machine tests (mock Worker objects with vi.mocked)
+  //
+  {
+    files: ['test/capture/worker-status.test.ts'],
+    rules: {
+      // Allow unbound method references for mock objects (vi.mocked(worker.connect))
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+
+  //
   // Naming convention rules
   //
   {
