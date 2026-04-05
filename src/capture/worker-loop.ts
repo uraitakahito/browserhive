@@ -13,7 +13,7 @@ import type { CaptureTask, CaptureResult } from "./types.js";
 import { isSuccessStatus } from "./capture-status.js";
 import { errorDetailsFromException } from "./error-details.js";
 
-export interface WorkerLoopInput {
+export interface WorkerLoopConfig {
   worker: Worker;
   taskQueue: TaskQueue;
   pollIntervalMs: number;
@@ -31,10 +31,13 @@ export interface WorkerLoopParentEvent { type: "STOP_LOOP" }
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoopInput>(
+export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoopConfig>(
   ({ sendBack, receive, input }) => {
     let running = true;
 
+    // Destructuring copies the reference, not the object itself.
+    // All worker loops share the single TaskQueue instance created
+    // by CaptureCoordinator, so no duplicate task processing occurs.
     const { worker, taskQueue, pollIntervalMs, maxRetries } = input;
 
     const loop = async (): Promise<void> => {

@@ -9,10 +9,9 @@
  */
 import { setup, assign, fromPromise, type SnapshotFrom } from "xstate";
 import type { Worker } from "./worker.js";
-import type { TaskQueue } from "./task-queue.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
-import { workerLoopCallback } from "./worker-loop.js";
+import { workerLoopCallback, type WorkerLoopConfig } from "./worker-loop.js";
 
 const MAX_ERROR_HISTORY = 10;
 
@@ -21,22 +20,13 @@ export interface WorkerMachineContext {
   processedCount: number;
   errorCount: number;
   errorHistory: ErrorRecord[];
-  /** Worker instance for browser operations (opaque to the machine) */
-  worker: Worker;
-  /** Shared task queue reference */
-  taskQueue: TaskQueue;
-  /** Queue poll interval in ms */
-  pollIntervalMs: number;
-  /** Max retries for failed tasks */
-  maxRetries: number;
+  /** Worker loop config (worker instance, shared queue, polling, retries) */
+  loopConfig: WorkerLoopConfig;
 }
 
 export interface WorkerMachineInput {
   index: number;
-  worker: Worker;
-  taskQueue: TaskQueue;
-  pollIntervalMs: number;
-  maxRetries: number;
+  loopConfig: WorkerLoopConfig;
 }
 
 /** Add an error to the history (FIFO, capped at MAX_ERROR_HISTORY) */
@@ -121,10 +111,7 @@ export const workerStatusMachine = setup({
     processedCount: 0,
     errorCount: 0,
     errorHistory: [],
-    worker: input.worker,
-    taskQueue: input.taskQueue,
-    pollIntervalMs: input.pollIntervalMs,
-    maxRetries: input.maxRetries,
+    loopConfig: input.loopConfig,
   }),
   states: {
     stopped: {
@@ -133,7 +120,7 @@ export const workerStatusMachine = setup({
     connecting: {
       invoke: {
         src: "connectBrowser",
-        input: ({ context }) => ({ worker: context.worker }),
+        input: ({ context }) => ({ worker: context.loopConfig.worker }),
         onDone: "operational",
         onError: {
           target: "error",
@@ -157,12 +144,7 @@ export const workerStatusMachine = setup({
       initial: "idle",
       invoke: {
         src: "workerLoop",
-        input: ({ context }) => ({
-          worker: context.worker,
-          taskQueue: context.taskQueue,
-          pollIntervalMs: context.pollIntervalMs,
-          maxRetries: context.maxRetries,
-        }),
+        input: ({ context }) => context.loopConfig,
       },
       states: {
         idle: {
@@ -200,7 +182,7 @@ export const workerStatusMachine = setup({
     disconnecting: {
       invoke: {
         src: "disconnectBrowser",
-        input: ({ context }) => ({ worker: context.worker }),
+        input: ({ context }) => ({ worker: context.loopConfig.worker }),
         onDone: "stopped",
         onError: "stopped",
       },

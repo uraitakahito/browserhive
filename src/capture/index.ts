@@ -50,7 +50,7 @@ export {
 } from "./worker-status.js";
 
 // Worker Loop (fromCallback actor for task processing)
-export type { WorkerLoopInput, WorkerLoopEvent } from "./worker-loop.js";
+export type { WorkerLoopConfig, WorkerLoopEvent } from "./worker-loop.js";
 export { workerLoopCallback } from "./worker-loop.js";
 
 // Coordinator Machine (lifecycle management)
