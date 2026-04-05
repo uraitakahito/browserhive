@@ -20,12 +20,15 @@ export interface WorkerMachineContext {
   processedCount: number;
   errorCount: number;
   errorHistory: ErrorRecord[];
-  /** Worker loop config (worker instance, shared queue, polling, retries) */
+  /** Maximum retry count for failed capture tasks */
+  maxRetries: number;
+  /** Worker loop config (worker instance, shared queue, polling) */
   loopConfig: WorkerLoopConfig;
 }
 
 export interface WorkerMachineInput {
   index: number;
+  maxRetries: number;
   loopConfig: WorkerLoopConfig;
 }
 
@@ -79,7 +82,42 @@ export const workerStatusMachine = setup({
     ),
     workerLoop: workerLoopCallback,
   },
+  guards: {
+    canRetry: ({ context, event }) => {
+      if (event.type !== "TASK_FAILED") return false;
+      return event.task.retryCount < context.maxRetries;
+    },
+  },
   actions: {
+    retryTask: ({ context, event }) => {
+      if (event.type !== "TASK_FAILED") return;
+      context.loopConfig.taskQueue.requeue(event.task);
+      context.loopConfig.worker.logger.info(
+        {
+          taskLabels: event.task.labels,
+          taskId: event.task.taskId,
+          ...(event.task.correlationId && { correlationId: event.task.correlationId }),
+          attempt: event.task.retryCount + 1,
+          maxRetries: context.maxRetries,
+          url: event.task.url,
+        },
+        "Retrying task",
+      );
+    },
+    markTaskComplete: ({ context, event }) => {
+      if (event.type !== "TASK_FAILED") return;
+      context.loopConfig.taskQueue.markComplete(event.task.taskId);
+      context.loopConfig.worker.logger.warn(
+        {
+          taskLabels: event.task.labels,
+          taskId: event.task.taskId,
+          ...(event.task.correlationId && { correlationId: event.task.correlationId }),
+          error: event.result.errorDetails?.message ?? "Unknown error",
+          url: event.task.url,
+        },
+        "Task failed",
+      );
+    },
     recordTaskSuccess: assign({
       processedCount: ({ context }) => context.processedCount + 1,
     }),
@@ -111,6 +149,7 @@ export const workerStatusMachine = setup({
     processedCount: 0,
     errorCount: 0,
     errorHistory: [],
+    maxRetries: input.maxRetries,
     loopConfig: input.loopConfig,
   }),
   states: {
@@ -159,10 +198,17 @@ export const workerStatusMachine = setup({
               target: "idle",
               actions: "recordTaskSuccess",
             },
-            TASK_FAILED: {
-              target: "idle",
-              actions: "recordTaskFailure",
-            },
+            TASK_FAILED: [
+              {
+                guard: "canRetry",
+                target: "idle",
+                actions: ["retryTask"],
+              },
+              {
+                target: "idle",
+                actions: ["markTaskComplete", "recordTaskFailure"],
+              },
+            ],
           },
         },
       },

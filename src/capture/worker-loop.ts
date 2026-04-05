@@ -17,7 +17,6 @@ export interface WorkerLoopConfig {
   worker: Worker;
   taskQueue: TaskQueue;
   pollIntervalMs: number;
-  maxRetries: number;
 }
 
 export type WorkerLoopEvent =
@@ -38,7 +37,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoop
     // Destructuring copies the reference, not the object itself.
     // All worker loops share the single TaskQueue instance created
     // by CaptureCoordinator, so no duplicate task processing occurs.
-    const { worker, taskQueue, pollIntervalMs, maxRetries } = input;
+    const { worker, taskQueue, pollIntervalMs } = input;
 
     const loop = async (): Promise<void> => {
       while (running) {
@@ -65,33 +64,8 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoop
               "Task completed"
             );
             sendBack({ type: "TASK_DONE", task, result });
-          } else if (task.retryCount < maxRetries) {
-            taskQueue.requeue(task);
-            worker.logger.info(
-              {
-                taskLabels: task.labels,
-                taskId: task.taskId,
-                ...(task.correlationId && { correlationId: task.correlationId }),
-                attempt: task.retryCount + 1,
-                maxRetries,
-                url: task.url,
-              },
-              "Retrying task"
-            );
-            // Retry does not count as done or failed — the task goes back to queue
-            sendBack({ type: "TASK_FAILED", task, result });
           } else {
-            taskQueue.markComplete(task.taskId);
-            worker.logger.warn(
-              {
-                taskLabels: task.labels,
-                taskId: task.taskId,
-                ...(task.correlationId && { correlationId: task.correlationId }),
-                error: result.errorDetails?.message ?? "Unknown error",
-                url: task.url,
-              },
-              "Task failed"
-            );
+            // Report failure to parent machine, which decides retry vs final failure
             sendBack({ type: "TASK_FAILED", task, result });
           }
         } catch (error) {
@@ -102,18 +76,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoop
             break;
           }
 
-          // Non-connection errors: mark complete, report failure, continue loop
-          taskQueue.markComplete(task.taskId);
-          worker.logger.warn(
-            {
-              taskLabels: task.labels,
-              taskId: task.taskId,
-              ...(task.correlationId && { correlationId: task.correlationId }),
-              error: errorDetails.message,
-              url: task.url,
-            },
-            "Task failed with exception"
-          );
+          // Non-connection errors: report failure to parent machine
           sendBack({
             type: "TASK_FAILED",
             task,

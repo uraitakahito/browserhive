@@ -23,11 +23,11 @@ const createDefaultLoopConfig = (): WorkerLoopConfig => ({
   worker: createMockWorker(),
   taskQueue: new TaskQueue(),
   pollIntervalMs: 50,
-  maxRetries: 2,
 });
 
-const createInput = (overrides?: { index?: number; loopConfig?: Partial<WorkerLoopConfig> }): WorkerMachineInput => ({
+const createInput = (overrides?: { index?: number; maxRetries?: number; loopConfig?: Partial<WorkerLoopConfig> }): WorkerMachineInput => ({
   index: overrides?.index ?? 0,
+  maxRetries: overrides?.maxRetries ?? 2,
   loopConfig: {
     ...createDefaultLoopConfig(),
     ...overrides?.loopConfig,
@@ -39,7 +39,7 @@ const createInput = (overrides?: { index?: number; loopConfig?: Partial<WorkerLo
  * The machine has invoked actors, so we test state transitions
  * by sending events directly.
  */
-const createWorkerActor = (overrides?: { index?: number; loopConfig?: Partial<WorkerLoopConfig> }) => {
+const createWorkerActor = (overrides?: { index?: number; maxRetries?: number; loopConfig?: Partial<WorkerLoopConfig> }) => {
   const input = createInput(overrides);
   const actor = createActor(workerStatusMachine, { input });
   actor.start();
@@ -123,8 +123,8 @@ describe("worker-status", () => {
     });
 
     describe("operational state", () => {
-      const createOperationalActor = async () => {
-        const result = createWorkerActor();
+      const createOperationalActor = async (overrides?: { maxRetries?: number; loopConfig?: Partial<WorkerLoopConfig> }) => {
+        const result = createWorkerActor(overrides);
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
           expect(result.actor.getSnapshot().value).toEqual({ operational: "idle" });
@@ -163,9 +163,39 @@ describe("worker-status", () => {
         expect(actor.getSnapshot().context.processedCount).toBe(1);
       });
 
-      it("should transition processing → idle on TASK_FAILED and record error", async () => {
-        const { actor } = await createOperationalActor();
-        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 0, captureOptions: { png: true, jpeg: false, html: false } };
+      it("should requeue task on TASK_FAILED when retries remain (canRetry guard)", async () => {
+        const taskQueue = new TaskQueue();
+        const { actor } = await createOperationalActor({ loopConfig: { taskQueue } });
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureOptions: { png: true, jpeg: false, html: false } };
+        const result = {
+          task,
+          status: "failed" as const,
+          errorDetails: { type: "internal" as const, message: "Page crashed" },
+          captureProcessingTimeMs: 50,
+          timestamp: new Date().toISOString(),
+          workerIndex: 0,
+        };
+
+        actor.send({ type: "TASK_STARTED", task });
+        actor.send({ type: "TASK_FAILED", task, result });
+
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+        const ctx = actor.getSnapshot().context;
+        // Retry: no counter increment
+        expect(ctx.processedCount).toBe(0);
+        expect(ctx.errorCount).toBe(0);
+        expect(ctx.errorHistory).toHaveLength(0);
+        // Task was requeued
+        expect(taskQueue.remaining).toBe(1);
+      });
+
+      it("should mark task complete on TASK_FAILED when retries exhausted", async () => {
+        const taskQueue = new TaskQueue();
+        const { actor } = await createOperationalActor({ loopConfig: { taskQueue } });
+        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureOptions: { png: true, jpeg: false, html: false } };
+        // Simulate dequeue to put task in processing set
+        taskQueue.enqueue(task);
+        taskQueue.dequeue();
         const result = {
           task,
           status: "failed" as const,
@@ -185,6 +215,7 @@ describe("worker-status", () => {
         expect(ctx.errorHistory).toHaveLength(1);
         expect(ctx.errorHistory[0]!.message).toBe("Page crashed");
         expect(ctx.errorHistory[0]!.task?.taskId).toBe("t1");
+        expect(taskQueue.completedCount).toBe(1);
       });
 
       it("should transition to error on CONNECTION_LOST", async () => {
@@ -254,9 +285,9 @@ describe("worker-status", () => {
           expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
         });
 
-        // Generate 12 failures
+        // Generate 12 final failures (retryCount >= maxRetries to bypass canRetry guard)
         for (let i = 0; i < 12; i++) {
-          const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 0, captureOptions: { png: true, jpeg: false, html: false } };
+          const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 2, captureOptions: { png: true, jpeg: false, html: false } };
           const result = {
             task,
             status: "failed" as const,
