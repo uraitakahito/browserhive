@@ -4,21 +4,15 @@
  * XState machine definition for worker status transitions.
  * Proto mappings are handled by grpc/response-mapper.ts.
  */
-import { setup } from "xstate";
-
-export type WorkerStatusEvent =
-  | { type: "TO_READY" }
-  | { type: "TO_BUSY" }
-  | { type: "TO_ERROR" }
-  | { type: "TO_STOPPED" };
-
-export type WorkerStatus = "ready" | "busy" | "error" | "stopped";
-
-export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "stopped"];
+import { setup, type StateValueFrom, type EventFromLogic } from "xstate";
 
 export const workerStatusMachine = setup({
   types: {
-    events: {} as WorkerStatusEvent,
+    events: {} as
+      | { type: "TO_READY" }
+      | { type: "TO_BUSY" }
+      | { type: "TO_ERROR" }
+      | { type: "TO_STOPPED" },
   },
 }).createMachine({
   id: "workerStatus",
@@ -40,3 +34,11 @@ export const workerStatusMachine = setup({
     },
   },
 });
+
+/** Worker status derived from machine state names */
+export type WorkerStatus = StateValueFrom<typeof workerStatusMachine>;
+
+/** Worker status event derived from machine event types */
+export type WorkerStatusEvent = EventFromLogic<typeof workerStatusMachine>;
+
+export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "stopped"];

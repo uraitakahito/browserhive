@@ -3,7 +3,7 @@
  *
  * Wraps an XState actor for worker status transitions.
  */
-import { createActor } from "xstate";
+import { createActor, type ActorRefFrom } from "xstate";
 import {
   workerStatusMachine,
   type WorkerStatus,
@@ -18,7 +18,7 @@ const STATUS_EVENT_MAP: Record<WorkerStatus, WorkerStatusEvent> = {
 };
 
 export class WorkerStatusManager {
-  private actor;
+  private actor: ActorRefFrom<typeof workerStatusMachine>;
 
   constructor(initialStatus: WorkerStatus = "stopped") {
     this.actor = createActor(workerStatusMachine, {
@@ -31,7 +31,7 @@ export class WorkerStatusManager {
   }
 
   get current(): WorkerStatus {
-    return this.actor.getSnapshot().value as WorkerStatus;
+    return this.actor.getSnapshot().value;
   }
 
   get canProcess(): boolean {

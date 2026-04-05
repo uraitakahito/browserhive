@@ -3,7 +3,7 @@
  *
  * Wraps an XState actor for coordinator lifecycle transitions.
  */
-import { createActor } from "xstate";
+import { createActor, type ActorRefFrom } from "xstate";
 import {
   coordinatorLifecycleMachine,
   type CoordinatorLifecycle,
@@ -19,7 +19,7 @@ const LIFECYCLE_EVENT_MAP: Record<CoordinatorLifecycle, CoordinatorLifecycleEven
 };
 
 export class CoordinatorLifecycleManager {
-  private actor;
+  private actor: ActorRefFrom<typeof coordinatorLifecycleMachine>;
 
   constructor() {
     this.actor = createActor(coordinatorLifecycleMachine);
@@ -27,7 +27,7 @@ export class CoordinatorLifecycleManager {
   }
 
   get current(): CoordinatorLifecycle {
-    return this.actor.getSnapshot().value as CoordinatorLifecycle;
+    return this.actor.getSnapshot().value;
   }
 
   get isRunning(): boolean {

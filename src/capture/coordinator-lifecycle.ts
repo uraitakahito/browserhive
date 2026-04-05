@@ -4,24 +4,16 @@
  * XState machine definition for CaptureCoordinator lifecycle transitions.
  * Proto mappings are not needed (lifecycle is internal, not exposed via gRPC).
  */
-import { setup } from "xstate";
-
-export type CoordinatorLifecycleEvent =
-  | { type: "CREATE" }
-  | { type: "INITIALIZE" }
-  | { type: "RUN" }
-  | { type: "SHUT_DOWN" }
-  | { type: "STOP" };
-
-export type CoordinatorLifecycle = "created" | "initializing" | "running" | "shuttingDown" | "stopped";
-
-export const ALL_COORDINATOR_LIFECYCLES: CoordinatorLifecycle[] = [
-  "created", "initializing", "running", "shuttingDown", "stopped",
-];
+import { setup, type StateValueFrom, type EventFromLogic } from "xstate";
 
 export const coordinatorLifecycleMachine = setup({
   types: {
-    events: {} as CoordinatorLifecycleEvent,
+    events: {} as
+      | { type: "CREATE" }
+      | { type: "INITIALIZE" }
+      | { type: "RUN" }
+      | { type: "SHUT_DOWN" }
+      | { type: "STOP" },
   },
 }).createMachine({
   id: "coordinatorLifecycle",
@@ -45,3 +37,13 @@ export const coordinatorLifecycleMachine = setup({
     },
   },
 });
+
+/** Coordinator lifecycle state derived from machine state names */
+export type CoordinatorLifecycle = StateValueFrom<typeof coordinatorLifecycleMachine>;
+
+/** Coordinator lifecycle event derived from machine event types */
+export type CoordinatorLifecycleEvent = EventFromLogic<typeof coordinatorLifecycleMachine>;
+
+export const ALL_COORDINATOR_LIFECYCLES: CoordinatorLifecycle[] = [
+  "created", "initializing", "running", "shuttingDown", "stopped",
+];
