@@ -10,7 +10,6 @@
 import { setup, assign, fromPromise, type SnapshotFrom } from "xstate";
 import type { Worker } from "./worker.js";
 import type { TaskQueue } from "./task-queue.js";
-import type { BrowserProfile } from "../config/index.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
 import { workerLoopCallback } from "./worker-loop.js";
@@ -19,7 +18,6 @@ const MAX_ERROR_HISTORY = 10;
 
 export interface WorkerMachineContext {
   index: number;
-  browserProfile: BrowserProfile;
   processedCount: number;
   errorCount: number;
   errorHistory: ErrorRecord[];
@@ -35,7 +33,6 @@ export interface WorkerMachineContext {
 
 export interface WorkerMachineInput {
   index: number;
-  browserProfile: BrowserProfile;
   worker: Worker;
   taskQueue: TaskQueue;
   pollIntervalMs: number;
@@ -121,7 +118,6 @@ export const workerStatusMachine = setup({
   initial: "stopped",
   context: ({ input }) => ({
     index: input.index,
-    browserProfile: input.browserProfile,
     processedCount: 0,
     errorCount: 0,
     errorHistory: [],

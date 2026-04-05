@@ -7,8 +7,6 @@ import {
 } from "../../src/capture/worker-status.js";
 import type { WorkerMachineInput } from "../../src/capture/worker-status.js";
 import type { Worker } from "../../src/capture/worker.js";
-import type { BrowserProfile } from "../../src/config/index.js";
-import { createTestCaptureConfig } from "../helpers/config.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 
 const createMockWorker = (): Worker =>
@@ -20,14 +18,8 @@ const createMockWorker = (): Worker =>
     process: vi.fn(),
   }) as unknown as Worker;
 
-const createBrowserProfile = (): BrowserProfile => ({
-  browserURL: "http://chromium:9222",
-  capture: createTestCaptureConfig(),
-});
-
 const createInput = (overrides: Partial<WorkerMachineInput> = {}): WorkerMachineInput => ({
   index: 0,
-  browserProfile: createBrowserProfile(),
   worker: createMockWorker(),
   taskQueue: new TaskQueue(),
   pollIntervalMs: 50,
