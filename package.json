@@ -68,6 +68,7 @@
     "@types/json-schema": "^7.0.15",
     "@types/node": "^25.5.2",
     "@types/yauzl": "^2.10.3",
+    "@xstate/cli": "^0.5.17",
     "eslint": "^10.2.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",
