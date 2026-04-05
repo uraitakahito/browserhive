@@ -35,6 +35,9 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoop
   ({ sendBack, receive, input }) => {
     let running = true;
 
+    // Destructuring copies the reference, not the object itself.
+    // All worker loops share the single TaskQueue instance created
+    // by CaptureCoordinator, so no duplicate task processing occurs.
     const { worker, taskQueue, pollIntervalMs, maxRetries } = input;
 
     const loop = async (): Promise<void> => {
