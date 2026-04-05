@@ -67,52 +67,33 @@ describe("Worker", () => {
       );
     });
 
-    it("should set status to ready on successful connection", async () => {
+    it("should be connected after successful connection", async () => {
       await worker.connect();
 
-      const info = worker.getInfo();
-      expect(info.status).toBe("ready");
+      expect(worker.isConnected).toBe(true);
     });
 
-    it("should set status to error on connection failure", async () => {
+    it("should throw on connection failure", async () => {
       vi.mocked(connectBrowser).mockRejectedValue(new Error("Connection failed"));
 
-      await worker.connect();
-
-      expect(worker.isOperational).toBe(false);
-      const info = worker.getInfo();
-      expect(info.status).toBe("error");
-      expect(info.errorHistory).toHaveLength(1);
-      expect(info.errorHistory[0]).toMatchObject({
-        type: "connection",
-        message: "Connection failed",
-      });
-      expect(info.errorHistory[0]?.task).toBeUndefined();
-    });
-
-    it("should increment error count on failure", async () => {
-      vi.mocked(connectBrowser).mockRejectedValue(new Error("Error"));
-
-      await worker.connect();
-
-      const info = worker.getInfo();
-      expect(info.errorCount).toBe(1);
+      await expect(worker.connect()).rejects.toThrow("Connection failed");
+      expect(worker.isConnected).toBe(false);
     });
   });
 
   describe("disconnect", () => {
-    it("should disconnect browser and set status to stopped", async () => {
+    it("should disconnect browser", async () => {
       await worker.connect();
       await worker.disconnect();
 
       expect(mockBrowser.disconnect).toHaveBeenCalled();
-      expect(worker.getInfo().status).toBe("stopped");
+      expect(worker.isConnected).toBe(false);
     });
 
     it("should handle disconnect when not connected", async () => {
       await worker.disconnect();
 
-      expect(worker.getInfo().status).toBe("stopped");
+      expect(worker.isConnected).toBe(false);
     });
 
     it("should ignore disconnect errors", async () => {
@@ -120,19 +101,15 @@ describe("Worker", () => {
       await worker.connect();
 
       await expect(worker.disconnect()).resolves.not.toThrow();
-      expect(worker.getInfo().status).toBe("stopped");
+      expect(worker.isConnected).toBe(false);
     });
   });
 
   describe("process", () => {
-    it("should return failed result when worker is not available", async () => {
+    it("should throw when browser is not connected", async () => {
       const task = createTask();
 
-      const result = await worker.process(task);
-
-      expect(result.status).toBe(captureStatus.failed);
-      expect(result.errorDetails?.message).toContain("not available");
-      expect(result.workerIndex).toBe(0);
+      await expect(worker.process(task)).rejects.toThrow("has no browser connection");
     });
 
     it("should process task successfully", async () => {
@@ -159,26 +136,18 @@ describe("Worker", () => {
       );
     });
 
-    it("should increment processedCount on success", async () => {
+    it("should propagate capture exceptions", async () => {
       await worker.connect();
       const task = createTask();
-      mockCapture.mockResolvedValue({
-        task,
-        status: captureStatus.success,
-        captureProcessingTimeMs: 100,
-        timestamp: new Date().toISOString(),
-        workerIndex: 0,
-      });
+      mockCapture.mockRejectedValue(new Error("Unexpected error"));
 
-      await worker.process(task);
-
-      expect(worker.getInfo().processedCount).toBe(1);
+      await expect(worker.process(task)).rejects.toThrow("Unexpected error");
     });
 
-    it("should increment errorCount on failure", async () => {
+    it("should return capture result including error details", async () => {
       await worker.connect();
       const task = createTask();
-      mockCapture.mockResolvedValue({
+      const failedResult: CaptureResult = {
         task,
         status: captureStatus.failed,
         errorDetails: {
@@ -188,275 +157,41 @@ describe("Worker", () => {
         captureProcessingTimeMs: 100,
         timestamp: new Date().toISOString(),
         workerIndex: 0,
-      });
-
-      await worker.process(task);
-
-      expect(worker.getInfo().errorCount).toBe(1);
-    });
-
-    it("should add error to errorHistory on failure", async () => {
-      await worker.connect();
-      const task = createTask();
-      mockCapture.mockResolvedValue({
-        task,
-        status: captureStatus.failed,
-        errorDetails: {
-          type: "timeout",
-          message: "Navigation timeout",
-          timeoutMs: 30000,
-        },
-        captureProcessingTimeMs: 100,
-        timestamp: new Date().toISOString(),
-        workerIndex: 0,
-      });
-
-      await worker.process(task);
-
-      const info = worker.getInfo();
-      expect(info.errorHistory).toHaveLength(1);
-      expect(info.errorHistory[0]).toMatchObject({
-        type: "timeout",
-        message: "Navigation timeout",
-        timeoutMs: 30000,
-      });
-      expect(info.errorHistory[0]?.task).toEqual({
-        taskId: task.taskId,
-        url: task.url,
-        labels: task.labels,
-      });
-    });
-
-    it("should handle capture exception", async () => {
-      await worker.connect();
-      const task = createTask();
-      mockCapture.mockRejectedValue(new Error("Unexpected error"));
+      };
+      mockCapture.mockResolvedValue(failedResult);
 
       const result = await worker.process(task);
 
       expect(result.status).toBe(captureStatus.failed);
-      expect(result.errorDetails?.message).toBe("Unexpected error");
-      expect(worker.getInfo().errorCount).toBe(1);
-    });
-
-    it("should set status to error on disconnect-related error", async () => {
-      await worker.connect();
-      const task = createTask();
-      mockCapture.mockRejectedValue(
-        new Error("Target page, context or browser has been closed")
-      );
-
-      await worker.process(task);
-
-      expect(worker.getInfo().status).toBe("error");
-    });
-
-    it("should set status back to ready after successful processing", async () => {
-      await worker.connect();
-      const task = createTask();
-      mockCapture.mockResolvedValue({
-        task,
-        status: captureStatus.success,
-        captureProcessingTimeMs: 100,
-        timestamp: new Date().toISOString(),
-        workerIndex: 0,
-      });
-
-      await worker.process(task);
-
-      expect(worker.getInfo().status).toBe("ready");
+      expect(result.errorDetails?.message).toBe("Capture failed");
     });
   });
 
-  describe("isOperational", () => {
+  describe("isConnected", () => {
     it("should return false when not connected", () => {
-      expect(worker.isOperational).toBe(false);
+      expect(worker.isConnected).toBe(false);
     });
 
     it("should return true when connected", async () => {
       await worker.connect();
-
-      expect(worker.isOperational).toBe(true);
+      expect(worker.isConnected).toBe(true);
     });
 
     it("should return false after disconnect", async () => {
       await worker.connect();
       await worker.disconnect();
-
-      expect(worker.isOperational).toBe(false);
-    });
-
-    it("should return false when in error state", async () => {
-      vi.mocked(connectBrowser).mockRejectedValue(new Error("Error"));
-      await worker.connect();
-
-      expect(worker.isOperational).toBe(false);
+      expect(worker.isConnected).toBe(false);
     });
   });
 
-  describe("isIdle", () => {
-    it("should return false when not connected", () => {
-      expect(worker.isIdle).toBe(false);
+  describe("properties", () => {
+    it("should expose index", () => {
+      const w = new Worker(3, createBrowserProfile());
+      expect(w.index).toBe(3);
     });
 
-    it("should return true when connected and ready", async () => {
-      await worker.connect();
-
-      expect(worker.isIdle).toBe(true);
-    });
-
-    it("should return false when in error state", async () => {
-      vi.mocked(connectBrowser).mockRejectedValue(new Error("Error"));
-      await worker.connect();
-
-      expect(worker.isIdle).toBe(false);
-    });
-  });
-
-  describe("getInfo", () => {
-    it("should return worker information", async () => {
-      await worker.connect();
-
-      const info = worker.getInfo();
-
-      expect(info.index).toBe(0);
-      expect(info.browserProfile).toEqual({ browserURL: "http://chromium:9222", capture: expect.any(Object) as object });
-      expect(info.status).toBe("ready");
-      expect(info.processedCount).toBe(0);
-      expect(info.errorCount).toBe(0);
-      expect(info.errorHistory).toEqual([]);
-    });
-  });
-
-  describe("errorHistory", () => {
-    it("should maintain FIFO order with newest first", async () => {
-      await worker.connect();
-
-      for (let i = 1; i <= 3; i++) {
-        const task = createTask({ taskId: `task-${String(i)}` });
-        mockCapture.mockResolvedValue({
-          task,
-          status: captureStatus.failed,
-          errorDetails: {
-            type: "internal",
-            message: `Error ${String(i)}`,
-          },
-          captureProcessingTimeMs: 100,
-          timestamp: new Date().toISOString(),
-          workerIndex: 0,
-        });
-        await worker.process(task);
-      }
-
-      const info = worker.getInfo();
-      expect(info.errorHistory).toHaveLength(3);
-      expect(info.errorHistory[0]?.message).toBe("Error 3");
-      expect(info.errorHistory[2]?.message).toBe("Error 1");
-    });
-
-    it("should keep only last 10 errors", async () => {
-      await worker.connect();
-
-      for (let i = 1; i <= 12; i++) {
-        const task = createTask({ taskId: `task-${String(i)}` });
-        mockCapture.mockResolvedValue({
-          task,
-          status: captureStatus.failed,
-          errorDetails: {
-            type: "internal",
-            message: `Error ${String(i)}`,
-          },
-          captureProcessingTimeMs: 100,
-          timestamp: new Date().toISOString(),
-          workerIndex: 0,
-        });
-        await worker.process(task);
-      }
-
-      const info = worker.getInfo();
-      expect(info.errorHistory).toHaveLength(10);
-      expect(info.errorHistory[0]?.message).toBe("Error 12");
-      expect(info.errorHistory[9]?.message).toBe("Error 3");
-    });
-
-    it("should include task info in error record", async () => {
-      await worker.connect();
-      const task = createTask({
-        taskId: "test-task-123",
-        url: "https://example.com/page",
-        labels: ["TestPage"],
-      });
-      mockCapture.mockResolvedValue({
-        task,
-        status: captureStatus.failed,
-        errorDetails: {
-          type: "internal",
-          message: "Page load failed",
-        },
-        captureProcessingTimeMs: 100,
-        timestamp: new Date().toISOString(),
-        workerIndex: 0,
-      });
-
-      await worker.process(task);
-
-      const info = worker.getInfo();
-      expect(info.errorHistory[0]?.task).toEqual({
-        taskId: "test-task-123",
-        url: "https://example.com/page",
-        labels: ["TestPage"],
-      });
-    });
-
-    it("should have ISO timestamp in error record", async () => {
-      await worker.connect();
-      const task = createTask();
-      mockCapture.mockResolvedValue({
-        task,
-        status: captureStatus.failed,
-        errorDetails: {
-          type: "internal",
-          message: "Error",
-        },
-        captureProcessingTimeMs: 100,
-        timestamp: new Date().toISOString(),
-        workerIndex: 0,
-      });
-
-      await worker.process(task);
-
-      const info = worker.getInfo();
-      const timestamp = info.errorHistory[0]?.timestamp;
-      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
-    });
-
-    it("should include HTTP error details in errorHistory", async () => {
-      await worker.connect();
-      const task = createTask();
-      mockCapture.mockResolvedValue({
-        task,
-        status: captureStatus.httpError,
-        httpStatusCode: 404,
-        errorDetails: {
-          type: "http",
-          message: "HTTP 404: Not Found",
-          httpStatusCode: 404,
-          httpStatusText: "Not Found",
-        },
-        captureProcessingTimeMs: 100,
-        timestamp: new Date().toISOString(),
-        workerIndex: 0,
-      });
-
-      await worker.process(task);
-
-      const info = worker.getInfo();
-      expect(info.errorHistory[0]).toMatchObject({
-        type: "http",
-        message: "HTTP 404: Not Found",
-        httpStatusCode: 404,
-        httpStatusText: "Not Found",
-      });
+    it("should expose logger", () => {
+      expect(worker.logger).toBeDefined();
     });
   });
 });
