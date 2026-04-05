@@ -1,56 +1,68 @@
 /**
  * Worker Status Manager
+ *
+ * Wraps an XState actor for worker status transitions.
  */
+import { createActor } from "xstate";
 import {
+  workerStatusMachine,
   type WorkerStatus,
-  WORKER_STATUS_DEFINITIONS,
+  type WorkerStatusEvent,
 } from "./worker-status.js";
-import { StateMachine } from "./state-machine.js";
+
+const STATUS_EVENT_MAP: Record<WorkerStatus, WorkerStatusEvent> = {
+  ready: { type: "TO_READY" },
+  busy: { type: "TO_BUSY" },
+  error: { type: "TO_ERROR" },
+  stopped: { type: "TO_STOPPED" },
+};
 
 export class WorkerStatusManager {
-  private machine: StateMachine<WorkerStatus>;
+  private actor;
 
   constructor(initialStatus: WorkerStatus = "stopped") {
-    this.machine = new StateMachine(WORKER_STATUS_DEFINITIONS, initialStatus);
+    this.actor = createActor(workerStatusMachine, {
+      snapshot: workerStatusMachine.resolveState({
+        value: initialStatus,
+        context: {},
+      }),
+    });
+    this.actor.start();
   }
 
   get current(): WorkerStatus {
-    return this.machine.current;
+    return this.actor.getSnapshot().value as WorkerStatus;
   }
 
   get canProcess(): boolean {
-    return WORKER_STATUS_DEFINITIONS[this.machine.current].canProcess;
+    return this.actor.getSnapshot().hasTag("canProcess");
   }
 
   get isHealthy(): boolean {
-    return WORKER_STATUS_DEFINITIONS[this.machine.current].healthy;
+    return this.actor.getSnapshot().hasTag("healthy");
   }
 
   canTransitionTo(next: WorkerStatus): boolean {
-    return this.machine.canTransitionTo(next);
+    return this.actor.getSnapshot().can(STATUS_EVENT_MAP[next]);
   }
 
-  /**
-   * Transition to a new state (with validation)
-   * @throws Error if the transition is invalid
-   */
   transitionTo(next: WorkerStatus): void {
-    this.machine.transitionTo(next);
+    this.actor.send(STATUS_EVENT_MAP[next]);
   }
 
   toReady(): void {
-    this.transitionTo("ready");
+    this.actor.send({ type: "TO_READY" });
   }
 
   toBusy(): void {
-    this.transitionTo("busy");
+    this.actor.send({ type: "TO_BUSY" });
   }
 
   toError(): void {
-    this.transitionTo("error");
+    this.actor.send({ type: "TO_ERROR" });
   }
 
   toStopped(): void {
-    this.transitionTo("stopped");
+    this.actor.send({ type: "TO_STOPPED" });
   }
 }

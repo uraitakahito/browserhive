@@ -1,35 +1,42 @@
 /**
  * Worker Status
  *
- * Unified status definitions. Manages types and state configurations in one place.
+ * XState machine definition for worker status transitions.
  * Proto mappings are handled by grpc/response-mapper.ts.
  */
-export const WORKER_STATUS_DEFINITIONS = {
-  ready: {
-    canProcess: true,
-    healthy: true,
-    allowedTransitions: ["busy", "error", "stopped"] as const,
-  },
-  busy: {
-    canProcess: false,
-    healthy: true,
-    allowedTransitions: ["ready", "error", "stopped"] as const,
-  },
-  error: {
-    canProcess: false,
-    healthy: false,
-    allowedTransitions: ["ready", "stopped"] as const,
-  },
-  stopped: {
-    canProcess: false,
-    healthy: false,
-    allowedTransitions: ["ready", "error"] as const,
-  },
-} as const;
+import { setup } from "xstate";
 
-export type WorkerStatus = keyof typeof WORKER_STATUS_DEFINITIONS;
+export type WorkerStatusEvent =
+  | { type: "TO_READY" }
+  | { type: "TO_BUSY" }
+  | { type: "TO_ERROR" }
+  | { type: "TO_STOPPED" };
 
-export const ALL_WORKER_STATUSES = Object.keys(
-  WORKER_STATUS_DEFINITIONS
-) as WorkerStatus[];
+export type WorkerStatus = "ready" | "busy" | "error" | "stopped";
 
+export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "stopped"];
+
+export const workerStatusMachine = setup({
+  types: {
+    events: {} as WorkerStatusEvent,
+  },
+}).createMachine({
+  id: "workerStatus",
+  initial: "stopped",
+  states: {
+    ready: {
+      tags: ["canProcess", "healthy"],
+      on: { TO_BUSY: "busy", TO_ERROR: "error", TO_STOPPED: "stopped" },
+    },
+    busy: {
+      tags: ["healthy"],
+      on: { TO_READY: "ready", TO_ERROR: "error", TO_STOPPED: "stopped" },
+    },
+    error: {
+      on: { TO_READY: "ready", TO_STOPPED: "stopped" },
+    },
+    stopped: {
+      on: { TO_READY: "ready", TO_ERROR: "error" },
+    },
+  },
+});

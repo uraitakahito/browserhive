@@ -1,52 +1,60 @@
 /**
  * Coordinator Lifecycle Manager
+ *
+ * Wraps an XState actor for coordinator lifecycle transitions.
  */
+import { createActor } from "xstate";
 import {
+  coordinatorLifecycleMachine,
   type CoordinatorLifecycle,
-  COORDINATOR_LIFECYCLE_DEFINITIONS,
+  type CoordinatorLifecycleEvent,
 } from "./coordinator-lifecycle.js";
-import { StateMachine } from "./state-machine.js";
+
+const LIFECYCLE_EVENT_MAP: Record<CoordinatorLifecycle, CoordinatorLifecycleEvent> = {
+  created: { type: "CREATE" },
+  initializing: { type: "INITIALIZE" },
+  running: { type: "RUN" },
+  shuttingDown: { type: "SHUT_DOWN" },
+  stopped: { type: "STOP" },
+};
 
 export class CoordinatorLifecycleManager {
-  private machine: StateMachine<CoordinatorLifecycle>;
+  private actor;
 
   constructor() {
-    this.machine = new StateMachine(COORDINATOR_LIFECYCLE_DEFINITIONS, "created");
+    this.actor = createActor(coordinatorLifecycleMachine);
+    this.actor.start();
   }
 
   get current(): CoordinatorLifecycle {
-    return this.machine.current;
+    return this.actor.getSnapshot().value as CoordinatorLifecycle;
   }
 
   get isRunning(): boolean {
-    return this.machine.current === "running";
+    return this.actor.getSnapshot().hasTag("running");
   }
 
   canTransitionTo(next: CoordinatorLifecycle): boolean {
-    return this.machine.canTransitionTo(next);
+    return this.actor.getSnapshot().can(LIFECYCLE_EVENT_MAP[next]);
   }
 
-  /**
-   * Transition to a new state (with validation)
-   * @throws Error if the transition is invalid
-   */
   transitionTo(next: CoordinatorLifecycle): void {
-    this.machine.transitionTo(next);
+    this.actor.send(LIFECYCLE_EVENT_MAP[next]);
   }
 
   toInitializing(): void {
-    this.transitionTo("initializing");
+    this.actor.send({ type: "INITIALIZE" });
   }
 
   toRunning(): void {
-    this.transitionTo("running");
+    this.actor.send({ type: "RUN" });
   }
 
   toShuttingDown(): void {
-    this.transitionTo("shuttingDown");
+    this.actor.send({ type: "SHUT_DOWN" });
   }
 
   toStopped(): void {
-    this.transitionTo("stopped");
+    this.actor.send({ type: "STOP" });
   }
 }

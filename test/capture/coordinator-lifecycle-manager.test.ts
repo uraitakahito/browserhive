@@ -16,18 +16,16 @@ describe("CoordinatorLifecycleManager", () => {
       expect(manager.current).toBe("initializing");
     });
 
-    it("should throw on invalid transitions", () => {
+    it("should silently ignore invalid transitions", () => {
       const manager = new CoordinatorLifecycleManager();
-      expect(() => {
-        manager.transitionTo("running");
-      }).toThrow("Invalid status transition: created -> running");
+      manager.transitionTo("running");
+      expect(manager.current).toBe("created");
     });
 
-    it("should throw on self-transition", () => {
+    it("should silently ignore self-transition", () => {
       const manager = new CoordinatorLifecycleManager();
-      expect(() => {
-        manager.transitionTo("created");
-      }).toThrow("Invalid status transition: created -> created");
+      manager.transitionTo("created");
+      expect(manager.current).toBe("created");
     });
   });
 
