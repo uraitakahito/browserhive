@@ -71,7 +71,6 @@ export class CaptureCoordinator {
           id: `worker-${String(worker.index)}`,
           input: {
             index: worker.index,
-            browserProfile: worker.profile,
             worker,
             taskQueue: this.taskQueue,
             pollIntervalMs: this.config.queuePollIntervalMs,
@@ -212,7 +211,7 @@ export class CaptureCoordinator {
     const ctx: WorkerMachineContext = snapshot.context;
     return {
       index: ctx.index,
-      browserProfile: ctx.browserProfile,
+      browserProfile: ctx.worker.profile,
       status: toFlatWorkerStatus(snapshot),
       processedCount: ctx.processedCount,
       errorCount: ctx.errorCount,
