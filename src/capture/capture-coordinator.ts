@@ -146,11 +146,11 @@ export class CaptureCoordinator {
   }
 
   async shutdown(): Promise<void> {
-    if (!this.lifecycleActor.getSnapshot().can({ type: "SHUT_DOWN" })) {
+    if (!this.lifecycleActor.getSnapshot().can({ type: "SHUTDOWN" })) {
       return;
     }
 
-    this.lifecycleActor.send({ type: "SHUT_DOWN" });
+    this.lifecycleActor.send({ type: "SHUTDOWN" });
 
     // Send DISCONNECT to all worker actors
     for (const entry of this.workers) {

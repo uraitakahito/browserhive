@@ -15,7 +15,7 @@ export const coordinatorMachine = setup({
       | { type: "INITIALIZE" }
       | { type: "INIT_DONE" }
       | { type: "INIT_FAILED" }
-      | { type: "SHUT_DOWN" }
+      | { type: "SHUTDOWN" }
       | { type: "SHUTDOWN_DONE" }
       | { type: "ALL_WORKERS_ERROR" },
   },
@@ -35,7 +35,7 @@ export const coordinatorMachine = setup({
     running: {
       tags: ["running"],
       on: {
-        SHUT_DOWN: "shuttingDown",
+        SHUTDOWN: "shuttingDown",
         ALL_WORKERS_ERROR: "shuttingDown",
       },
     },

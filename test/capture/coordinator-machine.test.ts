@@ -56,10 +56,10 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("stopped");
       });
 
-      it("running → shuttingDown via SHUT_DOWN", () => {
+      it("running → shuttingDown via SHUTDOWN", () => {
         const actor = actorAt("running");
-        expect(actor.getSnapshot().can({ type: "SHUT_DOWN" })).toBe(true);
-        actor.send({ type: "SHUT_DOWN" });
+        expect(actor.getSnapshot().can({ type: "SHUTDOWN" })).toBe(true);
+        actor.send({ type: "SHUTDOWN" });
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
@@ -79,17 +79,17 @@ describe("coordinator-machine", () => {
     });
 
     describe("invalid transitions", () => {
-      it("created should not allow SHUT_DOWN, INIT_DONE, INIT_FAILED", () => {
+      it("created should not allow SHUTDOWN, INIT_DONE, INIT_FAILED", () => {
         const snapshot = actorAt("created").getSnapshot();
-        expect(snapshot.can({ type: "SHUT_DOWN" })).toBe(false);
+        expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
         expect(snapshot.can({ type: "INIT_DONE" })).toBe(false);
         expect(snapshot.can({ type: "INIT_FAILED" })).toBe(false);
       });
 
-      it("initializing should not allow INITIALIZE, SHUT_DOWN", () => {
+      it("initializing should not allow INITIALIZE, SHUTDOWN", () => {
         const snapshot = actorAt("initializing").getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
-        expect(snapshot.can({ type: "SHUT_DOWN" })).toBe(false);
+        expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
       });
 
       it("running should not allow INITIALIZE, INIT_DONE", () => {
@@ -101,7 +101,7 @@ describe("coordinator-machine", () => {
       it("stopped should be a final state (no transitions allowed)", () => {
         const snapshot = actorAt("stopped").getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
-        expect(snapshot.can({ type: "SHUT_DOWN" })).toBe(false);
+        expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
         expect(snapshot.can({ type: "SHUTDOWN_DONE" })).toBe(false);
       });
     });

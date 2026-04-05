@@ -73,7 +73,7 @@ stateDiagram-v2
     created --> initializing : INITIALIZE
     initializing --> running : INIT_DONE
     initializing --> stopped : INIT_FAILED
-    running --> shuttingDown : SHUT_DOWN
+    running --> shuttingDown : SHUTDOWN
     running --> shuttingDown : ALL_WORKERS_ERROR
     shuttingDown --> stopped : SHUTDOWN_DONE
     stopped --> [*]
