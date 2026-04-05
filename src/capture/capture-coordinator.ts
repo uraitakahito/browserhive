@@ -80,8 +80,8 @@ export class CaptureCoordinator {
         }
       );
 
-      const results = await Promise.all(connectionPromises);
-      const operationalCount = results.filter((r) => r.connected).length;
+      const connectionResults = await Promise.all(connectionPromises);
+      const operationalCount = connectionResults.filter((r) => r.connected).length;
 
       if (operationalCount === 0) {
         this.lifecycleActor.send({ type: "INIT_FAILED" });
@@ -89,7 +89,7 @@ export class CaptureCoordinator {
       }
 
       // Spawn worker status actors for each worker
-      this.workers = results.map(({ worker, connected }) => {
+      this.workers = connectionResults.map(({ worker, connected }) => {
         const ref = createActor(workerStatusMachine, {
           id: `worker-${String(worker.index)}`,
           input: {
