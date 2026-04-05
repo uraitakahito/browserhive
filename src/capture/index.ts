@@ -40,23 +40,21 @@ export {
   errorDetailsFromException,
 } from "./error-details.js";
 
-// State Machine
-export { StateMachine } from "./state-machine.js";
-export type { BaseStateDefinition, StateDefinitions } from "./state-machine.js";
-
 // Worker Status
 export type { WorkerStatus } from "./worker-status.js";
+export type { WorkerStatusEvent } from "./worker-status.js";
 export {
-  WORKER_STATUS_DEFINITIONS,
   ALL_WORKER_STATUSES,
+  workerStatusMachine,
 } from "./worker-status.js";
 export { WorkerStatusManager } from "./worker-status-manager.js";
 
 // Coordinator Lifecycle
 export type { CoordinatorLifecycle } from "./coordinator-lifecycle.js";
+export type { CoordinatorLifecycleEvent } from "./coordinator-lifecycle.js";
 export {
-  COORDINATOR_LIFECYCLE_DEFINITIONS,
   ALL_COORDINATOR_LIFECYCLES,
+  coordinatorLifecycleMachine,
 } from "./coordinator-lifecycle.js";
 export { CoordinatorLifecycleManager } from "./coordinator-lifecycle-manager.js";
 

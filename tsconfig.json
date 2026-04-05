@@ -59,6 +59,9 @@
     "esModuleInterop": true,
     // Ensure that casing is correct in imports
     "forceConsistentCasingInFileNames": true,
+    // Skip type checking of declaration files from node_modules
+    // Required by XState: https://stately.ai/docs/typescript#set-up-your-tsconfigjson-file
+    "skipLibCheck": true,
 
     /*
      * Language and Environment

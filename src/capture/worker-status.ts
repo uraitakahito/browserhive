@@ -1,35 +1,44 @@
 /**
  * Worker Status
  *
- * Unified status definitions. Manages types and state configurations in one place.
+ * XState machine definition for worker status transitions.
  * Proto mappings are handled by grpc/response-mapper.ts.
  */
-export const WORKER_STATUS_DEFINITIONS = {
-  ready: {
-    canProcess: true,
-    healthy: true,
-    allowedTransitions: ["busy", "error", "stopped"] as const,
-  },
-  busy: {
-    canProcess: false,
-    healthy: true,
-    allowedTransitions: ["ready", "error", "stopped"] as const,
-  },
-  error: {
-    canProcess: false,
-    healthy: false,
-    allowedTransitions: ["ready", "stopped"] as const,
-  },
-  stopped: {
-    canProcess: false,
-    healthy: false,
-    allowedTransitions: ["ready", "error"] as const,
-  },
-} as const;
+import { setup, type StateValueFrom, type EventFromLogic } from "xstate";
 
-export type WorkerStatus = keyof typeof WORKER_STATUS_DEFINITIONS;
+export const workerStatusMachine = setup({
+  types: {
+    events: {} as
+      | { type: "TO_READY" }
+      | { type: "TO_BUSY" }
+      | { type: "TO_ERROR" }
+      | { type: "TO_STOPPED" },
+  },
+}).createMachine({
+  id: "workerStatus",
+  initial: "stopped",
+  states: {
+    ready: {
+      tags: ["canProcess", "healthy"],
+      on: { TO_BUSY: "busy", TO_ERROR: "error", TO_STOPPED: "stopped" },
+    },
+    busy: {
+      tags: ["healthy"],
+      on: { TO_READY: "ready", TO_ERROR: "error", TO_STOPPED: "stopped" },
+    },
+    error: {
+      on: { TO_READY: "ready", TO_STOPPED: "stopped" },
+    },
+    stopped: {
+      on: { TO_READY: "ready", TO_ERROR: "error" },
+    },
+  },
+});
 
-export const ALL_WORKER_STATUSES = Object.keys(
-  WORKER_STATUS_DEFINITIONS
-) as WorkerStatus[];
+/** Worker status derived from machine state names */
+export type WorkerStatus = StateValueFrom<typeof workerStatusMachine>;
 
+/** Worker status event derived from machine event types */
+export type WorkerStatusEvent = EventFromLogic<typeof workerStatusMachine>;
+
+export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "stopped"];

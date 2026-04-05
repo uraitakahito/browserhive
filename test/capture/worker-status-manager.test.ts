@@ -21,18 +21,16 @@ describe("WorkerStatusManager", () => {
       expect(manager.current).toBe("busy");
     });
 
-    it("should throw on invalid transitions", () => {
+    it("should silently ignore invalid transitions", () => {
       const manager = new WorkerStatusManager("stopped");
-      expect(() => {
-        manager.transitionTo("busy");
-      }).toThrow("Invalid status transition: stopped -> busy");
+      manager.transitionTo("busy");
+      expect(manager.current).toBe("stopped");
     });
 
-    it("should throw on same-state transition", () => {
+    it("should silently ignore same-state transition", () => {
       const manager = new WorkerStatusManager("ready");
-      expect(() => {
-        manager.transitionTo("ready");
-      }).toThrow("Invalid status transition: ready -> ready");
+      manager.transitionTo("ready");
+      expect(manager.current).toBe("ready");
     });
   });
 
