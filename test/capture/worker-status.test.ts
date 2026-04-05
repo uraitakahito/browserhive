@@ -6,6 +6,7 @@ import {
   toFlatWorkerStatus,
 } from "../../src/capture/worker-status.js";
 import type { WorkerMachineInput } from "../../src/capture/worker-status.js";
+import type { WorkerLoopConfig } from "../../src/capture/worker-loop.js";
 import type { Worker } from "../../src/capture/worker.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 
@@ -18,13 +19,19 @@ const createMockWorker = (): Worker =>
     process: vi.fn(),
   }) as unknown as Worker;
 
-const createInput = (overrides: Partial<WorkerMachineInput> = {}): WorkerMachineInput => ({
-  index: 0,
+const createDefaultLoopConfig = (): WorkerLoopConfig => ({
   worker: createMockWorker(),
   taskQueue: new TaskQueue(),
   pollIntervalMs: 50,
   maxRetries: 2,
-  ...overrides,
+});
+
+const createInput = (overrides?: { index?: number; loopConfig?: Partial<WorkerLoopConfig> }): WorkerMachineInput => ({
+  index: overrides?.index ?? 0,
+  loopConfig: {
+    ...createDefaultLoopConfig(),
+    ...overrides?.loopConfig,
+  },
 });
 
 /**
@@ -32,7 +39,7 @@ const createInput = (overrides: Partial<WorkerMachineInput> = {}): WorkerMachine
  * The machine has invoked actors, so we test state transitions
  * by sending events directly.
  */
-const createWorkerActor = (overrides: Partial<WorkerMachineInput> = {}) => {
+const createWorkerActor = (overrides?: { index?: number; loopConfig?: Partial<WorkerLoopConfig> }) => {
   const input = createInput(overrides);
   const actor = createActor(workerStatusMachine, { input });
   actor.start();
@@ -101,7 +108,7 @@ describe("worker-status", () => {
         const worker = createMockWorker();
         vi.mocked(worker.connect).mockRejectedValue(new Error("Connection refused"));
 
-        const { actor } = createWorkerActor({ worker });
+        const { actor } = createWorkerActor({ loopConfig: { worker } });
         actor.send({ type: "CONNECT" });
 
         await vi.waitFor(() => {
@@ -199,7 +206,7 @@ describe("worker-status", () => {
       const createErrorActor = async () => {
         const worker = createMockWorker();
         vi.mocked(worker.connect).mockRejectedValue(new Error("fail"));
-        const result = createWorkerActor({ worker });
+        const result = createWorkerActor({ loopConfig: { worker } });
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
           expect(result.actor.getSnapshot().value).toBe("error");
@@ -299,7 +306,7 @@ describe("worker-status", () => {
     it("should map error to 'error'", async () => {
       const worker = createMockWorker();
       vi.mocked(worker.connect).mockRejectedValue(new Error("fail"));
-      const { actor } = createWorkerActor({ worker });
+      const { actor } = createWorkerActor({ loopConfig: { worker } });
       actor.send({ type: "CONNECT" });
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toBe("error");
@@ -311,7 +318,7 @@ describe("worker-status", () => {
       const worker = createMockWorker();
       // Make connect hang so we stay in connecting state
       vi.mocked(worker.connect).mockReturnValue(new Promise(() => { /* never resolves */ }));
-      const { actor } = createWorkerActor({ worker });
+      const { actor } = createWorkerActor({ loopConfig: { worker } });
       actor.send({ type: "CONNECT" });
       expect(actor.getSnapshot().value).toBe("connecting");
       expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("error");
