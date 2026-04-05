@@ -33,7 +33,6 @@ export const coordinatorMachine = setup({
       },
     },
     running: {
-      tags: ["running"],
       on: {
         SHUTDOWN: "shuttingDown",
         ALL_WORKERS_ERROR: "shuttingDown",

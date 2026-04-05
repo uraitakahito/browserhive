@@ -106,19 +106,5 @@ describe("coordinator-machine", () => {
       });
     });
 
-    describe("tags", () => {
-      it("running should have running tag", () => {
-        const snapshot = actorAt("running").getSnapshot();
-        expect(snapshot.hasTag("running")).toBe(true);
-      });
-
-      it("non-running states should not have running tag", () => {
-        const states: CoordinatorLifecycle[] = ["created", "initializing", "shuttingDown", "stopped"];
-        for (const state of states) {
-          const snapshot = actorAt(state).getSnapshot();
-          expect(snapshot.hasTag("running")).toBe(false);
-        }
-      });
-    });
-  });
+});
 });
