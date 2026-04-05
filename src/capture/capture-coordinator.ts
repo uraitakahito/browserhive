@@ -205,7 +205,7 @@ export class CaptureCoordinator {
   }
 
   get isRunning(): boolean {
-    return this.lifecycleActor.getSnapshot().hasTag("running");
+    return this.lifecycleActor.getSnapshot().value === "running";
   }
 
   get operationalWorkerCount(): number {
