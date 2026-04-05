@@ -51,6 +51,6 @@ export const coordinatorMachine = setup({
 /** Coordinator lifecycle state derived from machine state names */
 export type CoordinatorLifecycle = StateValueFrom<typeof coordinatorMachine>;
 
-export const ALL_COORDINATOR_LIFECYCLES: CoordinatorLifecycle[] = [
-  "created", "initializing", "running", "shuttingDown", "stopped",
-];
+export const ALL_COORDINATOR_LIFECYCLES = Object.keys(
+  coordinatorMachine.config.states ?? {}
+) as CoordinatorLifecycle[];
