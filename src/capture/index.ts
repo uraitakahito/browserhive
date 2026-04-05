@@ -42,21 +42,17 @@ export {
 
 // Worker Status
 export type { WorkerStatus } from "./worker-status.js";
-export type { WorkerStatusEvent } from "./worker-status.js";
 export {
   ALL_WORKER_STATUSES,
   workerStatusMachine,
 } from "./worker-status.js";
-export { WorkerStatusManager } from "./worker-status-manager.js";
 
 // Coordinator Lifecycle
 export type { CoordinatorLifecycle } from "./coordinator-lifecycle.js";
-export type { CoordinatorLifecycleEvent } from "./coordinator-lifecycle.js";
 export {
   ALL_COORDINATOR_LIFECYCLES,
   coordinatorLifecycleMachine,
 } from "./coordinator-lifecycle.js";
-export { CoordinatorLifecycleManager } from "./coordinator-lifecycle-manager.js";
 
 // Classes
 export { Worker } from "./worker.js";

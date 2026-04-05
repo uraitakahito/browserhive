@@ -19,7 +19,8 @@ import {
   createInternalError,
   errorDetailsFromException,
 } from "./error-details.js";
-import { WorkerStatusManager } from "./worker-status-manager.js";
+import { createActor } from "xstate";
+import { workerStatusMachine } from "./worker-status.js";
 import { captureStatus, isSuccessStatus } from "./capture-status.js";
 import { createChildLogger, type Logger } from "../logger.js";
 
@@ -27,7 +28,7 @@ const MAX_ERROR_HISTORY = 10;
 
 export class Worker {
   private browser: Browser | null = null;
-  private statusManager = new WorkerStatusManager();
+  private statusActor = createActor(workerStatusMachine).start();
   private processedCount = 0;
   private errorCount = 0;
   private errorHistory: ErrorRecord[] = [];
@@ -70,9 +71,9 @@ export class Worker {
   async connect(): Promise<void> {
     try {
       this.browser = await connectBrowser(this.profile);
-      this.statusManager.toReady();
+      this.statusActor.send({ type: "TO_READY" });
     } catch (error) {
-      this.statusManager.toError();
+      this.statusActor.send({ type: "TO_ERROR" });
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.addError(createConnectionError(errorMessage));
@@ -89,8 +90,8 @@ export class Worker {
       }
       this.browser = null;
     }
-    if (this.statusManager.canTransitionTo("stopped")) {
-      this.statusManager.toStopped();
+    if (this.statusActor.getSnapshot().can({ type: "TO_STOPPED" })) {
+      this.statusActor.send({ type: "TO_STOPPED" });
     }
   }
 
@@ -100,7 +101,7 @@ export class Worker {
         task,
         status: captureStatus.failed,
         errorDetails: createInternalError(
-          `Worker ${String(this.index)} is not available (status: ${this.statusManager.current})`
+          `Worker ${String(this.index)} is not available (status: ${this.statusActor.getSnapshot().value})`
         ),
         captureProcessingTimeMs: 0,
         timestamp: new Date().toISOString(),
@@ -108,7 +109,7 @@ export class Worker {
       };
     }
 
-    this.statusManager.toBusy();
+    this.statusActor.send({ type: "TO_BUSY" });
 
     try {
       const result = await this.pageCapturer.capture(
@@ -134,7 +135,7 @@ export class Worker {
       this.addError(errorDetails, task);
 
       if (errorDetails.type === "connection") {
-        this.statusManager.toError();
+        this.statusActor.send({ type: "TO_ERROR" });
       }
 
       return {
@@ -146,8 +147,8 @@ export class Worker {
         workerIndex: this.index,
       };
     } finally {
-      if (this.statusManager.current === "busy") {
-        this.statusManager.toReady();
+      if (this.statusActor.getSnapshot().value === "busy") {
+        this.statusActor.send({ type: "TO_READY" });
       }
     }
   }
@@ -156,7 +157,7 @@ export class Worker {
     return {
       index: this.index,
       browserProfile: this.profile,
-      status: this.statusManager.current,
+      status: this.statusActor.getSnapshot().value,
       processedCount: this.processedCount,
       errorCount: this.errorCount,
       errorHistory: [...this.errorHistory],
@@ -164,10 +165,10 @@ export class Worker {
   }
 
   get isOperational(): boolean {
-    return this.browser !== null && this.statusManager.isHealthy;
+    return this.browser !== null && this.statusActor.getSnapshot().hasTag("healthy");
   }
 
   get isIdle(): boolean {
-    return this.browser !== null && this.statusManager.canProcess;
+    return this.browser !== null && this.statusActor.getSnapshot().hasTag("canProcess");
   }
 }
