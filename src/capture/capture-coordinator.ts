@@ -21,6 +21,9 @@ import { logger } from "../logger.js";
 /** Timeout for waiting worker actors to stop during shutdown */
 const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
 
+/** Timeout for waiting all worker actors to settle during initialization */
+const WORKER_INIT_TIMEOUT_MS = 30_000;
+
 /** Reference to a spawned worker actor with its associated Worker instance */
 interface WorkerEntry {
   ref: ActorRefFrom<typeof workerStatusMachine>;
@@ -54,42 +57,16 @@ export class CaptureCoordinator {
   }
 
   /**
-   * Initialize the capture coordinator by connecting all workers
-   * and spawning their status actors.
+   * Initialize the capture coordinator by spawning worker status actors
+   * and delegating browser connection to the state machine.
    */
   async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
 
     try {
-      // Create and connect workers
-      const connectionPromises = this.config.browserProfiles.map(
-        async (profile, index) => {
-          const worker = new Worker(index, profile);
-          let connected = false;
-
-          try {
-            await worker.connect();
-            worker.logger.info("Connected to browser");
-            connected = true;
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            worker.logger.error({ error: errorMessage }, "Failed to connect to browser");
-          }
-
-          return { worker, connected };
-        }
-      );
-
-      const connectionResults = await Promise.all(connectionPromises);
-      const operationalCount = connectionResults.filter((r) => r.connected).length;
-
-      if (operationalCount === 0) {
-        this.lifecycleActor.send({ type: "INIT_FAILED" });
-        throw new Error("No workers available. All browser connections failed.");
-      }
-
-      // Spawn worker status actors for each worker
-      this.workers = connectionResults.map(({ worker, connected }) => {
+      // Create workers and spawn their status actors
+      this.workers = this.config.browserProfiles.map((profile, index) => {
+        const worker = new Worker(index, profile);
         const ref = createActor(workerStatusMachine, {
           id: `worker-${String(worker.index)}`,
           input: {
@@ -102,21 +79,27 @@ export class CaptureCoordinator {
           },
         });
         ref.start();
-
-        if (connected) {
-          // Worker is already connected — send CONNECT to enter operational state.
-          // The fromPromise connectBrowser will call worker.connect() again,
-          // but since browser is already set, it will reconnect.
-          // To avoid double-connect, we need a different approach.
-          ref.send({ type: "CONNECT" });
-        }
-        // If not connected, actor stays in "stopped" state
-
         return { ref, worker, index: worker.index };
       });
 
-      // Subscribe to worker actors for all-error detection
+      // Subscribe before sending CONNECT (safe: isRunning guard prevents
+      // premature ALL_WORKERS_ERROR while coordinator is still initializing)
       this.subscribeToWorkerErrors();
+
+      // Send CONNECT to all actors — connection is handled by the state machine
+      for (const entry of this.workers) {
+        entry.ref.send({ type: "CONNECT" });
+      }
+
+      // Wait for all actors to reach operational or error
+      await this.waitForActorsToSettle();
+
+      const operationalCount = this.operationalWorkerCount;
+
+      if (operationalCount === 0) {
+        this.lifecycleActor.send({ type: "INIT_FAILED" });
+        throw new Error("No workers available. All browser connections failed.");
+      }
 
       this.lifecycleActor.send({ type: "INIT_DONE" });
 
@@ -235,6 +218,44 @@ export class CaptureCoordinator {
       errorCount: ctx.errorCount,
       errorHistory: [...ctx.errorHistory],
     };
+  }
+
+  /**
+   * Wait for all worker actors to settle into operational or error state.
+   * Uses the same Promise.race + subscribe pattern as shutdown().
+   */
+  private async waitForActorsToSettle(): Promise<void> {
+    const isSettled = (value: unknown): boolean =>
+      (typeof value === "object" && value !== null) || value === "error";
+
+    await Promise.race([
+      Promise.all(
+        this.workers.map(
+          (entry) =>
+            new Promise<void>((resolve) => {
+              if (isSettled(entry.ref.getSnapshot().value)) {
+                resolve();
+                return;
+              }
+              const subscription = entry.ref.subscribe((snapshot) => {
+                if (isSettled(snapshot.value)) {
+                  subscription.unsubscribe();
+                  resolve();
+                }
+              });
+            })
+        )
+      ),
+      new Promise<void>((resolve) =>
+        setTimeout(() => {
+          logger.warn(
+            { timeoutMs: WORKER_INIT_TIMEOUT_MS },
+            "Worker initialization timed out, proceeding with available workers"
+          );
+          resolve();
+        }, WORKER_INIT_TIMEOUT_MS)
+      ),
+    ]);
   }
 
   /**
