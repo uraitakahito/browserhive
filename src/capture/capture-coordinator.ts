@@ -71,11 +71,11 @@ export class CaptureCoordinator {
           id: `worker-${String(worker.index)}`,
           input: {
             index: worker.index,
+            maxRetries: this.config.maxRetries,
             loopConfig: {
               worker,
               taskQueue: this.taskQueue,
               pollIntervalMs: this.config.queuePollIntervalMs,
-              maxRetries: this.config.maxRetries,
             },
           },
         });
