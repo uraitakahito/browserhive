@@ -56,7 +56,7 @@ export class CaptureCoordinator {
 
   /**
    * Initialize the capture coordinator. Worker spawning, browser connection,
-   * and the operational-count check are all driven by the lifecycle machine
+   * and the all-workers-healthy check are all driven by the lifecycle machine
    * (`initializing` state's invoked actor).
    */
   async initialize(): Promise<void> {
@@ -64,7 +64,7 @@ export class CaptureCoordinator {
     await this.waitForLifecycle("running", "terminated");
 
     if (this.lifecycleActor.getSnapshot().value === "terminated") {
-      throw new Error("No workers available. All browser connections failed.");
+      throw new Error("Coordinator failed to initialize");
     }
   }
 

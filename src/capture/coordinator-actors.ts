@@ -7,7 +7,7 @@
  *
  * Actor logics defined here:
  *   - `initializeWorkers` (fromPromise): connect all worker actors and
- *     verify at least one becomes operational
+ *     verify every one becomes operational
  *   - `watchWorkerHealth` (fromCallback): emit ALL_WORKERS_ERROR when every
  *     worker becomes unhealthy
  *   - `shutdownWorkers` (fromPromise): disconnect all worker actors with a
@@ -78,6 +78,9 @@ const countOperational = (workers: WorkerEntry[]): number =>
 
 export const initializeWorkers = fromPromise<undefined, { workers: WorkerEntry[] }>(
   async ({ input }) => {
+    if (input.workers.length === 0) {
+      throw new Error("No browser profiles configured.");
+    }
     for (const entry of input.workers) {
       entry.ref.send({ type: "CONNECT" });
     }
@@ -86,18 +89,23 @@ export const initializeWorkers = fromPromise<undefined, { workers: WorkerEntry[]
       onTimeout: () => {
         logger.warn(
           { timeoutMs: WORKER_INIT_TIMEOUT_MS },
-          "Worker initialization timed out, proceeding with available workers",
+          "Worker initialization timed out, some workers did not settle",
         );
       },
     });
+    const totalCount = input.workers.length;
     const operationalCount = countOperational(input.workers);
-    if (operationalCount === 0) {
+    if (operationalCount < totalCount) {
+      const failedProfiles = input.workers
+        .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
+        .map((entry) => entry.worker.profile.browserURL);
       throw new Error(
-        "No workers available. All browser connections failed.",
+        `Worker initialization failed: ${String(operationalCount)}/${String(totalCount)} operational. ` +
+          `Failed: [${failedProfiles.join(", ")}]`,
       );
     }
     logger.info(
-      { operationalCount, totalCount: input.workers.length },
+      { totalCount },
       "Capture coordinator initialized",
     );
   },

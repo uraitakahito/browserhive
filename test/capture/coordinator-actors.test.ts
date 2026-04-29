@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { waitForWorkersToReach } from "../../src/capture/coordinator-actors.js";
+import { createActor } from "xstate";
+import { initializeWorkers, waitForWorkersToReach } from "../../src/capture/coordinator-actors.js";
 import type { WorkerEntry } from "../../src/capture/coordinator-machine.js";
 
 /**
@@ -191,6 +192,180 @@ describe("waitForWorkersToReach", () => {
 
       await vi.advanceTimersByTimeAsync(10_000);
       expect(onTimeout).not.toHaveBeenCalled();
+    });
+  });
+});
+
+/**
+ * Fake WorkerEntry with state controls for initializeWorkers tests.
+ * Reproduces the worker status machine surface that initializeWorkers
+ * depends on: `send`, `getSnapshot().value`, `getSnapshot().hasTag()`,
+ * `subscribe`, and `worker.profile.browserURL`.
+ */
+const fakeInitEntry = (browserURL = "http://test:9222") => {
+  interface FakeSnapshot {
+    value: unknown;
+    hasTag: (tag: string) => boolean;
+  }
+  const listeners = new Set<(snap: FakeSnapshot) => void>();
+  let value: unknown = "connecting";
+  let tags = new Set<string>();
+
+  const snap = (): FakeSnapshot => ({
+    value,
+    hasTag: (t) => tags.has(t),
+  });
+  const notify = (): void => {
+    listeners.forEach((l) => { l(snap()); });
+  };
+
+  const send = vi.fn();
+
+  const entry = {
+    ref: {
+      getSnapshot: snap,
+      subscribe: (listener: (s: FakeSnapshot) => void) => {
+        listeners.add(listener);
+        return {
+          unsubscribe: (): void => { listeners.delete(listener); },
+        };
+      },
+      send,
+    },
+    worker: {
+      profile: { browserURL },
+    },
+    index: 0,
+  } as unknown as WorkerEntry;
+
+  return {
+    entry,
+    setOperational: (): void => {
+      value = { operational: "idle" };
+      tags = new Set(["healthy", "canProcess"]);
+      notify();
+    },
+    setError: (): void => {
+      value = "error";
+      tags = new Set();
+      notify();
+    },
+    send,
+  };
+};
+
+/**
+ * Run an `initializeWorkers` actor and return a promise that settles
+ * with the actor's done/error outcome. Uses the observer-object form
+ * of `subscribe` so that promise-actor rejections are routed through
+ * the `error` callback instead of becoming unhandled exceptions.
+ */
+const runInitializeWorkers = (workers: WorkerEntry[]): {
+  actor: ReturnType<typeof createActor<typeof initializeWorkers>>;
+  settled: Promise<undefined>;
+} => {
+  const actor = createActor(initializeWorkers, { input: { workers } });
+  const settled = new Promise<undefined>((resolve, reject) => {
+    actor.subscribe({
+      next: (snapshot) => {
+        if (snapshot.status === "done") {
+          resolve(snapshot.output);
+        }
+      },
+      error: (err: unknown) => {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    });
+  });
+  actor.start();
+  return { actor, settled };
+};
+
+describe("initializeWorkers", () => {
+  describe("happy path", () => {
+    it("resolves when all workers reach operational", async () => {
+      const a = fakeInitEntry("http://a:9222");
+      const b = fakeInitEntry("http://b:9222");
+
+      const { settled } = runInitializeWorkers([a.entry, b.entry]);
+
+      a.setOperational();
+      b.setOperational();
+
+      await expect(settled).resolves.toBeUndefined();
+    });
+
+    it("sends CONNECT to every worker", async () => {
+      const a = fakeInitEntry("http://a:9222");
+      const b = fakeInitEntry("http://b:9222");
+
+      const { settled } = runInitializeWorkers([a.entry, b.entry]);
+      a.setOperational();
+      b.setOperational();
+      await settled;
+
+      expect(a.send).toHaveBeenCalledWith({ type: "CONNECT" });
+      expect(b.send).toHaveBeenCalledWith({ type: "CONNECT" });
+    });
+  });
+
+  describe("failure paths", () => {
+    it("rejects when workers array is empty", async () => {
+      const { settled } = runInitializeWorkers([]);
+      await expect(settled).rejects.toThrow("No browser profiles configured.");
+    });
+
+    it("rejects when one worker is in error", async () => {
+      const a = fakeInitEntry("http://a:9222");
+      const b = fakeInitEntry("http://b-failed:9222");
+
+      const { settled } = runInitializeWorkers([a.entry, b.entry]);
+      a.setOperational();
+      b.setError();
+
+      const error = await settled.catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toMatch(/Worker initialization failed: 1\/2 operational/);
+      expect((error as Error).message).toMatch(/http:\/\/b-failed:9222/);
+    });
+
+    it("rejects when all workers are in error", async () => {
+      const a = fakeInitEntry("http://a:9222");
+      const b = fakeInitEntry("http://b:9222");
+
+      const { settled } = runInitializeWorkers([a.entry, b.entry]);
+      a.setError();
+      b.setError();
+
+      await expect(settled).rejects.toThrow(/Worker initialization failed: 0\/2 operational/);
+    });
+  });
+
+  describe("timeout path", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("rejects when at least one worker fails to settle within the timeout", async () => {
+      const a = fakeInitEntry("http://a:9222");
+      const slow = fakeInitEntry("http://slow:9222"); // never settles
+
+      const { settled } = runInitializeWorkers([a.entry, slow.entry]);
+      // Attach the catch handler eagerly so the rejection is never observed
+      // as unhandled when fake-timer advancement triggers it.
+      const errorPromise = settled.catch((e: unknown) => e);
+      a.setOperational();
+
+      // Worker init timeout is 30s; advance past it to trigger the warn + final check
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      const error = await errorPromise;
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toMatch(/1\/2 operational/);
+      expect((error as Error).message).toMatch(/http:\/\/slow:9222/);
     });
   });
 });
