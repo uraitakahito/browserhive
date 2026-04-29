@@ -21,6 +21,7 @@ import type { Worker } from "./worker.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
 import { workerLoopCallback, type WorkerLoopConfig } from "./worker-loop.js";
+import { err, ok, type Result } from "../result.js";
 
 const MAX_ERROR_HISTORY = 10;
 
@@ -79,9 +80,15 @@ export const workerStatusMachine = setup({
       | { type: "CONNECTION_LOST"; message: string },
   },
   actors: {
-    connectBrowser: fromPromise<undefined, { worker: Worker }>(
+    connectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
       async ({ input }) => {
-        await input.worker.connect();
+        try {
+          await input.worker.connect();
+          return ok(undefined);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return err(createConnectionError(message));
+        }
       }
     ),
     disconnectBrowser: fromPromise<undefined, { worker: Worker }>(
@@ -169,22 +176,22 @@ export const workerStatusMachine = setup({
       invoke: {
         src: "connectBrowser",
         input: ({ context }) => ({ worker: context.loopConfig.worker }),
-        onDone: "operational",
-        onError: {
-          target: "error",
-          actions: assign({
-            errorCount: ({ context }) => context.errorCount + 1,
-            errorHistory: ({ context, event }) => {
-              const errorMessage = event.error instanceof Error
-                ? event.error.message
-                : String(event.error);
-              return addErrorToHistory(
-                context.errorHistory,
-                createConnectionError(errorMessage),
-              );
-            },
-          }),
-        },
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "operational",
+          },
+          {
+            target: "error",
+            actions: assign({
+              errorCount: ({ context }) => context.errorCount + 1,
+              errorHistory: ({ context, event }) =>
+                event.output.ok
+                  ? context.errorHistory
+                  : addErrorToHistory(context.errorHistory, event.output.error),
+            }),
+          },
+        ],
       },
     },
     operational: {
