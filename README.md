@@ -117,25 +117,15 @@ stateDiagram-v2
 
 ## Setup
 
-This project ships two Docker setups with matching file names:
-
-| Purpose | Dockerfile         | Compose             |
-| ------- | ------------------ | ------------------- |
-| Dev     | `Dockerfile.dev`   | `compose.dev.yaml`  |
-| Prod    | `Dockerfile.prod`  | `compose.prod.yaml` |
-
 ### Prerequisites
 
-Run the setup script (downloads the dev container template and clones `chromium-server-docker`):
+Run the setup script:
 
 ```sh
 ./setup.sh
 ```
 
 ### Development Environment
-
-Starts a long-running dev container (`Dockerfile.dev`) that you `exec` into.
-Source is bind-mounted; you build/run inside the container.
 
 ```sh
 docker compose -f compose.dev.yaml up -d
@@ -160,9 +150,6 @@ docker compose -f compose.dev.yaml down
 ```
 
 ### Production Environment
-
-Builds an immutable image from `Dockerfile.prod` (multi-stage, non-root, no dev tools).
-The CLI flags are passed via `command:` in `compose.prod.yaml`; captured files land in `./output/`.
 
 ```sh
 docker compose -f compose.prod.yaml up -d --build
