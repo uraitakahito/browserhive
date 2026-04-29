@@ -24,82 +24,54 @@ const WORKER_INIT_TIMEOUT_MS = 30_000;
 const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
 
 /**
- * Wait for every worker actor to leave the transient `connecting` state —
- * either reaching `operational` (compound state object) or `error`.
- * Falls back to a timeout to avoid blocking indefinitely on a stuck connect.
+ * Wait for every worker actor to reach a state matching `predicate`, falling
+ * back to a timeout to avoid blocking on a stuck worker.
+ *
+ * Cleans up on exit (regardless of which side of the race won):
+ *   - Cancels the pending timeout (so `onTimeout` does not fire after success)
+ *   - Unsubscribes from every worker actor (so listeners do not leak)
  */
-const waitForWorkersToSettle = async (
+export const waitForWorkersToReach = async (
   workers: WorkerEntry[],
+  predicate: (value: unknown) => boolean,
+  options: { timeoutMs: number; onTimeout: () => void },
 ): Promise<void> => {
-  const isSettled = (value: unknown): boolean =>
-    (typeof value === "object" && value !== null) || value === "error";
+  const subscriptions: { unsubscribe: () => void }[] = [];
+  let timeoutId: NodeJS.Timeout | undefined;
 
-  await Promise.race([
-    Promise.all(
-      workers.map(
-        (entry) =>
-          new Promise<void>((resolve) => {
-            if (isSettled(entry.ref.getSnapshot().value)) {
-              resolve();
-              return;
-            }
-            const subscription = entry.ref.subscribe((snapshot) => {
-              if (isSettled(snapshot.value)) {
-                subscription.unsubscribe();
+  try {
+    await Promise.race([
+      Promise.all(
+        workers.map(
+          (entry) =>
+            new Promise<void>((resolve) => {
+              if (predicate(entry.ref.getSnapshot().value)) {
                 resolve();
+                return;
               }
-            });
-          }),
+              const sub = entry.ref.subscribe((snapshot) => {
+                if (predicate(snapshot.value)) resolve();
+              });
+              subscriptions.push(sub);
+            }),
+        ),
       ),
-    ),
-    new Promise<void>((resolve) =>
-      setTimeout(() => {
-        logger.warn(
-          { timeoutMs: WORKER_INIT_TIMEOUT_MS },
-          "Worker initialization timed out, proceeding with available workers",
-        );
-        resolve();
-      }, WORKER_INIT_TIMEOUT_MS),
-    ),
-  ]);
+      new Promise<void>((resolve) => {
+        timeoutId = setTimeout(() => {
+          options.onTimeout();
+          timeoutId = undefined;
+          resolve();
+        }, options.timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    for (const sub of subscriptions) sub.unsubscribe();
+  }
 };
 
-/**
- * Wait for every worker actor to reach the `disconnected` state, with a
- * timeout fallback so a stuck worker can't block coordinator shutdown.
- */
-const waitForWorkersToDisconnect = async (
-  workers: WorkerEntry[],
-): Promise<void> => {
-  await Promise.race([
-    Promise.all(
-      workers.map(
-        (entry) =>
-          new Promise<void>((resolve) => {
-            if (entry.ref.getSnapshot().value === "disconnected") {
-              resolve();
-              return;
-            }
-            const subscription = entry.ref.subscribe((snapshot) => {
-              if (snapshot.value === "disconnected") {
-                subscription.unsubscribe();
-                resolve();
-              }
-            });
-          }),
-      ),
-    ),
-    new Promise<void>((resolve) =>
-      setTimeout(() => {
-        logger.warn(
-          { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
-          "Worker shutdown timed out, proceeding to disconnect",
-        );
-        resolve();
-      }, WORKER_SHUTDOWN_TIMEOUT_MS),
-    ),
-  ]);
-};
+const isSettled = (value: unknown): boolean =>
+  (typeof value === "object" && value !== null) || value === "error";
 
 const countOperational = (workers: WorkerEntry[]): number =>
   workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
@@ -109,7 +81,15 @@ export const initializeWorkers = fromPromise<undefined, { workers: WorkerEntry[]
     for (const entry of input.workers) {
       entry.ref.send({ type: "CONNECT" });
     }
-    await waitForWorkersToSettle(input.workers);
+    await waitForWorkersToReach(input.workers, isSettled, {
+      timeoutMs: WORKER_INIT_TIMEOUT_MS,
+      onTimeout: () => {
+        logger.warn(
+          { timeoutMs: WORKER_INIT_TIMEOUT_MS },
+          "Worker initialization timed out, proceeding with available workers",
+        );
+      },
+    });
     const operationalCount = countOperational(input.workers);
     if (operationalCount === 0) {
       throw new Error(
@@ -147,7 +127,19 @@ export const shutdownWorkers = fromPromise<undefined, { workers: WorkerEntry[] }
     for (const entry of input.workers) {
       entry.ref.send({ type: "DISCONNECT" });
     }
-    await waitForWorkersToDisconnect(input.workers);
+    await waitForWorkersToReach(
+      input.workers,
+      (value) => value === "disconnected",
+      {
+        timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
+        onTimeout: () => {
+          logger.warn(
+            { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
+            "Worker shutdown timed out, proceeding to disconnect",
+          );
+        },
+      },
+    );
     await Promise.all(
       input.workers.map(async (entry) => {
         await entry.worker.disconnect();
