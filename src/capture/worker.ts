@@ -30,13 +30,20 @@ export class Worker {
   }
 
   /**
-   * Connect to the remote browser.
-   * No-op if already connected.
-   * Throws on failure (caller is responsible for error handling).
+   * Connect to the remote browser. No-op if already connected.
+   * Surfaces failures as Result<undefined, ErrorDetails> instead of
+   * throwing — every connect failure is classified as `connection`,
+   * which is the only semantically correct bucket for this stage.
    */
-  async connect(): Promise<void> {
-    if (this.browser) return;
-    this.browser = await connectBrowser(this.profile);
+  async connect(): Promise<Result<undefined, ErrorDetails>> {
+    if (this.browser) return ok(undefined);
+    try {
+      this.browser = await connectBrowser(this.profile);
+      return ok(undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return err(createConnectionError(message));
+    }
   }
 
   /**

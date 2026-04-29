@@ -21,7 +21,7 @@ import type { Worker } from "./worker.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
 import { workerLoopCallback, type WorkerLoopConfig } from "./worker-loop.js";
-import { err, ok, type Result } from "../result.js";
+import type { Result } from "../result.js";
 
 const MAX_ERROR_HISTORY = 10;
 
@@ -81,15 +81,7 @@ export const workerStatusMachine = setup({
   },
   actors: {
     connectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
-      async ({ input }) => {
-        try {
-          await input.worker.connect();
-          return ok(undefined);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          return err(createConnectionError(message));
-        }
-      }
+      async ({ input }) => input.worker.connect(),
     ),
     disconnectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
       async ({ input }) => input.worker.disconnect(),
