@@ -85,8 +85,8 @@ Each worker actor uses compound states. The `operational` state invokes a `fromC
 
 ```mermaid
 stateDiagram-v2
-    [*] --> stopped
-    stopped --> connecting : CONNECT
+    [*] --> disconnected
+    disconnected --> connecting : CONNECT
 
     connecting --> operational : success
     connecting --> error : failure
@@ -103,12 +103,12 @@ stateDiagram-v2
 
     error --> disconnecting : DISCONNECT
 
-    disconnecting --> stopped : done
+    disconnecting --> disconnected : done
 ```
 
 | State | Tags | Description |
 |-------|------|-------------|
-| `stopped` | | Initial state, not connected |
+| `disconnected` | | Initial state, not connected |
 | `connecting` | | Connecting to remote browser (invoke) |
 | `operational.idle` | `healthy`, `canProcess` | Ready to accept tasks |
 | `operational.processing` | `healthy` | Processing a capture task |

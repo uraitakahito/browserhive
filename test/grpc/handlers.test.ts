@@ -552,7 +552,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 0,
               browserProfile: { browserURL: "http://browser1:9222" },
-              status: "stopped",
+              status: "disconnected",
               processedCount: 0,
               errorCount: 0,
               errorHistory: [],
@@ -560,7 +560,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 1,
               browserProfile: { browserURL: "http://browser2:9222" },
-              status: "stopped",
+              status: "disconnected",
               processedCount: 0,
               errorCount: 0,
               errorHistory: [],
@@ -587,7 +587,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 0,
             browser_options: { browser_url: "http://browser1:9222" },
-            status: WorkerStatus.WORKER_STATUS_STOPPED,
+            status: WorkerStatus.WORKER_STATUS_DISCONNECTED,
             processed_count: 0,
             error_count: 0,
             error_history: [],
@@ -595,7 +595,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 1,
             browser_options: { browser_url: "http://browser2:9222" },
-            status: WorkerStatus.WORKER_STATUS_STOPPED,
+            status: WorkerStatus.WORKER_STATUS_DISCONNECTED,
             processed_count: 0,
             error_count: 0,
             error_history: [],

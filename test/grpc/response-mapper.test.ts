@@ -25,8 +25,8 @@ describe("workerStatusToProto", () => {
     expect(workerStatusToProto("error")).toBe(WorkerStatus.WORKER_STATUS_ERROR);
   });
 
-  it("should convert stopped to WORKER_STATUS_STOPPED", () => {
-    expect(workerStatusToProto("stopped")).toBe(WorkerStatus.WORKER_STATUS_STOPPED);
+  it("should convert disconnected to WORKER_STATUS_DISCONNECTED", () => {
+    expect(workerStatusToProto("disconnected")).toBe(WorkerStatus.WORKER_STATUS_DISCONNECTED);
   });
 });
 

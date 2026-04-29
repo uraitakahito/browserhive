@@ -52,15 +52,15 @@ describe("worker-status", () => {
       expect(ALL_WORKER_STATUSES).toContain("ready");
       expect(ALL_WORKER_STATUSES).toContain("busy");
       expect(ALL_WORKER_STATUSES).toContain("error");
-      expect(ALL_WORKER_STATUSES).toContain("stopped");
+      expect(ALL_WORKER_STATUSES).toContain("disconnected");
       expect(ALL_WORKER_STATUSES).toHaveLength(4);
     });
   });
 
   describe("workerStatusMachine", () => {
-    it("should have stopped as initial state", () => {
+    it("should have disconnected as initial state", () => {
       const { actor } = createWorkerActor();
-      expect(actor.getSnapshot().value).toBe("stopped");
+      expect(actor.getSnapshot().value).toBe("disconnected");
     });
 
     describe("context initialization", () => {
@@ -74,7 +74,7 @@ describe("worker-status", () => {
       });
     });
 
-    describe("transitions from stopped", () => {
+    describe("transitions from disconnected", () => {
       it("should allow CONNECT", () => {
         const snapshot = createWorkerActor().actor.getSnapshot();
         expect(snapshot.can({ type: "CONNECT" })).toBe(true);
@@ -263,7 +263,7 @@ describe("worker-status", () => {
     });
 
     describe("disconnecting state", () => {
-      it("should transition to stopped after disconnect completes", async () => {
+      it("should transition to disconnected after disconnect completes", async () => {
         const { actor } = createWorkerActor();
         actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
@@ -272,7 +272,7 @@ describe("worker-status", () => {
 
         actor.send({ type: "DISCONNECT" });
         await vi.waitFor(() => {
-          expect(actor.getSnapshot().value).toBe("stopped");
+          expect(actor.getSnapshot().value).toBe("disconnected");
         });
       });
     });
@@ -309,9 +309,9 @@ describe("worker-status", () => {
   });
 
   describe("toFlatWorkerStatus", () => {
-    it("should map stopped to 'stopped'", () => {
+    it("should map disconnected to 'disconnected'", () => {
       const { actor } = createWorkerActor();
-      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("stopped");
+      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("disconnected");
     });
 
     it("should map operational.idle to 'ready'", async () => {

@@ -24,7 +24,7 @@ const WORKER_STATUS_PROTO_MAP: Record<WorkerStatus, ProtoWorkerStatus> = {
   ready: ProtoWorkerStatus.WORKER_STATUS_READY,
   busy: ProtoWorkerStatus.WORKER_STATUS_BUSY,
   error: ProtoWorkerStatus.WORKER_STATUS_ERROR,
-  stopped: ProtoWorkerStatus.WORKER_STATUS_STOPPED,
+  disconnected: ProtoWorkerStatus.WORKER_STATUS_DISCONNECTED,
 };
 
 const ERROR_TYPE_PROTO_MAP: Record<ErrorType, ProtoErrorType> = {

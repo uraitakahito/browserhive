@@ -141,19 +141,19 @@ export class CaptureCoordinator {
       entry.ref.send({ type: "DISCONNECT" });
     }
 
-    // Wait for all worker actors to reach stopped state, with timeout
+    // Wait for all worker actors to reach disconnected state, with timeout
     await Promise.race([
       Promise.all(
         this.workers.map(
           (entry) =>
             new Promise<void>((resolve) => {
-              // Check if already stopped
-              if (entry.ref.getSnapshot().value === "stopped") {
+              // Check if already disconnected
+              if (entry.ref.getSnapshot().value === "disconnected") {
                 resolve();
                 return;
               }
               const subscription = entry.ref.subscribe((snapshot) => {
-                if (snapshot.value === "stopped") {
+                if (snapshot.value === "disconnected") {
                   subscription.unsubscribe();
                   resolve();
                 }

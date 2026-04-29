@@ -143,7 +143,7 @@ export const workerStatusMachine = setup({
   },
 }).createMachine({
   id: "workerStatus",
-  initial: "stopped",
+  initial: "disconnected",
   context: ({ input }) => ({
     index: input.index,
     processedCount: 0,
@@ -153,7 +153,7 @@ export const workerStatusMachine = setup({
     loopConfig: input.loopConfig,
   }),
   states: {
-    stopped: {
+    disconnected: {
       on: { CONNECT: "connecting" },
     },
     connecting: {
@@ -229,8 +229,8 @@ export const workerStatusMachine = setup({
       invoke: {
         src: "disconnectBrowser",
         input: ({ context }) => ({ worker: context.loopConfig.worker }),
-        onDone: "stopped",
-        onError: "stopped",
+        onDone: "disconnected",
+        onError: "disconnected",
       },
     },
   },
@@ -245,9 +245,9 @@ export type WorkerMachineSnapshot = SnapshotFrom<typeof workerStatusMachine>;
  * Flat worker status for external consumers (gRPC, reporting).
  * Maps compound machine state values to simple string status.
  */
-export type WorkerStatus = "ready" | "busy" | "error" | "stopped";
+export type WorkerStatus = "ready" | "busy" | "error" | "disconnected";
 
-export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "stopped"];
+export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "disconnected"];
 
 /**
  * Convert a worker machine snapshot to a flat WorkerStatus string.
@@ -266,9 +266,9 @@ export const toFlatWorkerStatus = (snapshot: WorkerMachineSnapshot): WorkerStatu
     case "error":
       return "error";
     case "disconnecting":
-    case "stopped":
-      return "stopped";
+    case "disconnected":
+      return "disconnected";
     default:
-      return "stopped";
+      return "disconnected";
   }
 };
