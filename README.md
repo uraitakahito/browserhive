@@ -63,7 +63,7 @@ flowchart TB
 
 ## State Machines
 
-The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. The `CaptureCoordinator` spawns a worker status actor for each browser connection.
+The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model.
 
 ### Coordinator Lifecycle
 
