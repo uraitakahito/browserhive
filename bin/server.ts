@@ -6,6 +6,7 @@ import {
   parseCliOptions,
   logServerConfig,
   startServer,
+  formatInitFailure,
 } from "../src/cli/server-cli.js";
 import { logger } from "../src/logger.js";
 
@@ -21,7 +22,15 @@ const main = async (): Promise<void> => {
   const config = parseCliOptions(process.argv);
   logServerConfig(config);
 
-  const { shutdown } = await startServer(config);
+  const startResult = await startServer(config);
+  if (!startResult.ok) {
+    logger.fatal(
+      { failure: startResult.error },
+      formatInitFailure(startResult.error),
+    );
+    process.exit(1);
+  }
+  const { shutdown } = startResult.value;
 
   let shutdownInProgress = false;
 
