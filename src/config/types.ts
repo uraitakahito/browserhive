@@ -13,7 +13,7 @@ export interface ScreenshotConfig {
   quality?: number;
 }
 
-/** Capture configuration (lowest layer) */
+/** Capture configuration */
 export interface CaptureConfig {
   /** Output directory for captured files */
   outputDir: string;
@@ -37,7 +37,7 @@ export interface CaptureConfig {
   acceptLanguage?: string;
 }
 
-/** Coordinator configuration (middle layer) */
+/** Coordinator configuration */
 export interface CoordinatorConfig {
   /** List of browser profile configurations */
   browserProfiles: BrowserProfile[];
@@ -67,7 +67,7 @@ export interface ClientTlsConfig {
   caCertPath: string;
 }
 
-/** BrowserHive configuration (top layer) */
+/** BrowserHive configuration */
 export interface BrowserHiveConfig {
   /** gRPC server port */
   port: number;
