@@ -4,8 +4,6 @@
  * XState v5 machine definition for the capture coordinator lifecycle.
  * Manages the lifecycle states while CaptureCoordinator class handles
  * spawning and managing worker status actors (Parent-Child Actor Model).
- *
- * Replaces coordinator-lifecycle.ts.
  */
 import { setup, type StateValueFrom } from "xstate";
 
