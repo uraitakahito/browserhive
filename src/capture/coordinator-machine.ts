@@ -6,6 +6,13 @@
  * actors (Parent-Child Actor Model). Actor implementations live in
  * coordinator-actors.ts.
  *
+ * Error handling: invoked Promise actors (`initializeWorkers`,
+ * `shutdownWorkers`) return Result<T, E> instead of throwing. The
+ * machine branches in `onDone` on `event.output.ok` to drive the next
+ * state, and persists the failure value on `context.lastInitFailure`
+ * so that `CaptureCoordinator.initialize` can surface the rich detail
+ * to the application boundary.
+ *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
  *
  *   | Actor                                | Receive events | Send events | Spawn actors | Input | Output |
