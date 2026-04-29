@@ -4,6 +4,14 @@
  * XState v5 machine definition for the capture coordinator lifecycle.
  * Manages the lifecycle states while CaptureCoordinator class handles
  * spawning and managing worker status actors (Parent-Child Actor Model).
+ *
+ * Actor logic: State machine
+ * Capabilities (https://stately.ai/docs/actors#actor-logic-capabilities):
+ *   - Receive events: yes
+ *   - Send events:    yes
+ *   - Spawn actors:   yes
+ *   - Input:          yes
+ *   - Output:         yes
  */
 import { setup, type StateValueFrom } from "xstate";
 

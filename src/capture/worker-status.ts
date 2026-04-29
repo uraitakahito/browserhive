@@ -6,6 +6,15 @@
  * for browser connection and the worker processing loop.
  *
  * Proto mappings are handled by grpc/response-mapper.ts via toFlatWorkerStatus().
+ *
+ * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
+ *
+ *   | Actor                                 | Receive events | Send events | Spawn actors | Input | Output |
+ *   | ------------------------------------- | -------------- | ----------- | ------------ | ----- | ------ |
+ *   | `workerStatusMachine` (State machine) | yes            | yes         | yes          | yes   | yes    |
+ *   | `connectBrowser` (Promise)            | no             | yes         | no           | yes   | yes    |
+ *   | `disconnectBrowser` (Promise)         | no             | yes         | no           | yes   | yes    |
+ *   | `workerLoop` (Callback)               | yes            | yes         | no           | yes   | no     |
  */
 import { setup, assign, fromPromise, type SnapshotFrom } from "xstate";
 import type { Worker } from "./worker.js";
