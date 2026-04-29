@@ -23,11 +23,13 @@ import {
   type StateValueFrom,
 } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
+import { logger } from "../logger.js";
 import {
   initializeWorkers,
   shutdownWorkers,
   watchWorkerHealth,
 } from "./coordinator-actors.js";
+import type { WorkerInitFailure } from "./coordinator-errors.js";
 import { TaskQueue } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import { workerStatusMachine } from "./worker-status.js";
@@ -43,6 +45,8 @@ export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   taskQueue: TaskQueue;
   workers: WorkerEntry[];
+  /** Detail captured when initializeWorkers returns a failure Result */
+  lastInitFailure?: WorkerInitFailure;
 }
 
 export interface CoordinatorMachineInput {
@@ -99,8 +103,35 @@ export const coordinatorMachine = setup({
       invoke: {
         src: "initializeWorkers",
         input: ({ context }) => ({ workers: context.workers }),
-        onDone: "running",
-        onError: "terminated",
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "running",
+            actions: ({ context }) => {
+              logger.info(
+                { totalCount: context.workers.length },
+                "Capture coordinator initialized",
+              );
+            },
+          },
+          {
+            target: "terminated",
+            actions: [
+              assign({
+                lastInitFailure: ({ event }) =>
+                  event.output.ok ? undefined : event.output.error,
+              }),
+              ({ event }) => {
+                if (!event.output.ok) {
+                  logger.error(
+                    { failure: event.output.error },
+                    "Worker initialization failed",
+                  );
+                }
+              },
+            ],
+          },
+        ],
       },
     },
     running: {

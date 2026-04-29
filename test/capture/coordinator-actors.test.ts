@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createActor } from "xstate";
 import { initializeWorkers, waitForWorkersToReach } from "../../src/capture/coordinator-actors.js";
+import type { WorkerInitFailure } from "../../src/capture/coordinator-errors.js";
 import type { WorkerEntry } from "../../src/capture/coordinator-machine.js";
+import type { ErrorRecord } from "../../src/capture/types.js";
+import { errorType } from "../../src/capture/error-type.js";
+import type { Result } from "../../src/result.js";
 
 /**
  * Minimal ActorRef-shaped fake. Only `getSnapshot` and `subscribe` are
@@ -200,20 +204,24 @@ describe("waitForWorkersToReach", () => {
  * Fake WorkerEntry with state controls for initializeWorkers tests.
  * Reproduces the worker status machine surface that initializeWorkers
  * depends on: `send`, `getSnapshot().value`, `getSnapshot().hasTag()`,
- * `subscribe`, and `worker.profile.browserURL`.
+ * `getSnapshot().context.errorHistory`, `subscribe`, and
+ * `worker.profile.browserURL`.
  */
 const fakeInitEntry = (browserURL = "http://test:9222") => {
   interface FakeSnapshot {
     value: unknown;
     hasTag: (tag: string) => boolean;
+    context: { errorHistory: ErrorRecord[] };
   }
   const listeners = new Set<(snap: FakeSnapshot) => void>();
   let value: unknown = "connecting";
   let tags = new Set<string>();
+  let errorHistory: ErrorRecord[] = [];
 
   const snap = (): FakeSnapshot => ({
     value,
     hasTag: (t) => tags.has(t),
+    context: { errorHistory },
   });
   const notify = (): void => {
     listeners.forEach((l) => { l(snap()); });
@@ -245,9 +253,10 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
       tags = new Set(["healthy", "canProcess"]);
       notify();
     },
-    setError: (): void => {
+    setError: (record?: ErrorRecord): void => {
       value = "error";
       tags = new Set();
+      if (record) errorHistory = [record];
       notify();
     },
     send,
@@ -256,24 +265,24 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
 
 /**
  * Run an `initializeWorkers` actor and return a promise that settles
- * with the actor's done/error outcome. Uses the observer-object form
- * of `subscribe` so that promise-actor rejections are routed through
- * the `error` callback instead of becoming unhandled exceptions.
+ * with the actor's Result output. Uses the observer-object form of
+ * `subscribe` so any unexpected actor error is routed through the
+ * `error` callback instead of becoming an unhandled exception.
  */
 const runInitializeWorkers = (workers: WorkerEntry[]): {
   actor: ReturnType<typeof createActor<typeof initializeWorkers>>;
-  settled: Promise<undefined>;
+  settled: Promise<Result<undefined, WorkerInitFailure>>;
 } => {
   const actor = createActor(initializeWorkers, { input: { workers } });
-  const settled = new Promise<undefined>((resolve, reject) => {
+  const settled = new Promise<Result<undefined, WorkerInitFailure>>((resolve, reject) => {
     actor.subscribe({
       next: (snapshot) => {
         if (snapshot.status === "done") {
           resolve(snapshot.output);
         }
       },
-      error: (err: unknown) => {
-        reject(err instanceof Error ? err : new Error(String(err)));
+      error: (e: unknown) => {
+        reject(e instanceof Error ? e : new Error(String(e)));
       },
     });
   });
@@ -281,9 +290,15 @@ const runInitializeWorkers = (workers: WorkerEntry[]): {
   return { actor, settled };
 };
 
+const httpErrorRecord = (message: string): ErrorRecord => ({
+  type: errorType.connection,
+  message,
+  timestamp: "2026-01-01T00:00:00.000Z",
+});
+
 describe("initializeWorkers", () => {
   describe("happy path", () => {
-    it("resolves when all workers reach operational", async () => {
+    it("resolves to ok when all workers reach operational", async () => {
       const a = fakeInitEntry("http://a:9222");
       const b = fakeInitEntry("http://b:9222");
 
@@ -292,7 +307,7 @@ describe("initializeWorkers", () => {
       a.setOperational();
       b.setOperational();
 
-      await expect(settled).resolves.toBeUndefined();
+      await expect(settled).resolves.toEqual({ ok: true, value: undefined });
     });
 
     it("sends CONNECT to every worker", async () => {
@@ -310,34 +325,80 @@ describe("initializeWorkers", () => {
   });
 
   describe("failure paths", () => {
-    it("rejects when workers array is empty", async () => {
+    it('returns no-profiles failure when workers array is empty', async () => {
       const { settled } = runInitializeWorkers([]);
-      await expect(settled).rejects.toThrow("No browser profiles configured.");
+      await expect(settled).resolves.toEqual({
+        ok: false,
+        error: { kind: "no-profiles" },
+      });
     });
 
-    it("rejects when one worker is in error", async () => {
+    it("returns partial-failure when one worker is in error, including its last errorHistory entry", async () => {
       const a = fakeInitEntry("http://a:9222");
       const b = fakeInitEntry("http://b-failed:9222");
 
       const { settled } = runInitializeWorkers([a.entry, b.entry]);
       a.setOperational();
-      b.setError();
+      b.setError(httpErrorRecord("ECONNREFUSED"));
 
-      const error = await settled.catch((e: unknown) => e);
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toMatch(/Worker initialization failed: 1\/2 operational/);
-      expect((error as Error).message).toMatch(/http:\/\/b-failed:9222/);
+      const result = await settled;
+      expect(result).toEqual({
+        ok: false,
+        error: {
+          kind: "partial-failure",
+          operational: 1,
+          total: 2,
+          failed: [
+            {
+              browserURL: "http://b-failed:9222",
+              reason: httpErrorRecord("ECONNREFUSED"),
+            },
+          ],
+        },
+      });
     });
 
-    it("rejects when all workers are in error", async () => {
+    it("returns partial-failure with synthetic reason when worker has no errorHistory entry", async () => {
+      const a = fakeInitEntry("http://a:9222");
+
+      const { settled } = runInitializeWorkers([a.entry]);
+      a.setError();
+
+      const result = await settled;
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error.kind).toBe("partial-failure");
+      if (result.error.kind !== "partial-failure") throw new Error("unreachable");
+      expect(result.error.failed).toEqual([
+        {
+          browserURL: "http://a:9222",
+          reason: {
+            type: "connection",
+            message: "Unknown failure (no error recorded)",
+          },
+        },
+      ]);
+    });
+
+    it("returns partial-failure when all workers are in error", async () => {
       const a = fakeInitEntry("http://a:9222");
       const b = fakeInitEntry("http://b:9222");
 
       const { settled } = runInitializeWorkers([a.entry, b.entry]);
-      a.setError();
-      b.setError();
+      a.setError(httpErrorRecord("a down"));
+      b.setError(httpErrorRecord("b down"));
 
-      await expect(settled).rejects.toThrow(/Worker initialization failed: 0\/2 operational/);
+      const result = await settled;
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error.kind).toBe("partial-failure");
+      if (result.error.kind !== "partial-failure") throw new Error("unreachable");
+      expect(result.error.operational).toBe(0);
+      expect(result.error.total).toBe(2);
+      expect(result.error.failed.map((f) => f.browserURL)).toEqual([
+        "http://a:9222",
+        "http://b:9222",
+      ]);
     });
   });
 
@@ -349,23 +410,26 @@ describe("initializeWorkers", () => {
       vi.useRealTimers();
     });
 
-    it("rejects when at least one worker fails to settle within the timeout", async () => {
+    it("returns partial-failure when at least one worker fails to settle within the timeout", async () => {
       const a = fakeInitEntry("http://a:9222");
       const slow = fakeInitEntry("http://slow:9222"); // never settles
 
       const { settled } = runInitializeWorkers([a.entry, slow.entry]);
-      // Attach the catch handler eagerly so the rejection is never observed
-      // as unhandled when fake-timer advancement triggers it.
-      const errorPromise = settled.catch((e: unknown) => e);
       a.setOperational();
 
       // Worker init timeout is 30s; advance past it to trigger the warn + final check
       await vi.advanceTimersByTimeAsync(30_000);
 
-      const error = await errorPromise;
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toMatch(/1\/2 operational/);
-      expect((error as Error).message).toMatch(/http:\/\/slow:9222/);
+      const result = await settled;
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error.kind).toBe("partial-failure");
+      if (result.error.kind !== "partial-failure") throw new Error("unreachable");
+      expect(result.error.operational).toBe(1);
+      expect(result.error.total).toBe(2);
+      expect(result.error.failed.map((f) => f.browserURL)).toEqual([
+        "http://slow:9222",
+      ]);
     });
   });
 });

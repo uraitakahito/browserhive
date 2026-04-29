@@ -7,7 +7,8 @@
  *
  * Actor logics defined here:
  *   - `initializeWorkers` (fromPromise): connect all worker actors and
- *     verify every one becomes operational
+ *     return Result<undefined, WorkerInitFailure>. Never throws — failures
+ *     surface as `err({...})` so the machine can branch on `event.output.ok`.
  *   - `watchWorkerHealth` (fromCallback): emit ALL_WORKERS_ERROR when every
  *     worker becomes unhealthy
  *   - `shutdownWorkers` (fromPromise): disconnect all worker actors with a
@@ -15,7 +16,10 @@
  */
 import { fromCallback, fromPromise } from "xstate";
 import { logger } from "../logger.js";
+import { err, ok, type Result } from "../result.js";
 import type { WorkerEntry } from "./coordinator-machine.js";
+import type { WorkerInitFailure } from "./coordinator-errors.js";
+import { createConnectionError } from "./error-details.js";
 
 /** Timeout for waiting all worker actors to settle during initialization */
 const WORKER_INIT_TIMEOUT_MS = 30_000;
@@ -76,40 +80,48 @@ const isSettled = (value: unknown): boolean =>
 const countOperational = (workers: WorkerEntry[]): number =>
   workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
 
-export const initializeWorkers = fromPromise<undefined, { workers: WorkerEntry[] }>(
-  async ({ input }) => {
-    if (input.workers.length === 0) {
-      throw new Error("No browser profiles configured.");
-    }
-    for (const entry of input.workers) {
-      entry.ref.send({ type: "CONNECT" });
-    }
-    await waitForWorkersToReach(input.workers, isSettled, {
-      timeoutMs: WORKER_INIT_TIMEOUT_MS,
-      onTimeout: () => {
-        logger.warn(
-          { timeoutMs: WORKER_INIT_TIMEOUT_MS },
-          "Worker initialization timed out, some workers did not settle",
-        );
-      },
-    });
-    const totalCount = input.workers.length;
-    const operationalCount = countOperational(input.workers);
-    if (operationalCount < totalCount) {
-      const failedProfiles = input.workers
-        .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
-        .map((entry) => entry.worker.profile.browserURL);
-      throw new Error(
-        `Worker initialization failed: ${String(operationalCount)}/${String(totalCount)} operational. ` +
-          `Failed: [${failedProfiles.join(", ")}]`,
+export const initializeWorkers = fromPromise<
+  Result<undefined, WorkerInitFailure>,
+  { workers: WorkerEntry[] }
+>(async ({ input }) => {
+  if (input.workers.length === 0) {
+    return err({ kind: "no-profiles" });
+  }
+  for (const entry of input.workers) {
+    entry.ref.send({ type: "CONNECT" });
+  }
+  await waitForWorkersToReach(input.workers, isSettled, {
+    timeoutMs: WORKER_INIT_TIMEOUT_MS,
+    onTimeout: () => {
+      logger.warn(
+        { timeoutMs: WORKER_INIT_TIMEOUT_MS },
+        "Worker initialization timed out, some workers did not settle",
       );
-    }
-    logger.info(
-      { totalCount },
-      "Capture coordinator initialized",
-    );
-  },
-);
+    },
+  });
+  const totalCount = input.workers.length;
+  const operationalCount = countOperational(input.workers);
+  if (operationalCount < totalCount) {
+    const failed = input.workers
+      .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
+      .map((entry) => {
+        const lastError = entry.ref.getSnapshot().context.errorHistory[0];
+        return {
+          browserURL: entry.worker.profile.browserURL,
+          reason:
+            lastError ??
+            createConnectionError("Unknown failure (no error recorded)"),
+        };
+      });
+    return err({
+      kind: "partial-failure",
+      operational: operationalCount,
+      total: totalCount,
+      failed,
+    });
+  }
+  return ok(undefined);
+});
 
 export const watchWorkerHealth = fromCallback<{ type: "noop" }, WorkerEntry[]>(
   ({ sendBack, input }) => {
