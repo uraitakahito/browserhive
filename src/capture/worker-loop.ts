@@ -30,6 +30,7 @@ export interface WorkerLoopParentEvent { type: "STOP_LOOP" }
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+// Callback actor (fromCallback) — receive: yes, send: yes, spawn: no, input: yes, output: no
 export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoopConfig>(
   ({ sendBack, receive, input }) => {
     let running = true;
