@@ -117,36 +117,71 @@ stateDiagram-v2
 
 ## Setup
 
+This project ships two Docker setups with matching file names:
+
+| Purpose | Dockerfile         | Compose             |
+| ------- | ------------------ | ------------------- |
+| Dev     | `Dockerfile.dev`   | `compose.dev.yaml`  |
+| Prod    | `Dockerfile.prod`  | `compose.prod.yaml` |
+
 ### Prerequisites
 
-Run the setup script:
+Run the setup script (downloads the dev container template and clones `chromium-server-docker`):
 
 ```sh
 ./setup.sh
 ```
 
-### Starting the Development Environment
+### Development Environment
+
+Starts a long-running dev container (`Dockerfile.dev`) that you `exec` into.
+Source is bind-mounted; you build/run inside the container.
 
 ```sh
-docker compose up -d
-```
-
-### Logging into the Container
-
-```sh
+docker compose -f compose.dev.yaml up -d
 docker exec -it browserhive-container /bin/zsh
+
+# inside the container, first time only:
+sudo chown -R $(id -u):$(id -g) /zsh-volume
+
+# build and run:
+npm ci
+npm run build
+npm run server -- \
+  --browser-url http://chromium-server-1:9222 \
+  --browser-url http://chromium-server-2:9222 \
+  --output ./output/capture | pino-pretty
 ```
 
-### First-time Setup
+Stop with:
 
 ```sh
-docker exec -it browserhive-container sudo chown -R $(id -u):$(id -g) /zsh-volume
+docker compose -f compose.dev.yaml down
 ```
 
-### Stopping the Environment
+### Production Environment
+
+Builds an immutable image from `Dockerfile.prod` (multi-stage, non-root, no dev tools).
+The CLI flags are passed via `command:` in `compose.prod.yaml`; captured files land in `./output/`.
 
 ```sh
-docker compose down
+docker compose -f compose.prod.yaml up -d --build
+docker compose -f compose.prod.yaml logs -f browserhive
+
+# verify
+grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
+```
+
+Stop with:
+
+```sh
+docker compose -f compose.prod.yaml down
+```
+
+To build the production image standalone (e.g. to push to a registry):
+
+```sh
+docker build -f Dockerfile.prod -t browserhive:<version> .
 ```
 
 ## Usage

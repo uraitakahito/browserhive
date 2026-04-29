@@ -1,0 +1,78 @@
+services:
+  # BrowserHive gRPC capture server (production image)
+  browserhive:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: browserhive:prod
+    container_name: browserhive-prod
+    init: true
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./output:/app/output
+      # Mount TLS material as read-only when enabling --tls-cert / --tls-key
+      # - ./certs:/app/certs:ro
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    command:
+      - "--browser-url"
+      - "http://chromium-server-1:9222"
+      - "--browser-url"
+      - "http://chromium-server-2:9222"
+      - "--output"
+      - "/app/output"
+    networks:
+      - chromium-network
+    depends_on:
+      chromium-server-1:
+        condition: service_healthy
+      chromium-server-2:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Chromium Server 1 (production)
+  chromium-server-1:
+    image: chromium-server:prod
+    build:
+      context: ./chromium-server-docker
+      dockerfile: docker/production/Dockerfile
+      args:
+        user_id: ${USER_ID}
+        group_id: ${GROUP_ID}
+    container_name: chromium-server-1-prod
+    init: true
+    networks:
+      - chromium-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9222/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Chromium Server 2 (production) — shares the chromium-server:prod image with chromium-server-1
+  chromium-server-2:
+    image: chromium-server:prod
+    build:
+      context: ./chromium-server-docker
+      dockerfile: docker/production/Dockerfile
+      args:
+        user_id: ${USER_ID}
+        group_id: ${GROUP_ID}
+    container_name: chromium-server-2-prod
+    init: true
+    networks:
+      - chromium-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9222/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  chromium-network:
+    name: chromium-network
