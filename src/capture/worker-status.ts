@@ -5,6 +5,13 @@
  * Uses compound states, context for statistics, and invoked actors
  * for browser connection and the worker processing loop.
  *
+ * Error handling: invoked Promise actors (`connectBrowser`,
+ * `disconnectBrowser`) return Result<undefined, ErrorDetails> instead
+ * of throwing. The machine branches in `onDone` on `event.output.ok`
+ * and never uses `onError`. On the disconnect side, even a failure
+ * Result still transitions to `disconnected` (best-effort), but logs
+ * the underlying ErrorDetails before doing so.
+ *
  * Proto mappings are handled by grpc/response-mapper.ts via toFlatWorkerStatus().
  *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):

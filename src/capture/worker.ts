@@ -4,6 +4,12 @@
  * Pure capture executor — connects to a remote Chromium browser and
  * processes capture tasks. State management is handled externally
  * by the worker status machine (Parent-Child Actor Model).
+ *
+ * Public lifecycle methods (`connect`, `disconnect`) return
+ * Result<undefined, ErrorDetails> rather than throwing, so the
+ * worker-status machine can branch on the Result without `instanceof
+ * Error` ad-hoc handling. `process` still throws (only when called on
+ * a disconnected worker, which is a programmer error).
  */
 import type { Browser } from "puppeteer";
 import connectBrowser from "../browser.js";

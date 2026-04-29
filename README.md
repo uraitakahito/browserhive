@@ -89,7 +89,7 @@ stateDiagram-v2
 
 ### Worker Status
 
-Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures.
+Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures. The `connecting` and `disconnecting` states invoke `fromPromise` actors that return `Result<undefined, ErrorDetails>` instead of throwing — the machine branches in `onDone` on `event.output.ok`. Disconnect failures still transition to `disconnected` (best-effort) but log the underlying error.
 
 ```mermaid
 stateDiagram-v2
