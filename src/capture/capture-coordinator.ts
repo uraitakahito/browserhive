@@ -2,34 +2,22 @@
  * Capture Coordinator
  *
  * Coordinates capture task processing across multiple workers.
- * Uses the Parent-Child Actor Model: manages a coordinator lifecycle
- * actor and spawns worker status actors for each browser connection.
+ * Uses the Parent-Child Actor Model: drives a coordinator lifecycle
+ * actor that spawns and orchestrates worker status actors itself.
  */
-import { createActor, type ActorRefFrom } from "xstate";
+import { createActor } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
-import { TaskQueue, type TaskCounts } from "./task-queue.js";
-import { Worker } from "./worker.js";
+import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
-import { coordinatorMachine } from "./coordinator-machine.js";
 import {
-  workerStatusMachine,
+  coordinatorMachine,
+  type CoordinatorLifecycle,
+  type WorkerEntry,
+} from "./coordinator-machine.js";
+import {
   toFlatWorkerStatus,
   type WorkerMachineContext,
 } from "./worker-status.js";
-import { logger } from "../logger.js";
-
-/** Timeout for waiting worker actors to stop during shutdown */
-const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
-
-/** Timeout for waiting all worker actors to settle during initialization */
-const WORKER_INIT_TIMEOUT_MS = 30_000;
-
-/** Reference to a spawned worker actor with its associated Worker instance */
-interface WorkerEntry {
-  ref: ActorRefFrom<typeof workerStatusMachine>;
-  worker: Worker;
-  index: number;
-}
 
 export interface CoordinatorStatusReport {
   taskCounts: TaskCounts;
@@ -45,74 +33,38 @@ export interface EnqueueResult {
 }
 
 export class CaptureCoordinator {
-  private workers: WorkerEntry[] = [];
-  private taskQueue: TaskQueue;
-  private lifecycleActor = createActor(coordinatorMachine).start();
-
-  private config: CoordinatorConfig;
+  private lifecycleActor;
 
   constructor(config: CoordinatorConfig) {
-    this.config = config;
-    this.taskQueue = new TaskQueue();
+    this.lifecycleActor = createActor(coordinatorMachine, {
+      input: { config },
+    });
+    this.lifecycleActor.start();
+  }
+
+  private get config(): CoordinatorConfig {
+    return this.lifecycleActor.getSnapshot().context.config;
+  }
+
+  private get taskQueue(): TaskQueue {
+    return this.lifecycleActor.getSnapshot().context.taskQueue;
+  }
+
+  private get workers(): WorkerEntry[] {
+    return this.lifecycleActor.getSnapshot().context.workers;
   }
 
   /**
-   * Initialize the capture coordinator by spawning worker status actors
-   * and delegating browser connection to the state machine.
+   * Initialize the capture coordinator. Worker spawning, browser connection,
+   * and the operational-count check are all driven by the lifecycle machine
+   * (`initializing` state's invoked actor).
    */
   async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
+    await this.waitForLifecycle("running", "terminated");
 
-    try {
-      // Create workers and spawn their status actors
-      this.workers = this.config.browserProfiles.map((profile, index) => {
-        const worker = new Worker(index, profile);
-        const ref = createActor(workerStatusMachine, {
-          id: `worker-${String(worker.index)}`,
-          input: {
-            index: worker.index,
-            maxRetries: this.config.maxRetries,
-            loopConfig: {
-              worker,
-              taskQueue: this.taskQueue,
-              pollIntervalMs: this.config.queuePollIntervalMs,
-            },
-          },
-        });
-        ref.start();
-        return { ref, worker, index: worker.index };
-      });
-
-      // Subscribe before sending CONNECT (safe: isRunning guard prevents
-      // premature ALL_WORKERS_ERROR while coordinator is still initializing)
-      this.subscribeToWorkerErrors();
-
-      // Send CONNECT to all actors — connection is handled by the state machine
-      for (const entry of this.workers) {
-        entry.ref.send({ type: "CONNECT" });
-      }
-
-      // Wait for all actors to reach operational or error
-      await this.waitForActorsToSettle();
-
-      const operationalCount = this.operationalWorkerCount;
-
-      if (operationalCount === 0) {
-        this.lifecycleActor.send({ type: "INIT_FAILED" });
-        throw new Error("No workers available. All browser connections failed.");
-      }
-
-      this.lifecycleActor.send({ type: "INIT_DONE" });
-
-      logger.info(
-        { operationalCount, totalCount: this.workers.length },
-        "Capture coordinator initialized"
-      );
-    } catch (error) {
-      if (this.lifecycleActor.getSnapshot().can({ type: "INIT_FAILED" })) {
-        this.lifecycleActor.send({ type: "INIT_FAILED" });
-      }
-      throw error;
+    if (this.lifecycleActor.getSnapshot().value === "terminated") {
+      throw new Error("No workers available. All browser connections failed.");
     }
   }
 
@@ -133,59 +85,8 @@ export class CaptureCoordinator {
     if (!this.lifecycleActor.getSnapshot().can({ type: "SHUTDOWN" })) {
       return;
     }
-
     this.lifecycleActor.send({ type: "SHUTDOWN" });
-
-    // Send DISCONNECT to all worker actors
-    for (const entry of this.workers) {
-      entry.ref.send({ type: "DISCONNECT" });
-    }
-
-    // Wait for all worker actors to reach disconnected state, with timeout
-    await Promise.race([
-      Promise.all(
-        this.workers.map(
-          (entry) =>
-            new Promise<void>((resolve) => {
-              // Check if already disconnected
-              if (entry.ref.getSnapshot().value === "disconnected") {
-                resolve();
-                return;
-              }
-              const subscription = entry.ref.subscribe((snapshot) => {
-                if (snapshot.value === "disconnected") {
-                  subscription.unsubscribe();
-                  resolve();
-                }
-              });
-            })
-        )
-      ),
-      new Promise<void>((resolve) =>
-        setTimeout(() => {
-          logger.warn(
-            { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
-            "Worker shutdown timed out, proceeding to disconnect"
-          );
-          resolve();
-        }, WORKER_SHUTDOWN_TIMEOUT_MS)
-      ),
-    ]);
-
-    // Force disconnect any workers that didn't stop gracefully
-    await Promise.all(
-      this.workers.map(async (entry) => {
-        await entry.worker.disconnect();
-      })
-    );
-
-    // Stop all worker actors
-    for (const entry of this.workers) {
-      entry.ref.stop();
-    }
-
-    this.lifecycleActor.send({ type: "SHUTDOWN_DONE" });
-    logger.info("Capture coordinator shut down");
+    await this.waitForLifecycle("terminated");
   }
 
   get isRunning(): boolean {
@@ -222,61 +123,27 @@ export class CaptureCoordinator {
   }
 
   /**
-   * Wait for all worker actors to settle into operational or error state.
-   * Uses the same Promise.race + subscribe pattern as shutdown().
+   * Wait for the lifecycle actor to reach one of the given states.
    */
-  private async waitForActorsToSettle(): Promise<void> {
-    const isSettled = (value: unknown): boolean =>
-      (typeof value === "object" && value !== null) || value === "error";
+  private async waitForLifecycle(
+    ...targets: CoordinatorLifecycle[]
+  ): Promise<void> {
+    const isTarget = (): boolean => {
+      const value = this.lifecycleActor.getSnapshot().value;
+      return targets.includes(value);
+    };
 
-    await Promise.race([
-      Promise.all(
-        this.workers.map(
-          (entry) =>
-            new Promise<void>((resolve) => {
-              if (isSettled(entry.ref.getSnapshot().value)) {
-                resolve();
-                return;
-              }
-              const subscription = entry.ref.subscribe((snapshot) => {
-                if (isSettled(snapshot.value)) {
-                  subscription.unsubscribe();
-                  resolve();
-                }
-              });
-            })
-        )
-      ),
-      new Promise<void>((resolve) =>
-        setTimeout(() => {
-          logger.warn(
-            { timeoutMs: WORKER_INIT_TIMEOUT_MS },
-            "Worker initialization timed out, proceeding with available workers"
-          );
+    await new Promise<void>((resolve) => {
+      if (isTarget()) {
+        resolve();
+        return;
+      }
+      const subscription = this.lifecycleActor.subscribe(() => {
+        if (isTarget()) {
+          subscription.unsubscribe();
           resolve();
-        }, WORKER_INIT_TIMEOUT_MS)
-      ),
-    ]);
-  }
-
-  /**
-   * Subscribe to each worker actor and detect when all workers are in error.
-   * When all workers become unhealthy, auto-trigger shutdown.
-   */
-  private subscribeToWorkerErrors(): void {
-    for (const entry of this.workers) {
-      entry.ref.subscribe(() => {
-        if (!this.isRunning) return;
-
-        const allUnhealthy = this.workers.every(
-          (w) => !w.ref.getSnapshot().hasTag("healthy")
-        );
-
-        if (allUnhealthy && this.workers.length > 0) {
-          logger.error("All workers are unhealthy, initiating shutdown");
-          this.lifecycleActor.send({ type: "ALL_WORKERS_ERROR" });
         }
       });
-    }
+    });
   }
 }

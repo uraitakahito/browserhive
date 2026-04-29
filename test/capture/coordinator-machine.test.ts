@@ -1,15 +1,52 @@
-import { describe, it, expect } from "vitest";
-import { createActor } from "xstate";
+import { describe, it, expect, vi } from "vitest";
+import { createActor, fromPromise, type AnyActorLogic } from "xstate";
 import {
   coordinatorMachine,
   ALL_COORDINATOR_LIFECYCLES,
 } from "../../src/capture/coordinator-machine.js";
 import type { CoordinatorLifecycle } from "../../src/capture/coordinator-machine.js";
+import { TaskQueue } from "../../src/capture/task-queue.js";
+import { createTestCoordinatorConfig } from "../helpers/config.js";
 
-/** Create an actor starting at the given state */
+const createTestInput = () => ({ config: createTestCoordinatorConfig() });
+
+const createTestContext = () => ({
+  config: createTestCoordinatorConfig(),
+  taskQueue: new TaskQueue(),
+  workers: [],
+});
+
+/** Promise actor stub that hangs forever, holding its enclosing state */
+const hangingPromise = fromPromise<undefined>(
+  () => new Promise<undefined>(() => { /* never resolves */ }),
+);
+
+interface ActorOverrides {
+  initializeWorkers?: AnyActorLogic;
+  shutdownWorkers?: AnyActorLogic;
+}
+
+/** Provide variant of the machine with invoked actors overridden by stubs */
+const machineWith = (overrides: ActorOverrides = {}) =>
+  coordinatorMachine.provide({
+    actors: {
+      initializeWorkers: (overrides.initializeWorkers ?? hangingPromise) as never,
+      shutdownWorkers: (overrides.shutdownWorkers ?? hangingPromise) as never,
+    },
+  });
+
+/**
+ * Create an actor starting at the given state. States with an `invoke`
+ * (initializing, shuttingDown) get hanging stubs so the machine stays put.
+ */
 const actorAt = (state: CoordinatorLifecycle) => {
-  const actor = createActor(coordinatorMachine, {
-    snapshot: coordinatorMachine.resolveState({ value: state, context: {} }),
+  const machine = machineWith();
+  const actor = createActor(machine, {
+    input: createTestInput(),
+    snapshot: machine.resolveState({
+      value: state,
+      context: createTestContext(),
+    }),
   });
   actor.start();
   return actor;
@@ -29,7 +66,7 @@ describe("coordinator-machine", () => {
 
   describe("coordinatorMachine", () => {
     it("should have created as initial state", () => {
-      const actor = createActor(coordinatorMachine);
+      const actor = createActor(coordinatorMachine, { input: createTestInput() });
       actor.start();
       expect(actor.getSnapshot().value).toBe("created");
     });
@@ -42,18 +79,32 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("initializing");
       });
 
-      it("initializing → running via INIT_DONE", () => {
-        const actor = actorAt("initializing");
-        expect(actor.getSnapshot().can({ type: "INIT_DONE" })).toBe(true);
-        actor.send({ type: "INIT_DONE" });
-        expect(actor.getSnapshot().value).toBe("running");
+      it("initializing → running when initializeWorkers resolves", async () => {
+        const machine = machineWith({
+          initializeWorkers: fromPromise<undefined>(() => Promise.resolve(undefined)),
+        });
+        const actor = createActor(machine, { input: createTestInput() });
+        actor.start();
+        actor.send({ type: "INITIALIZE" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("running");
+        });
       });
 
-      it("initializing → terminated via INIT_FAILED", () => {
-        const actor = actorAt("initializing");
-        expect(actor.getSnapshot().can({ type: "INIT_FAILED" })).toBe(true);
-        actor.send({ type: "INIT_FAILED" });
-        expect(actor.getSnapshot().value).toBe("terminated");
+      it("initializing → terminated when initializeWorkers rejects", async () => {
+        const machine = machineWith({
+          initializeWorkers: fromPromise<undefined>(() =>
+            Promise.reject(new Error("init failed")),
+          ),
+        });
+        const actor = createActor(machine, { input: createTestInput() });
+        actor.start();
+        actor.send({ type: "INITIALIZE" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("terminated");
+        });
       });
 
       it("running → shuttingDown via SHUTDOWN", () => {
@@ -70,20 +121,33 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
-      it("shuttingDown → terminated via SHUTDOWN_DONE", () => {
-        const actor = actorAt("shuttingDown");
-        expect(actor.getSnapshot().can({ type: "SHUTDOWN_DONE" })).toBe(true);
-        actor.send({ type: "SHUTDOWN_DONE" });
-        expect(actor.getSnapshot().value).toBe("terminated");
+      it("shuttingDown → terminated when shutdownWorkers resolves", async () => {
+        const machine = machineWith({
+          shutdownWorkers: fromPromise<undefined>(() => Promise.resolve(undefined)),
+        });
+        // Start in `running` (snapshot doesn't re-trigger invokes), then drive
+        // through SHUTDOWN so the entry into `shuttingDown` actually invokes
+        // shutdownWorkers.
+        const actor = createActor(machine, {
+          input: createTestInput(),
+          snapshot: machine.resolveState({
+            value: "running",
+            context: createTestContext(),
+          }),
+        });
+        actor.start();
+        actor.send({ type: "SHUTDOWN" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("terminated");
+        });
       });
     });
 
     describe("invalid transitions", () => {
-      it("created should not allow SHUTDOWN, INIT_DONE, INIT_FAILED", () => {
+      it("created should not allow SHUTDOWN", () => {
         const snapshot = actorAt("created").getSnapshot();
         expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
-        expect(snapshot.can({ type: "INIT_DONE" })).toBe(false);
-        expect(snapshot.can({ type: "INIT_FAILED" })).toBe(false);
       });
 
       it("initializing should not allow INITIALIZE, SHUTDOWN", () => {
@@ -92,19 +156,17 @@ describe("coordinator-machine", () => {
         expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
       });
 
-      it("running should not allow INITIALIZE, INIT_DONE", () => {
+      it("running should not allow INITIALIZE", () => {
         const snapshot = actorAt("running").getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
-        expect(snapshot.can({ type: "INIT_DONE" })).toBe(false);
       });
 
       it("terminated should be a final state (no transitions allowed)", () => {
         const snapshot = actorAt("terminated").getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
         expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
-        expect(snapshot.can({ type: "SHUTDOWN_DONE" })).toBe(false);
       });
     });
 
-});
+  });
 });

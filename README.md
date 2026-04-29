@@ -67,15 +67,18 @@ The system uses [XState v5](https://stately.ai/docs) state machines with a Paren
 
 ### Coordinator Lifecycle
 
+The `initializing` and `shuttingDown` states each invoke a `fromPromise` actor;
+their transitions are driven by `onDone` / `onError` rather than explicit events.
+
 ```mermaid
 stateDiagram-v2
     [*] --> created
     created --> initializing : INITIALIZE
-    initializing --> running : INIT_DONE
-    initializing --> terminated : INIT_FAILED
+    initializing --> running : initializeWorkers done
+    initializing --> terminated : initializeWorkers error
     running --> shuttingDown : SHUTDOWN
     running --> shuttingDown : ALL_WORKERS_ERROR
-    shuttingDown --> terminated : SHUTDOWN_DONE
+    shuttingDown --> terminated : shutdownWorkers done
     terminated --> [*]
 ```
 
