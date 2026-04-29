@@ -1,0 +1,46 @@
+# ──────────────────────────────────────────────────────────────
+# WHITELIST .dockerignore for Dockerfile.prod
+#
+# Default: exclude everything from the build context.
+# Only the entries explicitly re-included with `!` below are sent
+# to the Docker daemon.
+#
+# When you add a new top-level file/directory that Dockerfile.prod
+# needs to COPY, add a matching `!` rule here. Anything else
+# (logs, secrets, editor state, generated artifacts) stays out.
+# ──────────────────────────────────────────────────────────────
+
+# 1. Exclude everything by default
+*
+
+# 2. Re-include package management files
+!package.json
+!package-lock.json
+!.puppeteerrc.cjs
+
+# 3. Re-include build configuration files
+!tsconfig.json
+!buf.gen.yaml
+!buf.yaml
+
+# 4. Re-include source / entry / tsc-include directories.
+#    Use both `!dir` and `!dir/**` so the directory itself and its
+#    contents are kept across BuildKit versions.
+!bin
+!bin/**
+!src
+!src/**
+!examples
+!examples/**
+!test
+!test/**
+
+# 5. Within whitelisted dirs, re-exclude transient/generated content.
+#    `npm run build` regenerates these via `buf generate`.
+src/grpc/generated
+src/grpc/generated/**
+
+# 6. Defense-in-depth: never let private keys reach the build context,
+#    even if `certs/` were ever whitelisted by mistake.
+**/*.key
+**/*.pem

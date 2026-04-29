@@ -1,0 +1,61 @@
+# syntax=docker/dockerfile:1.7
+#
+# Production image for the BrowserHive gRPC server.
+#
+# Build:
+#   docker build -f Dockerfile.prod -t browserhive:prod .
+#
+# Run (standalone):
+#   docker run --rm -p 50051:50051 -v "$(pwd)/output:/app/output" browserhive:prod \
+#     --browser-url http://chromium-server-1:9222 --output /app/output
+#
+# Or use compose.prod.yaml.
+
+ARG NODE_VERSION=24.15.0
+
+# ---------- Builder stage ----------
+FROM node:${NODE_VERSION}-bookworm-slim AS builder
+
+WORKDIR /app
+
+# Install all deps (including build-time tools like @bufbuild/buf, ts-proto, typescript)
+COPY package.json package-lock.json .puppeteerrc.cjs ./
+RUN npm ci
+
+# Sources required by tsc include patterns (src, bin, examples, test)
+COPY tsconfig.json buf.gen.yaml buf.yaml ./
+COPY src ./src
+COPY bin ./bin
+COPY examples ./examples
+COPY test ./test
+
+# proto:generate + tsc -> ./dist
+RUN npm run build
+
+# ---------- Runtime stage ----------
+FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Production-only deps
+COPY package.json package-lock.json .puppeteerrc.cjs ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Only what the server entry actually needs
+COPY --from=builder /app/dist/src ./dist/src
+COPY --from=builder /app/dist/bin ./dist/bin
+# Proto file is loaded at runtime via @grpc/proto-loader (browserhive.ts) and
+# expected at /app/src/grpc/proto/browserhive/v1/capture.proto
+COPY --from=builder /app/src/grpc/proto ./src/grpc/proto
+
+# Default mount point for captured files
+RUN mkdir -p /app/output && chown -R node:node /app
+
+USER node
+
+EXPOSE 50051
+
+# CLI args (e.g. --browser-url, --output) are supplied via `command:` in compose
+# or `docker run ... browserhive:prod <args>`.
+ENTRYPOINT ["node", "dist/bin/server.js"]
