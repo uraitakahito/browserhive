@@ -130,11 +130,12 @@ Run the setup script:
 ```sh
 docker compose -f compose.dev.yaml up -d
 docker exec -it browserhive-container /bin/zsh
+```
 
+```sh
 # inside the container, first time only:
 sudo chown -R $(id -u):$(id -g) /zsh-volume
 
-# build and run:
 npm ci
 npm run build
 npm run server -- \
