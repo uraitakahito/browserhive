@@ -1,5 +1,9 @@
 # ──────────────────────────────────────────────────────────────
-# WHITELIST .dockerignore for Dockerfile.prod
+# WHITELIST dockerignore for Dockerfile.prod
+#
+# BuildKit picks `<Dockerfile>.dockerignore` over a root .dockerignore
+# when both exist, so this file applies only to `Dockerfile.prod`
+# builds. Dev builds use `Dockerfile.dev.dockerignore` separately.
 #
 # Default: exclude everything from the build context.
 # Only the entries explicitly re-included with `!` below are sent
