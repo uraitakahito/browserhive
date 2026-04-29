@@ -9,8 +9,10 @@ import type { Browser } from "puppeteer";
 import connectBrowser from "../browser.js";
 import type { BrowserProfile } from "../config/index.js";
 import { PageCapturer } from "./page-capturer.js";
-import type { CaptureTask, CaptureResult } from "./types.js";
+import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
+import { createConnectionError } from "./error-details.js";
 import { createChildLogger, type Logger } from "../logger.js";
+import { err, ok, type Result } from "../result.js";
 
 export class Worker {
   private browser: Browser | null = null;
@@ -38,17 +40,20 @@ export class Worker {
   }
 
   /**
-   * Disconnect from the browser.
-   * Silently ignores errors during disconnect.
+   * Disconnect from the browser. Always releases the browser reference
+   * (even on failure) so subsequent connects can succeed; surfaces the
+   * underlying error to the caller as a Result rather than swallowing.
    */
-  async disconnect(): Promise<void> {
-    if (this.browser) {
-      try {
-        await this.browser.disconnect();
-      } catch {
-        // Ignore disconnect errors
-      }
-      this.browser = null;
+  async disconnect(): Promise<Result<undefined, ErrorDetails>> {
+    if (!this.browser) return ok(undefined);
+    const browser = this.browser;
+    this.browser = null;
+    try {
+      await browser.disconnect();
+      return ok(undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return err(createConnectionError(message));
     }
   }
 

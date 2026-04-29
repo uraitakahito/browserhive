@@ -82,26 +82,35 @@ describe("Worker", () => {
   });
 
   describe("disconnect", () => {
-    it("should disconnect browser", async () => {
+    it("should disconnect browser and return ok", async () => {
       await worker.connect();
-      await worker.disconnect();
+      const result = await worker.disconnect();
 
       expect(mockBrowser.disconnect).toHaveBeenCalled();
       expect(worker.isConnected).toBe(false);
+      expect(result).toEqual({ ok: true, value: undefined });
     });
 
-    it("should handle disconnect when not connected", async () => {
-      await worker.disconnect();
+    it("should return ok when not connected", async () => {
+      const result = await worker.disconnect();
 
       expect(worker.isConnected).toBe(false);
+      expect(result).toEqual({ ok: true, value: undefined });
     });
 
-    it("should ignore disconnect errors", async () => {
+    it("should release the browser reference and return err on disconnect failure", async () => {
       mockBrowser.disconnect = vi.fn().mockRejectedValue(new Error("Disconnect error"));
       await worker.connect();
 
-      await expect(worker.disconnect()).resolves.not.toThrow();
+      const result = await worker.disconnect();
+
       expect(worker.isConnected).toBe(false);
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error).toEqual({
+        type: "connection",
+        message: "Disconnect error",
+      });
     });
   });
 

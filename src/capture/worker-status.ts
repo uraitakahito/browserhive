@@ -91,10 +91,8 @@ export const workerStatusMachine = setup({
         }
       }
     ),
-    disconnectBrowser: fromPromise<undefined, { worker: Worker }>(
-      async ({ input }) => {
-        await input.worker.disconnect();
-      }
+    disconnectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
+      async ({ input }) => input.worker.disconnect(),
     ),
     workerLoop: workerLoopCallback,
   },
@@ -245,8 +243,23 @@ export const workerStatusMachine = setup({
       invoke: {
         src: "disconnectBrowser",
         input: ({ context }) => ({ worker: context.loopConfig.worker }),
-        onDone: "disconnected",
-        onError: "disconnected",
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "disconnected",
+          },
+          {
+            target: "disconnected",
+            actions: ({ context, event }) => {
+              if (!event.output.ok) {
+                context.loopConfig.worker.logger.warn(
+                  { reason: event.output.error },
+                  "Worker disconnect failed (proceeding to disconnected)",
+                );
+              }
+            },
+          },
+        ],
       },
     },
   },

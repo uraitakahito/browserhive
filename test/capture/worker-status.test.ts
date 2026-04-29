@@ -15,7 +15,7 @@ const createMockWorker = (): Worker =>
     index: 0,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     connect: vi.fn().mockResolvedValue(undefined),
-    disconnect: vi.fn().mockResolvedValue(undefined),
+    disconnect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     process: vi.fn(),
   }) as unknown as Worker;
 

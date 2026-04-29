@@ -171,7 +171,16 @@ export const shutdownWorkers = fromPromise<
     .map((entry) => entry.worker.profile.browserURL);
   await Promise.all(
     input.workers.map(async (entry) => {
-      await entry.worker.disconnect();
+      const result = await entry.worker.disconnect();
+      if (!result.ok) {
+        logger.warn(
+          {
+            browserURL: entry.worker.profile.browserURL,
+            reason: result.error,
+          },
+          "Safety-net disconnect failed",
+        );
+      }
     }),
   );
   if (unsettled.length > 0) {
