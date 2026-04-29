@@ -67,13 +67,6 @@ The system uses [XState v5](https://stately.ai/docs) state machines with a Paren
 
 ### Coordinator Lifecycle
 
-The `initializing` and `shuttingDown` states each invoke a `fromPromise` actor that
-returns `Result<T, E>` instead of throwing. Transitions are driven by `onDone` with
-a guard on `event.output.ok` — the machine branches to success or failure based on
-the Result. On failure, the structured error is persisted to
-`context.lastInitFailure` so that `CaptureCoordinator.initialize` can return it to
-the caller (the CLI surfaces it in the `Fatal error` log line).
-
 ```mermaid
 stateDiagram-v2
     [*] --> created
