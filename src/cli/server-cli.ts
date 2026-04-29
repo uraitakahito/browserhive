@@ -5,9 +5,11 @@
  */
 import { Command, InvalidArgumentError } from "commander";
 import { BrowserHive } from "../browserhive.js";
+import type { CoordinatorInitFailure, WorkerInitFailure } from "../capture/index.js";
 import type { BrowserHiveConfig, TlsConfig, CaptureConfig } from "../config/index.js";
 import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
+import { err, ok, type Result } from "../result.js";
 
 
 // Custom parsers for option validation
@@ -261,18 +263,38 @@ export interface ServerControl {
   shutdown: () => Promise<void>;
 }
 
+/**
+ * Render a WorkerInitFailure as a single-line human-readable string for
+ * the Fatal error log line.
+ */
+export const formatInitFailure = (failure: WorkerInitFailure): string => {
+  if (failure.kind === "no-profiles") {
+    return "No browser profiles configured";
+  }
+  const failedList = failure.failed
+    .map((f) => `${f.browserURL} (${f.reason.message})`)
+    .join(", ");
+  return (
+    `Worker initialization failed: ${String(failure.operational)}/${String(failure.total)} operational. ` +
+    `Failed: [${failedList}]`
+  );
+};
+
 export const startServer = async (
   config: BrowserHiveConfig
-): Promise<ServerControl> => {
+): Promise<Result<ServerControl, CoordinatorInitFailure>> => {
   const server = new BrowserHive(config);
 
-  await server.initialize();
+  const initResult = await server.initialize();
+  if (!initResult.ok) {
+    return err(initResult.error);
+  }
   await server.start();
 
-  return {
+  return ok({
     shutdown: async (): Promise<void> => {
       logger.info("Received shutdown signal");
       await server.shutdown();
     },
-  };
+  });
 };

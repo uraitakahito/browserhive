@@ -5,6 +5,13 @@
  * Uses compound states, context for statistics, and invoked actors
  * for browser connection and the worker processing loop.
  *
+ * Error handling: invoked Promise actors (`connectBrowser`,
+ * `disconnectBrowser`) return Result<undefined, ErrorDetails> instead
+ * of throwing. The machine branches in `onDone` on `event.output.ok`
+ * and never uses `onError`. On the disconnect side, even a failure
+ * Result still transitions to `disconnected` (best-effort), but logs
+ * the underlying ErrorDetails before doing so.
+ *
  * Proto mappings are handled by grpc/response-mapper.ts via toFlatWorkerStatus().
  *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
@@ -21,6 +28,7 @@ import type { Worker } from "./worker.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
 import { workerLoopCallback, type WorkerLoopConfig } from "./worker-loop.js";
+import type { Result } from "../result.js";
 
 const MAX_ERROR_HISTORY = 10;
 
@@ -79,15 +87,11 @@ export const workerStatusMachine = setup({
       | { type: "CONNECTION_LOST"; message: string },
   },
   actors: {
-    connectBrowser: fromPromise<undefined, { worker: Worker }>(
-      async ({ input }) => {
-        await input.worker.connect();
-      }
+    connectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
+      async ({ input }) => input.worker.connect(),
     ),
-    disconnectBrowser: fromPromise<undefined, { worker: Worker }>(
-      async ({ input }) => {
-        await input.worker.disconnect();
-      }
+    disconnectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
+      async ({ input }) => input.worker.disconnect(),
     ),
     workerLoop: workerLoopCallback,
   },
@@ -169,22 +173,22 @@ export const workerStatusMachine = setup({
       invoke: {
         src: "connectBrowser",
         input: ({ context }) => ({ worker: context.loopConfig.worker }),
-        onDone: "operational",
-        onError: {
-          target: "error",
-          actions: assign({
-            errorCount: ({ context }) => context.errorCount + 1,
-            errorHistory: ({ context, event }) => {
-              const errorMessage = event.error instanceof Error
-                ? event.error.message
-                : String(event.error);
-              return addErrorToHistory(
-                context.errorHistory,
-                createConnectionError(errorMessage),
-              );
-            },
-          }),
-        },
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "operational",
+          },
+          {
+            target: "error",
+            actions: assign({
+              errorCount: ({ context }) => context.errorCount + 1,
+              errorHistory: ({ context, event }) =>
+                event.output.ok
+                  ? context.errorHistory
+                  : addErrorToHistory(context.errorHistory, event.output.error),
+            }),
+          },
+        ],
       },
     },
     operational: {
@@ -238,8 +242,23 @@ export const workerStatusMachine = setup({
       invoke: {
         src: "disconnectBrowser",
         input: ({ context }) => ({ worker: context.loopConfig.worker }),
-        onDone: "disconnected",
-        onError: "disconnected",
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "disconnected",
+          },
+          {
+            target: "disconnected",
+            actions: ({ context, event }) => {
+              if (!event.output.ok) {
+                context.loopConfig.worker.logger.warn(
+                  { reason: event.output.error },
+                  "Worker disconnect failed (proceeding to disconnected)",
+                );
+              }
+            },
+          },
+        ],
       },
     },
   },

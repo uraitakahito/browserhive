@@ -26,64 +26,64 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
 describe("validateFilename", () => {
   it("should return invalid for invalid characters", () => {
     const result1 = validateFilename("file<>name");
-    expect(result1.valid).toBe(false);
-    if (!result1.valid) {
+    expect(result1.ok).toBe(false);
+    if (!result1.ok) {
       expect(result1.error).toContain("invalid characters");
     }
 
     const result2 = validateFilename('file:"name');
-    expect(result2.valid).toBe(false);
+    expect(result2.ok).toBe(false);
 
     const result3 = validateFilename("file/\\name");
-    expect(result3.valid).toBe(false);
+    expect(result3.ok).toBe(false);
 
     const result4 = validateFilename("file|?*name");
-    expect(result4.valid).toBe(false);
+    expect(result4.ok).toBe(false);
   });
 
   it("should return invalid for whitespace", () => {
     const result1 = validateFilename("file name");
-    expect(result1.valid).toBe(false);
-    if (!result1.valid) {
+    expect(result1.ok).toBe(false);
+    if (!result1.ok) {
       expect(result1.error).toContain("whitespace");
     }
 
     const result2 = validateFilename("file\tname");
-    expect(result2.valid).toBe(false);
+    expect(result2.ok).toBe(false);
 
     const result3 = validateFilename("file\nname");
-    expect(result3.valid).toBe(false);
+    expect(result3.ok).toBe(false);
   });
 
   it("should return invalid for filename exceeding 100 characters", () => {
     const longName = "a".repeat(101);
     const result = validateFilename(longName);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
       expect(result.error).toContain("exceeds");
     }
   });
 
   it("should return invalid for empty string", () => {
     const result = validateFilename("");
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
       expect(result.error).toContain("empty");
     }
   });
 
   it("should return valid for valid filename", () => {
     const result1 = validateFilename("valid-file-name.123");
-    expect(result1.valid).toBe(true);
+    expect(result1.ok).toBe(true);
 
     const result2 = validateFilename("a".repeat(100));
-    expect(result2.valid).toBe(true);
+    expect(result2.ok).toBe(true);
   });
 
   it("should include filename in error message", () => {
     const result = validateFilename("file:name");
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
       expect(result.error).toContain("file:name");
       expect(result.error).toContain("invalid characters");
     }
@@ -111,8 +111,8 @@ describe("INVALID_FILENAME_CHARS_LIST", () => {
   it("should reject each invalid character individually", () => {
     for (const char of INVALID_FILENAME_CHARS_LIST) {
       const result = validateFilename(`file${char}name`);
-      expect(result.valid).toBe(false);
-      if (!result.valid) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
         expect(result.error).toContain("invalid characters");
       }
     }
@@ -122,44 +122,44 @@ describe("INVALID_FILENAME_CHARS_LIST", () => {
 describe("validateLabels", () => {
   it("should return valid for empty array (labels are optional)", () => {
     const result = validateLabels([]);
-    expect(result.valid).toBe(true);
+    expect(result.ok).toBe(true);
   });
 
   it("should return valid for single valid label", () => {
     const result = validateLabels(["valid-label"]);
-    expect(result.valid).toBe(true);
+    expect(result.ok).toBe(true);
   });
 
   it("should return valid for multiple valid labels", () => {
     const result = validateLabels(["label1", "label2", "label3"]);
-    expect(result.valid).toBe(true);
+    expect(result.ok).toBe(true);
   });
 
   it("should return invalid if any label contains invalid characters", () => {
     const result = validateLabels(["valid", "inv:alid", "also-valid"]);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
       expect(result.error).toContain("invalid characters");
     }
   });
 
   it("should return invalid if any label contains whitespace", () => {
     const result = validateLabels(["valid", "has space"]);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
       expect(result.error).toContain("whitespace");
     }
   });
 
   it("should return invalid if any label is empty after trim", () => {
     const result = validateLabels(["valid", "   "]);
-    expect(result.valid).toBe(false);
+    expect(result.ok).toBe(false);
   });
 
   it("should return invalid if any label exceeds 100 characters", () => {
     const result = validateLabels(["valid", "a".repeat(101)]);
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
       expect(result.error).toContain("exceeds");
     }
   });

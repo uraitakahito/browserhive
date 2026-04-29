@@ -7,6 +7,7 @@
  */
 import { createActor } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
+import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
 import {
@@ -14,6 +15,7 @@ import {
   type CoordinatorLifecycle,
   type WorkerEntry,
 } from "./coordinator-machine.js";
+import type { WorkerInitFailure } from "./coordinator-errors.js";
 import {
   toFlatWorkerStatus,
   type WorkerMachineContext,
@@ -27,10 +29,8 @@ export interface CoordinatorStatusReport {
   workers: WorkerInfo[];
 }
 
-export interface EnqueueResult {
-  success: boolean;
-  error?: string;
-}
+/** Failure outcome of CaptureCoordinator.initialize */
+export type CoordinatorInitFailure = WorkerInitFailure;
 
 export class CaptureCoordinator {
   private lifecycleActor;
@@ -56,29 +56,38 @@ export class CaptureCoordinator {
 
   /**
    * Initialize the capture coordinator. Worker spawning, browser connection,
-   * and the operational-count check are all driven by the lifecycle machine
+   * and the all-workers-healthy check are all driven by the lifecycle machine
    * (`initializing` state's invoked actor).
+   *
+   * Returns Result instead of throwing so the rich failure detail captured
+   * by `initializeWorkers` reaches the application boundary intact.
    */
-  async initialize(): Promise<void> {
+  async initialize(): Promise<Result<undefined, CoordinatorInitFailure>> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("running", "terminated");
 
-    if (this.lifecycleActor.getSnapshot().value === "terminated") {
-      throw new Error("No workers available. All browser connections failed.");
+    const snapshot = this.lifecycleActor.getSnapshot();
+    if (snapshot.value === "terminated") {
+      const failure: CoordinatorInitFailure =
+        snapshot.context.lastInitFailure ?? {
+          kind: "partial-failure",
+          operational: 0,
+          total: 0,
+          failed: [],
+        };
+      return err(failure);
     }
+    return ok(undefined);
   }
 
-  enqueueTask(task: CaptureTask): EnqueueResult {
+  enqueueTask(task: CaptureTask): Result<undefined, string> {
     if (this.config.rejectDuplicateUrls) {
       if (this.taskQueue.hasUrl(task.url)) {
-        return {
-          success: false,
-          error: `URL already in queue: ${task.url}`,
-        };
+        return err(`URL already in queue: ${task.url}`);
       }
     }
     this.taskQueue.enqueue(task);
-    return { success: true };
+    return ok(undefined);
   }
 
   async shutdown(): Promise<void> {

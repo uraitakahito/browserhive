@@ -8,7 +8,6 @@ import { join } from "node:path";
 import type { Browser, Page } from "puppeteer";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
-import type { ValidationResult } from "./types.js";
 import type { CaptureTask, CaptureResult } from "./types.js";
 import { captureStatus } from "./capture-status.js";
 import {
@@ -16,6 +15,7 @@ import {
   errorDetailsFromException,
 } from "./error-details.js";
 import { errorType } from "./error-type.js";
+import { err, ok, type Result } from "../result.js";
 
 /**
  * CSS to hide scrollbars in Chromium
@@ -70,30 +70,28 @@ const INVALID_FILENAME_CHARS_DISPLAY = INVALID_FILENAME_CHARS_LIST.join(" ");
 const WHITESPACE_CHARS = /\s/;
 const MAX_FILENAME_LENGTH = 100;
 
-export const validateFilename = (name: string): ValidationResult => {
+export const validateFilename = (name: string): Result<undefined, string> => {
   if (name.length === 0) {
-    return { valid: false, error: `Invalid filename "${name}": filename cannot be empty` };
+    return err(`Invalid filename "${name}": filename cannot be empty`);
   }
 
   if (name.length > MAX_FILENAME_LENGTH) {
-    return {
-      valid: false,
-      error: `Invalid filename "${name}": filename exceeds ${String(MAX_FILENAME_LENGTH)} characters`,
-    };
+    return err(
+      `Invalid filename "${name}": filename exceeds ${String(MAX_FILENAME_LENGTH)} characters`,
+    );
   }
 
   if (INVALID_FILENAME_CHARS.test(name)) {
-    return {
-      valid: false,
-      error: `Invalid filename "${name}": contains invalid characters: ${INVALID_FILENAME_CHARS_DISPLAY}`,
-    };
+    return err(
+      `Invalid filename "${name}": contains invalid characters: ${INVALID_FILENAME_CHARS_DISPLAY}`,
+    );
   }
 
   if (WHITESPACE_CHARS.test(name)) {
-    return { valid: false, error: `Invalid filename "${name}": contains whitespace characters` };
+    return err(`Invalid filename "${name}": contains whitespace characters`);
   }
 
-  return { valid: true };
+  return ok(undefined);
 };
 
 /** Labels separator for filename generation */
@@ -101,22 +99,22 @@ export const LABELS_SEPARATOR = "-";
 
 /**
  * Validate all labels in the array
- * Returns validation result for the first invalid label, or valid if all pass
+ * Returns failure for the first invalid label, or ok if all pass
  * Empty array is valid (labels are optional)
  */
-export const validateLabels = (labels: string[]): ValidationResult => {
+export const validateLabels = (labels: string[]): Result<undefined, string> => {
   if (labels.length === 0) {
-    return { valid: true };
+    return ok(undefined);
   }
 
   for (const label of labels) {
     const result = validateFilename(label.trim());
-    if (!result.valid) {
+    if (!result.ok) {
       return result;
     }
   }
 
-  return { valid: true };
+  return ok(undefined);
 };
 
 /**

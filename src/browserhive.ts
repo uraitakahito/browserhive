@@ -12,8 +12,12 @@ import * as protoLoader from "@grpc/proto-loader";
 import { ReflectionService } from "@grpc/reflection";
 import type { BrowserHiveConfig } from "./config/index.js";
 import { createCaptureServiceHandlers } from "./grpc/handlers.js";
-import { CaptureCoordinator } from "./capture/capture-coordinator.js";
+import {
+  CaptureCoordinator,
+  type CoordinatorInitFailure,
+} from "./capture/capture-coordinator.js";
 import { logger } from "./logger.js";
+import { ok, type Result } from "./result.js";
 import { CaptureServiceService } from "./grpc/generated/browserhive/v1/capture.js";
 
 /**
@@ -50,8 +54,11 @@ export class BrowserHive {
     this.coordinator = new CaptureCoordinator(config.coordinator);
   }
 
-  async initialize(): Promise<void> {
-    await this.coordinator.initialize();
+  async initialize(): Promise<Result<undefined, CoordinatorInitFailure>> {
+    const initResult = await this.coordinator.initialize();
+    if (!initResult.ok) {
+      return initResult;
+    }
 
     const handlers = createCaptureServiceHandlers(this.coordinator);
 
@@ -65,6 +72,8 @@ export class BrowserHive {
     const packageDefinition = loadProtoDefinitionForReflection();
     const reflection = new ReflectionService(packageDefinition);
     reflection.addToServer(this.server);
+
+    return ok(undefined);
   }
 
   /**

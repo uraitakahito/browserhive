@@ -6,6 +6,13 @@
  * actors (Parent-Child Actor Model). Actor implementations live in
  * coordinator-actors.ts.
  *
+ * Error handling: invoked Promise actors (`initializeWorkers`,
+ * `shutdownWorkers`) return Result<T, E> instead of throwing. The
+ * machine branches in `onDone` on `event.output.ok` to drive the next
+ * state, and persists the failure value on `context.lastInitFailure`
+ * so that `CaptureCoordinator.initialize` can surface the rich detail
+ * to the application boundary.
+ *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
  *
  *   | Actor                                | Receive events | Send events | Spawn actors | Input | Output |
@@ -23,11 +30,13 @@ import {
   type StateValueFrom,
 } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
+import { logger } from "../logger.js";
 import {
   initializeWorkers,
   shutdownWorkers,
   watchWorkerHealth,
 } from "./coordinator-actors.js";
+import type { WorkerInitFailure } from "./coordinator-errors.js";
 import { TaskQueue } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import { workerStatusMachine } from "./worker-status.js";
@@ -43,6 +52,8 @@ export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   taskQueue: TaskQueue;
   workers: WorkerEntry[];
+  /** Detail captured when initializeWorkers returns a failure Result */
+  lastInitFailure?: WorkerInitFailure;
 }
 
 export interface CoordinatorMachineInput {
@@ -99,8 +110,35 @@ export const coordinatorMachine = setup({
       invoke: {
         src: "initializeWorkers",
         input: ({ context }) => ({ workers: context.workers }),
-        onDone: "running",
-        onError: "terminated",
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "running",
+            actions: ({ context }) => {
+              logger.info(
+                { totalCount: context.workers.length },
+                "Capture coordinator initialized",
+              );
+            },
+          },
+          {
+            target: "terminated",
+            actions: [
+              assign({
+                lastInitFailure: ({ event }) =>
+                  event.output.ok ? undefined : event.output.error,
+              }),
+              ({ event }) => {
+                if (!event.output.ok) {
+                  logger.error(
+                    { failure: event.output.error },
+                    "Worker initialization failed",
+                  );
+                }
+              },
+            ],
+          },
+        ],
       },
     },
     running: {
@@ -117,8 +155,26 @@ export const coordinatorMachine = setup({
       invoke: {
         src: "shutdownWorkers",
         input: ({ context }) => ({ workers: context.workers }),
-        onDone: "terminated",
-        onError: "terminated",
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "terminated",
+            actions: () => {
+              logger.info("Capture coordinator shut down");
+            },
+          },
+          {
+            target: "terminated",
+            actions: ({ event }) => {
+              if (!event.output.ok) {
+                logger.warn(
+                  { failure: event.output.error },
+                  "Capture coordinator shut down with timeout",
+                );
+              }
+            },
+          },
+        ],
       },
     },
     terminated: {

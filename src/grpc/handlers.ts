@@ -27,7 +27,7 @@ export const createCaptureServiceHandlers = (coordinator: CaptureCoordinator) =>
   ) => {
     const result = captureRequestToTask(call.request);
 
-    if (!result.success) {
+    if (!result.ok) {
       callback(null, {
         accepted: false,
         task_id: "",
@@ -44,12 +44,12 @@ export const createCaptureServiceHandlers = (coordinator: CaptureCoordinator) =>
       return;
     }
 
-    const { task } = result;
+    const task = result.value;
 
     // Enqueue task (fire-and-forget)
     const enqueueResult = coordinator.enqueueTask(task);
 
-    if (!enqueueResult.success) {
+    if (!enqueueResult.ok) {
       callback(null, {
         accepted: false,
         task_id: "",

@@ -5,7 +5,12 @@ import {
   ALL_COORDINATOR_LIFECYCLES,
 } from "../../src/capture/coordinator-machine.js";
 import type { CoordinatorLifecycle } from "../../src/capture/coordinator-machine.js";
+import type {
+  ShutdownFailure,
+  WorkerInitFailure,
+} from "../../src/capture/coordinator-errors.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
+import { ok, err, type Result } from "../../src/result.js";
 import { createTestCoordinatorConfig } from "../helpers/config.js";
 
 const createTestInput = () => ({ config: createTestCoordinatorConfig() });
@@ -79,9 +84,11 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("initializing");
       });
 
-      it("initializing → running when initializeWorkers resolves", async () => {
+      it("initializing → running when initializeWorkers returns ok", async () => {
         const machine = machineWith({
-          initializeWorkers: fromPromise<undefined>(() => Promise.resolve(undefined)),
+          initializeWorkers: fromPromise<Result<undefined, WorkerInitFailure>>(() =>
+            Promise.resolve(ok(undefined)),
+          ),
         });
         const actor = createActor(machine, { input: createTestInput() });
         actor.start();
@@ -92,10 +99,11 @@ describe("coordinator-machine", () => {
         });
       });
 
-      it("initializing → terminated when initializeWorkers rejects", async () => {
+      it("initializing → terminated when initializeWorkers returns err", async () => {
+        const failure: WorkerInitFailure = { kind: "no-profiles" };
         const machine = machineWith({
-          initializeWorkers: fromPromise<undefined>(() =>
-            Promise.reject(new Error("init failed")),
+          initializeWorkers: fromPromise<Result<undefined, WorkerInitFailure>>(() =>
+            Promise.resolve(err(failure)),
           ),
         });
         const actor = createActor(machine, { input: createTestInput() });
@@ -105,6 +113,33 @@ describe("coordinator-machine", () => {
         await vi.waitFor(() => {
           expect(actor.getSnapshot().value).toBe("terminated");
         });
+      });
+
+      it("records the WorkerInitFailure into context.lastInitFailure on terminated", async () => {
+        const failure: WorkerInitFailure = {
+          kind: "partial-failure",
+          operational: 1,
+          total: 2,
+          failed: [
+            {
+              browserURL: "http://b:9222",
+              reason: { type: "connection", message: "boom" },
+            },
+          ],
+        };
+        const machine = machineWith({
+          initializeWorkers: fromPromise<Result<undefined, WorkerInitFailure>>(() =>
+            Promise.resolve(err(failure)),
+          ),
+        });
+        const actor = createActor(machine, { input: createTestInput() });
+        actor.start();
+        actor.send({ type: "INITIALIZE" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("terminated");
+        });
+        expect(actor.getSnapshot().context.lastInitFailure).toEqual(failure);
       });
 
       it("running → shuttingDown via SHUTDOWN", () => {
@@ -121,13 +156,41 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
-      it("shuttingDown → terminated when shutdownWorkers resolves", async () => {
+      it("shuttingDown → terminated when shutdownWorkers returns ok", async () => {
         const machine = machineWith({
-          shutdownWorkers: fromPromise<undefined>(() => Promise.resolve(undefined)),
+          shutdownWorkers: fromPromise<Result<undefined, ShutdownFailure>>(() =>
+            Promise.resolve(ok(undefined)),
+          ),
         });
         // Start in `running` (snapshot doesn't re-trigger invokes), then drive
         // through SHUTDOWN so the entry into `shuttingDown` actually invokes
         // shutdownWorkers.
+        const actor = createActor(machine, {
+          input: createTestInput(),
+          snapshot: machine.resolveState({
+            value: "running",
+            context: createTestContext(),
+          }),
+        });
+        actor.start();
+        actor.send({ type: "SHUTDOWN" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("terminated");
+        });
+      });
+
+      it("shuttingDown → terminated even when shutdownWorkers returns timeout failure", async () => {
+        const failure: ShutdownFailure = {
+          kind: "timeout",
+          timeoutMs: 5000,
+          unsettled: ["http://stuck:9222"],
+        };
+        const machine = machineWith({
+          shutdownWorkers: fromPromise<Result<undefined, ShutdownFailure>>(() =>
+            Promise.resolve(err(failure)),
+          ),
+        });
         const actor = createActor(machine, {
           input: createTestInput(),
           snapshot: machine.resolveState({

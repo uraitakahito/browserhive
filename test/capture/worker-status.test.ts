@@ -14,8 +14,8 @@ const createMockWorker = (): Worker =>
   ({
     index: 0,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    connect: vi.fn().mockResolvedValue(undefined),
-    disconnect: vi.fn().mockResolvedValue(undefined),
+    connect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+    disconnect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     process: vi.fn(),
   }) as unknown as Worker;
 
@@ -106,7 +106,10 @@ describe("worker-status", () => {
 
       it("should transition to error on connection failure", async () => {
         const worker = createMockWorker();
-        vi.mocked(worker.connect).mockRejectedValue(new Error("Connection refused"));
+        vi.mocked(worker.connect).mockResolvedValue({
+          ok: false,
+          error: { type: "connection", message: "Connection refused" },
+        });
 
         const { actor } = createWorkerActor({ loopConfig: { worker } });
         actor.send({ type: "CONNECT" });
@@ -236,7 +239,10 @@ describe("worker-status", () => {
     describe("error state", () => {
       const createErrorActor = async () => {
         const worker = createMockWorker();
-        vi.mocked(worker.connect).mockRejectedValue(new Error("fail"));
+        vi.mocked(worker.connect).mockResolvedValue({
+          ok: false,
+          error: { type: "connection", message: "fail" },
+        });
         const result = createWorkerActor({ loopConfig: { worker } });
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
@@ -336,7 +342,10 @@ describe("worker-status", () => {
 
     it("should map error to 'error'", async () => {
       const worker = createMockWorker();
-      vi.mocked(worker.connect).mockRejectedValue(new Error("fail"));
+      vi.mocked(worker.connect).mockResolvedValue({
+        ok: false,
+        error: { type: "connection", message: "fail" },
+      });
       const { actor } = createWorkerActor({ loopConfig: { worker } });
       actor.send({ type: "CONNECT" });
       await vi.waitFor(() => {

@@ -59,12 +59,13 @@ describe("Worker", () => {
   });
 
   describe("connect", () => {
-    it("should connect to browser with profile", async () => {
-      await worker.connect();
+    it("should connect to browser with profile and return ok", async () => {
+      const result = await worker.connect();
 
       expect(connectBrowser).toHaveBeenCalledWith(
         expect.objectContaining({ browserURL: "http://chromium:9222" })
       );
+      expect(result).toEqual({ ok: true, value: undefined });
     });
 
     it("should be connected after successful connection", async () => {
@@ -73,35 +74,51 @@ describe("Worker", () => {
       expect(worker.isConnected).toBe(true);
     });
 
-    it("should throw on connection failure", async () => {
+    it("should return err with connection ErrorDetails on failure", async () => {
       vi.mocked(connectBrowser).mockRejectedValue(new Error("Connection failed"));
 
-      await expect(worker.connect()).rejects.toThrow("Connection failed");
+      const result = await worker.connect();
+
       expect(worker.isConnected).toBe(false);
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error).toEqual({
+        type: "connection",
+        message: "Connection failed",
+      });
     });
   });
 
   describe("disconnect", () => {
-    it("should disconnect browser", async () => {
+    it("should disconnect browser and return ok", async () => {
       await worker.connect();
-      await worker.disconnect();
+      const result = await worker.disconnect();
 
       expect(mockBrowser.disconnect).toHaveBeenCalled();
       expect(worker.isConnected).toBe(false);
+      expect(result).toEqual({ ok: true, value: undefined });
     });
 
-    it("should handle disconnect when not connected", async () => {
-      await worker.disconnect();
+    it("should return ok when not connected", async () => {
+      const result = await worker.disconnect();
 
       expect(worker.isConnected).toBe(false);
+      expect(result).toEqual({ ok: true, value: undefined });
     });
 
-    it("should ignore disconnect errors", async () => {
+    it("should release the browser reference and return err on disconnect failure", async () => {
       mockBrowser.disconnect = vi.fn().mockRejectedValue(new Error("Disconnect error"));
       await worker.connect();
 
-      await expect(worker.disconnect()).resolves.not.toThrow();
+      const result = await worker.disconnect();
+
       expect(worker.isConnected).toBe(false);
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("unreachable");
+      expect(result.error).toEqual({
+        type: "connection",
+        message: "Disconnect error",
+      });
     });
   });
 
