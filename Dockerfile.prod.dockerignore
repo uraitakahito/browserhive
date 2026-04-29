@@ -27,7 +27,7 @@
 # 2. Re-include package management files
 !package.json
 !package-lock.json
-!.puppeteerrc.cjs
+!.puppeteerrc.json
 
 # 3. Re-include build configuration files
 !tsconfig.json
