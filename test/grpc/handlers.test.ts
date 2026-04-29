@@ -38,7 +38,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -53,7 +53,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -69,7 +69,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, expect.objectContaining({
@@ -87,7 +87,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, expect.objectContaining({
@@ -104,7 +104,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -119,7 +119,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -134,7 +134,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -153,7 +153,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -172,7 +172,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -187,7 +187,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -211,7 +211,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith({
@@ -232,7 +232,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith({
@@ -252,7 +252,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, expect.objectContaining({
@@ -272,7 +272,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, expect.objectContaining({
@@ -293,7 +293,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, expect.objectContaining({
@@ -313,7 +313,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -336,7 +336,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -355,7 +355,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -379,7 +379,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -401,7 +401,7 @@ describe("createCaptureServiceHandlers", () => {
 
         handlers.submitCapture(
           mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
-          mockCallback as unknown as grpc.sendUnaryData<CaptureAcceptance>
+          mockCallback
         );
 
         expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -477,7 +477,7 @@ describe("createCaptureServiceHandlers", () => {
 
       handlers.getStatus(
         {} as grpc.ServerUnaryCall<Empty, StatusResponse>,
-        mockCallback as unknown as grpc.sendUnaryData<StatusResponse>
+        mockCallback
       );
 
       expect(mockCallback).toHaveBeenCalledWith(null, {
@@ -573,7 +573,7 @@ describe("createCaptureServiceHandlers", () => {
 
       handlers.getStatus(
         {} as grpc.ServerUnaryCall<Empty, StatusResponse>,
-        mockCallback as unknown as grpc.sendUnaryData<StatusResponse>
+        mockCallback
       );
 
       expect(mockCallback).toHaveBeenCalledWith(null, {

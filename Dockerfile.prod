@@ -19,7 +19,7 @@ FROM node:${NODE_VERSION}-bookworm-slim AS builder
 WORKDIR /app
 
 # Install all deps (including build-time tools like @bufbuild/buf, ts-proto, typescript)
-COPY package.json package-lock.json .puppeteerrc.cjs ./
+COPY package.json package-lock.json .puppeteerrc.json ./
 RUN npm ci
 
 # Sources required by tsc include patterns (src, bin, examples, test)
@@ -39,7 +39,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Production-only deps
-COPY package.json package-lock.json .puppeteerrc.cjs ./
+COPY package.json package-lock.json .puppeteerrc.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Only what the server entry actually needs
