@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/1.2.0"
-CHROMIUM_SERVER_TAG="0.1.0"
+CHROMIUM_SERVER_TAG="0.2.0"
 
 echo "Starting BrowserHive setup..."
 
