@@ -15,7 +15,7 @@ describe("createCaptureServiceHandlers", () => {
     mockCaptureCoordinator = {
       isRunning: true,
       operationalWorkerCount: 1,
-      enqueueTask: vi.fn().mockReturnValue({ success: true }),
+      enqueueTask: vi.fn().mockReturnValue({ ok: true, value: undefined }),
     } as unknown as CaptureCoordinator;
 
     handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
@@ -369,7 +369,7 @@ describe("createCaptureServiceHandlers", () => {
           isRunning: true,
           operationalWorkerCount: 1,
           enqueueTask: vi.fn().mockReturnValue({
-            success: false,
+            ok: false,
             error: "URL already in queue: https://example.com",
           }),
         } as unknown as CaptureCoordinator;

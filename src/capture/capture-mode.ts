@@ -1,7 +1,7 @@
 /**
  * Capture Options - Flag-based capture format configuration
  */
-import type { ValidationResult } from "./types.js";
+import { err, ok, type Result } from "../result.js";
 
 /**
  * Capture options interface
@@ -14,10 +14,12 @@ export interface CaptureOptions {
   html: boolean;
 }
 
-export const validateCaptureOptions = (options: CaptureOptions): ValidationResult => {
+export const validateCaptureOptions = (
+  options: CaptureOptions,
+): Result<undefined, string> => {
   if (!options.png && !options.jpeg && !options.html) {
-    return { valid: false, error: "At least one capture option must be enabled (png, jpeg, or html)" };
+    return err("At least one capture option must be enabled (png, jpeg, or html)");
   }
-  return { valid: true };
+  return ok(undefined);
 };
 

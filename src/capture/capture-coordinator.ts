@@ -29,11 +29,6 @@ export interface CoordinatorStatusReport {
   workers: WorkerInfo[];
 }
 
-export interface EnqueueResult {
-  success: boolean;
-  error?: string;
-}
-
 /** Failure outcome of CaptureCoordinator.initialize */
 export type CoordinatorInitFailure = WorkerInitFailure;
 
@@ -85,17 +80,14 @@ export class CaptureCoordinator {
     return ok(undefined);
   }
 
-  enqueueTask(task: CaptureTask): EnqueueResult {
+  enqueueTask(task: CaptureTask): Result<undefined, string> {
     if (this.config.rejectDuplicateUrls) {
       if (this.taskQueue.hasUrl(task.url)) {
-        return {
-          success: false,
-          error: `URL already in queue: ${task.url}`,
-        };
+        return err(`URL already in queue: ${task.url}`);
       }
     }
     this.taskQueue.enqueue(task);
-    return { success: true };
+    return ok(undefined);
   }
 
   async shutdown(): Promise<void> {

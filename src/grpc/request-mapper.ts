@@ -15,10 +15,7 @@ import {
   validateLabels,
 } from "../capture/index.js";
 import type { CaptureTask, CaptureOptions } from "../capture/index.js";
-
-export type CaptureRequestResult =
-  | { success: true; task: CaptureTask }
-  | { success: false; error: string };
+import { err, ok, type Result } from "../result.js";
 
 const captureOptionsFromProto = (
   proto: ProtoCaptureOptions | undefined
@@ -46,29 +43,29 @@ const captureOptionsFromProto = (
  */
 export const captureRequestToTask = (
   request: CaptureRequest
-): CaptureRequestResult => {
+): Result<CaptureTask, string> => {
   if (!request.url || request.url.trim() === "") {
-    return { success: false, error: "url is required" };
+    return err("url is required");
   }
 
   const captureOptions = captureOptionsFromProto(request.capture_options);
   const optionsValidation = validateCaptureOptions(captureOptions);
-  if (!optionsValidation.valid) {
-    return { success: false, error: optionsValidation.error };
+  if (!optionsValidation.ok) {
+    return err(optionsValidation.error);
   }
 
   const trimmedLabels = request.labels.map((l) => l.trim()).filter((l) => l !== "");
   if (trimmedLabels.length > 0) {
     const labelsValidation = validateLabels(trimmedLabels);
-    if (!labelsValidation.valid) {
-      return { success: false, error: labelsValidation.error };
+    if (!labelsValidation.ok) {
+      return err(labelsValidation.error);
     }
   }
 
   if (request.correlation_id) {
     const correlationIdValidation = validateFilename(request.correlation_id);
-    if (!correlationIdValidation.valid) {
-      return { success: false, error: correlationIdValidation.error };
+    if (!correlationIdValidation.ok) {
+      return err(correlationIdValidation.error);
     }
   }
 
@@ -82,5 +79,5 @@ export const captureRequestToTask = (
     ...(request.correlation_id && { correlationId: request.correlation_id }),
   };
 
-  return { success: true, task };
+  return ok(task);
 };

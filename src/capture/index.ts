@@ -9,7 +9,6 @@ export type {
   ErrorTaskInfo,
   ErrorRecord,
   WorkerInfo,
-  ValidationResult,
 } from "./types.js";
 
 // Capture Options
@@ -68,7 +67,6 @@ export { Worker } from "./worker.js";
 export { CaptureCoordinator } from "./capture-coordinator.js";
 export type {
   CoordinatorStatusReport,
-  EnqueueResult,
   CoordinatorInitFailure,
 } from "./capture-coordinator.js";
 export { TaskQueue } from "./task-queue.js";
