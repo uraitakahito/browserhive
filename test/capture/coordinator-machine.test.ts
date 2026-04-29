@@ -5,7 +5,10 @@ import {
   ALL_COORDINATOR_LIFECYCLES,
 } from "../../src/capture/coordinator-machine.js";
 import type { CoordinatorLifecycle } from "../../src/capture/coordinator-machine.js";
-import type { WorkerInitFailure } from "../../src/capture/coordinator-errors.js";
+import type {
+  ShutdownFailure,
+  WorkerInitFailure,
+} from "../../src/capture/coordinator-errors.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 import { ok, err, type Result } from "../../src/result.js";
 import { createTestCoordinatorConfig } from "../helpers/config.js";
@@ -153,13 +156,41 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
-      it("shuttingDown → terminated when shutdownWorkers resolves", async () => {
+      it("shuttingDown → terminated when shutdownWorkers returns ok", async () => {
         const machine = machineWith({
-          shutdownWorkers: fromPromise<undefined>(() => Promise.resolve(undefined)),
+          shutdownWorkers: fromPromise<Result<undefined, ShutdownFailure>>(() =>
+            Promise.resolve(ok(undefined)),
+          ),
         });
         // Start in `running` (snapshot doesn't re-trigger invokes), then drive
         // through SHUTDOWN so the entry into `shuttingDown` actually invokes
         // shutdownWorkers.
+        const actor = createActor(machine, {
+          input: createTestInput(),
+          snapshot: machine.resolveState({
+            value: "running",
+            context: createTestContext(),
+          }),
+        });
+        actor.start();
+        actor.send({ type: "SHUTDOWN" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("terminated");
+        });
+      });
+
+      it("shuttingDown → terminated even when shutdownWorkers returns timeout failure", async () => {
+        const failure: ShutdownFailure = {
+          kind: "timeout",
+          timeoutMs: 5000,
+          unsettled: ["http://stuck:9222"],
+        };
+        const machine = machineWith({
+          shutdownWorkers: fromPromise<Result<undefined, ShutdownFailure>>(() =>
+            Promise.resolve(err(failure)),
+          ),
+        });
         const actor = createActor(machine, {
           input: createTestInput(),
           snapshot: machine.resolveState({

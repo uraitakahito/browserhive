@@ -11,14 +11,15 @@
  *     surface as `err({...})` so the machine can branch on `event.output.ok`.
  *   - `watchWorkerHealth` (fromCallback): emit ALL_WORKERS_ERROR when every
  *     worker becomes unhealthy
- *   - `shutdownWorkers` (fromPromise): disconnect all worker actors with a
- *     timeout fallback
+ *   - `shutdownWorkers` (fromPromise): disconnect all worker actors and
+ *     return Result<undefined, ShutdownFailure>. Treats the disconnect
+ *     timeout as a structured failure (still proceeds to disconnect).
  */
 import { fromCallback, fromPromise } from "xstate";
 import { logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
 import type { WorkerEntry } from "./coordinator-machine.js";
-import type { WorkerInitFailure } from "./coordinator-errors.js";
+import type { ShutdownFailure, WorkerInitFailure } from "./coordinator-errors.js";
 import { createConnectionError } from "./error-details.js";
 
 /** Timeout for waiting all worker actors to settle during initialization */
@@ -142,29 +143,43 @@ export const watchWorkerHealth = fromCallback<{ type: "noop" }, WorkerEntry[]>(
   },
 );
 
-export const shutdownWorkers = fromPromise<undefined, { workers: WorkerEntry[] }>(
-  async ({ input }) => {
-    for (const entry of input.workers) {
-      entry.ref.send({ type: "DISCONNECT" });
-    }
-    await waitForWorkersToReach(
-      input.workers,
-      (value) => value === "disconnected",
-      {
-        timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
-        onTimeout: () => {
-          logger.warn(
-            { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
-            "Worker shutdown timed out, proceeding to disconnect",
-          );
-        },
+export const shutdownWorkers = fromPromise<
+  Result<undefined, ShutdownFailure>,
+  { workers: WorkerEntry[] }
+>(async ({ input }) => {
+  for (const entry of input.workers) {
+    entry.ref.send({ type: "DISCONNECT" });
+  }
+  await waitForWorkersToReach(
+    input.workers,
+    (value) => value === "disconnected",
+    {
+      timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
+      onTimeout: () => {
+        logger.warn(
+          { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
+          "Worker shutdown timed out, proceeding to disconnect",
+        );
       },
-    );
-    await Promise.all(
-      input.workers.map(async (entry) => {
-        await entry.worker.disconnect();
-      }),
-    );
-    logger.info("Capture coordinator shut down");
-  },
-);
+    },
+  );
+  // Workers still outside "disconnected" indicate the wait timed out.
+  // Snapshot before the safety-net disconnect below, which is idempotent
+  // for already-settled workers but races the actor for stuck ones.
+  const unsettled = input.workers
+    .filter((entry) => entry.ref.getSnapshot().value !== "disconnected")
+    .map((entry) => entry.worker.profile.browserURL);
+  await Promise.all(
+    input.workers.map(async (entry) => {
+      await entry.worker.disconnect();
+    }),
+  );
+  if (unsettled.length > 0) {
+    return err({
+      kind: "timeout",
+      timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
+      unsettled,
+    });
+  }
+  return ok(undefined);
+});

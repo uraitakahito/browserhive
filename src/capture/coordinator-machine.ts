@@ -148,8 +148,26 @@ export const coordinatorMachine = setup({
       invoke: {
         src: "shutdownWorkers",
         input: ({ context }) => ({ workers: context.workers }),
-        onDone: "terminated",
-        onError: "terminated",
+        onDone: [
+          {
+            guard: ({ event }) => event.output.ok,
+            target: "terminated",
+            actions: () => {
+              logger.info("Capture coordinator shut down");
+            },
+          },
+          {
+            target: "terminated",
+            actions: ({ event }) => {
+              if (!event.output.ok) {
+                logger.warn(
+                  { failure: event.output.error },
+                  "Capture coordinator shut down with timeout",
+                );
+              }
+            },
+          },
+        ],
       },
     },
     terminated: {
