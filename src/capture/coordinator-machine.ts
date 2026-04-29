@@ -65,7 +65,7 @@ export const coordinatorMachine = setup({
     shutdownWorkers,
   },
 }).createMachine({
-  id: "coordinator",
+  id: "coordinatorLifecycle",
   initial: "created",
   context: ({ input }) => ({
     config: input.config,

@@ -151,7 +151,7 @@ export const workerStatusMachine = setup({
     }),
   },
 }).createMachine({
-  id: "workerStatus",
+  id: "workerLifecycle",
   initial: "disconnected",
   context: ({ input }) => ({
     index: input.index,
