@@ -1,11 +1,3 @@
-/**
- * Result Type
- *
- * A discriminated union for representing either success or failure values.
- * Used throughout the codebase to make error paths explicit and avoid
- * losing detail through generic `throw new Error(...)`.
- */
-
 export type Result<T, E> =
   | { ok: true; value: T }
   | { ok: false; error: E };
