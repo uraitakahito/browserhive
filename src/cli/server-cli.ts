@@ -114,7 +114,7 @@ export const createProgram = (): Command => {
   const program = new Command();
 
   program
-    .name("browserhive-server")
+    .name("browserhive")
     .description("gRPC Capture Server - Accept capture requests via gRPC")
     .option(
       "--port <port>",
