@@ -1,0 +1,17 @@
+# ──────────────────────────────────────────────────────────────
+# WHITELIST dockerignore for Dockerfile.dev
+#
+# BuildKit picks `<Dockerfile>.dockerignore` over a root .dockerignore
+# when both exist, so this file applies only to `Dockerfile.dev`
+# builds. Prod builds use `Dockerfile.prod.dockerignore` separately.
+#
+# Dev only needs `docker-entrypoint.sh` from the build context;
+# the rest of the source tree is bind-mounted into the container at
+# runtime via `compose.dev.yaml` (`.:/app`).
+# ──────────────────────────────────────────────────────────────
+
+# 1. Exclude everything by default
+*
+
+# 2. Re-include the only file Dockerfile.dev COPYs from context
+!docker-entrypoint.sh
