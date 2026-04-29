@@ -29,7 +29,7 @@ export const coordinatorMachine = setup({
     initializing: {
       on: {
         INIT_DONE: "running",
-        INIT_FAILED: "stopped",
+        INIT_FAILED: "terminated",
       },
     },
     running: {
@@ -39,9 +39,9 @@ export const coordinatorMachine = setup({
       },
     },
     shuttingDown: {
-      on: { SHUTDOWN_DONE: "stopped" },
+      on: { SHUTDOWN_DONE: "terminated" },
     },
-    stopped: {
+    terminated: {
       type: "final",
     },
   },

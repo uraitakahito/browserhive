@@ -72,11 +72,11 @@ stateDiagram-v2
     [*] --> created
     created --> initializing : INITIALIZE
     initializing --> running : INIT_DONE
-    initializing --> stopped : INIT_FAILED
+    initializing --> terminated : INIT_FAILED
     running --> shuttingDown : SHUTDOWN
     running --> shuttingDown : ALL_WORKERS_ERROR
-    shuttingDown --> stopped : SHUTDOWN_DONE
-    stopped --> [*]
+    shuttingDown --> terminated : SHUTDOWN_DONE
+    terminated --> [*]
 ```
 
 ### Worker Status
@@ -85,8 +85,8 @@ Each worker actor uses compound states. The `operational` state invokes a `fromC
 
 ```mermaid
 stateDiagram-v2
-    [*] --> stopped
-    stopped --> connecting : CONNECT
+    [*] --> disconnected
+    disconnected --> connecting : CONNECT
 
     connecting --> operational : success
     connecting --> error : failure
@@ -103,12 +103,12 @@ stateDiagram-v2
 
     error --> disconnecting : DISCONNECT
 
-    disconnecting --> stopped : done
+    disconnecting --> disconnected : done
 ```
 
 | State | Tags | Description |
 |-------|------|-------------|
-| `stopped` | | Initial state, not connected |
+| `disconnected` | | Initial state, not connected |
 | `connecting` | | Connecting to remote browser (invoke) |
 | `operational.idle` | `healthy`, `canProcess` | Ready to accept tasks |
 | `operational.processing` | `healthy` | Processing a capture task |
@@ -130,11 +130,12 @@ Run the setup script:
 ```sh
 docker compose -f compose.dev.yaml up -d
 docker exec -it browserhive-container /bin/zsh
+```
 
+```sh
 # inside the container, first time only:
 sudo chown -R $(id -u):$(id -g) /zsh-volume
 
-# build and run:
 npm ci
 npm run build
 npm run server -- \
