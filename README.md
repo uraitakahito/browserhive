@@ -72,11 +72,11 @@ stateDiagram-v2
     [*] --> created
     created --> initializing : INITIALIZE
     initializing --> running : INIT_DONE
-    initializing --> stopped : INIT_FAILED
+    initializing --> terminated : INIT_FAILED
     running --> shuttingDown : SHUTDOWN
     running --> shuttingDown : ALL_WORKERS_ERROR
-    shuttingDown --> stopped : SHUTDOWN_DONE
-    stopped --> [*]
+    shuttingDown --> terminated : SHUTDOWN_DONE
+    terminated --> [*]
 ```
 
 ### Worker Status

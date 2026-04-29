@@ -22,7 +22,7 @@ describe("coordinator-machine", () => {
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("initializing");
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("running");
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("shuttingDown");
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("stopped");
+      expect(ALL_COORDINATOR_LIFECYCLES).toContain("terminated");
       expect(ALL_COORDINATOR_LIFECYCLES).toHaveLength(5);
     });
   });
@@ -49,11 +49,11 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("running");
       });
 
-      it("initializing → stopped via INIT_FAILED", () => {
+      it("initializing → terminated via INIT_FAILED", () => {
         const actor = actorAt("initializing");
         expect(actor.getSnapshot().can({ type: "INIT_FAILED" })).toBe(true);
         actor.send({ type: "INIT_FAILED" });
-        expect(actor.getSnapshot().value).toBe("stopped");
+        expect(actor.getSnapshot().value).toBe("terminated");
       });
 
       it("running → shuttingDown via SHUTDOWN", () => {
@@ -70,11 +70,11 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
-      it("shuttingDown → stopped via SHUTDOWN_DONE", () => {
+      it("shuttingDown → terminated via SHUTDOWN_DONE", () => {
         const actor = actorAt("shuttingDown");
         expect(actor.getSnapshot().can({ type: "SHUTDOWN_DONE" })).toBe(true);
         actor.send({ type: "SHUTDOWN_DONE" });
-        expect(actor.getSnapshot().value).toBe("stopped");
+        expect(actor.getSnapshot().value).toBe("terminated");
       });
     });
 
@@ -98,8 +98,8 @@ describe("coordinator-machine", () => {
         expect(snapshot.can({ type: "INIT_DONE" })).toBe(false);
       });
 
-      it("stopped should be a final state (no transitions allowed)", () => {
-        const snapshot = actorAt("stopped").getSnapshot();
+      it("terminated should be a final state (no transitions allowed)", () => {
+        const snapshot = actorAt("terminated").getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
         expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
         expect(snapshot.can({ type: "SHUTDOWN_DONE" })).toBe(false);
