@@ -5,6 +5,13 @@
 # when both exist, so this file applies only to `Dockerfile.prod`
 # builds. Dev builds use `Dockerfile.dev.dockerignore` separately.
 #
+# Refs:
+#   https://docs.docker.com/build/concepts/context/#filename-and-location
+#   https://github.com/moby/buildkit/pull/901  (introduced in BuildKit v0.5.0)
+#
+# Note: requires the BuildKit / `docker buildx` frontend. The legacy
+# classic builder does not honor `<Dockerfile>.dockerignore`.
+#
 # Default: exclude everything from the build context.
 # Only the entries explicitly re-included with `!` below are sent
 # to the Docker daemon.

@@ -5,6 +5,13 @@
 # when both exist, so this file applies only to `Dockerfile.dev`
 # builds. Prod builds use `Dockerfile.prod.dockerignore` separately.
 #
+# Refs:
+#   https://docs.docker.com/build/concepts/context/#filename-and-location
+#   https://github.com/moby/buildkit/pull/901  (introduced in BuildKit v0.5.0)
+#
+# Note: requires the BuildKit / `docker buildx` frontend. The legacy
+# classic builder does not honor `<Dockerfile>.dockerignore`.
+#
 # Dev only needs `docker-entrypoint.sh` from the build context;
 # the rest of the source tree is bind-mounted into the container at
 # runtime via `compose.dev.yaml` (`.:/app`).
