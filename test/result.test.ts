@@ -7,6 +7,16 @@ describe("Result", () => {
       const r = ok(42);
       expect(r).toEqual({ ok: true, value: 42 });
     });
+
+    it("constructs a void success Result with no arguments", () => {
+      const r = ok();
+      expect(r).toEqual({ ok: true, value: undefined });
+    });
+
+    it("ok() is assignable to Result<void, E>", () => {
+      const r: Result<void, string> = ok();
+      expect(r.ok).toBe(true);
+    });
   });
 
   describe("err", () => {

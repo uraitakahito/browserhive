@@ -70,7 +70,7 @@ const INVALID_FILENAME_CHARS_DISPLAY = INVALID_FILENAME_CHARS_LIST.join(" ");
 const WHITESPACE_CHARS = /\s/;
 const MAX_FILENAME_LENGTH = 100;
 
-export const validateFilename = (name: string): Result<undefined, string> => {
+export const validateFilename = (name: string): Result<void, string> => {
   if (name.length === 0) {
     return err(`Invalid filename "${name}": filename cannot be empty`);
   }
@@ -91,7 +91,7 @@ export const validateFilename = (name: string): Result<undefined, string> => {
     return err(`Invalid filename "${name}": contains whitespace characters`);
   }
 
-  return ok(undefined);
+  return ok();
 };
 
 /** Labels separator for filename generation */
@@ -102,9 +102,9 @@ export const LABELS_SEPARATOR = "-";
  * Returns failure for the first invalid label, or ok if all pass
  * Empty array is valid (labels are optional)
  */
-export const validateLabels = (labels: string[]): Result<undefined, string> => {
+export const validateLabels = (labels: string[]): Result<void, string> => {
   if (labels.length === 0) {
-    return ok(undefined);
+    return ok();
   }
 
   for (const label of labels) {
@@ -114,7 +114,7 @@ export const validateLabels = (labels: string[]): Result<undefined, string> => {
     }
   }
 
-  return ok(undefined);
+  return ok();
 };
 
 /**

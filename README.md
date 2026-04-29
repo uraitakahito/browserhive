@@ -67,13 +67,6 @@ The system uses [XState v5](https://stately.ai/docs) state machines with a Paren
 
 ### Coordinator Lifecycle
 
-The `initializing` and `shuttingDown` states each invoke a `fromPromise` actor that
-returns `Result<T, E>` instead of throwing. Transitions are driven by `onDone` with
-a guard on `event.output.ok` — the machine branches to success or failure based on
-the Result. On failure, the structured error is persisted to
-`context.lastInitFailure` so that `CaptureCoordinator.initialize` can return it to
-the caller (the CLI surfaces it in the `Fatal error` log line).
-
 ```mermaid
 stateDiagram-v2
     [*] --> created
@@ -89,7 +82,7 @@ stateDiagram-v2
 
 ### Worker Status
 
-Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures. The `connecting` and `disconnecting` states invoke `fromPromise` actors that return `Result<undefined, ErrorDetails>` instead of throwing — the machine branches in `onDone` on `event.output.ok`. Disconnect failures still transition to `disconnected` (best-effort) but log the underlying error.
+Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures. The `connecting` and `disconnecting` states invoke `fromPromise` actors that return `Result<void, ErrorDetails>` instead of throwing — the machine branches in `onDone` on `event.output.ok`. Disconnect failures still transition to `disconnected` (best-effort) but log the underlying error.
 
 ```mermaid
 stateDiagram-v2

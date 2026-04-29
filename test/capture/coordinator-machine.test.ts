@@ -86,8 +86,8 @@ describe("coordinator-machine", () => {
 
       it("initializing → running when initializeWorkers returns ok", async () => {
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<undefined, WorkerInitFailure>>(() =>
-            Promise.resolve(ok(undefined)),
+          initializeWorkers: fromPromise<Result<void, WorkerInitFailure>>(() =>
+            Promise.resolve(ok()),
           ),
         });
         const actor = createActor(machine, { input: createTestInput() });
@@ -102,7 +102,7 @@ describe("coordinator-machine", () => {
       it("initializing → terminated when initializeWorkers returns err", async () => {
         const failure: WorkerInitFailure = { kind: "no-profiles" };
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<undefined, WorkerInitFailure>>(() =>
+          initializeWorkers: fromPromise<Result<void, WorkerInitFailure>>(() =>
             Promise.resolve(err(failure)),
           ),
         });
@@ -128,7 +128,7 @@ describe("coordinator-machine", () => {
           ],
         };
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<undefined, WorkerInitFailure>>(() =>
+          initializeWorkers: fromPromise<Result<void, WorkerInitFailure>>(() =>
             Promise.resolve(err(failure)),
           ),
         });
@@ -158,8 +158,8 @@ describe("coordinator-machine", () => {
 
       it("shuttingDown → terminated when shutdownWorkers returns ok", async () => {
         const machine = machineWith({
-          shutdownWorkers: fromPromise<Result<undefined, ShutdownFailure>>(() =>
-            Promise.resolve(ok(undefined)),
+          shutdownWorkers: fromPromise<Result<void, ShutdownFailure>>(() =>
+            Promise.resolve(ok()),
           ),
         });
         // Start in `running` (snapshot doesn't re-trigger invokes), then drive
@@ -187,7 +187,7 @@ describe("coordinator-machine", () => {
           unsettled: ["http://stuck:9222"],
         };
         const machine = machineWith({
-          shutdownWorkers: fromPromise<Result<undefined, ShutdownFailure>>(() =>
+          shutdownWorkers: fromPromise<Result<void, ShutdownFailure>>(() =>
             Promise.resolve(err(failure)),
           ),
         });

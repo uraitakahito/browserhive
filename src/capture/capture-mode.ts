@@ -16,10 +16,10 @@ export interface CaptureOptions {
 
 export const validateCaptureOptions = (
   options: CaptureOptions,
-): Result<undefined, string> => {
+): Result<void, string> => {
   if (!options.png && !options.jpeg && !options.html) {
     return err("At least one capture option must be enabled (png, jpeg, or html)");
   }
-  return ok(undefined);
+  return ok();
 };
 

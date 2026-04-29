@@ -1,16 +1,45 @@
 /**
- * Result Type
+ * Result<T, E> — success/failure discriminated union.
  *
- * A discriminated union for representing either success or failure values.
- * Used throughout the codebase to make error paths explicit and avoid
- * losing detail through generic `throw new Error(...)`.
+ * Convention: for "no value on success" cases, use `Result<void, E>`
+ * (with `ok()`) rather than `Result<undefined, E>` (with `ok(undefined)`).
+ *
+ * Why `void` over `undefined`:
+ *   - Ergonomics: callers write `ok()` instead of `ok(undefined)`. The
+ *     `ok` overload below uses `void`'s special return-type compatibility
+ *     rule to accept zero arguments at the type level.
+ *   - Ecosystem fit: aligns with the `Promise<void>` convention used
+ *     across the Node/DOM/browser APIs and TypeScript stdlib. Mixing
+ *     `Promise<Result<undefined, E>>` into a codebase full of
+ *     `Promise<void>` reads as a foreign idiom.
+ *   - Library precedent: neverthrow, fp-ts (`Either<E, void>`), and
+ *     effect-ts all use `void` for the empty-success case.
+ *
+ * The trade-off `void` brings is its loose return-type compatibility
+ * (any function type is assignable where `() => void` is expected).
+ * That rule does not weaken the `value: void` field itself — it only
+ * matters when assigning function types — so for our Result usage the
+ * ergonomic and ecosystem-fit benefits dominate.
  */
-
 export type Result<T, E> =
   | { ok: true; value: T }
   | { ok: false; error: E };
 
-export const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
+/**
+ * Construct a success Result.
+ *
+ * Two overloads:
+ *   - `ok()`             → Result<void, never>   (no-value success)
+ *   - `ok<T>(value: T)`  → Result<T, never>      (value-carrying success)
+ *
+ * The runtime value of `ok()` is `{ ok: true, value: undefined }`, which
+ * is structurally compatible with `Result<void, E>` because `undefined`
+ * is assignable to `void`.
+ */
+export const ok: {
+  (): Result<void, never>;
+  <T>(value: T): Result<T, never>;
+} = <T>(value?: T): Result<T, never> => ({ ok: true, value: value as T });
 
 export const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
 

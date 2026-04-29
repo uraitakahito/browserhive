@@ -6,7 +6,7 @@
  * by the worker status machine (Parent-Child Actor Model).
  *
  * Public lifecycle methods (`connect`, `disconnect`) return
- * Result<undefined, ErrorDetails> rather than throwing, so the
+ * Result<void, ErrorDetails> rather than throwing, so the
  * worker-status machine can branch on the Result without `instanceof
  * Error` ad-hoc handling. `process` still throws (only when called on
  * a disconnected worker, which is a programmer error).
@@ -37,15 +37,15 @@ export class Worker {
 
   /**
    * Connect to the remote browser. No-op if already connected.
-   * Surfaces failures as Result<undefined, ErrorDetails> instead of
+   * Surfaces failures as Result<void, ErrorDetails> instead of
    * throwing — every connect failure is classified as `connection`,
    * which is the only semantically correct bucket for this stage.
    */
-  async connect(): Promise<Result<undefined, ErrorDetails>> {
-    if (this.browser) return ok(undefined);
+  async connect(): Promise<Result<void, ErrorDetails>> {
+    if (this.browser) return ok();
     try {
       this.browser = await connectBrowser(this.profile);
-      return ok(undefined);
+      return ok();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return err(createConnectionError(message));
@@ -57,13 +57,13 @@ export class Worker {
    * (even on failure) so subsequent connects can succeed; surfaces the
    * underlying error to the caller as a Result rather than swallowing.
    */
-  async disconnect(): Promise<Result<undefined, ErrorDetails>> {
-    if (!this.browser) return ok(undefined);
+  async disconnect(): Promise<Result<void, ErrorDetails>> {
+    if (!this.browser) return ok();
     const browser = this.browser;
     this.browser = null;
     try {
       await browser.disconnect();
-      return ok(undefined);
+      return ok();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return err(createConnectionError(message));
