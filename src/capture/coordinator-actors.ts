@@ -7,12 +7,12 @@
  *
  * Actor logics defined here:
  *   - `initializeWorkers` (fromPromise): connect all worker actors and
- *     return Result<undefined, WorkerInitFailure>. Never throws — failures
+ *     return Result<void, WorkerInitFailure>. Never throws — failures
  *     surface as `err({...})` so the machine can branch on `event.output.ok`.
  *   - `watchWorkerHealth` (fromCallback): emit ALL_WORKERS_ERROR when every
  *     worker becomes unhealthy
  *   - `shutdownWorkers` (fromPromise): disconnect all worker actors and
- *     return Result<undefined, ShutdownFailure>. Treats the disconnect
+ *     return Result<void, ShutdownFailure>. Treats the disconnect
  *     timeout as a structured failure (still proceeds to disconnect).
  */
 import { fromCallback, fromPromise } from "xstate";
@@ -82,7 +82,7 @@ const countOperational = (workers: WorkerEntry[]): number =>
   workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
 
 export const initializeWorkers = fromPromise<
-  Result<undefined, WorkerInitFailure>,
+  Result<void, WorkerInitFailure>,
   { workers: WorkerEntry[] }
 >(async ({ input }) => {
   if (input.workers.length === 0) {
@@ -121,7 +121,7 @@ export const initializeWorkers = fromPromise<
       failed,
     });
   }
-  return ok(undefined);
+  return ok();
 });
 
 export const watchWorkerHealth = fromCallback<{ type: "noop" }, WorkerEntry[]>(
@@ -144,7 +144,7 @@ export const watchWorkerHealth = fromCallback<{ type: "noop" }, WorkerEntry[]>(
 );
 
 export const shutdownWorkers = fromPromise<
-  Result<undefined, ShutdownFailure>,
+  Result<void, ShutdownFailure>,
   { workers: WorkerEntry[] }
 >(async ({ input }) => {
   for (const entry of input.workers) {
@@ -190,5 +190,5 @@ export const shutdownWorkers = fromPromise<
       unsettled,
     });
   }
-  return ok(undefined);
+  return ok();
 });

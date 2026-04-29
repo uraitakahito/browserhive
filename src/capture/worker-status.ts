@@ -6,7 +6,7 @@
  * for browser connection and the worker processing loop.
  *
  * Error handling: invoked Promise actors (`connectBrowser`,
- * `disconnectBrowser`) return Result<undefined, ErrorDetails> instead
+ * `disconnectBrowser`) return Result<void, ErrorDetails> instead
  * of throwing. The machine branches in `onDone` on `event.output.ok`
  * and never uses `onError`. On the disconnect side, even a failure
  * Result still transitions to `disconnected` (best-effort), but logs
@@ -87,10 +87,10 @@ export const workerStatusMachine = setup({
       | { type: "CONNECTION_LOST"; message: string },
   },
   actors: {
-    connectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
+    connectBrowser: fromPromise<Result<void, ErrorDetails>, { worker: Worker }>(
       async ({ input }) => input.worker.connect(),
     ),
-    disconnectBrowser: fromPromise<Result<undefined, ErrorDetails>, { worker: Worker }>(
+    disconnectBrowser: fromPromise<Result<void, ErrorDetails>, { worker: Worker }>(
       async ({ input }) => input.worker.disconnect(),
     ),
     workerLoop: workerLoopCallback,

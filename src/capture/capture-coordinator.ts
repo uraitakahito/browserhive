@@ -62,7 +62,7 @@ export class CaptureCoordinator {
    * Returns Result instead of throwing so the rich failure detail captured
    * by `initializeWorkers` reaches the application boundary intact.
    */
-  async initialize(): Promise<Result<undefined, CoordinatorInitFailure>> {
+  async initialize(): Promise<Result<void, CoordinatorInitFailure>> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("running", "terminated");
 
@@ -77,17 +77,17 @@ export class CaptureCoordinator {
         };
       return err(failure);
     }
-    return ok(undefined);
+    return ok();
   }
 
-  enqueueTask(task: CaptureTask): Result<undefined, string> {
+  enqueueTask(task: CaptureTask): Result<void, string> {
     if (this.config.rejectDuplicateUrls) {
       if (this.taskQueue.hasUrl(task.url)) {
         return err(`URL already in queue: ${task.url}`);
       }
     }
     this.taskQueue.enqueue(task);
-    return ok(undefined);
+    return ok();
   }
 
   async shutdown(): Promise<void> {

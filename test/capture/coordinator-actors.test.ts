@@ -271,10 +271,10 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
  */
 const runInitializeWorkers = (workers: WorkerEntry[]): {
   actor: ReturnType<typeof createActor<typeof initializeWorkers>>;
-  settled: Promise<Result<undefined, WorkerInitFailure>>;
+  settled: Promise<Result<void, WorkerInitFailure>>;
 } => {
   const actor = createActor(initializeWorkers, { input: { workers } });
-  const settled = new Promise<Result<undefined, WorkerInitFailure>>((resolve, reject) => {
+  const settled = new Promise<Result<void, WorkerInitFailure>>((resolve, reject) => {
     actor.subscribe({
       next: (snapshot) => {
         if (snapshot.status === "done") {

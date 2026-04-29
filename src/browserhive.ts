@@ -54,7 +54,7 @@ export class BrowserHive {
     this.coordinator = new CaptureCoordinator(config.coordinator);
   }
 
-  async initialize(): Promise<Result<undefined, CoordinatorInitFailure>> {
+  async initialize(): Promise<Result<void, CoordinatorInitFailure>> {
     const initResult = await this.coordinator.initialize();
     if (!initResult.ok) {
       return initResult;
@@ -73,7 +73,7 @@ export class BrowserHive {
     const reflection = new ReflectionService(packageDefinition);
     reflection.addToServer(this.server);
 
-    return ok(undefined);
+    return ok();
   }
 
   /**
