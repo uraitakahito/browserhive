@@ -95,7 +95,7 @@ export const coordinatorMachine = setup({
               id: `worker-${String(index)}`,
               input: {
                 index,
-                maxRetries: context.config.maxRetries,
+                maxRetryCount: context.config.maxRetryCount,
                 runtime: {
                   worker,
                   taskQueue: context.taskQueue,

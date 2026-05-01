@@ -32,22 +32,24 @@ import type { Result } from "../result.js";
 
 const MAX_ERROR_HISTORY = 10;
 
-export interface WorkerMachineContext {
+/** External seed values supplied when the worker actor is spawned. */
+export interface WorkerMachineInput {
   index: number;
-  processedCount: number;
-  errorCount: number;
-  errorHistory: ErrorRecord[];
   /** Maximum retry count for failed capture tasks */
-  maxRetries: number;
+  maxRetryCount: number;
   /** Worker runtime (worker instance, shared queue, polling) */
   runtime: WorkerRuntime;
 }
 
-export interface WorkerMachineInput {
-  index: number;
-  maxRetries: number;
-  runtime: WorkerRuntime;
+/** Statistics accumulated by the machine during its lifetime. */
+interface WorkerMachineStats {
+  processedCount: number;
+  errorCount: number;
+  errorHistory: ErrorRecord[];
 }
+
+export interface WorkerMachineContext
+  extends WorkerMachineInput, WorkerMachineStats {}
 
 /** Add an error to the history (FIFO, capped at MAX_ERROR_HISTORY) */
 const addErrorToHistory = (
@@ -98,7 +100,7 @@ export const workerStatusMachine = setup({
   guards: {
     canRetry: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return false;
-      return event.task.retryCount < context.maxRetries;
+      return event.task.retryCount < context.maxRetryCount;
     },
   },
   actions: {
@@ -111,7 +113,7 @@ export const workerStatusMachine = setup({
           taskId: event.task.taskId,
           ...(event.task.correlationId && { correlationId: event.task.correlationId }),
           attempt: event.task.retryCount + 1,
-          maxRetries: context.maxRetries,
+          maxRetryCount: context.maxRetryCount,
           url: event.task.url,
         },
         "Retrying task",
@@ -158,12 +160,10 @@ export const workerStatusMachine = setup({
   id: "workerLifecycle",
   initial: "disconnected",
   context: ({ input }) => ({
-    index: input.index,
+    ...input,
     processedCount: 0,
     errorCount: 0,
     errorHistory: [],
-    maxRetries: input.maxRetries,
-    runtime: input.runtime,
   }),
   states: {
     disconnected: {

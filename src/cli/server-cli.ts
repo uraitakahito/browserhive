@@ -51,7 +51,7 @@ interface ParsedOptions {
   output: string;
   pageLoadTimeout: number;
   captureTimeout: number;
-  maxRetries: number;
+  maxRetryCount: number;
   queuePollIntervalMs: number;
   viewportWidth: number;
   viewportHeight: number;
@@ -101,7 +101,7 @@ const buildServerConfig = (opts: ParsedOptions): BrowserHiveConfig => {
     ...(tls && { tls }),
     coordinator: {
       browserProfiles: opts.browserUrl.map((url) => ({ browserURL: url, capture })),
-      maxRetries: opts.maxRetries,
+      maxRetryCount: opts.maxRetryCount,
       queuePollIntervalMs: opts.queuePollIntervalMs,
       rejectDuplicateUrls: opts.rejectDuplicateUrls,
     },
@@ -149,10 +149,10 @@ export const createProgram = (): Command => {
       defaultCapture.timeouts.capture
     )
     .option(
-      "--max-retries <n>",
-      `Max retry count for failed capture tasks (default: ${String(defaultWorker.maxRetries)})`,
+      "--max-retry-count <n>",
+      `Max retry count for failed capture tasks (default: ${String(defaultWorker.maxRetryCount)})`,
       parseNonNegativeInt,
-      defaultWorker.maxRetries
+      defaultWorker.maxRetryCount
     )
     .option(
       "--queue-poll-interval <ms>",
@@ -240,7 +240,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
         pageLoad: capture.timeouts.pageLoad,
         capture: capture.timeouts.capture,
       },
-      maxRetries: coordinator.maxRetries,
+      maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,
       viewport: {
         width: capture.viewport.width,

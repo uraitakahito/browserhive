@@ -25,9 +25,9 @@ const createDefaultRuntime = (): WorkerRuntime => ({
   pollIntervalMs: 50,
 });
 
-const createInput = (overrides?: { index?: number; maxRetries?: number; runtime?: Partial<WorkerRuntime> }): WorkerMachineInput => ({
+const createInput = (overrides?: { index?: number; maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }): WorkerMachineInput => ({
   index: overrides?.index ?? 0,
-  maxRetries: overrides?.maxRetries ?? 2,
+  maxRetryCount: overrides?.maxRetryCount ?? 2,
   runtime: {
     ...createDefaultRuntime(),
     ...overrides?.runtime,
@@ -39,7 +39,7 @@ const createInput = (overrides?: { index?: number; maxRetries?: number; runtime?
  * The machine has invoked actors, so we test state transitions
  * by sending events directly.
  */
-const createWorkerActor = (overrides?: { index?: number; maxRetries?: number; runtime?: Partial<WorkerRuntime> }) => {
+const createWorkerActor = (overrides?: { index?: number; maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }) => {
   const input = createInput(overrides);
   const actor = createActor(workerStatusMachine, { input });
   actor.start();
@@ -126,7 +126,7 @@ describe("worker-status", () => {
     });
 
     describe("operational state", () => {
-      const createOperationalActor = async (overrides?: { maxRetries?: number; runtime?: Partial<WorkerRuntime> }) => {
+      const createOperationalActor = async (overrides?: { maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }) => {
         const result = createWorkerActor(overrides);
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
@@ -291,7 +291,7 @@ describe("worker-status", () => {
           expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
         });
 
-        // Generate 12 final failures (retryCount >= maxRetries to bypass canRetry guard)
+        // Generate 12 final failures (retryCount >= maxRetryCount to bypass canRetry guard)
         for (let i = 0; i < 12; i++) {
           const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 2, captureOptions: { png: true, jpeg: false, html: false } };
           const result = {
