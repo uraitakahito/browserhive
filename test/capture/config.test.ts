@@ -29,7 +29,7 @@ describe("DEFAULT_COORDINATOR_CONFIG", () => {
   });
 
   it("should have correct default values for pool settings", () => {
-    expect(DEFAULT_COORDINATOR_CONFIG.maxRetries).toBe(2);
+    expect(DEFAULT_COORDINATOR_CONFIG.maxRetryCount).toBe(2);
     expect(DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs).toBe(50);
     expect(DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls).toBe(false);
   });
@@ -127,12 +127,12 @@ describe("createTestCoordinatorConfig", () => {
 
   it("should override pool settings", () => {
     const config = createTestCoordinatorConfig({
-      maxRetries: 5,
+      maxRetryCount: 5,
       queuePollIntervalMs: 100,
       rejectDuplicateUrls: true,
     });
 
-    expect(config.maxRetries).toBe(5);
+    expect(config.maxRetryCount).toBe(5);
     expect(config.queuePollIntervalMs).toBe(100);
     expect(config.rejectDuplicateUrls).toBe(true);
   });

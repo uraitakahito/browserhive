@@ -42,7 +42,7 @@ export interface CoordinatorConfig {
   /** List of browser profile configurations */
   browserProfiles: BrowserProfile[];
   /** Maximum retry count for failed capture tasks */
-  maxRetries: number;
+  maxRetryCount: number;
   /** Queue poll interval in milliseconds when queue is empty */
   queuePollIntervalMs: number;
   /** Reject capture requests for URLs already in the queue */

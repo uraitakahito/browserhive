@@ -36,7 +36,7 @@ const MAX_ERROR_HISTORY = 10;
 export interface WorkerMachineInput {
   index: number;
   /** Maximum retry count for failed capture tasks */
-  maxRetries: number;
+  maxRetryCount: number;
   /** Worker runtime (worker instance, shared queue, polling) */
   runtime: WorkerRuntime;
 }
@@ -100,7 +100,7 @@ export const workerStatusMachine = setup({
   guards: {
     canRetry: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return false;
-      return event.task.retryCount < context.maxRetries;
+      return event.task.retryCount < context.maxRetryCount;
     },
   },
   actions: {
@@ -113,7 +113,7 @@ export const workerStatusMachine = setup({
           taskId: event.task.taskId,
           ...(event.task.correlationId && { correlationId: event.task.correlationId }),
           attempt: event.task.retryCount + 1,
-          maxRetries: context.maxRetries,
+          maxRetryCount: context.maxRetryCount,
           url: event.task.url,
         },
         "Retrying task",
