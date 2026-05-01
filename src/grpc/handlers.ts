@@ -36,11 +36,10 @@ export const createCaptureServiceHandlers = (coordinator: CaptureCoordinator) =>
       return;
     }
 
-    // Accept submissions in both `running` and `degraded` as long as at
+    // Accept submissions while in any `active.*` substate as long as at
     // least one worker is operational; otherwise the queue would grow
     // with no consumer.
-    const acceptingTraffic = coordinator.isRunning || coordinator.isDegraded;
-    if (!acceptingTraffic || coordinator.operationalWorkerCount === 0) {
+    if (!coordinator.isActive || coordinator.operationalWorkerCount === 0) {
       callback({
         code: grpcStatus.UNAVAILABLE,
         message: "No operational workers available",
