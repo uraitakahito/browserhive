@@ -9,19 +9,30 @@ import {
 import type { WorkerEntry } from "../../src/capture/coordinator-machine.js";
 import type { ErrorRecord } from "../../src/capture/types.js";
 import { errorType } from "../../src/capture/error-type.js";
+import type { CaptureWorkerSnapshot } from "../../src/capture/capture-worker.js";
 
 /**
  * Minimal ActorRef-shaped fake. Only `getSnapshot` and `subscribe` are
  * exercised by waitForWorkersToReach, so the rest of the WorkerEntry
- * (`worker`, `index`) is filled in with placeholders.
+ * (`worker`, `index`) is filled in with placeholders. The snapshot
+ * exposes `matches` so predicates that call `snapshot.matches(target)`
+ * (the production shape) work without spinning up a real machine.
  */
 const fakeEntry = (initialValue: string) => {
-  const listeners = new Set<(snap: { value: string }) => void>();
+  interface FakeSnapshot {
+    value: string;
+    matches: (target: string) => boolean;
+  }
+  const listeners = new Set<(snap: FakeSnapshot) => void>();
   let value = initialValue;
+  const makeSnapshot = (): FakeSnapshot => ({
+    value,
+    matches: (target) => target === value,
+  });
   const entry = {
     ref: {
-      getSnapshot: () => ({ value }),
-      subscribe: (listener: (snap: { value: string }) => void) => {
+      getSnapshot: makeSnapshot,
+      subscribe: (listener: (snap: FakeSnapshot) => void) => {
         listeners.add(listener);
         return {
           unsubscribe: () => {
@@ -38,13 +49,16 @@ const fakeEntry = (initialValue: string) => {
     entry,
     setValue: (v: string) => {
       value = v;
-      listeners.forEach((l) => { l({ value }); });
+      listeners.forEach((l) => { l(makeSnapshot()); });
     },
     listenerCount: () => listeners.size,
   };
 };
 
-const isReady = (v: unknown): boolean => v === "ready";
+// "ready" is a synthetic state used only by these standalone waitForWorkersToReach
+// tests — it is not a real captureWorkerMachine state, so we cast through `never`
+// to satisfy the predicate's typed signature.
+const isReady = (snap: CaptureWorkerSnapshot): boolean => snap.matches("ready" as never);
 
 describe("waitForWorkersToReach", () => {
   beforeEach(() => {
@@ -206,13 +220,14 @@ describe("waitForWorkersToReach", () => {
 /**
  * Fake WorkerEntry with state controls for initializeWorkers tests.
  * Reproduces the worker status machine surface that initializeWorkers
- * depends on: `send`, `getSnapshot().value`, `getSnapshot().hasTag()`,
- * `getSnapshot().context.errorHistory`, `subscribe`, and
- * `worker.profile.browserURL`.
+ * depends on: `send`, `getSnapshot().value`, `getSnapshot().matches()`,
+ * `getSnapshot().hasTag()`, `getSnapshot().context.errorHistory`,
+ * `subscribe`, and `worker.profile.browserURL`.
  */
 const fakeInitEntry = (browserURL = "http://test:9222") => {
   interface FakeSnapshot {
     value: unknown;
+    matches: (target: string) => boolean;
     hasTag: (tag: string) => boolean;
     context: { errorHistory: ErrorRecord[] };
   }
@@ -221,8 +236,17 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
   let tags = new Set<string>();
   let errorHistory: ErrorRecord[] = [];
 
+  const matches = (target: string): boolean => {
+    if (typeof value === "string") return value === target;
+    if (typeof value === "object" && value !== null) {
+      return target in (value as Record<string, unknown>);
+    }
+    return false;
+  };
+
   const snap = (): FakeSnapshot => ({
     value,
+    matches,
     hasTag: (t) => tags.has(t),
     context: { errorHistory },
   });

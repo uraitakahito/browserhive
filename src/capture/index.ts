@@ -46,6 +46,8 @@ export {
   ALL_WORKER_HEALTH_VALUES,
   captureWorkerMachine,
   toWorkerHealth,
+  isWorkerSettled,
+  isWorkerDisconnected,
 } from "./capture-worker.js";
 
 // Worker Loop (fromCallback actor for task processing)

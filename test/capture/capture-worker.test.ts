@@ -4,6 +4,8 @@ import {
   ALL_WORKER_HEALTH_VALUES,
   captureWorkerMachine,
   toWorkerHealth,
+  isWorkerSettled,
+  isWorkerDisconnected,
 } from "../../src/capture/capture-worker.js";
 import type { CaptureWorkerInput } from "../../src/capture/capture-worker.js";
 import type { WorkerRuntime } from "../../src/capture/worker-loop.js";
@@ -368,6 +370,136 @@ describe("capture-worker", () => {
       actor.send({ type: "CONNECT" });
       expect(actor.getSnapshot().value).toBe("connecting");
       expect(toWorkerHealth(actor.getSnapshot())).toBe("error");
+    });
+  });
+
+  describe("isWorkerSettled", () => {
+    it("returns false in disconnected (initial state)", () => {
+      const { actor } = createWorkerActor();
+      expect(isWorkerSettled(actor.getSnapshot())).toBe(false);
+    });
+
+    it("returns false in connecting", () => {
+      const client = createMockClient();
+      vi.mocked(client.connect).mockReturnValue(new Promise(() => { /* never resolves */ }));
+      const { actor } = createWorkerActor({ runtime: { client } });
+      actor.send({ type: "CONNECT" });
+      expect(actor.getSnapshot().value).toBe("connecting");
+      expect(isWorkerSettled(actor.getSnapshot())).toBe(false);
+    });
+
+    it("returns true in operational.idle", async () => {
+      const { actor } = createWorkerActor();
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      expect(isWorkerSettled(actor.getSnapshot())).toBe(true);
+    });
+
+    it("returns true in operational.processing", async () => {
+      const { actor } = createWorkerActor();
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureOptions: { png: true, jpeg: false, html: false } };
+      actor.send({ type: "TASK_STARTED", task });
+      expect(actor.getSnapshot().value).toEqual({ operational: "processing" });
+      expect(isWorkerSettled(actor.getSnapshot())).toBe(true);
+    });
+
+    it("returns true in error", async () => {
+      const client = createMockClient();
+      vi.mocked(client.connect).mockResolvedValue({
+        ok: false,
+        error: { type: "connection", message: "fail" },
+      });
+      const { actor } = createWorkerActor({ runtime: { client } });
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toBe("error");
+      });
+      expect(isWorkerSettled(actor.getSnapshot())).toBe(true);
+    });
+
+    it("returns false in disconnecting", async () => {
+      const client = createMockClient();
+      // Hang disconnect so we stay in disconnecting state
+      vi.mocked(client.disconnect).mockReturnValue(new Promise(() => { /* never resolves */ }));
+      const { actor } = createWorkerActor({ runtime: { client } });
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      actor.send({ type: "DISCONNECT" });
+      expect(actor.getSnapshot().value).toBe("disconnecting");
+      expect(isWorkerSettled(actor.getSnapshot())).toBe(false);
+    });
+  });
+
+  describe("isWorkerDisconnected", () => {
+    it("returns true in disconnected (initial state)", () => {
+      const { actor } = createWorkerActor();
+      expect(isWorkerDisconnected(actor.getSnapshot())).toBe(true);
+    });
+
+    it("returns false in connecting", () => {
+      const client = createMockClient();
+      vi.mocked(client.connect).mockReturnValue(new Promise(() => { /* never resolves */ }));
+      const { actor } = createWorkerActor({ runtime: { client } });
+      actor.send({ type: "CONNECT" });
+      expect(actor.getSnapshot().value).toBe("connecting");
+      expect(isWorkerDisconnected(actor.getSnapshot())).toBe(false);
+    });
+
+    it("returns false in operational.idle", async () => {
+      const { actor } = createWorkerActor();
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      expect(isWorkerDisconnected(actor.getSnapshot())).toBe(false);
+    });
+
+    it("returns false in error", async () => {
+      const client = createMockClient();
+      vi.mocked(client.connect).mockResolvedValue({
+        ok: false,
+        error: { type: "connection", message: "fail" },
+      });
+      const { actor } = createWorkerActor({ runtime: { client } });
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toBe("error");
+      });
+      expect(isWorkerDisconnected(actor.getSnapshot())).toBe(false);
+    });
+
+    it("returns false in disconnecting", async () => {
+      const client = createMockClient();
+      vi.mocked(client.disconnect).mockReturnValue(new Promise(() => { /* never resolves */ }));
+      const { actor } = createWorkerActor({ runtime: { client } });
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      actor.send({ type: "DISCONNECT" });
+      expect(actor.getSnapshot().value).toBe("disconnecting");
+      expect(isWorkerDisconnected(actor.getSnapshot())).toBe(false);
+    });
+
+    it("returns true after full disconnect cycle", async () => {
+      const { actor } = createWorkerActor();
+      actor.send({ type: "CONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      actor.send({ type: "DISCONNECT" });
+      await vi.waitFor(() => {
+        expect(actor.getSnapshot().value).toBe("disconnected");
+      });
+      expect(isWorkerDisconnected(actor.getSnapshot())).toBe(true);
     });
   });
 });
