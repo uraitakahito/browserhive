@@ -67,22 +67,31 @@ The system uses [XState v5](https://stately.ai/docs) state machines with a Paren
 
 ### Coordinator Lifecycle
 
-Init failures are non-fatal: partial or total connect failures land in `degraded`
-instead of `terminated`. While `degraded`, the coordinator periodically retries
-failed workers (1s → 2s → 4s → … capped at 60s) and lifts back to `running` once
-every worker is healthy. `submitCapture` is accepted in both `running` and
-`degraded` as long as at least one worker is operational.
+`running` and `degraded` are substates of a compound `active` state. The
+`watchWorkerHealth` invoke and the `SHUTDOWN` transition live on `active`,
+so they are unaffected by `running ↔ degraded` oscillations.
+
+Init failures are non-fatal: partial or total connect failures land in
+`active.degraded` instead of `terminated`. While in `active.degraded`, the
+coordinator periodically retries failed workers (1s → 2s → 4s → … capped at
+60s) and lifts back to `active.running` once every worker is healthy.
+`submitCapture` is accepted while in any `active.*` substate as long as at
+least one worker is operational.
 
 ```mermaid
 stateDiagram-v2
     [*] --> created
     created --> initializing : INITIALIZE
-    initializing --> running : allHealthy
-    initializing --> degraded : some failed
-    running --> degraded : WORKER_DEGRADED
-    degraded --> running : ALL_WORKERS_HEALTHY
-    running --> shuttingDown : SHUTDOWN
-    degraded --> shuttingDown : SHUTDOWN
+    initializing --> active.running : allHealthy
+    initializing --> active.degraded : some failed
+
+    state active {
+        [*] --> running
+        running --> degraded : WORKER_DEGRADED
+        degraded --> running : ALL_WORKERS_HEALTHY
+    }
+
+    active --> shuttingDown : SHUTDOWN
     shuttingDown --> terminated : shutdownWorkers ok
     shuttingDown --> terminated : shutdownWorkers err (timeout)
     terminated --> [*]

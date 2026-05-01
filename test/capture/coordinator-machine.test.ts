@@ -4,7 +4,18 @@ import {
   coordinatorMachine,
   ALL_COORDINATOR_LIFECYCLES,
 } from "../../src/capture/coordinator-machine.js";
-import type { CoordinatorLifecycle } from "../../src/capture/coordinator-machine.js";
+
+/**
+ * State value shape accepted by `machine.resolveState({ value })` for the
+ * coordinator. Top-level atomic states are bare strings; the compound
+ * `active` state is expressed as an object naming the desired substate.
+ */
+type LifecycleStateValue =
+  | "created"
+  | "initializing"
+  | "shuttingDown"
+  | "terminated"
+  | { active: "running" | "degraded" };
 import type {
   InitializeWorkersOutput,
 } from "../../src/capture/coordinator-actors.js";
@@ -35,7 +46,7 @@ interface ActorOverrides {
   retryFailedWorkers?: AnyActorLogic;
 }
 
-/** No-op fromCallback used to satisfy `running`/`degraded` invokes in tests */
+/** No-op fromCallback used to satisfy `active`/`degraded` invokes in tests */
 const noopCallback = fromCallback(() => {
   return () => { /* no-op */ };
 });
@@ -55,7 +66,7 @@ const machineWith = (overrides: ActorOverrides = {}) =>
  * Create an actor starting at the given state. States with an `invoke`
  * (initializing, shuttingDown) get hanging stubs so the machine stays put.
  */
-const actorAt = (state: CoordinatorLifecycle) => {
+const actorAt = (state: LifecycleStateValue) => {
   const machine = machineWith();
   const actor = createActor(machine, {
     input: createTestInput(),
@@ -70,14 +81,15 @@ const actorAt = (state: CoordinatorLifecycle) => {
 
 describe("coordinator-machine", () => {
   describe("ALL_COORDINATOR_LIFECYCLES", () => {
-    it("should contain all lifecycle states", () => {
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("created");
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("initializing");
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("running");
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("degraded");
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("shuttingDown");
-      expect(ALL_COORDINATOR_LIFECYCLES).toContain("terminated");
-      expect(ALL_COORDINATOR_LIFECYCLES).toHaveLength(6);
+    it("should enumerate the leaf lifecycle states", () => {
+      expect(ALL_COORDINATOR_LIFECYCLES).toEqual([
+        "created",
+        "initializing",
+        "active.running",
+        "active.degraded",
+        "shuttingDown",
+        "terminated",
+      ]);
     });
   });
 
@@ -96,7 +108,7 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("initializing");
       });
 
-      it("initializing → running when initializeWorkers reports allHealthy", async () => {
+      it("initializing → active.running when initializeWorkers reports allHealthy", async () => {
         const machine = machineWith({
           initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
             Promise.resolve({ allHealthy: true, failed: [] }),
@@ -107,11 +119,11 @@ describe("coordinator-machine", () => {
         actor.send({ type: "INITIALIZE" });
 
         await vi.waitFor(() => {
-          expect(actor.getSnapshot().value).toBe("running");
+          expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
         });
       });
 
-      it("initializing → degraded when some workers failed", async () => {
+      it("initializing → active.degraded when some workers failed", async () => {
         const summary: InitializeWorkersOutput = {
           allHealthy: false,
           failed: [
@@ -131,11 +143,11 @@ describe("coordinator-machine", () => {
         actor.send({ type: "INITIALIZE" });
 
         await vi.waitFor(() => {
-          expect(actor.getSnapshot().value).toBe("degraded");
+          expect(actor.getSnapshot().matches({ active: "degraded" })).toBe(true);
         });
       });
 
-      it("records the InitializeWorkersOutput into context.lastInitSummary on degraded", async () => {
+      it("records the InitializeWorkersOutput into context.lastInitSummary on active.degraded", async () => {
         const summary: InitializeWorkersOutput = {
           allHealthy: false,
           failed: [
@@ -155,34 +167,48 @@ describe("coordinator-machine", () => {
         actor.send({ type: "INITIALIZE" });
 
         await vi.waitFor(() => {
-          expect(actor.getSnapshot().value).toBe("degraded");
+          expect(actor.getSnapshot().matches({ active: "degraded" })).toBe(true);
         });
         expect(actor.getSnapshot().context.lastInitSummary).toEqual(summary);
       });
 
-      it("running → degraded via WORKER_DEGRADED", () => {
-        const actor = actorAt("running");
+      it("active.running → active.degraded via WORKER_DEGRADED", () => {
+        const actor = actorAt({ active: "running" });
         expect(actor.getSnapshot().can({ type: "WORKER_DEGRADED" })).toBe(true);
         actor.send({ type: "WORKER_DEGRADED" });
-        expect(actor.getSnapshot().value).toBe("degraded");
+        expect(actor.getSnapshot().matches({ active: "degraded" })).toBe(true);
       });
 
-      it("degraded → running via ALL_WORKERS_HEALTHY", () => {
-        const actor = actorAt("degraded");
+      it("active.degraded → active.running via ALL_WORKERS_HEALTHY", () => {
+        const actor = actorAt({ active: "degraded" });
         expect(actor.getSnapshot().can({ type: "ALL_WORKERS_HEALTHY" })).toBe(true);
         actor.send({ type: "ALL_WORKERS_HEALTHY" });
-        expect(actor.getSnapshot().value).toBe("running");
+        expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
       });
 
-      it("running → shuttingDown via SHUTDOWN", () => {
-        const actor = actorAt("running");
+      it("WORKER_DEGRADED in active.degraded is a no-op (handler lives on substate `running` only)", () => {
+        const actor = actorAt({ active: "degraded" });
+        expect(actor.getSnapshot().can({ type: "WORKER_DEGRADED" })).toBe(false);
+        actor.send({ type: "WORKER_DEGRADED" });
+        expect(actor.getSnapshot().matches({ active: "degraded" })).toBe(true);
+      });
+
+      it("ALL_WORKERS_HEALTHY in active.running is a no-op (handler lives on substate `degraded` only)", () => {
+        const actor = actorAt({ active: "running" });
+        expect(actor.getSnapshot().can({ type: "ALL_WORKERS_HEALTHY" })).toBe(false);
+        actor.send({ type: "ALL_WORKERS_HEALTHY" });
+        expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
+      });
+
+      it("active.running → shuttingDown via SHUTDOWN", () => {
+        const actor = actorAt({ active: "running" });
         expect(actor.getSnapshot().can({ type: "SHUTDOWN" })).toBe(true);
         actor.send({ type: "SHUTDOWN" });
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
-      it("degraded → shuttingDown via SHUTDOWN", () => {
-        const actor = actorAt("degraded");
+      it("active.degraded → shuttingDown via SHUTDOWN", () => {
+        const actor = actorAt({ active: "degraded" });
         expect(actor.getSnapshot().can({ type: "SHUTDOWN" })).toBe(true);
         actor.send({ type: "SHUTDOWN" });
         expect(actor.getSnapshot().value).toBe("shuttingDown");
@@ -194,13 +220,13 @@ describe("coordinator-machine", () => {
             Promise.resolve(ok()),
           ),
         });
-        // Start in `running` (snapshot doesn't re-trigger invokes), then drive
-        // through SHUTDOWN so the entry into `shuttingDown` actually invokes
-        // shutdownWorkers.
+        // Start in `active.running` (snapshot doesn't re-trigger invokes),
+        // then drive through SHUTDOWN so the entry into `shuttingDown` actually
+        // invokes shutdownWorkers.
         const actor = createActor(machine, {
           input: createTestInput(),
           snapshot: machine.resolveState({
-            value: "running",
+            value: { active: "running" },
             context: createTestContext(),
           }),
         });
@@ -226,7 +252,7 @@ describe("coordinator-machine", () => {
         const actor = createActor(machine, {
           input: createTestInput(),
           snapshot: machine.resolveState({
-            value: "running",
+            value: { active: "running" },
             context: createTestContext(),
           }),
         });
@@ -236,6 +262,75 @@ describe("coordinator-machine", () => {
         await vi.waitFor(() => {
           expect(actor.getSnapshot().value).toBe("terminated");
         });
+      });
+    });
+
+    describe("hoisted invoke on `active`", () => {
+      // Prior to compounding `active`, watchWorkerHealth was invoked separately
+      // from `running` and from `degraded`, so every running ↔ degraded
+      // transition tore down and re-created subscriptions. With the invoke
+      // hoisted to `active`, the actor must outlive substate flips.
+      //
+      // Snapshot-restored start does not re-invoke parent actors, so these
+      // tests drive the machine through a real INITIALIZE transition to
+      // observe the invoke lifecycle.
+      const enterActiveRunning = (extra: ActorOverrides = {}) => {
+        const machine = machineWith({
+          ...extra,
+          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
+            Promise.resolve({ allHealthy: true, failed: [] }),
+          ),
+        });
+        const actor = createActor(machine, { input: createTestInput() });
+        actor.start();
+        actor.send({ type: "INITIALIZE" });
+        return actor;
+      };
+
+      it("watchWorkerHealth is invoked once across active.running ↔ active.degraded oscillations", async () => {
+        let activeInvocations = 0;
+        const countingWatch = fromCallback(() => {
+          activeInvocations += 1;
+          return () => { /* disposed when leaving `active` */ };
+        });
+
+        const actor = enterActiveRunning({ watchWorkerHealth: countingWatch });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
+        });
+        expect(activeInvocations).toBe(1);
+
+        // Two full oscillations.
+        actor.send({ type: "WORKER_DEGRADED" });
+        actor.send({ type: "ALL_WORKERS_HEALTHY" });
+        actor.send({ type: "WORKER_DEGRADED" });
+        actor.send({ type: "ALL_WORKERS_HEALTHY" });
+
+        expect(activeInvocations).toBe(1);
+      });
+
+      it("watchWorkerHealth is disposed exactly once on transition to shuttingDown", async () => {
+        let invocations = 0;
+        let disposals = 0;
+        const trackingWatch = fromCallback(() => {
+          invocations += 1;
+          return () => { disposals += 1; };
+        });
+
+        const actor = enterActiveRunning({ watchWorkerHealth: trackingWatch });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
+        });
+
+        actor.send({ type: "WORKER_DEGRADED" });
+        actor.send({ type: "ALL_WORKERS_HEALTHY" });
+        expect(disposals).toBe(0);
+
+        actor.send({ type: "SHUTDOWN" });
+        expect(invocations).toBe(1);
+        expect(disposals).toBe(1);
       });
     });
 
@@ -251,13 +346,13 @@ describe("coordinator-machine", () => {
         expect(snapshot.can({ type: "SHUTDOWN" })).toBe(false);
       });
 
-      it("running should not allow INITIALIZE", () => {
-        const snapshot = actorAt("running").getSnapshot();
+      it("active.running should not allow INITIALIZE", () => {
+        const snapshot = actorAt({ active: "running" }).getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
       });
 
-      it("degraded should not allow INITIALIZE", () => {
-        const snapshot = actorAt("degraded").getSnapshot();
+      it("active.degraded should not allow INITIALIZE", () => {
+        const snapshot = actorAt({ active: "degraded" }).getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
       });
 

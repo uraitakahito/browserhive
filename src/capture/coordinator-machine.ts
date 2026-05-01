@@ -5,10 +5,15 @@
  * The machine spawns and orchestrates worker status actors via invoked
  * actors (Parent-Child Actor Model).
  *
+ * Lifecycle shape: `running` and `degraded` are substates of the compound
+ * `active` state. `watchWorkerHealth` and the `SHUTDOWN` transition are
+ * invoked / handled at `active`, so they survive `running ↔ degraded`
+ * oscillations. `retryFailedWorkers` is invoked only on `active.degraded`.
+ *
  * Init policy: `initializeWorkers` is non-fatal — partial or total
- * connect failures land in `degraded` instead of `terminated`. Once
+ * connect failures land in `active.degraded` instead of `terminated`. Once
  * recovery brings every worker back to `operational`, `watchWorkerHealth`
- * emits `ALL_WORKERS_HEALTHY` to lift the lifecycle into `running`.
+ * emits `ALL_WORKERS_HEALTHY` to lift the lifecycle into `active.running`.
  *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
  *
@@ -18,13 +23,13 @@
  *   | `workerStatus` (State machine)       | yes            | yes         | yes          | yes   | yes    |
  *   | `initializeWorkers` (Promise)        | no             | yes         | no           | yes   | yes    |
  *   | `watchWorkerHealth` (Callback)       | no             | yes         | no           | yes   | no     |
+ *   | `retryFailedWorkers` (Callback)      | no             | no          | no           | yes   | no     |
  *   | `shutdownWorkers` (Promise)          | no             | yes         | no           | yes   | yes    |
  */
 import {
   assign,
   setup,
   type ActorRefFrom,
-  type StateValueFrom,
 } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -113,7 +118,7 @@ export const coordinatorMachine = setup({
         onDone: [
           {
             guard: ({ event }) => event.output.allHealthy,
-            target: "running",
+            target: "active.running",
             actions: [
               assign({ lastInitSummary: ({ event }) => event.output }),
               ({ context }) => {
@@ -125,7 +130,7 @@ export const coordinatorMachine = setup({
             ],
           },
           {
-            target: "degraded",
+            target: "active.degraded",
             actions: [
               assign({ lastInitSummary: ({ event }) => event.output }),
               ({ event, context }) => {
@@ -144,38 +149,36 @@ export const coordinatorMachine = setup({
         ],
       },
     },
-    running: {
+    active: {
       invoke: {
         src: "watchWorkerHealth",
         input: ({ context }) => context.workers,
       },
-      on: {
-        SHUTDOWN: "shuttingDown",
-        WORKER_DEGRADED: {
-          target: "degraded",
-          actions: () => {
-            logger.warn("Worker(s) became unhealthy, entering degraded");
+      on: { SHUTDOWN: "shuttingDown" },
+      initial: "running",
+      states: {
+        running: {
+          on: {
+            WORKER_DEGRADED: {
+              target: "degraded",
+              actions: () => {
+                logger.warn("Worker(s) became unhealthy, entering degraded");
+              },
+            },
           },
         },
-      },
-    },
-    degraded: {
-      invoke: [
-        {
-          src: "watchWorkerHealth",
-          input: ({ context }) => context.workers,
-        },
-        {
-          src: "retryFailedWorkers",
-          input: ({ context }) => context.workers,
-        },
-      ],
-      on: {
-        SHUTDOWN: "shuttingDown",
-        ALL_WORKERS_HEALTHY: {
-          target: "running",
-          actions: () => {
-            logger.info("All workers healthy, leaving degraded");
+        degraded: {
+          invoke: {
+            src: "retryFailedWorkers",
+            input: ({ context }) => context.workers,
+          },
+          on: {
+            ALL_WORKERS_HEALTHY: {
+              target: "running",
+              actions: () => {
+                logger.info("All workers healthy, leaving degraded");
+              },
+            },
           },
         },
       },
@@ -212,9 +215,18 @@ export const coordinatorMachine = setup({
   },
 });
 
-/** Coordinator lifecycle state derived from machine state names */
-export type CoordinatorLifecycle = StateValueFrom<typeof coordinatorMachine>;
+/**
+ * Leaf states of the coordinator lifecycle. The two `active.*` entries are
+ * dotted paths into the compound `active` state — usable directly as
+ * `snapshot.matches(<leaf>)` arguments.
+ */
+export const ALL_COORDINATOR_LIFECYCLES = [
+  "created",
+  "initializing",
+  "active.running",
+  "active.degraded",
+  "shuttingDown",
+  "terminated",
+] as const;
 
-export const ALL_COORDINATOR_LIFECYCLES = Object.keys(
-  coordinatorMachine.config.states ?? {}
-) as CoordinatorLifecycle[];
+export type CoordinatorLifecycle = (typeof ALL_COORDINATOR_LIFECYCLES)[number];

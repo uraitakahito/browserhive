@@ -13,8 +13,7 @@ describe("createCaptureServiceHandlers", () => {
 
   beforeEach(() => {
     mockCaptureCoordinator = {
-      isRunning: true,
-      isDegraded: false,
+      isActive: true,
       operationalWorkerCount: 1,
       enqueueTask: vi.fn().mockReturnValue({ ok: true, value: undefined }),
     } as unknown as CaptureCoordinator;
@@ -200,10 +199,9 @@ describe("createCaptureServiceHandlers", () => {
     });
 
     describe("worker pool unavailable", () => {
-      it("should return error when coordinator is neither running nor degraded", () => {
+      it("should return error when coordinator is not in any active substate", () => {
         mockCaptureCoordinator = {
-          isRunning: false,
-          isDegraded: false,
+          isActive: false,
           operationalWorkerCount: 1,
           enqueueTask: vi.fn(),
         } as unknown as CaptureCoordinator;
@@ -224,8 +222,7 @@ describe("createCaptureServiceHandlers", () => {
 
       it("should return error when no healthy workers", () => {
         mockCaptureCoordinator = {
-          isRunning: true,
-          isDegraded: false,
+          isActive: true,
           operationalWorkerCount: 0,
           enqueueTask: vi.fn(),
         } as unknown as CaptureCoordinator;
@@ -245,9 +242,9 @@ describe("createCaptureServiceHandlers", () => {
       });
 
       it("should accept submissions while degraded as long as a worker is operational", () => {
+        // isActive covers both `active.running` and `active.degraded`.
         mockCaptureCoordinator = {
-          isRunning: false,
-          isDegraded: true,
+          isActive: true,
           operationalWorkerCount: 1,
           enqueueTask: vi.fn().mockReturnValue({ ok: true, value: undefined }),
         } as unknown as CaptureCoordinator;
@@ -390,7 +387,7 @@ describe("createCaptureServiceHandlers", () => {
 
       it("should reject duplicate URL when enqueueTask returns failure", () => {
         mockCaptureCoordinator = {
-          isRunning: true,
+          isActive: true,
           operationalWorkerCount: 1,
           enqueueTask: vi.fn().mockReturnValue({
             ok: false,
@@ -437,11 +434,9 @@ describe("createCaptureServiceHandlers", () => {
 
   describe("getStatus handler", () => {
     it("should return current queue and worker pool status with worker details", () => {
+      // getStatus handler only reads coordinator.getStatus(); isActive/enqueueTask
+      // are not consulted in this path.
       mockCaptureCoordinator = {
-        isRunning: true,
-        isDegraded: false,
-        operationalWorkerCount: 2,
-        enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
           taskCounts: {
             pending: 5,
@@ -563,10 +558,6 @@ describe("createCaptureServiceHandlers", () => {
 
     it("should return status even when pool is not running", () => {
       mockCaptureCoordinator = {
-        isRunning: false,
-        isDegraded: false,
-        operationalWorkerCount: 0,
-        enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
           taskCounts: {
             pending: 0,
