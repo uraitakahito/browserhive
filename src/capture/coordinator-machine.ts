@@ -36,7 +36,7 @@ import {
   shutdownWorkers,
   watchWorkerHealth,
 } from "./coordinator-actors.js";
-import type { WorkerInitFailure } from "./coordinator-errors.js";
+import type { CoordinatorInitFailure } from "./coordinator-errors.js";
 import { TaskQueue } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import { workerStatusMachine } from "./worker-status.js";
@@ -53,7 +53,7 @@ export interface CoordinatorMachineContext {
   taskQueue: TaskQueue;
   workers: WorkerEntry[];
   /** Detail captured when initializeWorkers returns a failure Result */
-  lastInitFailure?: WorkerInitFailure;
+  lastInitFailure?: CoordinatorInitFailure;
 }
 
 export interface CoordinatorMachineInput {

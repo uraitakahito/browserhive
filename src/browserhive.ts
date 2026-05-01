@@ -15,7 +15,7 @@ import { createCaptureServiceHandlers } from "./grpc/handlers.js";
 import {
   CaptureCoordinator,
   type CoordinatorInitFailure,
-} from "./capture/capture-coordinator.js";
+} from "./capture/index.js";
 import { logger } from "./logger.js";
 import { ok, type Result } from "./result.js";
 import { CaptureServiceService } from "./grpc/generated/browserhive/v1/capture.js";

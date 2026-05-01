@@ -60,15 +60,15 @@ export {
 } from "./coordinator-machine.js";
 
 // Coordinator failure types
-export type { WorkerInitFailure } from "./coordinator-errors.js";
+export type {
+  WorkerInitFailure,
+  CoordinatorInitFailure,
+} from "./coordinator-errors.js";
 
 // Classes
 export { Worker } from "./worker.js";
 export { CaptureCoordinator } from "./capture-coordinator.js";
-export type {
-  CoordinatorStatusReport,
-  CoordinatorInitFailure,
-} from "./capture-coordinator.js";
+export type { CoordinatorStatusReport } from "./capture-coordinator.js";
 export { TaskQueue } from "./task-queue.js";
 export type { TaskCounts } from "./task-queue.js";
 export { PageCapturer } from "./page-capturer.js";
