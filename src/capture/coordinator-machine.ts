@@ -96,7 +96,7 @@ export const coordinatorMachine = setup({
               input: {
                 index,
                 maxRetries: context.config.maxRetries,
-                loopConfig: {
+                runtime: {
                   worker,
                   taskQueue: context.taskQueue,
                   pollIntervalMs: context.config.queuePollIntervalMs,

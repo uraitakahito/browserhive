@@ -27,7 +27,7 @@ import { setup, assign, fromPromise, type SnapshotFrom } from "xstate";
 import type { Worker } from "./worker.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
-import { workerLoopCallback, type WorkerLoopConfig } from "./worker-loop.js";
+import { workerLoopCallback, type WorkerRuntime } from "./worker-loop.js";
 import type { Result } from "../result.js";
 
 const MAX_ERROR_HISTORY = 10;
@@ -39,14 +39,14 @@ export interface WorkerMachineContext {
   errorHistory: ErrorRecord[];
   /** Maximum retry count for failed capture tasks */
   maxRetries: number;
-  /** Worker loop config (worker instance, shared queue, polling) */
-  loopConfig: WorkerLoopConfig;
+  /** Worker runtime (worker instance, shared queue, polling) */
+  runtime: WorkerRuntime;
 }
 
 export interface WorkerMachineInput {
   index: number;
   maxRetries: number;
-  loopConfig: WorkerLoopConfig;
+  runtime: WorkerRuntime;
 }
 
 /** Add an error to the history (FIFO, capped at MAX_ERROR_HISTORY) */
@@ -104,8 +104,8 @@ export const workerStatusMachine = setup({
   actions: {
     retryTask: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return;
-      context.loopConfig.taskQueue.requeue(event.task);
-      context.loopConfig.worker.logger.info(
+      context.runtime.taskQueue.requeue(event.task);
+      context.runtime.worker.logger.info(
         {
           taskLabels: event.task.labels,
           taskId: event.task.taskId,
@@ -119,8 +119,8 @@ export const workerStatusMachine = setup({
     },
     markTaskComplete: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return;
-      context.loopConfig.taskQueue.markComplete(event.task.taskId);
-      context.loopConfig.worker.logger.warn(
+      context.runtime.taskQueue.markComplete(event.task.taskId);
+      context.runtime.worker.logger.warn(
         {
           taskLabels: event.task.labels,
           taskId: event.task.taskId,
@@ -163,7 +163,7 @@ export const workerStatusMachine = setup({
     errorCount: 0,
     errorHistory: [],
     maxRetries: input.maxRetries,
-    loopConfig: input.loopConfig,
+    runtime: input.runtime,
   }),
   states: {
     disconnected: {
@@ -172,7 +172,7 @@ export const workerStatusMachine = setup({
     connecting: {
       invoke: {
         src: "connectBrowser",
-        input: ({ context }) => ({ worker: context.loopConfig.worker }),
+        input: ({ context }) => ({ worker: context.runtime.worker }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
@@ -196,7 +196,7 @@ export const workerStatusMachine = setup({
       initial: "idle",
       invoke: {
         src: "workerLoop",
-        input: ({ context }) => context.loopConfig,
+        input: ({ context }) => context.runtime,
       },
       states: {
         idle: {
@@ -241,7 +241,7 @@ export const workerStatusMachine = setup({
     disconnecting: {
       invoke: {
         src: "disconnectBrowser",
-        input: ({ context }) => ({ worker: context.loopConfig.worker }),
+        input: ({ context }) => ({ worker: context.runtime.worker }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
@@ -251,7 +251,7 @@ export const workerStatusMachine = setup({
             target: "disconnected",
             actions: ({ context, event }) => {
               if (!event.output.ok) {
-                context.loopConfig.worker.logger.warn(
+                context.runtime.worker.logger.warn(
                   { reason: event.output.error },
                   "Worker disconnect failed (proceeding to disconnected)",
                 );

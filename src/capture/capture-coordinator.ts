@@ -117,7 +117,7 @@ export class CaptureCoordinator {
     const ctx: WorkerMachineContext = snapshot.context;
     return {
       index: ctx.index,
-      browserProfile: ctx.loopConfig.worker.profile,
+      browserProfile: ctx.runtime.worker.profile,
       status: toFlatWorkerStatus(snapshot),
       processedCount: ctx.processedCount,
       errorCount: ctx.errorCount,
