@@ -304,3 +304,19 @@ export const toWorkerHealth = (snapshot: CaptureWorkerSnapshot): WorkerHealth =>
       return "disconnected";
   }
 };
+
+/**
+ * True when the worker has reached either `operational` or `error` —
+ * i.e. a CONNECT attempt has settled with a definite outcome. Used by
+ * the coordinator's `initializeWorkers` to decide when waiting is done.
+ */
+export const isWorkerSettled = (snapshot: CaptureWorkerSnapshot): boolean =>
+  snapshot.matches("operational") || snapshot.matches("error");
+
+/**
+ * True when the worker has reached the terminal `disconnected` leaf
+ * (not `disconnecting`). Used by `shutdownWorkers` to decide when
+ * disconnection is complete.
+ */
+export const isWorkerDisconnected = (snapshot: CaptureWorkerSnapshot): boolean =>
+  snapshot.matches("disconnected");

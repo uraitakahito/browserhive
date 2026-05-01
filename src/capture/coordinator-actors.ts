@@ -25,6 +25,11 @@ import type {
   WorkerInitFailure,
 } from "./coordinator-errors.js";
 import { createConnectionError } from "./error-details.js";
+import {
+  isWorkerSettled,
+  isWorkerDisconnected,
+  type CaptureWorkerSnapshot,
+} from "./capture-worker.js";
 
 /** Timeout for waiting all worker actors to settle during initialization */
 const WORKER_INIT_TIMEOUT_MS = 30_000;
@@ -54,7 +59,7 @@ export interface InitializeWorkersOutput {
  */
 export const waitForWorkersToReach = async (
   workers: WorkerEntry[],
-  predicate: (value: unknown) => boolean,
+  predicate: (snapshot: CaptureWorkerSnapshot) => boolean,
   options: { timeoutMs: number; onTimeout: () => void },
 ): Promise<void> => {
   const subscriptions: { unsubscribe: () => void }[] = [];
@@ -66,12 +71,12 @@ export const waitForWorkersToReach = async (
         workers.map(
           (entry) =>
             new Promise<void>((resolve) => {
-              if (predicate(entry.ref.getSnapshot().value)) {
+              if (predicate(entry.ref.getSnapshot())) {
                 resolve();
                 return;
               }
               const sub = entry.ref.subscribe((snapshot) => {
-                if (predicate(snapshot.value)) resolve();
+                if (predicate(snapshot)) resolve();
               });
               subscriptions.push(sub);
             }),
@@ -90,9 +95,6 @@ export const waitForWorkersToReach = async (
     for (const sub of subscriptions) sub.unsubscribe();
   }
 };
-
-const isSettled = (value: unknown): boolean =>
-  (typeof value === "object" && value !== null) || value === "error";
 
 const countOperational = (workers: WorkerEntry[]): number =>
   workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
@@ -117,7 +119,7 @@ export const initializeWorkers = fromPromise<
   for (const entry of input.workers) {
     entry.ref.send({ type: "CONNECT" });
   }
-  await waitForWorkersToReach(input.workers, isSettled, {
+  await waitForWorkersToReach(input.workers, isWorkerSettled, {
     timeoutMs: WORKER_INIT_TIMEOUT_MS,
     onTimeout: () => {
       logger.warn(
@@ -243,24 +245,20 @@ export const shutdownWorkers = fromPromise<
   for (const entry of input.workers) {
     entry.ref.send({ type: "DISCONNECT" });
   }
-  await waitForWorkersToReach(
-    input.workers,
-    (value) => value === "disconnected",
-    {
-      timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
-      onTimeout: () => {
-        logger.warn(
-          { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
-          "Worker shutdown timed out, proceeding to disconnect",
-        );
-      },
+  await waitForWorkersToReach(input.workers, isWorkerDisconnected, {
+    timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
+    onTimeout: () => {
+      logger.warn(
+        { timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS },
+        "Worker shutdown timed out, proceeding to disconnect",
+      );
     },
-  );
+  });
   // Workers still outside "disconnected" indicate the wait timed out.
   // Snapshot before the safety-net disconnect below, which is idempotent
   // for already-settled workers but races the actor for stuck ones.
   const unsettled = input.workers
-    .filter((entry) => entry.ref.getSnapshot().value !== "disconnected")
+    .filter((entry) => !isWorkerDisconnected(entry.ref.getSnapshot()))
     .map((entry) => entry.client.profile.browserURL);
   await Promise.all(
     input.workers.map(async (entry) => {
