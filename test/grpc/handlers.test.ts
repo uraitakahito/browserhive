@@ -14,6 +14,7 @@ describe("createCaptureServiceHandlers", () => {
   beforeEach(() => {
     mockCaptureCoordinator = {
       isRunning: true,
+      isDegraded: false,
       operationalWorkerCount: 1,
       enqueueTask: vi.fn().mockReturnValue({ ok: true, value: undefined }),
     } as unknown as CaptureCoordinator;
@@ -199,9 +200,10 @@ describe("createCaptureServiceHandlers", () => {
     });
 
     describe("worker pool unavailable", () => {
-      it("should return error when worker pool is not running", () => {
+      it("should return error when coordinator is neither running nor degraded", () => {
         mockCaptureCoordinator = {
           isRunning: false,
+          isDegraded: false,
           operationalWorkerCount: 1,
           enqueueTask: vi.fn(),
         } as unknown as CaptureCoordinator;
@@ -223,6 +225,7 @@ describe("createCaptureServiceHandlers", () => {
       it("should return error when no healthy workers", () => {
         mockCaptureCoordinator = {
           isRunning: true,
+          isDegraded: false,
           operationalWorkerCount: 0,
           enqueueTask: vi.fn(),
         } as unknown as CaptureCoordinator;
@@ -239,6 +242,27 @@ describe("createCaptureServiceHandlers", () => {
           code: 14, // UNAVAILABLE
           message: "No operational workers available",
         });
+      });
+
+      it("should accept submissions while degraded as long as a worker is operational", () => {
+        mockCaptureCoordinator = {
+          isRunning: false,
+          isDegraded: true,
+          operationalWorkerCount: 1,
+          enqueueTask: vi.fn().mockReturnValue({ ok: true, value: undefined }),
+        } as unknown as CaptureCoordinator;
+        handlers = createCaptureServiceHandlers(mockCaptureCoordinator);
+
+        mockCall = createMockCall({});
+
+        handlers.submitCapture(
+          mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
+          mockCallback
+        );
+
+        expect(mockCallback).toHaveBeenCalledWith(null, expect.objectContaining({
+          accepted: true,
+        }));
       });
     });
 
@@ -415,6 +439,7 @@ describe("createCaptureServiceHandlers", () => {
     it("should return current queue and worker pool status with worker details", () => {
       mockCaptureCoordinator = {
         isRunning: true,
+        isDegraded: false,
         operationalWorkerCount: 2,
         enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
@@ -426,6 +451,7 @@ describe("createCaptureServiceHandlers", () => {
           operationalWorkers: 2,
           totalWorkers: 3,
           isRunning: true,
+          isDegraded: false,
           workers: [
             {
               index: 0,
@@ -487,6 +513,7 @@ describe("createCaptureServiceHandlers", () => {
         operational_workers: 2,
         total_workers: 3,
         is_running: true,
+        is_degraded: false,
         workers: [
           {
             index: 0,
@@ -537,6 +564,7 @@ describe("createCaptureServiceHandlers", () => {
     it("should return status even when pool is not running", () => {
       mockCaptureCoordinator = {
         isRunning: false,
+        isDegraded: false,
         operationalWorkerCount: 0,
         enqueueTask: vi.fn(),
         getStatus: vi.fn().mockReturnValue({
@@ -548,6 +576,7 @@ describe("createCaptureServiceHandlers", () => {
           operationalWorkers: 0,
           totalWorkers: 2,
           isRunning: false,
+          isDegraded: false,
           workers: [
             {
               index: 0,
@@ -583,6 +612,7 @@ describe("createCaptureServiceHandlers", () => {
         operational_workers: 0,
         total_workers: 2,
         is_running: false,
+        is_degraded: false,
         workers: [
           {
             index: 0,

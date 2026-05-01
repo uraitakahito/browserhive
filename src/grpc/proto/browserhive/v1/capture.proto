@@ -159,4 +159,8 @@ message StatusResponse {
 
   // Detailed worker information
   repeated WorkerInfo workers = 8;
+
+  // Whether the coordinator is in the degraded lifecycle state
+  // (some or all workers are not operational; gRPC requests may fail)
+  bool is_degraded = 9;
 }

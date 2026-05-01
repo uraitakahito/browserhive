@@ -262,9 +262,15 @@ describe("worker-status", () => {
         expect(actor.getSnapshot().can({ type: "DISCONNECT" })).toBe(true);
       });
 
-      it("should not allow CONNECT", async () => {
+      it("should allow CONNECT (for coordinator-driven retry)", async () => {
         const { actor } = await createErrorActor();
-        expect(actor.getSnapshot().can({ type: "CONNECT" })).toBe(false);
+        expect(actor.getSnapshot().can({ type: "CONNECT" })).toBe(true);
+      });
+
+      it("should transition error → connecting on CONNECT", async () => {
+        const { actor } = await createErrorActor();
+        actor.send({ type: "CONNECT" });
+        expect(actor.getSnapshot().value).toBe("connecting");
       });
     });
 

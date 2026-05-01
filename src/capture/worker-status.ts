@@ -235,6 +235,10 @@ export const workerStatusMachine = setup({
     },
     error: {
       on: {
+        // Allow re-attempting the browser connection without first
+        // disconnecting. The coordinator's retry actor (in `degraded`)
+        // sends CONNECT here directly.
+        CONNECT: "connecting",
         DISCONNECT: "disconnecting",
       },
     },

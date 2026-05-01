@@ -1,12 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { createActor, fromPromise, type AnyActorLogic } from "xstate";
+import { createActor, fromCallback, fromPromise, type AnyActorLogic } from "xstate";
 import {
   coordinatorMachine,
   ALL_COORDINATOR_LIFECYCLES,
 } from "../../src/capture/coordinator-machine.js";
 import type { CoordinatorLifecycle } from "../../src/capture/coordinator-machine.js";
 import type {
-  CoordinatorInitFailure,
+  InitializeWorkersOutput,
+} from "../../src/capture/coordinator-actors.js";
+import type {
   ShutdownFailure,
 } from "../../src/capture/coordinator-errors.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
@@ -29,7 +31,14 @@ const hangingPromise = fromPromise<undefined>(
 interface ActorOverrides {
   initializeWorkers?: AnyActorLogic;
   shutdownWorkers?: AnyActorLogic;
+  watchWorkerHealth?: AnyActorLogic;
+  retryFailedWorkers?: AnyActorLogic;
 }
+
+/** No-op fromCallback used to satisfy `running`/`degraded` invokes in tests */
+const noopCallback = fromCallback(() => {
+  return () => { /* no-op */ };
+});
 
 /** Provide variant of the machine with invoked actors overridden by stubs */
 const machineWith = (overrides: ActorOverrides = {}) =>
@@ -37,6 +46,8 @@ const machineWith = (overrides: ActorOverrides = {}) =>
     actors: {
       initializeWorkers: (overrides.initializeWorkers ?? hangingPromise) as never,
       shutdownWorkers: (overrides.shutdownWorkers ?? hangingPromise) as never,
+      watchWorkerHealth: (overrides.watchWorkerHealth ?? noopCallback) as never,
+      retryFailedWorkers: (overrides.retryFailedWorkers ?? noopCallback) as never,
     },
   });
 
@@ -63,9 +74,10 @@ describe("coordinator-machine", () => {
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("created");
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("initializing");
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("running");
+      expect(ALL_COORDINATOR_LIFECYCLES).toContain("degraded");
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("shuttingDown");
       expect(ALL_COORDINATOR_LIFECYCLES).toContain("terminated");
-      expect(ALL_COORDINATOR_LIFECYCLES).toHaveLength(5);
+      expect(ALL_COORDINATOR_LIFECYCLES).toHaveLength(6);
     });
   });
 
@@ -84,10 +96,10 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("initializing");
       });
 
-      it("initializing → running when initializeWorkers returns ok", async () => {
+      it("initializing → running when initializeWorkers reports allHealthy", async () => {
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<void, CoordinatorInitFailure>>(() =>
-            Promise.resolve(ok()),
+          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
+            Promise.resolve({ allHealthy: true, failed: [] }),
           ),
         });
         const actor = createActor(machine, { input: createTestInput() });
@@ -99,27 +111,9 @@ describe("coordinator-machine", () => {
         });
       });
 
-      it("initializing → terminated when initializeWorkers returns err", async () => {
-        const failure: CoordinatorInitFailure = { kind: "no-profiles" };
-        const machine = machineWith({
-          initializeWorkers: fromPromise<Result<void, CoordinatorInitFailure>>(() =>
-            Promise.resolve(err(failure)),
-          ),
-        });
-        const actor = createActor(machine, { input: createTestInput() });
-        actor.start();
-        actor.send({ type: "INITIALIZE" });
-
-        await vi.waitFor(() => {
-          expect(actor.getSnapshot().value).toBe("terminated");
-        });
-      });
-
-      it("records the CoordinatorInitFailure into context.lastInitFailure on terminated", async () => {
-        const failure: CoordinatorInitFailure = {
-          kind: "partial-failure",
-          operational: 1,
-          total: 2,
+      it("initializing → degraded when some workers failed", async () => {
+        const summary: InitializeWorkersOutput = {
+          allHealthy: false,
           failed: [
             {
               browserURL: "http://b:9222",
@@ -128,8 +122,8 @@ describe("coordinator-machine", () => {
           ],
         };
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<void, CoordinatorInitFailure>>(() =>
-            Promise.resolve(err(failure)),
+          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
+            Promise.resolve(summary),
           ),
         });
         const actor = createActor(machine, { input: createTestInput() });
@@ -137,9 +131,47 @@ describe("coordinator-machine", () => {
         actor.send({ type: "INITIALIZE" });
 
         await vi.waitFor(() => {
-          expect(actor.getSnapshot().value).toBe("terminated");
+          expect(actor.getSnapshot().value).toBe("degraded");
         });
-        expect(actor.getSnapshot().context.lastInitFailure).toEqual(failure);
+      });
+
+      it("records the InitializeWorkersOutput into context.lastInitSummary on degraded", async () => {
+        const summary: InitializeWorkersOutput = {
+          allHealthy: false,
+          failed: [
+            {
+              browserURL: "http://b:9222",
+              reason: { type: "connection", message: "boom" },
+            },
+          ],
+        };
+        const machine = machineWith({
+          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
+            Promise.resolve(summary),
+          ),
+        });
+        const actor = createActor(machine, { input: createTestInput() });
+        actor.start();
+        actor.send({ type: "INITIALIZE" });
+
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().value).toBe("degraded");
+        });
+        expect(actor.getSnapshot().context.lastInitSummary).toEqual(summary);
+      });
+
+      it("running → degraded via WORKER_DEGRADED", () => {
+        const actor = actorAt("running");
+        expect(actor.getSnapshot().can({ type: "WORKER_DEGRADED" })).toBe(true);
+        actor.send({ type: "WORKER_DEGRADED" });
+        expect(actor.getSnapshot().value).toBe("degraded");
+      });
+
+      it("degraded → running via ALL_WORKERS_HEALTHY", () => {
+        const actor = actorAt("degraded");
+        expect(actor.getSnapshot().can({ type: "ALL_WORKERS_HEALTHY" })).toBe(true);
+        actor.send({ type: "ALL_WORKERS_HEALTHY" });
+        expect(actor.getSnapshot().value).toBe("running");
       });
 
       it("running → shuttingDown via SHUTDOWN", () => {
@@ -149,10 +181,10 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
-      it("running → shuttingDown via ALL_WORKERS_ERROR", () => {
-        const actor = actorAt("running");
-        expect(actor.getSnapshot().can({ type: "ALL_WORKERS_ERROR" })).toBe(true);
-        actor.send({ type: "ALL_WORKERS_ERROR" });
+      it("degraded → shuttingDown via SHUTDOWN", () => {
+        const actor = actorAt("degraded");
+        expect(actor.getSnapshot().can({ type: "SHUTDOWN" })).toBe(true);
+        actor.send({ type: "SHUTDOWN" });
         expect(actor.getSnapshot().value).toBe("shuttingDown");
       });
 
@@ -221,6 +253,11 @@ describe("coordinator-machine", () => {
 
       it("running should not allow INITIALIZE", () => {
         const snapshot = actorAt("running").getSnapshot();
+        expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
+      });
+
+      it("degraded should not allow INITIALIZE", () => {
+        const snapshot = actorAt("degraded").getSnapshot();
         expect(snapshot.can({ type: "INITIALIZE" })).toBe(false);
       });
 
