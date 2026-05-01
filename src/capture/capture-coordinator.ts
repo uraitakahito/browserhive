@@ -5,14 +5,13 @@
  * Uses the Parent-Child Actor Model: drives a coordinator lifecycle
  * actor that spawns and orchestrates worker status actors itself.
  */
-import { createActor } from "xstate";
+import { createActor, type SnapshotFrom } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
 import {
   coordinatorMachine,
-  type CoordinatorLifecycle,
   type WorkerEntry,
 } from "./coordinator-machine.js";
 import type { WorkerInitFailure } from "./coordinator-errors.js";
@@ -20,6 +19,9 @@ import {
   toFlatWorkerStatus,
   type WorkerMachineContext,
 } from "./worker-status.js";
+
+/** Argument type accepted by `snapshot.matches()` for the coordinator machine. */
+type LifecycleMatchesArg = Parameters<SnapshotFrom<typeof coordinatorMachine>["matches"]>[0];
 
 export interface CoordinatorStatusReport {
   taskCounts: TaskCounts;
@@ -55,13 +57,13 @@ export class CaptureCoordinator {
   /**
    * Initialize the capture coordinator. Worker spawning and browser
    * connection are driven by the lifecycle machine. Init failures do
-   * not abort startup — the coordinator lands in `running` (all healthy)
-   * or `degraded` (some/all failed). Inspect `lastInitFailedWorkers` for
-   * detail.
+   * not abort startup — the coordinator lands in `active.running` (all
+   * healthy) or `active.degraded` (some/all failed). Inspect
+   * `lastInitFailedWorkers` for detail.
    */
   async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
-    await this.waitForLifecycle("running", "degraded");
+    await this.waitForLifecycle("active");
   }
 
   /**
@@ -90,12 +92,23 @@ export class CaptureCoordinator {
     await this.waitForLifecycle("terminated");
   }
 
+  /** True when the lifecycle is in `active.running` (all workers healthy). */
   get isRunning(): boolean {
-    return this.lifecycleActor.getSnapshot().value === "running";
+    return this.lifecycleActor.getSnapshot().matches({ active: "running" });
   }
 
+  /** True when the lifecycle is in `active.degraded` (some workers unhealthy, retry loop running). */
   get isDegraded(): boolean {
-    return this.lifecycleActor.getSnapshot().value === "degraded";
+    return this.lifecycleActor.getSnapshot().matches({ active: "degraded" });
+  }
+
+  /**
+   * True when the lifecycle is in any `active.*` substate. Equivalent to
+   * `isRunning || isDegraded`. Use this to decide whether the coordinator
+   * is accepting traffic.
+   */
+  get isActive(): boolean {
+    return this.lifecycleActor.getSnapshot().matches("active");
   }
 
   get operationalWorkerCount(): number {
@@ -129,14 +142,17 @@ export class CaptureCoordinator {
   }
 
   /**
-   * Wait for the lifecycle actor to reach one of the given states.
+   * Wait for the lifecycle actor to match one of the given state paths.
+   * Each target is passed to `snapshot.matches()`, so compound paths
+   * (e.g. `"active"` to cover both substates, or `"active.running"` for
+   * one substate) work directly.
    */
   private async waitForLifecycle(
-    ...targets: CoordinatorLifecycle[]
+    ...targets: LifecycleMatchesArg[]
   ): Promise<void> {
     const isTarget = (): boolean => {
-      const value = this.lifecycleActor.getSnapshot().value;
-      return targets.includes(value);
+      const snapshot = this.lifecycleActor.getSnapshot();
+      return targets.some((t) => snapshot.matches(t));
     };
 
     await new Promise<void>((resolve) => {
