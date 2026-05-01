@@ -7,7 +7,7 @@
  *
  * Actor logics defined here:
  *   - `initializeWorkers` (fromPromise): connect all worker actors and
- *     return Result<void, WorkerInitFailure>. Never throws — failures
+ *     return Result<void, CoordinatorInitFailure>. Never throws — failures
  *     surface as `err({...})` so the machine can branch on `event.output.ok`.
  *   - `watchWorkerHealth` (fromCallback): emit ALL_WORKERS_ERROR when every
  *     worker becomes unhealthy
@@ -19,7 +19,11 @@ import { fromCallback, fromPromise } from "xstate";
 import { logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
 import type { WorkerEntry } from "./coordinator-machine.js";
-import type { ShutdownFailure, WorkerInitFailure } from "./coordinator-errors.js";
+import type {
+  CoordinatorInitFailure,
+  ShutdownFailure,
+  WorkerInitFailure,
+} from "./coordinator-errors.js";
 import { createConnectionError } from "./error-details.js";
 
 /** Timeout for waiting all worker actors to settle during initialization */
@@ -82,7 +86,7 @@ const countOperational = (workers: WorkerEntry[]): number =>
   workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
 
 export const initializeWorkers = fromPromise<
-  Result<void, WorkerInitFailure>,
+  Result<void, CoordinatorInitFailure>,
   { workers: WorkerEntry[] }
 >(async ({ input }) => {
   if (input.workers.length === 0) {
@@ -103,7 +107,7 @@ export const initializeWorkers = fromPromise<
   const totalCount = input.workers.length;
   const operationalCount = countOperational(input.workers);
   if (operationalCount < totalCount) {
-    const failed = input.workers
+    const failed: WorkerInitFailure[] = input.workers
       .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
       .map((entry) => {
         const lastError = entry.ref.getSnapshot().context.errorHistory[0];

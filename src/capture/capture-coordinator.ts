@@ -15,7 +15,7 @@ import {
   type CoordinatorLifecycle,
   type WorkerEntry,
 } from "./coordinator-machine.js";
-import type { WorkerInitFailure } from "./coordinator-errors.js";
+import type { CoordinatorInitFailure } from "./coordinator-errors.js";
 import {
   toFlatWorkerStatus,
   type WorkerMachineContext,
@@ -28,9 +28,6 @@ export interface CoordinatorStatusReport {
   isRunning: boolean;
   workers: WorkerInfo[];
 }
-
-/** Failure outcome of CaptureCoordinator.initialize */
-export type CoordinatorInitFailure = WorkerInitFailure;
 
 export class CaptureCoordinator {
   private lifecycleActor;

@@ -5,7 +5,7 @@
  */
 import { Command, InvalidArgumentError } from "commander";
 import { BrowserHive } from "../browserhive.js";
-import type { CoordinatorInitFailure, WorkerInitFailure } from "../capture/index.js";
+import type { CoordinatorInitFailure } from "../capture/index.js";
 import type { BrowserHiveConfig, TlsConfig, CaptureConfig } from "../config/index.js";
 import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -264,10 +264,10 @@ export interface ServerControl {
 }
 
 /**
- * Render a WorkerInitFailure as a single-line human-readable string for
+ * Render a CoordinatorInitFailure as a single-line human-readable string for
  * the Fatal error log line.
  */
-export const formatInitFailure = (failure: WorkerInitFailure): string => {
+export const formatInitFailure = (failure: CoordinatorInitFailure): string => {
   if (failure.kind === "no-profiles") {
     return "No browser profiles configured";
   }

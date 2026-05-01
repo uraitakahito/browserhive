@@ -4,17 +4,28 @@
  * Structured failure shapes returned (as Result errors) from coordinator
  * lifecycle actors. Replaces the previous pattern of throwing Error with
  * embedded format strings, which lost detail across XState's onError edge.
+ *
+ * Two scopes:
+ *   - WorkerInitFailure: a single worker's connect failure detail.
+ *   - CoordinatorInitFailure: the orchestration-level verdict, composing
+ *     WorkerInitFailure[] in the partial-failure case.
  */
 import type { ErrorDetails } from "./types.js";
 
-/** Failure outcome of `initializeWorkers` */
-export type WorkerInitFailure =
+/** A single worker's init failure detail */
+export interface WorkerInitFailure {
+  browserURL: string;
+  reason: ErrorDetails;
+}
+
+/** Failure outcome of `CaptureCoordinator.initialize` / `initializeWorkers` */
+export type CoordinatorInitFailure =
   | { kind: "no-profiles" }
   | {
       kind: "partial-failure";
       operational: number;
       total: number;
-      failed: { browserURL: string; reason: ErrorDetails }[];
+      failed: WorkerInitFailure[];
     };
 
 /**

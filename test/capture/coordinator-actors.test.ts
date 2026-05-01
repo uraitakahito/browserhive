@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createActor } from "xstate";
 import { initializeWorkers, waitForWorkersToReach } from "../../src/capture/coordinator-actors.js";
-import type { WorkerInitFailure } from "../../src/capture/coordinator-errors.js";
+import type { CoordinatorInitFailure } from "../../src/capture/coordinator-errors.js";
 import type { WorkerEntry } from "../../src/capture/coordinator-machine.js";
 import type { ErrorRecord } from "../../src/capture/types.js";
 import { errorType } from "../../src/capture/error-type.js";
@@ -271,10 +271,10 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
  */
 const runInitializeWorkers = (workers: WorkerEntry[]): {
   actor: ReturnType<typeof createActor<typeof initializeWorkers>>;
-  settled: Promise<Result<void, WorkerInitFailure>>;
+  settled: Promise<Result<void, CoordinatorInitFailure>>;
 } => {
   const actor = createActor(initializeWorkers, { input: { workers } });
-  const settled = new Promise<Result<void, WorkerInitFailure>>((resolve, reject) => {
+  const settled = new Promise<Result<void, CoordinatorInitFailure>>((resolve, reject) => {
     actor.subscribe({
       next: (snapshot) => {
         if (snapshot.status === "done") {

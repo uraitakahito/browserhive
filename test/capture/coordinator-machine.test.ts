@@ -6,8 +6,8 @@ import {
 } from "../../src/capture/coordinator-machine.js";
 import type { CoordinatorLifecycle } from "../../src/capture/coordinator-machine.js";
 import type {
+  CoordinatorInitFailure,
   ShutdownFailure,
-  WorkerInitFailure,
 } from "../../src/capture/coordinator-errors.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 import { ok, err, type Result } from "../../src/result.js";
@@ -86,7 +86,7 @@ describe("coordinator-machine", () => {
 
       it("initializing → running when initializeWorkers returns ok", async () => {
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<void, WorkerInitFailure>>(() =>
+          initializeWorkers: fromPromise<Result<void, CoordinatorInitFailure>>(() =>
             Promise.resolve(ok()),
           ),
         });
@@ -100,9 +100,9 @@ describe("coordinator-machine", () => {
       });
 
       it("initializing → terminated when initializeWorkers returns err", async () => {
-        const failure: WorkerInitFailure = { kind: "no-profiles" };
+        const failure: CoordinatorInitFailure = { kind: "no-profiles" };
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<void, WorkerInitFailure>>(() =>
+          initializeWorkers: fromPromise<Result<void, CoordinatorInitFailure>>(() =>
             Promise.resolve(err(failure)),
           ),
         });
@@ -115,8 +115,8 @@ describe("coordinator-machine", () => {
         });
       });
 
-      it("records the WorkerInitFailure into context.lastInitFailure on terminated", async () => {
-        const failure: WorkerInitFailure = {
+      it("records the CoordinatorInitFailure into context.lastInitFailure on terminated", async () => {
+        const failure: CoordinatorInitFailure = {
           kind: "partial-failure",
           operational: 1,
           total: 2,
@@ -128,7 +128,7 @@ describe("coordinator-machine", () => {
           ],
         };
         const machine = machineWith({
-          initializeWorkers: fromPromise<Result<void, WorkerInitFailure>>(() =>
+          initializeWorkers: fromPromise<Result<void, CoordinatorInitFailure>>(() =>
             Promise.resolve(err(failure)),
           ),
         });
