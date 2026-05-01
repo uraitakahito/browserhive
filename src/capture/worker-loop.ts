@@ -13,7 +13,7 @@ import type { CaptureTask, CaptureResult } from "./types.js";
 import { isSuccessStatus } from "./capture-status.js";
 import { errorDetailsFromException } from "./error-details.js";
 
-export interface WorkerLoopConfig {
+export interface WorkerRuntime {
   worker: Worker;
   taskQueue: TaskQueue;
   pollIntervalMs: number;
@@ -31,7 +31,7 @@ const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 // Callback actor (fromCallback) — receive: yes, send: yes, spawn: no, input: yes, output: no
-export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerLoopConfig>(
+export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRuntime>(
   ({ sendBack, receive, input }) => {
     let running = true;
 

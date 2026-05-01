@@ -6,7 +6,7 @@ import {
   toFlatWorkerStatus,
 } from "../../src/capture/worker-status.js";
 import type { WorkerMachineInput } from "../../src/capture/worker-status.js";
-import type { WorkerLoopConfig } from "../../src/capture/worker-loop.js";
+import type { WorkerRuntime } from "../../src/capture/worker-loop.js";
 import type { Worker } from "../../src/capture/worker.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 
@@ -19,18 +19,18 @@ const createMockWorker = (): Worker =>
     process: vi.fn(),
   }) as unknown as Worker;
 
-const createDefaultLoopConfig = (): WorkerLoopConfig => ({
+const createDefaultRuntime = (): WorkerRuntime => ({
   worker: createMockWorker(),
   taskQueue: new TaskQueue(),
   pollIntervalMs: 50,
 });
 
-const createInput = (overrides?: { index?: number; maxRetries?: number; loopConfig?: Partial<WorkerLoopConfig> }): WorkerMachineInput => ({
+const createInput = (overrides?: { index?: number; maxRetries?: number; runtime?: Partial<WorkerRuntime> }): WorkerMachineInput => ({
   index: overrides?.index ?? 0,
   maxRetries: overrides?.maxRetries ?? 2,
-  loopConfig: {
-    ...createDefaultLoopConfig(),
-    ...overrides?.loopConfig,
+  runtime: {
+    ...createDefaultRuntime(),
+    ...overrides?.runtime,
   },
 });
 
@@ -39,7 +39,7 @@ const createInput = (overrides?: { index?: number; maxRetries?: number; loopConf
  * The machine has invoked actors, so we test state transitions
  * by sending events directly.
  */
-const createWorkerActor = (overrides?: { index?: number; maxRetries?: number; loopConfig?: Partial<WorkerLoopConfig> }) => {
+const createWorkerActor = (overrides?: { index?: number; maxRetries?: number; runtime?: Partial<WorkerRuntime> }) => {
   const input = createInput(overrides);
   const actor = createActor(workerStatusMachine, { input });
   actor.start();
@@ -111,7 +111,7 @@ describe("worker-status", () => {
           error: { type: "connection", message: "Connection refused" },
         });
 
-        const { actor } = createWorkerActor({ loopConfig: { worker } });
+        const { actor } = createWorkerActor({ runtime: { worker } });
         actor.send({ type: "CONNECT" });
 
         await vi.waitFor(() => {
@@ -126,7 +126,7 @@ describe("worker-status", () => {
     });
 
     describe("operational state", () => {
-      const createOperationalActor = async (overrides?: { maxRetries?: number; loopConfig?: Partial<WorkerLoopConfig> }) => {
+      const createOperationalActor = async (overrides?: { maxRetries?: number; runtime?: Partial<WorkerRuntime> }) => {
         const result = createWorkerActor(overrides);
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
@@ -168,7 +168,7 @@ describe("worker-status", () => {
 
       it("should requeue task on TASK_FAILED when retries remain (canRetry guard)", async () => {
         const taskQueue = new TaskQueue();
-        const { actor } = await createOperationalActor({ loopConfig: { taskQueue } });
+        const { actor } = await createOperationalActor({ runtime: { taskQueue } });
         const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureOptions: { png: true, jpeg: false, html: false } };
         const result = {
           task,
@@ -194,7 +194,7 @@ describe("worker-status", () => {
 
       it("should mark task complete on TASK_FAILED when retries exhausted", async () => {
         const taskQueue = new TaskQueue();
-        const { actor } = await createOperationalActor({ loopConfig: { taskQueue } });
+        const { actor } = await createOperationalActor({ runtime: { taskQueue } });
         const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureOptions: { png: true, jpeg: false, html: false } };
         // Simulate dequeue to put task in processing set
         taskQueue.enqueue(task);
@@ -243,7 +243,7 @@ describe("worker-status", () => {
           ok: false,
           error: { type: "connection", message: "fail" },
         });
-        const result = createWorkerActor({ loopConfig: { worker } });
+        const result = createWorkerActor({ runtime: { worker } });
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
           expect(result.actor.getSnapshot().value).toBe("error");
@@ -346,7 +346,7 @@ describe("worker-status", () => {
         ok: false,
         error: { type: "connection", message: "fail" },
       });
-      const { actor } = createWorkerActor({ loopConfig: { worker } });
+      const { actor } = createWorkerActor({ runtime: { worker } });
       actor.send({ type: "CONNECT" });
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toBe("error");
@@ -358,7 +358,7 @@ describe("worker-status", () => {
       const worker = createMockWorker();
       // Make connect hang so we stay in connecting state
       vi.mocked(worker.connect).mockReturnValue(new Promise(() => { /* never resolves */ }));
-      const { actor } = createWorkerActor({ loopConfig: { worker } });
+      const { actor } = createWorkerActor({ runtime: { worker } });
       actor.send({ type: "CONNECT" });
       expect(actor.getSnapshot().value).toBe("connecting");
       expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("error");

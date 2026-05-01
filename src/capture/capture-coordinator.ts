@@ -55,9 +55,6 @@ export class CaptureCoordinator {
    * Initialize the capture coordinator. Worker spawning, browser connection,
    * and the all-workers-healthy check are all driven by the lifecycle machine
    * (`initializing` state's invoked actor).
-   *
-   * Returns Result instead of throwing so the rich failure detail captured
-   * by `initializeWorkers` reaches the application boundary intact.
    */
   async initialize(): Promise<Result<void, CoordinatorInitFailure>> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
@@ -120,7 +117,7 @@ export class CaptureCoordinator {
     const ctx: WorkerMachineContext = snapshot.context;
     return {
       index: ctx.index,
-      browserProfile: ctx.loopConfig.worker.profile,
+      browserProfile: ctx.runtime.worker.profile,
       status: toFlatWorkerStatus(snapshot),
       processedCount: ctx.processedCount,
       errorCount: ctx.errorCount,

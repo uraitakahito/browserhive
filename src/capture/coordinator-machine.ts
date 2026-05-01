@@ -3,8 +3,7 @@
  *
  * XState v5 machine definition for the capture coordinator lifecycle.
  * The machine spawns and orchestrates worker status actors via invoked
- * actors (Parent-Child Actor Model). Actor implementations live in
- * coordinator-actors.ts.
+ * actors (Parent-Child Actor Model).
  *
  * Error handling: invoked Promise actors (`initializeWorkers`,
  * `shutdownWorkers`) return Result<T, E> instead of throwing. The
@@ -97,7 +96,7 @@ export const coordinatorMachine = setup({
               input: {
                 index,
                 maxRetries: context.config.maxRetries,
-                loopConfig: {
+                runtime: {
                   worker,
                   taskQueue: context.taskQueue,
                   pollIntervalMs: context.config.queuePollIntervalMs,
