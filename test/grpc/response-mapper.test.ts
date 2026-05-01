@@ -243,6 +243,7 @@ describe("coordinatorStatusToResponse", () => {
       operationalWorkers: 2,
       totalWorkers: 3,
       isRunning: true,
+      isDegraded: false,
       workers: [
         {
           index: 0,
@@ -277,6 +278,7 @@ describe("coordinatorStatusToResponse", () => {
     expect(response.operational_workers).toBe(2);
     expect(response.total_workers).toBe(3);
     expect(response.is_running).toBe(true);
+    expect(response.is_degraded).toBe(false);
     expect(response.workers).toHaveLength(2);
     expect(response.workers[0]!.status).toBe(WorkerStatus.WORKER_STATUS_READY);
     expect(response.workers[1]!.status).toBe(WorkerStatus.WORKER_STATUS_ERROR);
@@ -287,12 +289,29 @@ describe("coordinatorStatusToResponse", () => {
     });
   });
 
+  it("should propagate is_degraded when coordinator is in degraded state", () => {
+    const status: CoordinatorStatusReport = {
+      taskCounts: { pending: 0, processing: 0, completed: 0 },
+      operationalWorkers: 1,
+      totalWorkers: 2,
+      isRunning: false,
+      isDegraded: true,
+      workers: [],
+    };
+
+    const response = coordinatorStatusToResponse(status);
+
+    expect(response.is_running).toBe(false);
+    expect(response.is_degraded).toBe(true);
+  });
+
   it("should convert empty coordinator status", () => {
     const status: CoordinatorStatusReport = {
       taskCounts: { pending: 0, processing: 0, completed: 0 },
       operationalWorkers: 0,
       totalWorkers: 0,
       isRunning: false,
+      isDegraded: false,
       workers: [],
     };
 
@@ -300,6 +319,7 @@ describe("coordinatorStatusToResponse", () => {
 
     expect(response.pending).toBe(0);
     expect(response.is_running).toBe(false);
+    expect(response.is_degraded).toBe(false);
     expect(response.workers).toHaveLength(0);
   });
 });

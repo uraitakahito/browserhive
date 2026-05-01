@@ -106,7 +106,8 @@ grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
   "completed": 10,
   "operationalWorkers": 2,
   "totalWorkers": 2,
-  "isRunning": true
+  "isRunning": true,
+  "isDegraded": false
 }
 ```
 
@@ -119,7 +120,8 @@ grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
 | `completed` | int32 | Number of completed tasks |
 | `operational_workers` | int32 | Number of operational workers |
 | `total_workers` | int32 | Total number of workers |
-| `is_running` | bool | Whether the capture coordinator is running |
+| `is_running` | bool | Whether the coordinator is in the `running` lifecycle state (all workers healthy) |
+| `is_degraded` | bool | Whether the coordinator is in the `degraded` lifecycle state (some/all workers unhealthy; retry loop is running) |
 
 ## TLS (Transport Layer Security)
 

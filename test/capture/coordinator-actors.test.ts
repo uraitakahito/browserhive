@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createActor } from "xstate";
-import { initializeWorkers, waitForWorkersToReach } from "../../src/capture/coordinator-actors.js";
-import type { CoordinatorInitFailure } from "../../src/capture/coordinator-errors.js";
+import {
+  initializeWorkers,
+  retryFailedWorkers,
+  waitForWorkersToReach,
+  type InitializeWorkersOutput,
+} from "../../src/capture/coordinator-actors.js";
 import type { WorkerEntry } from "../../src/capture/coordinator-machine.js";
 import type { ErrorRecord } from "../../src/capture/types.js";
 import { errorType } from "../../src/capture/error-type.js";
-import type { Result } from "../../src/result.js";
 
 /**
  * Minimal ActorRef-shaped fake. Only `getSnapshot` and `subscribe` are
@@ -271,10 +274,10 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
  */
 const runInitializeWorkers = (workers: WorkerEntry[]): {
   actor: ReturnType<typeof createActor<typeof initializeWorkers>>;
-  settled: Promise<Result<void, CoordinatorInitFailure>>;
+  settled: Promise<InitializeWorkersOutput>;
 } => {
   const actor = createActor(initializeWorkers, { input: { workers } });
-  const settled = new Promise<Result<void, CoordinatorInitFailure>>((resolve, reject) => {
+  const settled = new Promise<InitializeWorkersOutput>((resolve, reject) => {
     actor.subscribe({
       next: (snapshot) => {
         if (snapshot.status === "done") {
@@ -298,7 +301,7 @@ const httpErrorRecord = (message: string): ErrorRecord => ({
 
 describe("initializeWorkers", () => {
   describe("happy path", () => {
-    it("resolves to ok when all workers reach operational", async () => {
+    it("reports allHealthy when all workers reach operational", async () => {
       const a = fakeInitEntry("http://a:9222");
       const b = fakeInitEntry("http://b:9222");
 
@@ -307,7 +310,7 @@ describe("initializeWorkers", () => {
       a.setOperational();
       b.setOperational();
 
-      await expect(settled).resolves.toEqual({ ok: true, value: undefined });
+      await expect(settled).resolves.toEqual({ allHealthy: true, failed: [] });
     });
 
     it("sends CONNECT to every worker", async () => {
@@ -322,18 +325,15 @@ describe("initializeWorkers", () => {
       expect(a.send).toHaveBeenCalledWith({ type: "CONNECT" });
       expect(b.send).toHaveBeenCalledWith({ type: "CONNECT" });
     });
+
+    it("reports allHealthy with empty workers array (no profiles)", async () => {
+      const { settled } = runInitializeWorkers([]);
+      await expect(settled).resolves.toEqual({ allHealthy: true, failed: [] });
+    });
   });
 
-  describe("failure paths", () => {
-    it('returns no-profiles failure when workers array is empty', async () => {
-      const { settled } = runInitializeWorkers([]);
-      await expect(settled).resolves.toEqual({
-        ok: false,
-        error: { kind: "no-profiles" },
-      });
-    });
-
-    it("returns partial-failure when one worker is in error, including its last errorHistory entry", async () => {
+  describe("partial / total failure (still resolves successfully)", () => {
+    it("includes the failing worker's last errorHistory entry", async () => {
       const a = fakeInitEntry("http://a:9222");
       const b = fakeInitEntry("http://b-failed:9222");
 
@@ -343,33 +343,25 @@ describe("initializeWorkers", () => {
 
       const result = await settled;
       expect(result).toEqual({
-        ok: false,
-        error: {
-          kind: "partial-failure",
-          operational: 1,
-          total: 2,
-          failed: [
-            {
-              browserURL: "http://b-failed:9222",
-              reason: httpErrorRecord("ECONNREFUSED"),
-            },
-          ],
-        },
+        allHealthy: false,
+        failed: [
+          {
+            browserURL: "http://b-failed:9222",
+            reason: httpErrorRecord("ECONNREFUSED"),
+          },
+        ],
       });
     });
 
-    it("returns partial-failure with synthetic reason when worker has no errorHistory entry", async () => {
+    it("synthesizes a reason when worker has no errorHistory entry", async () => {
       const a = fakeInitEntry("http://a:9222");
 
       const { settled } = runInitializeWorkers([a.entry]);
       a.setError();
 
       const result = await settled;
-      expect(result.ok).toBe(false);
-      if (result.ok) throw new Error("unreachable");
-      expect(result.error.kind).toBe("partial-failure");
-      if (result.error.kind !== "partial-failure") throw new Error("unreachable");
-      expect(result.error.failed).toEqual([
+      expect(result.allHealthy).toBe(false);
+      expect(result.failed).toEqual([
         {
           browserURL: "http://a:9222",
           reason: {
@@ -380,7 +372,7 @@ describe("initializeWorkers", () => {
       ]);
     });
 
-    it("returns partial-failure when all workers are in error", async () => {
+    it("reports every failure when all workers are in error", async () => {
       const a = fakeInitEntry("http://a:9222");
       const b = fakeInitEntry("http://b:9222");
 
@@ -389,13 +381,8 @@ describe("initializeWorkers", () => {
       b.setError(httpErrorRecord("b down"));
 
       const result = await settled;
-      expect(result.ok).toBe(false);
-      if (result.ok) throw new Error("unreachable");
-      expect(result.error.kind).toBe("partial-failure");
-      if (result.error.kind !== "partial-failure") throw new Error("unreachable");
-      expect(result.error.operational).toBe(0);
-      expect(result.error.total).toBe(2);
-      expect(result.error.failed.map((f) => f.browserURL)).toEqual([
+      expect(result.allHealthy).toBe(false);
+      expect(result.failed.map((f) => f.browserURL)).toEqual([
         "http://a:9222",
         "http://b:9222",
       ]);
@@ -410,7 +397,7 @@ describe("initializeWorkers", () => {
       vi.useRealTimers();
     });
 
-    it("returns partial-failure when at least one worker fails to settle within the timeout", async () => {
+    it("reports the unsettled worker as failed when one fails to settle in time", async () => {
       const a = fakeInitEntry("http://a:9222");
       const slow = fakeInitEntry("http://slow:9222"); // never settles
 
@@ -421,15 +408,118 @@ describe("initializeWorkers", () => {
       await vi.advanceTimersByTimeAsync(30_000);
 
       const result = await settled;
-      expect(result.ok).toBe(false);
-      if (result.ok) throw new Error("unreachable");
-      expect(result.error.kind).toBe("partial-failure");
-      if (result.error.kind !== "partial-failure") throw new Error("unreachable");
-      expect(result.error.operational).toBe(1);
-      expect(result.error.total).toBe(2);
-      expect(result.error.failed.map((f) => f.browserURL)).toEqual([
+      expect(result.allHealthy).toBe(false);
+      expect(result.failed.map((f) => f.browserURL)).toEqual([
         "http://slow:9222",
       ]);
     });
   });
 });
+
+/**
+ * Minimal worker fake for retryFailedWorkers tests.
+ * Tracks the value (we only need to flip between "error" and other), and
+ * records each `send` so we can assert reconnect attempts.
+ */
+const fakeRetryEntry = (browserURL: string, initialValue: unknown = "error") => {
+  let value = initialValue;
+  const send = vi.fn();
+  const entry = {
+    ref: {
+      getSnapshot: () => ({ value }),
+      send,
+    },
+    worker: {
+      profile: { browserURL },
+    },
+    index: 0,
+  } as unknown as WorkerEntry;
+  return {
+    entry,
+    setValue: (v: unknown): void => {
+      value = v;
+    },
+    send,
+  };
+};
+
+describe("retryFailedWorkers", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sends CONNECT to error-state workers after the initial 1s backoff", async () => {
+    const a = fakeRetryEntry("http://a:9222", "error");
+    const actor = createActor(retryFailedWorkers, { input: [a.entry] });
+    actor.start();
+
+    expect(a.send).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(a.send).toHaveBeenCalledWith({ type: "CONNECT" });
+
+    actor.stop();
+  });
+
+  it("uses exponential backoff (1s, 2s, 4s, ...)", async () => {
+    const a = fakeRetryEntry("http://a:9222", "error");
+    const actor = createActor(retryFailedWorkers, { input: [a.entry] });
+    actor.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(a.send).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(a.send).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(a.send).toHaveBeenCalledTimes(3);
+
+    actor.stop();
+  });
+
+  it("caps backoff at 60s", async () => {
+    const a = fakeRetryEntry("http://a:9222", "error");
+    const actor = createActor(retryFailedWorkers, { input: [a.entry] });
+    actor.start();
+
+    // 1+2+4+8+16+32 = 63s → 6 attempts
+    await vi.advanceTimersByTimeAsync(63_000);
+    expect(a.send).toHaveBeenCalledTimes(6);
+
+    // The next delay would be 64s, but it's clamped to 60s.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(a.send).toHaveBeenCalledTimes(7);
+
+    actor.stop();
+  });
+
+  it("skips workers that are no longer in error state", async () => {
+    const a = fakeRetryEntry("http://a:9222", "error");
+    const b = fakeRetryEntry("http://b:9222", { operational: "idle" });
+    const actor = createActor(retryFailedWorkers, { input: [a.entry, b.entry] });
+    actor.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(a.send).toHaveBeenCalledWith({ type: "CONNECT" });
+    expect(b.send).not.toHaveBeenCalled();
+
+    actor.stop();
+  });
+
+  it("stops scheduling after the actor is stopped", async () => {
+    const a = fakeRetryEntry("http://a:9222", "error");
+    const actor = createActor(retryFailedWorkers, { input: [a.entry] });
+    actor.start();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(a.send).toHaveBeenCalledTimes(1);
+
+    actor.stop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(a.send).toHaveBeenCalledTimes(1);
+  });
+});
+

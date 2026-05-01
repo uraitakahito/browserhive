@@ -15,7 +15,7 @@ import {
   type CoordinatorLifecycle,
   type WorkerEntry,
 } from "./coordinator-machine.js";
-import type { CoordinatorInitFailure } from "./coordinator-errors.js";
+import type { WorkerInitFailure } from "./coordinator-errors.js";
 import {
   toFlatWorkerStatus,
   type WorkerMachineContext,
@@ -26,6 +26,7 @@ export interface CoordinatorStatusReport {
   operationalWorkers: number;
   totalWorkers: number;
   isRunning: boolean;
+  isDegraded: boolean;
   workers: WorkerInfo[];
 }
 
@@ -52,26 +53,23 @@ export class CaptureCoordinator {
   }
 
   /**
-   * Initialize the capture coordinator. Worker spawning, browser connection,
-   * and the all-workers-healthy check are all driven by the lifecycle machine
-   * (`initializing` state's invoked actor).
+   * Initialize the capture coordinator. Worker spawning and browser
+   * connection are driven by the lifecycle machine. Init failures do
+   * not abort startup — the coordinator lands in `running` (all healthy)
+   * or `degraded` (some/all failed). Inspect `lastInitFailedWorkers` for
+   * detail.
    */
-  async initialize(): Promise<Result<void, CoordinatorInitFailure>> {
+  async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
-    await this.waitForLifecycle("running", "terminated");
+    await this.waitForLifecycle("running", "degraded");
+  }
 
-    const snapshot = this.lifecycleActor.getSnapshot();
-    if (snapshot.value === "terminated") {
-      const failure: CoordinatorInitFailure =
-        snapshot.context.lastInitFailure ?? {
-          kind: "partial-failure",
-          operational: 0,
-          total: 0,
-          failed: [],
-        };
-      return err(failure);
-    }
-    return ok();
+  /**
+   * Workers that did not reach operational during the last `initialize()`.
+   * Empty when all workers connected successfully.
+   */
+  get lastInitFailedWorkers(): WorkerInitFailure[] {
+    return this.lifecycleActor.getSnapshot().context.lastInitSummary?.failed ?? [];
   }
 
   enqueueTask(task: CaptureTask): Result<void, string> {
@@ -96,6 +94,10 @@ export class CaptureCoordinator {
     return this.lifecycleActor.getSnapshot().value === "running";
   }
 
+  get isDegraded(): boolean {
+    return this.lifecycleActor.getSnapshot().value === "degraded";
+  }
+
   get operationalWorkerCount(): number {
     return this.workers.filter(
       (entry) => entry.ref.getSnapshot().hasTag("healthy")
@@ -108,6 +110,7 @@ export class CaptureCoordinator {
       operationalWorkers: this.operationalWorkerCount,
       totalWorkers: this.workers.length,
       isRunning: this.isRunning,
+      isDegraded: this.isDegraded,
       workers: this.workers.map((entry) => this.workerEntryToInfo(entry)),
     };
   }

@@ -5,12 +5,10 @@
  * The machine spawns and orchestrates worker status actors via invoked
  * actors (Parent-Child Actor Model).
  *
- * Error handling: invoked Promise actors (`initializeWorkers`,
- * `shutdownWorkers`) return Result<T, E> instead of throwing. The
- * machine branches in `onDone` on `event.output.ok` to drive the next
- * state, and persists the failure value on `context.lastInitFailure`
- * so that `CaptureCoordinator.initialize` can surface the rich detail
- * to the application boundary.
+ * Init policy: `initializeWorkers` is non-fatal — partial or total
+ * connect failures land in `degraded` instead of `terminated`. Once
+ * recovery brings every worker back to `operational`, `watchWorkerHealth`
+ * emits `ALL_WORKERS_HEALTHY` to lift the lifecycle into `running`.
  *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
  *
@@ -32,10 +30,11 @@ import type { CoordinatorConfig } from "../config/index.js";
 import { logger } from "../logger.js";
 import {
   initializeWorkers,
+  retryFailedWorkers,
   shutdownWorkers,
   watchWorkerHealth,
+  type InitializeWorkersOutput,
 } from "./coordinator-actors.js";
-import type { CoordinatorInitFailure } from "./coordinator-errors.js";
 import { TaskQueue } from "./task-queue.js";
 import { Worker } from "./worker.js";
 import { workerStatusMachine } from "./worker-status.js";
@@ -51,8 +50,8 @@ export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   taskQueue: TaskQueue;
   workers: WorkerEntry[];
-  /** Detail captured when initializeWorkers returns a failure Result */
-  lastInitFailure?: CoordinatorInitFailure;
+  /** Most recent init outcome — informational only (does not gate the lifecycle). */
+  lastInitSummary?: InitializeWorkersOutput;
 }
 
 export interface CoordinatorMachineInput {
@@ -66,12 +65,14 @@ export const coordinatorMachine = setup({
     events: {} as
       | { type: "INITIALIZE" }
       | { type: "SHUTDOWN" }
-      | { type: "ALL_WORKERS_ERROR" },
+      | { type: "WORKER_DEGRADED" }
+      | { type: "ALL_WORKERS_HEALTHY" },
   },
   actors: {
     workerStatus: workerStatusMachine,
     initializeWorkers,
     watchWorkerHealth,
+    retryFailedWorkers,
     shutdownWorkers,
   },
 }).createMachine({
@@ -111,29 +112,32 @@ export const coordinatorMachine = setup({
         input: ({ context }) => ({ workers: context.workers }),
         onDone: [
           {
-            guard: ({ event }) => event.output.ok,
+            guard: ({ event }) => event.output.allHealthy,
             target: "running",
-            actions: ({ context }) => {
-              logger.info(
-                { totalCount: context.workers.length },
-                "Capture coordinator initialized",
-              );
-            },
+            actions: [
+              assign({ lastInitSummary: ({ event }) => event.output }),
+              ({ context }) => {
+                logger.info(
+                  { totalCount: context.workers.length },
+                  "Capture coordinator initialized",
+                );
+              },
+            ],
           },
           {
-            target: "terminated",
+            target: "degraded",
             actions: [
-              assign({
-                lastInitFailure: ({ event }) =>
-                  event.output.ok ? undefined : event.output.error,
-              }),
-              ({ event }) => {
-                if (!event.output.ok) {
-                  logger.error(
-                    { failure: event.output.error },
-                    "Worker initialization failed",
-                  );
-                }
+              assign({ lastInitSummary: ({ event }) => event.output }),
+              ({ event, context }) => {
+                logger.warn(
+                  {
+                    operational:
+                      context.workers.length - event.output.failed.length,
+                    total: context.workers.length,
+                    failed: event.output.failed,
+                  },
+                  "Capture coordinator started in degraded state",
+                );
               },
             ],
           },
@@ -147,7 +151,33 @@ export const coordinatorMachine = setup({
       },
       on: {
         SHUTDOWN: "shuttingDown",
-        ALL_WORKERS_ERROR: "shuttingDown",
+        WORKER_DEGRADED: {
+          target: "degraded",
+          actions: () => {
+            logger.warn("Worker(s) became unhealthy, entering degraded");
+          },
+        },
+      },
+    },
+    degraded: {
+      invoke: [
+        {
+          src: "watchWorkerHealth",
+          input: ({ context }) => context.workers,
+        },
+        {
+          src: "retryFailedWorkers",
+          input: ({ context }) => context.workers,
+        },
+      ],
+      on: {
+        SHUTDOWN: "shuttingDown",
+        ALL_WORKERS_HEALTHY: {
+          target: "running",
+          actions: () => {
+            logger.info("All workers healthy, leaving degraded");
+          },
+        },
       },
     },
     shuttingDown: {

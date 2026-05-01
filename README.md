@@ -67,14 +67,22 @@ The system uses [XState v5](https://stately.ai/docs) state machines with a Paren
 
 ### Coordinator Lifecycle
 
+Init failures are non-fatal: partial or total connect failures land in `degraded`
+instead of `terminated`. While `degraded`, the coordinator periodically retries
+failed workers (1s → 2s → 4s → … capped at 60s) and lifts back to `running` once
+every worker is healthy. `submitCapture` is accepted in both `running` and
+`degraded` as long as at least one worker is operational.
+
 ```mermaid
 stateDiagram-v2
     [*] --> created
     created --> initializing : INITIALIZE
-    initializing --> running : initializeWorkers ok
-    initializing --> terminated : initializeWorkers err
+    initializing --> running : allHealthy
+    initializing --> degraded : some failed
+    running --> degraded : WORKER_DEGRADED
+    degraded --> running : ALL_WORKERS_HEALTHY
     running --> shuttingDown : SHUTDOWN
-    running --> shuttingDown : ALL_WORKERS_ERROR
+    degraded --> shuttingDown : SHUTDOWN
     shuttingDown --> terminated : shutdownWorkers ok
     shuttingDown --> terminated : shutdownWorkers err (timeout)
     terminated --> [*]
@@ -82,7 +90,7 @@ stateDiagram-v2
 
 ### Worker Status
 
-Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures. The `connecting` and `disconnecting` states invoke `fromPromise` actors that return `Result<void, ErrorDetails>` instead of throwing — the machine branches in `onDone` on `event.output.ok`. Disconnect failures still transition to `disconnected` (best-effort) but log the underlying error.
+Each worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures. The `connecting` and `disconnecting` states invoke `fromPromise` actors that return `Result<void, ErrorDetails>` instead of throwing — the machine branches in `onDone` on `event.output.ok`. Disconnect failures still transition to `disconnected` (best-effort) but log the underlying error. From `error`, the coordinator's retry actor (running while in the `degraded` lifecycle) sends `CONNECT` to bring the worker back through `connecting`.
 
 ```mermaid
 stateDiagram-v2
@@ -102,6 +110,7 @@ stateDiagram-v2
     operational --> error : CONNECTION_LOST
     operational --> disconnecting : DISCONNECT
 
+    error --> connecting : CONNECT (retry)
     error --> disconnecting : DISCONNECT
 
     disconnecting --> disconnected : done

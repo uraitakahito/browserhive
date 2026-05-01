@@ -7,10 +7,11 @@
  *
  * Actor logics defined here:
  *   - `initializeWorkers` (fromPromise): connect all worker actors and
- *     return Result<void, CoordinatorInitFailure>. Never throws — failures
- *     surface as `err({...})` so the machine can branch on `event.output.ok`.
- *   - `watchWorkerHealth` (fromCallback): emit ALL_WORKERS_ERROR when every
- *     worker becomes unhealthy
+ *     report whether all reached operational. Never fails — the machine
+ *     branches on `event.output.allHealthy` to choose `running` vs
+ *     `degraded`.
+ *   - `watchWorkerHealth` (fromCallback): observe-only (informational).
+ *     Reserved for future re-purposing in Phase 2.
  *   - `shutdownWorkers` (fromPromise): disconnect all worker actors and
  *     return Result<void, ShutdownFailure>. Treats the disconnect
  *     timeout as a structured failure (still proceeds to disconnect).
@@ -20,7 +21,6 @@ import { logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
 import type { WorkerEntry } from "./coordinator-machine.js";
 import type {
-  CoordinatorInitFailure,
   ShutdownFailure,
   WorkerInitFailure,
 } from "./coordinator-errors.js";
@@ -31,6 +31,18 @@ const WORKER_INIT_TIMEOUT_MS = 30_000;
 
 /** Timeout for waiting worker actors to disconnect during shutdown */
 const WORKER_SHUTDOWN_TIMEOUT_MS = 5000;
+
+/** Initial delay between reconnect attempts in `degraded` (ms) */
+const RETRY_BASE_DELAY_MS = 1000;
+
+/** Upper bound for the exponential reconnect backoff (ms) */
+const RETRY_MAX_DELAY_MS = 60_000;
+
+/** Output of `initializeWorkers` — never an error case */
+export interface InitializeWorkersOutput {
+  allHealthy: boolean;
+  failed: WorkerInitFailure[];
+}
 
 /**
  * Wait for every worker actor to reach a state matching `predicate`, falling
@@ -85,13 +97,23 @@ const isSettled = (value: unknown): boolean =>
 const countOperational = (workers: WorkerEntry[]): number =>
   workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
 
+const collectFailedWorkers = (workers: WorkerEntry[]): WorkerInitFailure[] =>
+  workers
+    .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
+    .map((entry) => {
+      const lastError = entry.ref.getSnapshot().context.errorHistory[0];
+      return {
+        browserURL: entry.worker.profile.browserURL,
+        reason:
+          lastError ??
+          createConnectionError("Unknown failure (no error recorded)"),
+      };
+    });
+
 export const initializeWorkers = fromPromise<
-  Result<void, CoordinatorInitFailure>,
+  InitializeWorkersOutput,
   { workers: WorkerEntry[] }
 >(async ({ input }) => {
-  if (input.workers.length === 0) {
-    return err({ kind: "no-profiles" });
-  }
   for (const entry of input.workers) {
     entry.ref.send({ type: "CONNECT" });
   }
@@ -104,45 +126,112 @@ export const initializeWorkers = fromPromise<
       );
     },
   });
-  const totalCount = input.workers.length;
   const operationalCount = countOperational(input.workers);
-  if (operationalCount < totalCount) {
-    const failed: WorkerInitFailure[] = input.workers
-      .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
-      .map((entry) => {
-        const lastError = entry.ref.getSnapshot().context.errorHistory[0];
-        return {
-          browserURL: entry.worker.profile.browserURL,
-          reason:
-            lastError ??
-            createConnectionError("Unknown failure (no error recorded)"),
-        };
-      });
-    return err({
-      kind: "partial-failure",
-      operational: operationalCount,
-      total: totalCount,
-      failed,
-    });
+  const allHealthy = operationalCount === input.workers.length;
+  if (!allHealthy) {
+    const failed = collectFailedWorkers(input.workers);
+    logger.warn(
+      {
+        operational: operationalCount,
+        total: input.workers.length,
+        failed,
+      },
+      "Worker initialization completed with failures",
+    );
+    return { allHealthy: false, failed };
   }
-  return ok();
+  return { allHealthy: true, failed: [] };
 });
 
-export const watchWorkerHealth = fromCallback<{ type: "noop" }, WorkerEntry[]>(
-  ({ sendBack, input }) => {
-    const subscriptions = input.map((entry) =>
-      entry.ref.subscribe(() => {
-        const allUnhealthy = input.every(
-          (w) => !w.ref.getSnapshot().hasTag("healthy"),
+/**
+ * Subscribe to every worker actor and emit lifecycle events to the parent
+ * coordinator machine when the global health flips:
+ *   - any worker unhealthy (and previously all healthy) → WORKER_DEGRADED
+ *   - all workers healthy (and previously some unhealthy) → ALL_WORKERS_HEALTHY
+ *
+ * The actor is invoked from both `running` and `degraded`. It seeds the
+ * "previously" state from the current snapshot at subscription time, so each
+ * invocation only emits transitions observed during its lifetime — the parent
+ * machine drops events that are not handled in the current state anyway.
+ */
+export const watchWorkerHealth = fromCallback<
+  { type: "WORKER_DEGRADED" } | { type: "ALL_WORKERS_HEALTHY" },
+  WorkerEntry[]
+>(({ sendBack, input }) => {
+  if (input.length === 0) return;
+
+  const isAllHealthy = (): boolean =>
+    input.every((entry) => entry.ref.getSnapshot().hasTag("healthy"));
+
+  let lastAllHealthy = isAllHealthy();
+
+  const subscriptions = input.map((entry) =>
+    entry.ref.subscribe(() => {
+      const allHealthy = isAllHealthy();
+      if (allHealthy === lastAllHealthy) return;
+      lastAllHealthy = allHealthy;
+      if (allHealthy) {
+        sendBack({ type: "ALL_WORKERS_HEALTHY" });
+      } else {
+        sendBack({ type: "WORKER_DEGRADED" });
+      }
+    }),
+  );
+
+  return () => {
+    subscriptions.forEach((sub) => {
+      sub.unsubscribe();
+    });
+  };
+});
+
+/**
+ * Periodically send CONNECT to every worker currently in the `error`
+ * state, with exponential backoff (1s → 2s → 4s → … capped at 60s).
+ *
+ * The actor is invoked from `degraded`. The cleanup function clears any
+ * pending timer when the parent leaves `degraded`. Backoff resets on each
+ * fresh invocation (i.e. on every entry into `degraded`).
+ */
+export const retryFailedWorkers = fromCallback<{ type: "noop" }, WorkerEntry[]>(
+  ({ input }) => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    let attempt = 0;
+    let disposed = false;
+
+    const scheduleNext = (): void => {
+      const delay = Math.min(
+        RETRY_MAX_DELAY_MS,
+        RETRY_BASE_DELAY_MS * 2 ** attempt,
+      );
+      attempt += 1;
+      timeoutId = setTimeout(() => {
+        if (disposed) return;
+        const targets = input.filter(
+          (entry) => entry.ref.getSnapshot().value === "error",
         );
-        if (allUnhealthy && input.length > 0) {
-          logger.error("All workers are unhealthy, initiating shutdown");
-          sendBack({ type: "ALL_WORKERS_ERROR" });
+        if (targets.length > 0) {
+          logger.info(
+            {
+              attempt,
+              count: targets.length,
+              browserURLs: targets.map((t) => t.worker.profile.browserURL),
+            },
+            "Retrying failed workers",
+          );
+          for (const entry of targets) {
+            entry.ref.send({ type: "CONNECT" });
+          }
         }
-      }),
-    );
+        scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
+
     return () => {
-      subscriptions.forEach((sub) => { sub.unsubscribe(); });
+      disposed = true;
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
     };
   },
 );

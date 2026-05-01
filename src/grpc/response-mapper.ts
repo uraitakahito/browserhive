@@ -95,6 +95,7 @@ export const coordinatorStatusToResponse = (status: CoordinatorStatusReport): St
     operational_workers: status.operationalWorkers,
     total_workers: status.totalWorkers,
     is_running: status.isRunning,
+    is_degraded: status.isDegraded,
     workers: status.workers.map(workerInfoToProto),
   };
 };
