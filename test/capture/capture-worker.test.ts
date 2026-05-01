@@ -1,31 +1,31 @@
 import { describe, it, expect, vi } from "vitest";
 import { createActor } from "xstate";
 import {
-  ALL_WORKER_STATUSES,
-  workerStatusMachine,
-  toFlatWorkerStatus,
-} from "../../src/capture/worker-status.js";
-import type { WorkerMachineInput } from "../../src/capture/worker-status.js";
+  ALL_WORKER_HEALTH_VALUES,
+  captureWorkerMachine,
+  toWorkerHealth,
+} from "../../src/capture/capture-worker.js";
+import type { CaptureWorkerInput } from "../../src/capture/capture-worker.js";
 import type { WorkerRuntime } from "../../src/capture/worker-loop.js";
-import type { Worker } from "../../src/capture/worker.js";
+import type { BrowserClient } from "../../src/capture/browser-client.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 
-const createMockWorker = (): Worker =>
+const createMockClient = (): BrowserClient =>
   ({
     index: 0,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     connect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     disconnect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     process: vi.fn(),
-  }) as unknown as Worker;
+  }) as unknown as BrowserClient;
 
 const createDefaultRuntime = (): WorkerRuntime => ({
-  worker: createMockWorker(),
+  client: createMockClient(),
   taskQueue: new TaskQueue(),
   pollIntervalMs: 50,
 });
 
-const createInput = (overrides?: { index?: number; maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }): WorkerMachineInput => ({
+const createInput = (overrides?: { index?: number; maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }): CaptureWorkerInput => ({
   index: overrides?.index ?? 0,
   maxRetryCount: overrides?.maxRetryCount ?? 2,
   runtime: {
@@ -41,23 +41,23 @@ const createInput = (overrides?: { index?: number; maxRetryCount?: number; runti
  */
 const createWorkerActor = (overrides?: { index?: number; maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }) => {
   const input = createInput(overrides);
-  const actor = createActor(workerStatusMachine, { input });
+  const actor = createActor(captureWorkerMachine, { input });
   actor.start();
   return { actor, input };
 };
 
-describe("worker-status", () => {
-  describe("ALL_WORKER_STATUSES", () => {
-    it("should contain all flat worker statuses", () => {
-      expect(ALL_WORKER_STATUSES).toContain("ready");
-      expect(ALL_WORKER_STATUSES).toContain("busy");
-      expect(ALL_WORKER_STATUSES).toContain("error");
-      expect(ALL_WORKER_STATUSES).toContain("disconnected");
-      expect(ALL_WORKER_STATUSES).toHaveLength(4);
+describe("capture-worker", () => {
+  describe("ALL_WORKER_HEALTH_VALUES", () => {
+    it("should contain all flat worker health values", () => {
+      expect(ALL_WORKER_HEALTH_VALUES).toContain("ready");
+      expect(ALL_WORKER_HEALTH_VALUES).toContain("busy");
+      expect(ALL_WORKER_HEALTH_VALUES).toContain("error");
+      expect(ALL_WORKER_HEALTH_VALUES).toContain("disconnected");
+      expect(ALL_WORKER_HEALTH_VALUES).toHaveLength(4);
     });
   });
 
-  describe("workerStatusMachine", () => {
+  describe("captureWorkerMachine", () => {
     it("should have disconnected as initial state", () => {
       const { actor } = createWorkerActor();
       expect(actor.getSnapshot().value).toBe("disconnected");
@@ -105,13 +105,13 @@ describe("worker-status", () => {
       });
 
       it("should transition to error on connection failure", async () => {
-        const worker = createMockWorker();
-        vi.mocked(worker.connect).mockResolvedValue({
+        const client = createMockClient();
+        vi.mocked(client.connect).mockResolvedValue({
           ok: false,
           error: { type: "connection", message: "Connection refused" },
         });
 
-        const { actor } = createWorkerActor({ runtime: { worker } });
+        const { actor } = createWorkerActor({ runtime: { client } });
         actor.send({ type: "CONNECT" });
 
         await vi.waitFor(() => {
@@ -238,12 +238,12 @@ describe("worker-status", () => {
 
     describe("error state", () => {
       const createErrorActor = async () => {
-        const worker = createMockWorker();
-        vi.mocked(worker.connect).mockResolvedValue({
+        const client = createMockClient();
+        vi.mocked(client.connect).mockResolvedValue({
           ok: false,
           error: { type: "connection", message: "fail" },
         });
-        const result = createWorkerActor({ runtime: { worker } });
+        const result = createWorkerActor({ runtime: { client } });
         result.actor.send({ type: "CONNECT" });
         await vi.waitFor(() => {
           expect(result.actor.getSnapshot().value).toBe("error");
@@ -320,10 +320,10 @@ describe("worker-status", () => {
     });
   });
 
-  describe("toFlatWorkerStatus", () => {
+  describe("toWorkerHealth", () => {
     it("should map disconnected to 'disconnected'", () => {
       const { actor } = createWorkerActor();
-      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("disconnected");
+      expect(toWorkerHealth(actor.getSnapshot())).toBe("disconnected");
     });
 
     it("should map operational.idle to 'ready'", async () => {
@@ -332,7 +332,7 @@ describe("worker-status", () => {
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
       });
-      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("ready");
+      expect(toWorkerHealth(actor.getSnapshot())).toBe("ready");
     });
 
     it("should map operational.processing to 'busy'", async () => {
@@ -343,31 +343,31 @@ describe("worker-status", () => {
       });
       const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureOptions: { png: true, jpeg: false, html: false } };
       actor.send({ type: "TASK_STARTED", task });
-      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("busy");
+      expect(toWorkerHealth(actor.getSnapshot())).toBe("busy");
     });
 
     it("should map error to 'error'", async () => {
-      const worker = createMockWorker();
-      vi.mocked(worker.connect).mockResolvedValue({
+      const client = createMockClient();
+      vi.mocked(client.connect).mockResolvedValue({
         ok: false,
         error: { type: "connection", message: "fail" },
       });
-      const { actor } = createWorkerActor({ runtime: { worker } });
+      const { actor } = createWorkerActor({ runtime: { client } });
       actor.send({ type: "CONNECT" });
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toBe("error");
       });
-      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("error");
+      expect(toWorkerHealth(actor.getSnapshot())).toBe("error");
     });
 
     it("should map connecting to 'error'", () => {
-      const worker = createMockWorker();
+      const client = createMockClient();
       // Make connect hang so we stay in connecting state
-      vi.mocked(worker.connect).mockReturnValue(new Promise(() => { /* never resolves */ }));
-      const { actor } = createWorkerActor({ runtime: { worker } });
+      vi.mocked(client.connect).mockReturnValue(new Promise(() => { /* never resolves */ }));
+      const { actor } = createWorkerActor({ runtime: { client } });
       actor.send({ type: "CONNECT" });
       expect(actor.getSnapshot().value).toBe("connecting");
-      expect(toFlatWorkerStatus(actor.getSnapshot())).toBe("error");
+      expect(toWorkerHealth(actor.getSnapshot())).toBe("error");
     });
   });
 });

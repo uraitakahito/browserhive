@@ -1,15 +1,15 @@
 /**
- * Capture Worker
+ * Browser Client
  *
  * Pure capture executor — connects to a remote Chromium browser and
  * processes capture tasks. State management is handled externally
- * by the worker status machine (Parent-Child Actor Model).
+ * by the capture worker status machine (Parent-Child Actor Model).
  *
  * Public lifecycle methods (`connect`, `disconnect`) return
  * Result<void, ErrorDetails> rather than throwing, so the
- * worker-status machine can branch on the Result without `instanceof
+ * capture worker machine can branch on the Result without `instanceof
  * Error` ad-hoc handling. `process` still throws (only when called on
- * a disconnected worker, which is a programmer error).
+ * a disconnected client, which is a programmer error).
  */
 import type { Browser } from "puppeteer";
 import connectBrowser from "../browser.js";
@@ -20,7 +20,7 @@ import { createConnectionError } from "./error-details.js";
 import { createChildLogger, type Logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
 
-export class Worker {
+export class BrowserClient {
   private browser: Browser | null = null;
   private pageCapturer: PageCapturer;
   public readonly logger: Logger;
@@ -77,7 +77,7 @@ export class Worker {
    */
   async process(task: CaptureTask): Promise<CaptureResult> {
     if (!this.browser) {
-      throw new Error(`Worker ${String(this.index)} has no browser connection`);
+      throw new Error(`BrowserClient ${String(this.index)} has no browser connection`);
     }
 
     return this.pageCapturer.capture(this.browser, task, this.index);

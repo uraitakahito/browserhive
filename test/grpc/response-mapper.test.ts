@@ -1,32 +1,32 @@
 import { describe, it, expect } from "vitest";
 import {
-  workerStatusToProto,
+  workerHealthToProto,
   errorTypeToProto,
   captureOptionsToProto,
   errorRecordToProto,
   workerInfoToProto,
   coordinatorStatusToResponse,
 } from "../../src/grpc/response-mapper.js";
-import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
+import { WorkerHealth, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type { CaptureOptions, ErrorRecord, WorkerInfo } from "../../src/capture/index.js";
 import type { CoordinatorStatusReport } from "../../src/capture/capture-coordinator.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
 
-describe("workerStatusToProto", () => {
-  it("should convert ready to WORKER_STATUS_READY", () => {
-    expect(workerStatusToProto("ready")).toBe(WorkerStatus.WORKER_STATUS_READY);
+describe("workerHealthToProto", () => {
+  it("should convert ready to WORKER_HEALTH_READY", () => {
+    expect(workerHealthToProto("ready")).toBe(WorkerHealth.WORKER_HEALTH_READY);
   });
 
-  it("should convert busy to WORKER_STATUS_BUSY", () => {
-    expect(workerStatusToProto("busy")).toBe(WorkerStatus.WORKER_STATUS_BUSY);
+  it("should convert busy to WORKER_HEALTH_BUSY", () => {
+    expect(workerHealthToProto("busy")).toBe(WorkerHealth.WORKER_HEALTH_BUSY);
   });
 
-  it("should convert error to WORKER_STATUS_ERROR", () => {
-    expect(workerStatusToProto("error")).toBe(WorkerStatus.WORKER_STATUS_ERROR);
+  it("should convert error to WORKER_HEALTH_ERROR", () => {
+    expect(workerHealthToProto("error")).toBe(WorkerHealth.WORKER_HEALTH_ERROR);
   });
 
-  it("should convert disconnected to WORKER_STATUS_DISCONNECTED", () => {
-    expect(workerStatusToProto("disconnected")).toBe(WorkerStatus.WORKER_STATUS_DISCONNECTED);
+  it("should convert disconnected to WORKER_HEALTH_DISCONNECTED", () => {
+    expect(workerHealthToProto("disconnected")).toBe(WorkerHealth.WORKER_HEALTH_DISCONNECTED);
   });
 });
 
@@ -178,7 +178,7 @@ describe("workerInfoToProto", () => {
     const worker: WorkerInfo = {
       index: 0,
       browserProfile: { browserURL: "http://browser1:9222", capture: createTestCaptureConfig() },
-      status: "ready",
+      health: "ready",
       processedCount: 5,
       errorCount: 0,
       errorHistory: [],
@@ -189,7 +189,7 @@ describe("workerInfoToProto", () => {
     expect(result).toEqual({
       index: 0,
       browser_options: { browser_url: "http://browser1:9222" },
-      status: WorkerStatus.WORKER_STATUS_READY,
+      health: WorkerHealth.WORKER_HEALTH_READY,
       processed_count: 5,
       error_count: 0,
       error_history: [],
@@ -200,7 +200,7 @@ describe("workerInfoToProto", () => {
     const worker: WorkerInfo = {
       index: 1,
       browserProfile: { browserURL: "http://browser2:9222", capture: createTestCaptureConfig() },
-      status: "busy",
+      health: "busy",
       processedCount: 3,
       errorCount: 1,
       errorHistory: [
@@ -220,7 +220,7 @@ describe("workerInfoToProto", () => {
 
     const result = workerInfoToProto(worker);
 
-    expect(result.status).toBe(WorkerStatus.WORKER_STATUS_BUSY);
+    expect(result.health).toBe(WorkerHealth.WORKER_HEALTH_BUSY);
     expect(result.error_history).toHaveLength(1);
     expect(result.error_history[0]).toEqual({
       type: ErrorType.ERROR_TYPE_TIMEOUT,
@@ -248,7 +248,7 @@ describe("coordinatorStatusToResponse", () => {
         {
           index: 0,
           browserProfile: { browserURL: "http://browser1:9222", capture: createTestCaptureConfig() },
-          status: "ready",
+          health: "ready",
           processedCount: 5,
           errorCount: 0,
           errorHistory: [],
@@ -256,7 +256,7 @@ describe("coordinatorStatusToResponse", () => {
         {
           index: 1,
           browserProfile: { browserURL: "http://browser2:9222", capture: createTestCaptureConfig() },
-          status: "error",
+          health: "error",
           processedCount: 2,
           errorCount: 2,
           errorHistory: [
@@ -280,8 +280,8 @@ describe("coordinatorStatusToResponse", () => {
     expect(response.is_running).toBe(true);
     expect(response.is_degraded).toBe(false);
     expect(response.workers).toHaveLength(2);
-    expect(response.workers[0]!.status).toBe(WorkerStatus.WORKER_STATUS_READY);
-    expect(response.workers[1]!.status).toBe(WorkerStatus.WORKER_STATUS_ERROR);
+    expect(response.workers[0]!.health).toBe(WorkerHealth.WORKER_HEALTH_READY);
+    expect(response.workers[1]!.health).toBe(WorkerHealth.WORKER_HEALTH_ERROR);
     expect(response.workers[1]!.error_history[0]).toEqual({
       type: ErrorType.ERROR_TYPE_CONNECTION,
       message: "Browser disconnected",

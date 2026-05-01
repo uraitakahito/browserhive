@@ -1,9 +1,9 @@
 /**
- * Worker Status
+ * Capture Worker
  *
- * XState v5 machine definition for worker status transitions.
+ * XState v5 machine definition for the capture worker actor's lifecycle.
  * Uses compound states, context for statistics, and invoked actors
- * for browser connection and the worker processing loop.
+ * for browser connection and the task processing loop.
  *
  * Error handling: invoked Promise actors (`connectBrowser`,
  * `disconnectBrowser`) return Result<void, ErrorDetails> instead
@@ -12,19 +12,19 @@
  * Result still transitions to `disconnected` (best-effort), but logs
  * the underlying ErrorDetails before doing so.
  *
- * Proto mappings are handled by grpc/response-mapper.ts via toFlatWorkerStatus().
+ * Proto mappings are handled by grpc/response-mapper.ts via toWorkerHealth().
  *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
  *
  *   | Actor                                 | Receive events | Send events | Spawn actors | Input | Output |
  *   | ------------------------------------- | -------------- | ----------- | ------------ | ----- | ------ |
- *   | `workerStatusMachine` (State machine) | yes            | yes         | yes          | yes   | yes    |
+ *   | `captureWorkerMachine` (State machine)| yes            | yes         | yes          | yes   | yes    |
  *   | `connectBrowser` (Promise)            | no             | yes         | no           | yes   | yes    |
  *   | `disconnectBrowser` (Promise)         | no             | yes         | no           | yes   | yes    |
  *   | `workerLoop` (Callback)               | yes            | yes         | no           | yes   | no     |
  */
 import { setup, assign, fromPromise, type SnapshotFrom } from "xstate";
-import type { Worker } from "./worker.js";
+import type { BrowserClient } from "./browser-client.js";
 import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
 import { workerLoopCallback, type WorkerRuntime } from "./worker-loop.js";
@@ -33,23 +33,23 @@ import type { Result } from "../result.js";
 const MAX_ERROR_HISTORY = 10;
 
 /** External seed values supplied when the worker actor is spawned. */
-export interface WorkerMachineInput {
+export interface CaptureWorkerInput {
   index: number;
   /** Maximum retry count for failed capture tasks */
   maxRetryCount: number;
-  /** Worker runtime (worker instance, shared queue, polling) */
+  /** Worker runtime (browser client, shared queue, polling) */
   runtime: WorkerRuntime;
 }
 
 /** Statistics accumulated by the machine during its lifetime. */
-interface WorkerMachineStats {
+interface CaptureWorkerStats {
   processedCount: number;
   errorCount: number;
   errorHistory: ErrorRecord[];
 }
 
-export interface WorkerMachineContext
-  extends WorkerMachineInput, WorkerMachineStats {}
+export interface CaptureWorkerContext
+  extends CaptureWorkerInput, CaptureWorkerStats {}
 
 /** Add an error to the history (FIFO, capped at MAX_ERROR_HISTORY) */
 const addErrorToHistory = (
@@ -76,10 +76,10 @@ const addErrorToHistory = (
   return updated;
 };
 
-export const workerStatusMachine = setup({
+export const captureWorkerMachine = setup({
   types: {
-    context: {} as WorkerMachineContext,
-    input: {} as WorkerMachineInput,
+    context: {} as CaptureWorkerContext,
+    input: {} as CaptureWorkerInput,
     events: {} as
       | { type: "CONNECT" }
       | { type: "DISCONNECT" }
@@ -89,11 +89,11 @@ export const workerStatusMachine = setup({
       | { type: "CONNECTION_LOST"; message: string },
   },
   actors: {
-    connectBrowser: fromPromise<Result<void, ErrorDetails>, { worker: Worker }>(
-      async ({ input }) => input.worker.connect(),
+    connectBrowser: fromPromise<Result<void, ErrorDetails>, { client: BrowserClient }>(
+      async ({ input }) => input.client.connect(),
     ),
-    disconnectBrowser: fromPromise<Result<void, ErrorDetails>, { worker: Worker }>(
-      async ({ input }) => input.worker.disconnect(),
+    disconnectBrowser: fromPromise<Result<void, ErrorDetails>, { client: BrowserClient }>(
+      async ({ input }) => input.client.disconnect(),
     ),
     workerLoop: workerLoopCallback,
   },
@@ -107,7 +107,7 @@ export const workerStatusMachine = setup({
     retryTask: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return;
       context.runtime.taskQueue.requeue(event.task);
-      context.runtime.worker.logger.info(
+      context.runtime.client.logger.info(
         {
           taskLabels: event.task.labels,
           taskId: event.task.taskId,
@@ -122,7 +122,7 @@ export const workerStatusMachine = setup({
     markTaskComplete: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return;
       context.runtime.taskQueue.markComplete(event.task.taskId);
-      context.runtime.worker.logger.warn(
+      context.runtime.client.logger.warn(
         {
           taskLabels: event.task.labels,
           taskId: event.task.taskId,
@@ -157,7 +157,7 @@ export const workerStatusMachine = setup({
     }),
   },
 }).createMachine({
-  id: "workerLifecycle",
+  id: "captureWorker",
   initial: "disconnected",
   context: ({ input }) => ({
     ...input,
@@ -172,7 +172,7 @@ export const workerStatusMachine = setup({
     connecting: {
       invoke: {
         src: "connectBrowser",
-        input: ({ context }) => ({ worker: context.runtime.worker }),
+        input: ({ context }) => ({ client: context.runtime.client }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
@@ -245,7 +245,7 @@ export const workerStatusMachine = setup({
     disconnecting: {
       invoke: {
         src: "disconnectBrowser",
-        input: ({ context }) => ({ worker: context.runtime.worker }),
+        input: ({ context }) => ({ client: context.runtime.client }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
@@ -255,9 +255,9 @@ export const workerStatusMachine = setup({
             target: "disconnected",
             actions: ({ context, event }) => {
               if (!event.output.ok) {
-                context.runtime.worker.logger.warn(
+                context.runtime.client.logger.warn(
                   { reason: event.output.error },
-                  "Worker disconnect failed (proceeding to disconnected)",
+                  "BrowserClient disconnect failed (proceeding to disconnected)",
                 );
               }
             },
@@ -270,23 +270,23 @@ export const workerStatusMachine = setup({
 
 // -- Derived types --
 
-/** Snapshot type for the worker status machine */
-export type WorkerMachineSnapshot = SnapshotFrom<typeof workerStatusMachine>;
+/** Snapshot type for the capture worker machine */
+export type CaptureWorkerSnapshot = SnapshotFrom<typeof captureWorkerMachine>;
 
 /**
- * Flat worker status for external consumers (gRPC, reporting).
- * Maps compound machine state values to simple string status.
+ * Flat worker health summary for external consumers (gRPC, reporting).
+ * Maps compound machine state values to a simple availability string.
  */
-export type WorkerStatus = "ready" | "busy" | "error" | "disconnected";
+export type WorkerHealth = "ready" | "busy" | "error" | "disconnected";
 
-export const ALL_WORKER_STATUSES: WorkerStatus[] = ["ready", "busy", "error", "disconnected"];
+export const ALL_WORKER_HEALTH_VALUES: WorkerHealth[] = ["ready", "busy", "error", "disconnected"];
 
 /**
- * Convert a worker machine snapshot to a flat WorkerStatus string.
+ * Convert a capture worker machine snapshot to a flat WorkerHealth string.
  * The machine uses compound states (e.g., { operational: "idle" }),
  * but external consumers expect flat strings.
  */
-export const toFlatWorkerStatus = (snapshot: WorkerMachineSnapshot): WorkerStatus => {
+export const toWorkerHealth = (snapshot: CaptureWorkerSnapshot): WorkerHealth => {
   const value = snapshot.value;
 
   if (typeof value === "object" && "operational" in value) {

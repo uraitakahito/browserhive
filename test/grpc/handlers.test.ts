@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { createCaptureServiceHandlers } from "../../src/grpc/handlers.js";
 import type { CaptureCoordinator } from "../../src/capture/index.js";
 import type { CaptureRequest, CaptureAcceptance, Empty, StatusResponse } from "../../src/grpc/generated/browserhive/v1/capture.js";
-import { WorkerStatus, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
+import { WorkerHealth, ErrorType } from "../../src/grpc/generated/browserhive/v1/capture.js";
 import type * as grpc from "@grpc/grpc-js";
 
 describe("createCaptureServiceHandlers", () => {
@@ -451,7 +451,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 0,
               browserProfile: { browserURL: "http://browser1:9222" },
-              status: "ready",
+              health: "ready",
               processedCount: 5,
               errorCount: 0,
               errorHistory: [],
@@ -459,7 +459,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 1,
               browserProfile: { browserURL: "http://browser2:9222" },
-              status: "busy",
+              health: "busy",
               processedCount: 3,
               errorCount: 1,
               errorHistory: [
@@ -479,7 +479,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 2,
               browserProfile: { browserURL: "http://browser3:9222" },
-              status: "error",
+              health: "error",
               processedCount: 2,
               errorCount: 2,
               errorHistory: [
@@ -513,7 +513,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 0,
             browser_options: { browser_url: "http://browser1:9222" },
-            status: WorkerStatus.WORKER_STATUS_READY,
+            health: WorkerHealth.WORKER_HEALTH_READY,
             processed_count: 5,
             error_count: 0,
             error_history: [],
@@ -521,7 +521,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 1,
             browser_options: { browser_url: "http://browser2:9222" },
-            status: WorkerStatus.WORKER_STATUS_BUSY,
+            health: WorkerHealth.WORKER_HEALTH_BUSY,
             processed_count: 3,
             error_count: 1,
             error_history: [
@@ -541,7 +541,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 2,
             browser_options: { browser_url: "http://browser3:9222" },
-            status: WorkerStatus.WORKER_STATUS_ERROR,
+            health: WorkerHealth.WORKER_HEALTH_ERROR,
             processed_count: 2,
             error_count: 2,
             error_history: [
@@ -572,7 +572,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 0,
               browserProfile: { browserURL: "http://browser1:9222" },
-              status: "disconnected",
+              health: "disconnected",
               processedCount: 0,
               errorCount: 0,
               errorHistory: [],
@@ -580,7 +580,7 @@ describe("createCaptureServiceHandlers", () => {
             {
               index: 1,
               browserProfile: { browserURL: "http://browser2:9222" },
-              status: "disconnected",
+              health: "disconnected",
               processedCount: 0,
               errorCount: 0,
               errorHistory: [],
@@ -608,7 +608,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 0,
             browser_options: { browser_url: "http://browser1:9222" },
-            status: WorkerStatus.WORKER_STATUS_DISCONNECTED,
+            health: WorkerHealth.WORKER_HEALTH_DISCONNECTED,
             processed_count: 0,
             error_count: 0,
             error_history: [],
@@ -616,7 +616,7 @@ describe("createCaptureServiceHandlers", () => {
           {
             index: 1,
             browser_options: { browser_url: "http://browser2:9222" },
-            status: WorkerStatus.WORKER_STATUS_DISCONNECTED,
+            health: WorkerHealth.WORKER_HEALTH_DISCONNECTED,
             processed_count: 0,
             error_count: 0,
             error_history: [],
