@@ -3,18 +3,18 @@
  *
  * fromCallback actor logic for the worker processing loop.
  * Invoked by the worker status machine when in operational state.
- * Polls the task queue, processes tasks via the Worker instance,
+ * Polls the task queue, processes tasks via the BrowserClient instance,
  * and sends events back to the parent machine.
  */
 import { fromCallback } from "xstate";
-import type { Worker } from "./worker.js";
+import type { BrowserClient } from "./browser-client.js";
 import type { TaskQueue } from "./task-queue.js";
 import type { CaptureTask, CaptureResult } from "./types.js";
 import { isSuccessStatus } from "./capture-status.js";
 import { errorDetailsFromException } from "./error-details.js";
 
 export interface WorkerRuntime {
-  worker: Worker;
+  client: BrowserClient;
   taskQueue: TaskQueue;
   pollIntervalMs: number;
 }
@@ -38,7 +38,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
     // Destructuring copies the reference, not the object itself.
     // All worker loops share the single TaskQueue instance created
     // by CaptureCoordinator, so no duplicate task processing occurs.
-    const { worker, taskQueue, pollIntervalMs } = input;
+    const { client, taskQueue, pollIntervalMs } = input;
 
     const loop = async (): Promise<void> => {
       while (running) {
@@ -51,11 +51,11 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
         sendBack({ type: "TASK_STARTED", task });
 
         try {
-          const result = await worker.process(task);
+          const result = await client.process(task);
 
           if (isSuccessStatus(result.status)) {
             taskQueue.markComplete(task.taskId);
-            worker.logger.info(
+            client.logger.info(
               {
                 taskLabels: task.labels,
                 taskId: task.taskId,
@@ -87,7 +87,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
               errorDetails,
               captureProcessingTimeMs: 0,
               timestamp: new Date().toISOString(),
-              workerIndex: worker.index,
+              workerIndex: client.index,
             },
           });
         }

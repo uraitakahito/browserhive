@@ -3,7 +3,7 @@
  */
 
 import type { BrowserProfile } from "../config/index.js";
-import type { WorkerStatus } from "./worker-status.js";
+import type { WorkerHealth } from "./capture-worker.js";
 import type { CaptureOptions } from "./capture-mode.js";
 import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
@@ -61,7 +61,7 @@ export interface ErrorRecord extends ErrorDetails {
 export interface WorkerInfo {
   index: number;
   browserProfile: BrowserProfile;
-  status: WorkerStatus;
+  health: WorkerHealth;
   processedCount: number;
   errorCount: number;
   /** Error history (up to 10 most recent errors, newest first) */

@@ -39,14 +39,14 @@ export {
   errorDetailsFromException,
 } from "./error-details.js";
 
-// Worker Status (XState machine with compound states and context)
-export type { WorkerStatus } from "./worker-status.js";
-export type { WorkerMachineContext, WorkerMachineInput, WorkerMachineSnapshot } from "./worker-status.js";
+// Capture Worker (XState machine with compound states and context)
+export type { WorkerHealth } from "./capture-worker.js";
+export type { CaptureWorkerContext, CaptureWorkerInput, CaptureWorkerSnapshot } from "./capture-worker.js";
 export {
-  ALL_WORKER_STATUSES,
-  workerStatusMachine,
-  toFlatWorkerStatus,
-} from "./worker-status.js";
+  ALL_WORKER_HEALTH_VALUES,
+  captureWorkerMachine,
+  toWorkerHealth,
+} from "./capture-worker.js";
 
 // Worker Loop (fromCallback actor for task processing)
 export type { WorkerRuntime, WorkerLoopEvent } from "./worker-loop.js";
@@ -63,7 +63,7 @@ export {
 export type { WorkerInitFailure } from "./coordinator-errors.js";
 
 // Classes
-export { Worker } from "./worker.js";
+export { BrowserClient } from "./browser-client.js";
 export { CaptureCoordinator } from "./capture-coordinator.js";
 export type { CoordinatorStatusReport } from "./capture-coordinator.js";
 export { TaskQueue } from "./task-queue.js";

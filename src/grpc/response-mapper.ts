@@ -4,7 +4,7 @@
  * Converts domain types to Proto types for gRPC responses.
  */
 import {
-  WorkerStatus as ProtoWorkerStatus,
+  WorkerHealth as ProtoWorkerHealth,
   ErrorType as ProtoErrorType,
   type CaptureOptions as ProtoCaptureOptions,
   type ErrorRecord as ProtoErrorRecord,
@@ -12,7 +12,7 @@ import {
   type StatusResponse,
 } from "./generated/browserhive/v1/capture.js";
 import type {
-  WorkerStatus,
+  WorkerHealth,
   ErrorType,
   CaptureOptions,
   ErrorRecord,
@@ -20,11 +20,11 @@ import type {
 } from "../capture/index.js";
 import type { CoordinatorStatusReport } from "../capture/capture-coordinator.js";
 
-const WORKER_STATUS_PROTO_MAP: Record<WorkerStatus, ProtoWorkerStatus> = {
-  ready: ProtoWorkerStatus.WORKER_STATUS_READY,
-  busy: ProtoWorkerStatus.WORKER_STATUS_BUSY,
-  error: ProtoWorkerStatus.WORKER_STATUS_ERROR,
-  disconnected: ProtoWorkerStatus.WORKER_STATUS_DISCONNECTED,
+const WORKER_HEALTH_PROTO_MAP: Record<WorkerHealth, ProtoWorkerHealth> = {
+  ready: ProtoWorkerHealth.WORKER_HEALTH_READY,
+  busy: ProtoWorkerHealth.WORKER_HEALTH_BUSY,
+  error: ProtoWorkerHealth.WORKER_HEALTH_ERROR,
+  disconnected: ProtoWorkerHealth.WORKER_HEALTH_DISCONNECTED,
 };
 
 const ERROR_TYPE_PROTO_MAP: Record<ErrorType, ProtoErrorType> = {
@@ -34,8 +34,8 @@ const ERROR_TYPE_PROTO_MAP: Record<ErrorType, ProtoErrorType> = {
   internal: ProtoErrorType.ERROR_TYPE_INTERNAL,
 };
 
-export const workerStatusToProto = (status: WorkerStatus): ProtoWorkerStatus => {
-  return WORKER_STATUS_PROTO_MAP[status];
+export const workerHealthToProto = (health: WorkerHealth): ProtoWorkerHealth => {
+  return WORKER_HEALTH_PROTO_MAP[health];
 };
 
 export const errorTypeToProto = (type: ErrorType): ProtoErrorType => {
@@ -80,7 +80,7 @@ export const workerInfoToProto = (worker: WorkerInfo): ProtoWorkerInfo => {
     browser_options: {
       browser_url: worker.browserProfile.browserURL,
     },
-    status: workerStatusToProto(worker.status),
+    health: workerHealthToProto(worker.health),
     processed_count: worker.processedCount,
     error_count: worker.errorCount,
     error_history: worker.errorHistory.map(errorRecordToProto),

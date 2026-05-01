@@ -22,7 +22,7 @@ vi.mock("../../src/capture/page-capturer.js", () => ({
 }));
 
 // Import after mocking
-import { Worker } from "../../src/capture/worker.js";
+import { BrowserClient } from "../../src/capture/browser-client.js";
 import connectBrowser from "../../src/browser.js";
 
 const createBrowserProfile = (browserURL = "http://chromium:9222"): BrowserProfile => ({
@@ -39,8 +39,8 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   ...overrides,
 });
 
-describe("Worker", () => {
-  let worker: Worker;
+describe("BrowserClient", () => {
+  let client: BrowserClient;
   let mockBrowser: Partial<Browser>;
 
   beforeEach(() => {
@@ -55,12 +55,12 @@ describe("Worker", () => {
     // Setup connectBrowser mock
     vi.mocked(connectBrowser).mockResolvedValue(mockBrowser as Browser);
 
-    worker = new Worker(0, createBrowserProfile());
+    client = new BrowserClient(0, createBrowserProfile());
   });
 
   describe("connect", () => {
     it("should connect to browser with profile and return ok", async () => {
-      const result = await worker.connect();
+      const result = await client.connect();
 
       expect(connectBrowser).toHaveBeenCalledWith(
         expect.objectContaining({ browserURL: "http://chromium:9222" })
@@ -69,17 +69,17 @@ describe("Worker", () => {
     });
 
     it("should be connected after successful connection", async () => {
-      await worker.connect();
+      await client.connect();
 
-      expect(worker.isConnected).toBe(true);
+      expect(client.isConnected).toBe(true);
     });
 
     it("should return err with connection ErrorDetails on failure", async () => {
       vi.mocked(connectBrowser).mockRejectedValue(new Error("Connection failed"));
 
-      const result = await worker.connect();
+      const result = await client.connect();
 
-      expect(worker.isConnected).toBe(false);
+      expect(client.isConnected).toBe(false);
       expect(result.ok).toBe(false);
       if (result.ok) throw new Error("unreachable");
       expect(result.error).toEqual({
@@ -91,28 +91,28 @@ describe("Worker", () => {
 
   describe("disconnect", () => {
     it("should disconnect browser and return ok", async () => {
-      await worker.connect();
-      const result = await worker.disconnect();
+      await client.connect();
+      const result = await client.disconnect();
 
       expect(mockBrowser.disconnect).toHaveBeenCalled();
-      expect(worker.isConnected).toBe(false);
+      expect(client.isConnected).toBe(false);
       expect(result).toEqual({ ok: true, value: undefined });
     });
 
     it("should return ok when not connected", async () => {
-      const result = await worker.disconnect();
+      const result = await client.disconnect();
 
-      expect(worker.isConnected).toBe(false);
+      expect(client.isConnected).toBe(false);
       expect(result).toEqual({ ok: true, value: undefined });
     });
 
     it("should release the browser reference and return err on disconnect failure", async () => {
       mockBrowser.disconnect = vi.fn().mockRejectedValue(new Error("Disconnect error"));
-      await worker.connect();
+      await client.connect();
 
-      const result = await worker.disconnect();
+      const result = await client.disconnect();
 
-      expect(worker.isConnected).toBe(false);
+      expect(client.isConnected).toBe(false);
       expect(result.ok).toBe(false);
       if (result.ok) throw new Error("unreachable");
       expect(result.error).toEqual({
@@ -126,11 +126,11 @@ describe("Worker", () => {
     it("should throw when browser is not connected", async () => {
       const task = createTask();
 
-      await expect(worker.process(task)).rejects.toThrow("has no browser connection");
+      await expect(client.process(task)).rejects.toThrow("has no browser connection");
     });
 
     it("should process task successfully", async () => {
-      await worker.connect();
+      await client.connect();
       const task = createTask();
       const expectedResult: CaptureResult = {
         task,
@@ -143,7 +143,7 @@ describe("Worker", () => {
       };
       mockCapture.mockResolvedValue(expectedResult);
 
-      const result = await worker.process(task);
+      const result = await client.process(task);
 
       expect(result.status).toBe(captureStatus.success);
       expect(mockCapture).toHaveBeenCalledWith(
@@ -154,15 +154,15 @@ describe("Worker", () => {
     });
 
     it("should propagate capture exceptions", async () => {
-      await worker.connect();
+      await client.connect();
       const task = createTask();
       mockCapture.mockRejectedValue(new Error("Unexpected error"));
 
-      await expect(worker.process(task)).rejects.toThrow("Unexpected error");
+      await expect(client.process(task)).rejects.toThrow("Unexpected error");
     });
 
     it("should return capture result including error details", async () => {
-      await worker.connect();
+      await client.connect();
       const task = createTask();
       const failedResult: CaptureResult = {
         task,
@@ -177,7 +177,7 @@ describe("Worker", () => {
       };
       mockCapture.mockResolvedValue(failedResult);
 
-      const result = await worker.process(task);
+      const result = await client.process(task);
 
       expect(result.status).toBe(captureStatus.failed);
       expect(result.errorDetails?.message).toBe("Capture failed");
@@ -186,29 +186,29 @@ describe("Worker", () => {
 
   describe("isConnected", () => {
     it("should return false when not connected", () => {
-      expect(worker.isConnected).toBe(false);
+      expect(client.isConnected).toBe(false);
     });
 
     it("should return true when connected", async () => {
-      await worker.connect();
-      expect(worker.isConnected).toBe(true);
+      await client.connect();
+      expect(client.isConnected).toBe(true);
     });
 
     it("should return false after disconnect", async () => {
-      await worker.connect();
-      await worker.disconnect();
-      expect(worker.isConnected).toBe(false);
+      await client.connect();
+      await client.disconnect();
+      expect(client.isConnected).toBe(false);
     });
   });
 
   describe("properties", () => {
     it("should expose index", () => {
-      const w = new Worker(3, createBrowserProfile());
+      const w = new BrowserClient(3, createBrowserProfile());
       expect(w.index).toBe(3);
     });
 
     it("should expose logger", () => {
-      expect(worker.logger).toBeDefined();
+      expect(client.logger).toBeDefined();
     });
   });
 });

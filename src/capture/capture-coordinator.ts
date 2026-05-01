@@ -16,9 +16,9 @@ import {
 } from "./coordinator-machine.js";
 import type { WorkerInitFailure } from "./coordinator-errors.js";
 import {
-  toFlatWorkerStatus,
-  type WorkerMachineContext,
-} from "./worker-status.js";
+  toWorkerHealth,
+  type CaptureWorkerContext,
+} from "./capture-worker.js";
 
 /** Argument type accepted by `snapshot.matches()` for the coordinator machine. */
 type LifecycleMatchesArg = Parameters<SnapshotFrom<typeof coordinatorMachine>["matches"]>[0];
@@ -130,11 +130,11 @@ export class CaptureCoordinator {
 
   private workerEntryToInfo(entry: WorkerEntry): WorkerInfo {
     const snapshot = entry.ref.getSnapshot();
-    const ctx: WorkerMachineContext = snapshot.context;
+    const ctx: CaptureWorkerContext = snapshot.context;
     return {
       index: ctx.index,
-      browserProfile: ctx.runtime.worker.profile,
-      status: toFlatWorkerStatus(snapshot),
+      browserProfile: ctx.runtime.client.profile,
+      health: toWorkerHealth(snapshot),
       processedCount: ctx.processedCount,
       errorCount: ctx.errorCount,
       errorHistory: [...ctx.errorHistory],

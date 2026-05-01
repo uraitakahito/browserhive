@@ -16,13 +16,13 @@ service CaptureService {
 // Empty message for GetStatus RPC
 message Empty {}
 
-// Worker status enum
-enum WorkerStatus {
-  WORKER_STATUS_UNSPECIFIED = 0;
-  WORKER_STATUS_READY = 1;
-  WORKER_STATUS_BUSY = 2;
-  WORKER_STATUS_ERROR = 3;
-  WORKER_STATUS_DISCONNECTED = 4;
+// Worker health enum
+enum WorkerHealth {
+  WORKER_HEALTH_UNSPECIFIED = 0;
+  WORKER_HEALTH_READY = 1;
+  WORKER_HEALTH_BUSY = 2;
+  WORKER_HEALTH_ERROR = 3;
+  WORKER_HEALTH_DISCONNECTED = 4;
 }
 
 // Error type enum
@@ -91,8 +91,8 @@ message WorkerInfo {
   // Browser connection options
   BrowserOptions browser_options = 2;
 
-  // Current status
-  WorkerStatus status = 3;
+  // Current health
+  WorkerHealth health = 3;
 
   // Number of tasks processed
   int32 processed_count = 4;

@@ -120,7 +120,7 @@ export default defineConfig(
   // Mock-specific rules (only files using vi.mock with snake_case gRPC types)
   //
   {
-    files: ['test/capture/worker.test.ts', 'test/grpc/handlers.test.ts'],
+    files: ['test/capture/browser-client.test.ts', 'test/grpc/handlers.test.ts'],
     rules: {
       // Relax naming convention for mock objects (gRPC types use snake_case)
       '@typescript-eslint/naming-convention': 'off',
@@ -130,12 +130,12 @@ export default defineConfig(
   },
 
   //
-  // Worker status machine tests (mock Worker objects with vi.mocked)
+  // Capture worker machine tests (mock BrowserClient objects with vi.mocked)
   //
   {
-    files: ['test/capture/worker-status.test.ts'],
+    files: ['test/capture/capture-worker.test.ts'],
     rules: {
-      // Allow unbound method references for mock objects (vi.mocked(worker.connect))
+      // Allow unbound method references for mock objects (vi.mocked(client.connect))
       '@typescript-eslint/unbound-method': 'off',
     },
   },
@@ -144,7 +144,7 @@ export default defineConfig(
   // Naming convention rules
   //
   {
-    ignores: ['test/capture/worker.test.ts', 'test/grpc/handlers.test.ts'],
+    ignores: ['test/capture/browser-client.test.ts', 'test/grpc/handlers.test.ts'],
     rules: {
       // Naming convention (TypeScript Handbook + JavaScript conventions + ESLint recommendations)
       // Reference: https://typescript-eslint.io/rules/naming-convention/

@@ -30,7 +30,7 @@ const fakeEntry = (initialValue: string) => {
         };
       },
     },
-    worker: {} as never,
+    client: {} as never,
     index: 0,
   } as unknown as WorkerEntry;
 
@@ -243,7 +243,7 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
       },
       send,
     },
-    worker: {
+    client: {
       profile: { browserURL },
     },
     index: 0,
@@ -429,7 +429,7 @@ const fakeRetryEntry = (browserURL: string, initialValue: unknown = "error") => 
       getSnapshot: () => ({ value }),
       send,
     },
-    worker: {
+    client: {
       profile: { browserURL },
     },
     index: 0,

@@ -41,13 +41,13 @@ import {
   type InitializeWorkersOutput,
 } from "./coordinator-actors.js";
 import { TaskQueue } from "./task-queue.js";
-import { Worker } from "./worker.js";
-import { workerStatusMachine } from "./worker-status.js";
+import { BrowserClient } from "./browser-client.js";
+import { captureWorkerMachine } from "./capture-worker.js";
 
-/** Reference to a spawned worker actor with its associated Worker instance */
+/** Reference to a spawned capture worker actor with its associated BrowserClient instance */
 export interface WorkerEntry {
-  ref: ActorRefFrom<typeof workerStatusMachine>;
-  worker: Worker;
+  ref: ActorRefFrom<typeof captureWorkerMachine>;
+  client: BrowserClient;
   index: number;
 }
 
@@ -74,7 +74,7 @@ export const coordinatorMachine = setup({
       | { type: "ALL_WORKERS_HEALTHY" },
   },
   actors: {
-    workerStatus: workerStatusMachine,
+    captureWorker: captureWorkerMachine,
     initializeWorkers,
     watchWorkerHealth,
     retryFailedWorkers,
@@ -96,20 +96,20 @@ export const coordinatorMachine = setup({
       entry: assign({
         workers: ({ context, spawn }) =>
           context.config.browserProfiles.map((profile, index) => {
-            const worker = new Worker(index, profile);
-            const ref = spawn("workerStatus", {
+            const client = new BrowserClient(index, profile);
+            const ref = spawn("captureWorker", {
               id: `worker-${String(index)}`,
               input: {
                 index,
                 maxRetryCount: context.config.maxRetryCount,
                 runtime: {
-                  worker,
+                  client,
                   taskQueue: context.taskQueue,
                   pollIntervalMs: context.config.queuePollIntervalMs,
                 },
               },
             });
-            return { ref, worker, index };
+            return { ref, client, index };
           }),
       }),
       invoke: {
