@@ -27,6 +27,7 @@
 # 2. Re-include package management files
 !package.json
 !package-lock.json
+!.npmrc
 !.puppeteerrc.json
 
 # 3. Re-include build configuration files
