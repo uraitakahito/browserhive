@@ -251,12 +251,6 @@ LOG_LEVEL=info npm run server -- \
   | pino-pretty
 ```
 
-**Using tsx (skip the build step):**
-
-```sh
-LOG_LEVEL=info npx tsx bin/server.ts | pino-pretty
-```
-
 #### Environment variables
 
 Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **CLI flag > env var > default**.
@@ -294,8 +288,11 @@ The client sends requests and receives acceptance confirmations. Actual captures
 
 **Usage:**
 
+Build first (the example is shipped only as TypeScript source):
+
 ```sh
-npx tsx examples/csv-client.ts --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
+npm run build
+node dist/examples/csv-client.js --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
 ```
 
 ## Proto file
@@ -325,5 +322,5 @@ LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --b
 Start the client as follows:
 
 ```sh
-npx tsx examples/csv-client.ts --csv data/urls.csv --jpeg --html --tls-ca-cert ./certs/sample-ca.crt --limit 50 | pino-pretty
+node dist/examples/csv-client.js --csv data/urls.csv --jpeg --html --tls-ca-cert ./certs/sample-ca.crt --limit 50 | pino-pretty
 ```

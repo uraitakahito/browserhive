@@ -5,50 +5,38 @@
   "version": "0.2.0",
   "configurations": [
     {
-      // tsx - esbuild-based TypeScript runtime
-      // Compatible with Node.js debugger,
-      // Step debugging is possible as source maps are auto-generated
-      "name": "Debug csv-client example (tsx)",
+      // Node.js - Debug compiled JavaScript
+      // Compiles TypeScript via the `npm: build` preLaunchTask, then runs
+      // the generated JS under dist/. Step debugging in TS source is enabled
+      // via source maps.
+      "name": "Debug csv-client example",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
-      "program": "${workspaceFolder}/examples/csv-client.ts",
+      "program": "${workspaceFolder}/dist/examples/csv-client.js",
       "args": ["--csv", "data/urls.csv", "--limit", "10"],
-      // break immediately when the program launches
       "stopOnEntry": true,
       "cwd": "${workspaceFolder}",
+      "preLaunchTask": "npm: build",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "console": "integratedTerminal"
     },
     {
-      // tsx - esbuild-based TypeScript runtime
-      // Compatible with Node.js debugger,
-      // Step debugging is possible as source maps are auto-generated
-      "name": "Debug server (tsx)",
+      // Node.js - Debug compiled JavaScript
+      // Compiles TypeScript via the `npm: build` preLaunchTask, then runs
+      // the generated JS under dist/. Step debugging in TS source is enabled
+      // via source maps.
+      "name": "Debug server",
       "type": "node",
       "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
-      "program": "${workspaceFolder}/bin/server.ts",
+      "program": "${workspaceFolder}/dist/bin/server.js",
       "args": ["--browser-url", "http://chromium-server-1:9222"],
-      // break immediately when the program launches
       "stopOnEntry": true,
       "cwd": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
-      "console": "integratedTerminal"
-    },
-    {
-      // tsx - esbuild-based TypeScript runtime
-      // Compatible with Node.js debugger,
-      // Step debugging is possible as source maps are auto-generated
-      "name": "Run selected TS file (tsx)",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
-      // program - an absolute path to the Node.js program to debug.
-      "program": "${file}",
-      // break immediately when the program launches
-      "stopOnEntry": true,
-      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "npm: build",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "console": "integratedTerminal"
     },
