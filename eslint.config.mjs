@@ -9,7 +9,7 @@ export default defineConfig(
   // Global ignores
   //
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'src/http/generated/**', '.Trash-*/**'],
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'src/http/generated/**', 'scripts/**', '.Trash-*/**'],
   },
 
   //
