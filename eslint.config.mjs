@@ -46,8 +46,9 @@ export default defineConfig(
     },
     rules: {
       // Require file extensions for ES modules
-      // In TypeScript, .ts files are imported with .js extension
-      // .js extension is required to enable execution in both tsx and Node.js
+      // In TypeScript ESM, .ts files are imported with the .js extension —
+      // this is what Node.js (the runtime we ship) resolves against the
+      // generated dist/*.js output.
       'import-x/extensions': [
         'error',
         'always',

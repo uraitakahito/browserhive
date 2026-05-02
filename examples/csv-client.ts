@@ -1,4 +1,3 @@
-#!/usr/bin/env npx tsx
 /**
  * Sample client that sends capture requests from a CSV file.
  */

@@ -1,4 +1,3 @@
-#!/usr/bin/env npx tsx
 /**
  * Server CLI Entry Point
  */
