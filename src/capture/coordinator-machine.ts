@@ -83,7 +83,7 @@ export const coordinatorMachine = setup({
 }).createMachine({
   id: "coordinatorLifecycle",
   initial: "created",
-  context: ({ input }) => ({
+  context: ({ input }): CoordinatorMachineContext => ({
     config: input.config,
     taskQueue: new TaskQueue(),
     workers: [],
@@ -94,7 +94,7 @@ export const coordinatorMachine = setup({
     },
     initializing: {
       entry: assign({
-        workers: ({ context, spawn }) =>
+        workers: ({ context, spawn }): WorkerEntry[] =>
           context.config.browserProfiles.map((profile, index) => {
             const client = new BrowserClient(index, profile);
             const ref = spawn("captureWorker", {
@@ -114,7 +114,7 @@ export const coordinatorMachine = setup({
       }),
       invoke: {
         src: "initializeWorkers",
-        input: ({ context }) => ({ workers: context.workers }),
+        input: ({ context }): { workers: WorkerEntry[] } => ({ workers: context.workers }),
         onDone: [
           {
             guard: ({ event }) => event.output.allHealthy,
@@ -186,7 +186,7 @@ export const coordinatorMachine = setup({
     shuttingDown: {
       invoke: {
         src: "shutdownWorkers",
-        input: ({ context }) => ({ workers: context.workers }),
+        input: ({ context }): { workers: WorkerEntry[] } => ({ workers: context.workers }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
