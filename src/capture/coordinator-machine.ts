@@ -94,7 +94,7 @@ export const coordinatorMachine = setup({
     },
     initializing: {
       entry: assign({
-        workers: ({ context, spawn }) =>
+        workers: ({ context, spawn }): WorkerEntry[] =>
           context.config.browserProfiles.map((profile, index) => {
             const client = new BrowserClient(index, profile);
             const ref = spawn("captureWorker", {

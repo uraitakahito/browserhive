@@ -139,7 +139,7 @@ export const captureWorkerMachine = setup({
     recordTaskFailure: assign({
       processedCount: ({ context }) => context.processedCount + 1,
       errorCount: ({ context }) => context.errorCount + 1,
-      errorHistory: ({ context, event }) => {
+      errorHistory: ({ context, event }): ErrorRecord[] => {
         if (event.type !== "TASK_FAILED") return context.errorHistory;
         const errorDetails = event.result.errorDetails ?? createInternalError("Unknown error");
         return addErrorToHistory(context.errorHistory, errorDetails, event.task);
@@ -147,7 +147,7 @@ export const captureWorkerMachine = setup({
     }),
     recordConnectionError: assign({
       errorCount: ({ context }) => context.errorCount + 1,
-      errorHistory: ({ context, event }) => {
+      errorHistory: ({ context, event }): ErrorRecord[] => {
         if (event.type !== "CONNECTION_LOST") return context.errorHistory;
         return addErrorToHistory(
           context.errorHistory,
@@ -182,7 +182,7 @@ export const captureWorkerMachine = setup({
             target: "error",
             actions: assign({
               errorCount: ({ context }) => context.errorCount + 1,
-              errorHistory: ({ context, event }) =>
+              errorHistory: ({ context, event }): ErrorRecord[] =>
                 event.output.ok
                   ? context.errorHistory
                   : addErrorToHistory(context.errorHistory, event.output.error),
