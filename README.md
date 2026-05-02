@@ -6,6 +6,7 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
 - **Multiple output formats**: PNG, JPEG screenshots and HTML capture
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
+- **Banner / modal dismissal**: Optional per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing — best-effort, never fails the capture
 
 ## Architecture
 

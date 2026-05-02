@@ -7,6 +7,7 @@ import type { WorkerHealth } from "./capture-worker.js";
 import type { CaptureOptions } from "./capture-mode.js";
 import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
+import type { DismissReport } from "./banner-dismisser.js";
 
 /** Capture task representing a single URL to capture */
 export interface CaptureTask {
@@ -19,6 +20,8 @@ export interface CaptureTask {
   url: string;
   retryCount: number;
   captureOptions: CaptureOptions;
+  /** Whether to run banner / modal dismissal before capturing */
+  dismissBanners: boolean;
 }
 
 export interface ErrorDetails {
@@ -43,6 +46,8 @@ export interface CaptureResult {
   captureProcessingTimeMs: number;
   timestamp: string;
   workerIndex: number;
+  /** Banner dismissal report (only set when `task.dismissBanners` is true) */
+  dismissReport?: DismissReport;
 }
 
 export interface ErrorTaskInfo {

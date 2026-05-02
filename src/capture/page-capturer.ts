@@ -16,6 +16,10 @@ import {
 } from "./error-details.js";
 import { errorType } from "./error-type.js";
 import { err, ok, type Result } from "../result.js";
+import {
+  dismissBanners,
+  type DismissReport,
+} from "./banner-dismisser.js";
 
 /**
  * CSS to hide scrollbars in Chromium
@@ -242,6 +246,11 @@ export class PageCapturer {
 
       await hideScrollbars(page);
 
+      let dismissReport: DismissReport | undefined;
+      if (task.dismissBanners) {
+        dismissReport = await dismissBanners(page);
+      }
+
       let pngPath: string | undefined;
       let jpegPath: string | undefined;
       let htmlPath: string | undefined;
@@ -270,6 +279,7 @@ export class PageCapturer {
         ...(pngPath !== undefined && { pngPath }),
         ...(jpegPath !== undefined && { jpegPath }),
         ...(htmlPath !== undefined && { htmlPath }),
+        ...(dismissReport !== undefined && { dismissReport }),
       };
     } catch (error) {
       const captureProcessingTimeMs = Date.now() - startTime;

@@ -41,7 +41,8 @@ grpcurl -plaintext -d '{
     "png": true,
     "jpeg": false,
     "html": true
-  }
+  },
+  "dismiss_banners": true
 }' localhost:50051 browserhive.v1.CaptureService/SubmitCapture
 ```
 
@@ -56,6 +57,7 @@ grpcurl -plaintext -d '{
 | `capture_options.png` | bool | - | Capture PNG screenshot |
 | `capture_options.jpeg` | bool | - | Capture JPEG screenshot |
 | `capture_options.html` | bool | - | Capture HTML |
+| `dismiss_banners` | bool | No | Strip cookie-consent banners and large fixed/sticky overlays before capturing. Best-effort: dismissal failures do not fail the capture. The dismissal report (framework + selectors removed) appears in the server log line for the completed task. Default: `false` |
 
 > **Note**: `capture_options` is required. At least one of `png`, `jpeg`, or `html` must be set to `true`. Omitting it or setting all to `false` will result in an error.
 
@@ -88,6 +90,39 @@ Generated filenames follow this format:
 | `task_id` | string | Server-generated task ID (UUID, for log tracking) |
 | `correlation_id` | string | Correlation ID specified in the request |
 | `error` | string | Error message when `accepted=false` |
+
+#### Example: Dismissing a Cookie Consent Dialog
+
+The Guardian (theguardian.com) uses Sourcepoint as its consent-management platform; by default the consent dialog covers the entire viewport. Setting `dismiss_banners: true` removes the banner — and any large fixed/sticky overlay caught by the heuristic fallback — before the screenshot is taken.
+
+```bash
+grpcurl -plaintext -d '{
+  "url": "https://www.theguardian.com",
+  "labels": ["guardian"],
+  "capture_options": { "png": true },
+  "dismiss_banners": true
+}' localhost:50051 browserhive.v1.CaptureService/SubmitCapture
+```
+
+When the task completes, the server log line includes a `dismissReport`:
+
+```json
+{
+  "msg": "Task completed",
+  "url": "https://www.theguardian.com",
+  "dismissReport": {
+    "framework": "Sourcepoint",
+    "removedSelectors": ["[id^=\"sp_message_container\"]"],
+    "removedOverlayCount": 1
+  }
+}
+```
+
+- `framework` — matched CMP name, or `"heuristic"` when only the fallback fired, or `null` when nothing matched.
+- `removedSelectors` — exact CSS selectors whose elements were removed in the CMP-selector pass.
+- `removedOverlayCount` — number of elements removed by the heuristic pass (fixed/sticky elements with high `z-index` that cover ≥30% of the viewport, excluding semantic landmarks).
+
+Dismissal is best-effort: a thrown error inside the page is caught and an empty report is returned, so a malformed page cannot fail the capture.
 
 ### GetStatus RPC
 

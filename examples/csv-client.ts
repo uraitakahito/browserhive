@@ -75,7 +75,8 @@ const parseCsv = (content: string): CsvRecord[] => {
 const submitRequest = async (
   submitter: CaptureSubmitter,
   record: CsvRecord,
-  captureOptions: CaptureOptions
+  captureOptions: CaptureOptions,
+  dismissBanners: boolean
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
 
@@ -84,6 +85,7 @@ const submitRequest = async (
     labels: record.labels,
     correlation_id: correlationId,
     capture_options: captureOptionsToProto(captureOptions),
+    dismiss_banners: dismissBanners,
   };
 
   try {
@@ -110,13 +112,14 @@ const submitRequest = async (
 const submitAll = async (
   submitter: CaptureSubmitter,
   records: CsvRecord[],
-  captureOptions: CaptureOptions
+  captureOptions: CaptureOptions,
+  dismissBanners: boolean
 ): Promise<SubmitResult[]> => {
   const total = records.length;
   let completed = 0;
 
   const promises = records.map(async (record) => {
-    const result = await submitRequest(submitter, record, captureOptions);
+    const result = await submitRequest(submitter, record, captureOptions, dismissBanners);
     completed++;
 
     if (result.accepted) {
@@ -191,7 +194,8 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     const results = await submitAll(
       submitter,
       records,
-      captureOptions
+      captureOptions,
+      options.dismissBanners ?? false
     );
 
     const totalDuration = Date.now() - startTime;

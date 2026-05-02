@@ -64,6 +64,22 @@ export {
 // Coordinator failure types
 export type { WorkerInitFailure } from "./coordinator-errors.js";
 
+// Banner / modal dismissal
+export type {
+  CmpEntry,
+  DismissOptions,
+  DismissReport,
+  HeuristicThresholds,
+} from "./banner-dismisser.js";
+export {
+  DEFAULT_DISMISS_OPTIONS,
+  DEFAULT_HEURISTIC_THRESHOLDS,
+  EMPTY_DISMISS_REPORT,
+  KNOWN_CMP_ENTRIES,
+  dismissBanners,
+  runDismissalInDocument,
+} from "./banner-dismisser.js";
+
 // Classes
 export { BrowserClient } from "./browser-client.js";
 export { CaptureCoordinator } from "./capture-coordinator.js";

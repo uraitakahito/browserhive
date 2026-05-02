@@ -6,6 +6,7 @@ const createRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest 
   url: "https://example.com",
   labels: ["Test"],
   capture_options: { png: true, jpeg: false, html: true },
+  dismiss_banners: false,
   ...overrides,
 });
 
@@ -104,6 +105,26 @@ describe("captureRequestToTask", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value.labels).toEqual(["cat", "subcat", "tag"]);
+      }
+    });
+
+    it("should default dismissBanners to false when proto field is false", () => {
+      const request = createRequest({ dismiss_banners: false });
+      const result = captureRequestToTask(request);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.dismissBanners).toBe(false);
+      }
+    });
+
+    it("should propagate dismissBanners=true through to the task", () => {
+      const request = createRequest({ dismiss_banners: true });
+      const result = captureRequestToTask(request);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.dismissBanners).toBe(true);
       }
     });
   });
