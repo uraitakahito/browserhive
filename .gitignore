@@ -6,8 +6,8 @@ docker-entrypoint.sh
 .env
 chromium-server-docker/
 
-# Generated proto files
-src/grpc/generated/
+# Generated OpenAPI types
+src/http/generated/
 
 # VSCode settings
 .vscode/extensions.json

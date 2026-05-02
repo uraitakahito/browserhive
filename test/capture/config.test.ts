@@ -37,7 +37,7 @@ describe("DEFAULT_COORDINATOR_CONFIG", () => {
 
 describe("DEFAULT_BROWSERHIVE_CONFIG", () => {
   it("should have correct default port", () => {
-    expect(DEFAULT_BROWSERHIVE_CONFIG.port).toBe(50051);
+    expect(DEFAULT_BROWSERHIVE_CONFIG.port).toBe(8080);
   });
 
   it("should contain DEFAULT_COORDINATOR_CONFIG", () => {
@@ -141,7 +141,7 @@ describe("createTestCoordinatorConfig", () => {
 describe("createTestBrowserHiveConfig", () => {
   it("should return default config when no overrides", () => {
     const config = createTestBrowserHiveConfig();
-    expect(config.port).toBe(50051);
+    expect(config.port).toBe(8080);
   });
 
   it("should override port", () => {

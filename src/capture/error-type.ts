@@ -2,7 +2,7 @@
  * Error Type
  *
  * Unified error type definitions.
- * Proto mappings are handled by grpc/response-mapper.ts.
+ * Wire mappings are handled by http/response-mapper.ts.
  */
 export const ERROR_TYPE_DEFINITIONS = {
   http: {},

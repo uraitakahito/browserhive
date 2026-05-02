@@ -17,7 +17,7 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - run: npm run proto:generate
+      - run: npm run openapi:generate
       - uses: reviewdog/action-eslint@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

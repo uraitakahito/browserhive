@@ -1,7 +1,7 @@
 /**
  * Server CLI
  *
- * CLI logic for the gRPC capture server.
+ * CLI logic for the HTTP capture server.
  *
  * Every option falls back to a `BROWSERHIVE_*` environment variable when the
  * CLI flag is not given. CLI > env > default. The variadic `--browser-url`
@@ -9,7 +9,8 @@
  * commander's `Option#env` covers the scalar cases natively.
  */
 import { Command, InvalidArgumentError, Option } from "commander";
-import { BrowserHive } from "../browserhive.js";
+import { CaptureCoordinator } from "../capture/index.js";
+import { HttpServer } from "../http/server.js";
 import type { BrowserHiveConfig, TlsConfig, CaptureConfig } from "../config/index.js";
 import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -136,9 +137,9 @@ export const createProgram = (): Command => {
 
   program
     .name("browserhive")
-    .description("gRPC Capture Server - Accept capture requests via gRPC")
+    .description("HTTP Capture Server - Accept capture requests via HTTP")
     .addOption(
-      new Option("--port <port>", "gRPC server port")
+      new Option("--port <port>", "HTTP server port")
         .env("BROWSERHIVE_PORT")
         .default(defaults.port)
         .argParser(parsePort),
@@ -355,7 +356,11 @@ export interface ServerControl {
 export const startServer = async (
   config: BrowserHiveConfig,
 ): Promise<ServerControl> => {
-  const server = new BrowserHive(config);
+  const coordinator = new CaptureCoordinator(config.coordinator);
+  const server = new HttpServer(coordinator, {
+    port: config.port,
+    ...(config.tls && { tls: config.tls }),
+  });
 
   await server.initialize();
   await server.start();

@@ -44,6 +44,6 @@ export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
 };
 
 export const DEFAULT_BROWSERHIVE_CONFIG: BrowserHiveConfig = {
-  port: 50051,
+  port: 8080,
   coordinator: DEFAULT_COORDINATOR_CONFIG,
 };

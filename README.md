@@ -7,21 +7,22 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 - **Multiple output formats**: PNG, JPEG screenshots and HTML capture
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Optional per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing — best-effort, never fails the capture
+- **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — request/response types, validation, and Swagger UI (served at `/docs`) are all driven from it
 
 ## Architecture
 
 ```mermaid
 flowchart TB
     subgraph Client
-        CLI[CSV Client / grpcurl]
+        CLI[CSV Client / curl / openapi-fetch]
     end
 
     subgraph BrowserHive["BrowserHive"]
         direction TB
-        Server[gRPC Server]
+        Server[HTTP Server<br/>Fastify]
         subgraph Handlers["Handlers"]
-            SubmitCaptureHandler[SubmitCaptureHandler<br/>validate & enqueue]
-            GetStatusHandler[GetStatusHandler<br/>return status]
+            SubmitCaptureHandler[POST /v1/captures<br/>validate & enqueue]
+            GetStatusHandler[GET /v1/status<br/>return status]
         end
         subgraph CaptureCoordinator
             Queue[TaskQueue]
@@ -41,11 +42,11 @@ flowchart TB
 
     Files[(Screenshot / HTML)]
 
-    CLI -->|"1. SubmitCapture RPC"| Server
+    CLI -->|"1. POST /v1/captures"| Server
     Server --> SubmitCaptureHandler
     SubmitCaptureHandler -->|"2. enqueue"| Queue
-    SubmitCaptureHandler -->|"3. CaptureAcceptance"| CLI
-    CLI -.->|"GetStatus RPC"| Server
+    SubmitCaptureHandler -->|"3. 202 CaptureAcceptance"| CLI
+    CLI -.->|"GET /v1/status"| Server
     Server -.-> GetStatusHandler
     GetStatusHandler -.->|"queue & worker status"| CLI
     Queue -->|dequeue| Worker1
@@ -189,7 +190,7 @@ docker compose -f compose.prod.yaml up -d --build
 docker compose -f compose.prod.yaml logs -f browserhive
 
 # verify
-grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
+curl http://localhost:8080/v1/status
 ```
 
 Stop with:
@@ -207,7 +208,7 @@ docker build -f Dockerfile.prod -t browserhive:<version> .
 Standalone run:
 
 ```sh
-docker run --rm -p 50051:50051 -v "$(pwd)/output:/app/output" \
+docker run --rm -p 8080:8080 -v "$(pwd)/output:/app/output" \
   -e BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222 \
   -e BROWSERHIVE_OUTPUT_DIR=/app/output \
   browserhive:<version>
@@ -226,12 +227,12 @@ npm run build
 ```
 
 This command:
-1. Generates TypeScript types from `.proto` files using `buf` and `ts-proto`
+1. Generates TypeScript types from `src/http/openapi.yaml` using `openapi-typescript` (`prebuild` hook)
 2. Compiles TypeScript to JavaScript
 
-### gRPC Server
+### HTTP Server
 
-Start the gRPC server to accept capture requests via Protocol Buffers.
+Start the HTTP server to accept capture requests via JSON over HTTP. Swagger UI is served at `/docs`.
 
 The server uses a **fire-and-forget** pattern: requests are accepted immediately and processed asynchronously by the capture coordinator. Multiple browser URLs can be specified to enable parallel processing.
 
@@ -274,11 +275,11 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `csv-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `localhost:50051`) and `BROWSERHIVE_TLS_CA_CERT`. Per-job flags (`--csv`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`) intentionally have no env equivalents.
+The `csv-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--csv`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`) intentionally have no env equivalents.
 
-#### Calling the gRPC API
+#### Calling the HTTP API
 
-See [docs/grpcurl-usage.md](docs/grpcurl-usage.md) for detailed grpcurl usage examples.
+See [docs/http-api.md](docs/http-api.md) for curl examples and request/response details. Swagger UI is also available at <http://localhost:8080/docs> while the server is running.
 
 ### Example: CSV Client
 
@@ -295,19 +296,15 @@ npm run build
 node dist/examples/csv-client.js --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
 ```
 
-## Proto file
+## OpenAPI specification
 
-The proto file is located at `src/grpc/proto/browserhive/v1/capture.proto`.
+The OpenAPI 3.1 contract is at `src/http/openapi.yaml` and is the **single source of truth** for request/response types and runtime validation.
 
-TypeScript types are automatically generated from this file during build:
-- Generated file: `src/grpc/generated/browserhive/v1/capture.ts`
-- Tools: [buf](https://buf.build/) + [ts-proto](https://github.com/stephenh/ts-proto)
+TypeScript types are auto-generated during build (or `npm run openapi:generate`):
+- Generated file: `src/http/generated/types.ts`
+- Tool: [openapi-typescript](https://github.com/openapi-ts/openapi-typescript)
 
-To regenerate types manually:
-
-```sh
-npm run proto:generate
-```
+The same yaml is also dereferenced at server start and fed to Fastify's Ajv validator (per-route `schema`) and to `@fastify/swagger` for the Swagger UI at `/docs`.
 
 ## TLS (Transport Layer Security)
 
@@ -319,8 +316,13 @@ To start the server using the pre-prepared sample certificates and private keys,
 LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --output ./output/capture --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" | pino-pretty
 ```
 
-Start the client as follows:
+Start the client as follows (use `NODE_EXTRA_CA_CERTS` so that Node's global `fetch` trusts the self-signed CA):
 
 ```sh
-node dist/examples/csv-client.js --csv data/urls.csv --jpeg --html --tls-ca-cert ./certs/sample-ca.crt --limit 50 | pino-pretty
+NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
+  node dist/examples/csv-client.js \
+    --csv data/urls.csv \
+    --server https://localhost:8080 \
+    --jpeg --html --limit 50 \
+  | pino-pretty
 ```

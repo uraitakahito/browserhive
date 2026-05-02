@@ -1,5 +1,5 @@
 services:
-  # BrowserHive gRPC capture server (production image)
+  # BrowserHive HTTP capture server (production image)
   browserhive:
     build:
       context: .
@@ -8,7 +8,7 @@ services:
     container_name: browserhive-prod
     init: true
     ports:
-      - "50051:50051"
+      - "8080:8080"
     volumes:
       - ./output:/app/output
       # Mount TLS material as read-only when enabling --tls-cert / --tls-key
@@ -24,6 +24,12 @@ services:
         condition: service_healthy
       chromium-server-2:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8080/v1/status').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   # Chromium Server 1 (production)

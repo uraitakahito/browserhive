@@ -11,7 +11,7 @@ services:
     container_name: browserhive-container
     init: true
     ports:
-      - "50051:50051"
+      - "8080:8080"
     volumes:
       - .:/app
       - zsh-history:/zsh-volume

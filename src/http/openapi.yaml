@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+  title: BrowserHive Capture API
+  version: 1.0.0
+  description: |
+    Web page capture API. Submits URLs to capture as PNG/JPEG screenshots
+    and/or HTML. Uses fire-and-forget pattern: requests are accepted
+    immediately and processed asynchronously by the capture coordinator.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /v1/captures:
+    post:
+      operationId: submitCapture
+      summary: Submit a capture request
+      description: |
+        Accept a capture request for a single URL. Returns 202 immediately
+        on acceptance; the actual capture is processed asynchronously.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaptureRequest"
+      responses:
+        "202":
+          description: Request accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureAcceptance"
+        "400":
+          description: Validation failure
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: URL already in queue (when rejectDuplicateUrls is enabled)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          description: No operational workers available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/status:
+    get:
+      operationId: getStatus
+      summary: Get capture coordinator status
+      description: Returns the current status of the queue and worker pool.
+      responses:
+        "200":
+          description: Current status of queue and workers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+components:
+  schemas:
+    CaptureOptions:
+      type: object
+      description: Capture format flags. At least one must be true.
+      required: [png, jpeg, html]
+      additionalProperties: false
+      properties:
+        png:
+          type: boolean
+        jpeg:
+          type: boolean
+        html:
+          type: boolean
+    CaptureRequest:
+      type: object
+      required: [url, captureOptions]
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+          minLength: 1
+          description: Target URL to capture
+        labels:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Display labels (used for filename)
+        correlationId:
+          type: string
+          description: Correlation ID provided by the client for tracking
+        captureOptions:
+          $ref: "#/components/schemas/CaptureOptions"
+        dismissBanners:
+          type: boolean
+          default: false
+          description: |
+            Run banner / modal dismissal before capturing. Removes known
+            consent-management-platform overlays and large fixed/sticky
+            overlays via heuristic. Best-effort: dismissal failures do not
+            fail the capture.
+    CaptureAcceptance:
+      type: object
+      required: [accepted, taskId]
+      additionalProperties: false
+      properties:
+        accepted:
+          type: boolean
+          description: Always true on 202 (errors return 4xx/5xx with Problem body)
+        taskId:
+          type: string
+          format: uuid
+          description: Server-generated task ID
+        correlationId:
+          type: string
+          description: Correlation ID echoed from the request, when provided
+    Problem:
+      type: object
+      description: RFC 7807 Problem Details
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+    WorkerHealth:
+      type: string
+      enum: [ready, busy, error, disconnected]
+    ErrorType:
+      type: string
+      enum: [http, timeout, connection, internal]
+    ErrorTaskInfo:
+      type: object
+      required: [taskId, url, labels]
+      additionalProperties: false
+      properties:
+        taskId:
+          type: string
+        url:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+    ErrorRecord:
+      type: object
+      required: [type, message, timestamp]
+      additionalProperties: false
+      properties:
+        type:
+          $ref: "#/components/schemas/ErrorType"
+        message:
+          type: string
+        httpStatusCode:
+          type: integer
+        httpStatusText:
+          type: string
+        timeoutMs:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        task:
+          $ref: "#/components/schemas/ErrorTaskInfo"
+    BrowserOptions:
+      type: object
+      required: [browserUrl]
+      additionalProperties: false
+      properties:
+        browserUrl:
+          type: string
+    WorkerInfo:
+      type: object
+      required:
+        - index
+        - browserOptions
+        - health
+        - processedCount
+        - errorCount
+        - errorHistory
+      additionalProperties: false
+      properties:
+        index:
+          type: integer
+        browserOptions:
+          $ref: "#/components/schemas/BrowserOptions"
+        health:
+          $ref: "#/components/schemas/WorkerHealth"
+        processedCount:
+          type: integer
+        errorCount:
+          type: integer
+        errorHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorRecord"
+    StatusResponse:
+      type: object
+      required:
+        - pending
+        - processing
+        - completed
+        - operationalWorkers
+        - totalWorkers
+        - isRunning
+        - isDegraded
+        - workers
+      additionalProperties: false
+      properties:
+        pending:
+          type: integer
+        processing:
+          type: integer
+        completed:
+          type: integer
+        operationalWorkers:
+          type: integer
+        totalWorkers:
+          type: integer
+        isRunning:
+          type: boolean
+        isDegraded:
+          type: boolean
+        workers:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkerInfo"

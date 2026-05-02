@@ -12,7 +12,7 @@
  * Result still transitions to `disconnected` (best-effort), but logs
  * the underlying ErrorDetails before doing so.
  *
- * Proto mappings are handled by grpc/response-mapper.ts via toWorkerHealth().
+ * Wire mappings are handled by http/response-mapper.ts via toWorkerHealth().
  *
  * Actor logics used (https://stately.ai/docs/actors#actor-logic-capabilities):
  *
@@ -273,7 +273,7 @@ export const captureWorkerMachine = setup({
 export type CaptureWorkerSnapshot = SnapshotFrom<typeof captureWorkerMachine>;
 
 /**
- * Flat worker health summary for external consumers (gRPC, reporting).
+ * Flat worker health summary for external consumers (HTTP, reporting).
  * Maps compound machine state values to a simple availability string.
  */
 export type WorkerHealth = "ready" | "busy" | "error" | "disconnected";

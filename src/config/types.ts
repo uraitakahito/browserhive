@@ -69,7 +69,7 @@ export interface ClientTlsConfig {
 
 /** BrowserHive configuration */
 export interface BrowserHiveConfig {
-  /** gRPC server port */
+  /** HTTP server port */
   port: number;
   /** TLS configuration (insecure if undefined) */
   tls?: TlsConfig;

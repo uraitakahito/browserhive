@@ -126,12 +126,18 @@ openssl x509 -in certs/server.crt -text -noout | grep -A1 "Subject Alternative N
 openssl verify -CAfile certs/ca.crt certs/server.crt
 ```
 
-## Connecting with grpcurl
+## Connecting with curl
 
-To connect to a TLS-enabled server with grpcurl:
+To connect to a TLS-enabled server with curl:
 
 ```bash
-grpcurl -cacert ./certs/ca.crt localhost:50051 browserhive.v1.CaptureService/GetStatus
+curl --cacert ./certs/ca.crt https://localhost:8080/v1/status
+```
+
+For Node-based clients (e.g. `examples/csv-client.ts`), use `NODE_EXTRA_CA_CERTS` so the global `fetch` picks up the additional trust anchor:
+
+```bash
+NODE_EXTRA_CA_CERTS=./certs/ca.crt node dist/examples/csv-client.js --server https://localhost:8080 --csv data/urls.csv --png
 ```
 
 ## Security Notes

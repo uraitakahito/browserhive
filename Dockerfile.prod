@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.7
 #
-# Production image for the BrowserHive gRPC server.
+# Production image for the BrowserHive HTTP server.
 #
 # Build:
 #   docker build -f Dockerfile.prod -t browserhive:prod .
 #
 # Run (standalone):
-#   docker run --rm -p 50051:50051 -v "$(pwd)/output:/app/output" \
+#   docker run --rm -p 8080:8080 -v "$(pwd)/output:/app/output" \
 #     -e BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222 \
 #     -e BROWSERHIVE_OUTPUT_DIR=/app/output \
 #     browserhive:prod
@@ -20,18 +20,18 @@ FROM node:${NODE_VERSION}-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install all deps (including build-time tools like @bufbuild/buf, ts-proto, typescript)
+# Install all deps (including build-time tools like openapi-typescript, typescript)
 COPY package.json package-lock.json .puppeteerrc.json ./
 RUN npm ci
 
 # Sources required by tsc include patterns (src, bin, examples, test)
-COPY tsconfig.json buf.gen.yaml buf.yaml ./
+COPY tsconfig.json ./
 COPY src ./src
 COPY bin ./bin
 COPY examples ./examples
 COPY test ./test
 
-# proto:generate + tsc -> ./dist
+# openapi:generate (prebuild hook) + tsc -> ./dist
 RUN npm run build
 
 # ---------- Runtime stage ----------
@@ -47,16 +47,16 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Only what the server entry actually needs
 COPY --from=builder /app/dist/src ./dist/src
 COPY --from=builder /app/dist/bin ./dist/bin
-# Proto file is loaded at runtime via @grpc/proto-loader (browserhive.ts) and
-# expected at /app/src/grpc/proto/browserhive/v1/capture.proto
-COPY --from=builder /app/src/grpc/proto ./src/grpc/proto
+# OpenAPI spec is loaded at runtime via @apidevtools/swagger-parser
+# (src/http/server.ts), expected at /app/src/http/openapi.yaml
+COPY --from=builder /app/src/http/openapi.yaml ./src/http/openapi.yaml
 
 # Default mount point for captured files
 RUN mkdir -p /app/output && chown -R node:node /app
 
 USER node
 
-EXPOSE 50051
+EXPOSE 8080
 
 # Configuration is supplied via BROWSERHIVE_* environment variables
 # (set in `environment:` of compose.prod.yaml or via `docker run -e ...`).

@@ -36,7 +36,7 @@ describe("server-cli parseCliOptions", () => {
       expect(config.coordinator.browserProfiles[0]?.capture.outputDir).toBe(
         "/tmp/out",
       );
-      expect(config.port).toBe(50051);
+      expect(config.port).toBe(8080);
     });
   });
 
