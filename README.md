@@ -127,7 +127,7 @@ stateDiagram-v2
 
 | State | Tags | Description |
 |-------|------|-------------|
-| `disconnected` | | Initial state, not connected |
+| `disconnected` | | Not connected to remote browser (initial or after disconnect) |
 | `connecting` | | Connecting to remote browser (invoke) |
 | `operational.idle` | `healthy`, `canProcess` | Ready to accept tasks |
 | `operational.processing` | `healthy` | Processing a capture task |
