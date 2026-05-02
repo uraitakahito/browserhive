@@ -9,6 +9,7 @@
  */
 import { Command, InvalidArgumentError, Option } from "commander";
 import { type CaptureOptions } from "../capture/index.js";
+import { DEFAULT_SERVER_ADDRESS } from "../http/generated/server.js";
 import { logger } from "../logger.js";
 
 export interface ClientOptions {
@@ -21,8 +22,6 @@ export interface ClientOptions {
   tlsCaCert?: string;
   dismissBanners?: boolean;
 }
-
-const DEFAULT_SERVER_ADDRESS = "http://localhost:8080";
 
 const parsePositiveInt = (value: string): number => {
   const num = parseInt(value, 10);
