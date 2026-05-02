@@ -170,6 +170,15 @@ Stop with:
 docker compose -f compose.dev.yaml down
 ```
 
+#### Inspecting Chromium via noVNC
+
+The dev compose stack runs the development image for both chromium servers, which embeds Xvfb + x11vnc + noVNC. Open these URLs from the host browser to watch the running Chromium:
+
+| Server | noVNC (browser) | Raw VNC |
+|--------|-----------------|---------|
+| chromium-server-1 | http://localhost:6080/ | `localhost:5901` |
+| chromium-server-2 | http://localhost:6081/ | `localhost:5902` |
+
 ### Production Environment
 
 ```sh
