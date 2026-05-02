@@ -1,9 +1,13 @@
 /**
  * Client CLI
  *
- * CLI logic for the gRPC capture client.
+ * CLI logic for the gRPC capture client. `--server` and `--tls-ca-cert`
+ * fall back to `BROWSERHIVE_SERVER` / `BROWSERHIVE_TLS_CA_CERT` when not
+ * given on the command line. Per-job flags (`--csv`, `--png`, `--jpeg`,
+ * `--html`, `--limit`, `--dismiss-banners`) intentionally have no env
+ * equivalents — they are caller-side intent, not deployment configuration.
  */
-import { Command, InvalidArgumentError } from "commander";
+import { Command, InvalidArgumentError, Option } from "commander";
 import { type CaptureOptions } from "../capture/index.js";
 import { logger } from "../logger.js";
 
@@ -17,6 +21,8 @@ export interface ClientOptions {
   tlsCaCert?: string;
   dismissBanners?: boolean;
 }
+
+const DEFAULT_SERVER_ADDRESS = "localhost:50051";
 
 const parsePositiveInt = (value: string): number => {
   const num = parseInt(value, 10);
@@ -33,35 +39,27 @@ export const createProgram = (): Command => {
     .name("browserhive-csv-example")
     .description("gRPC Capture Submitter - Submit capture requests from CSV (fire-and-forget)")
     .requiredOption("--csv <path>", "CSV file path")
-    .option(
-      "--server <host:port>",
-      "gRPC server address (default: localhost:50051)",
-      "localhost:50051"
+    .addOption(
+      new Option("--server <host:port>", "gRPC server address")
+        .env("BROWSERHIVE_SERVER")
+        .default(DEFAULT_SERVER_ADDRESS),
     )
-    .option(
-      "--png",
-      "Capture PNG screenshot"
-    )
-    .option(
-      "--jpeg",
-      "Capture JPEG screenshot"
-    )
-    .option(
-      "--html",
-      "Capture HTML"
-    )
-    .option(
-      "--limit <n>",
-      "Maximum number of URLs to read from CSV",
-      parsePositiveInt
+    .option("--png", "Capture PNG screenshot")
+    .option("--jpeg", "Capture JPEG screenshot")
+    .option("--html", "Capture HTML")
+    .addOption(
+      new Option("--limit <n>", "Maximum number of URLs to read from CSV")
+        .argParser(parsePositiveInt),
     )
     .option(
       "--dismiss-banners",
-      "Run banner / modal dismissal before capturing (best-effort)"
+      "Run banner / modal dismissal before capturing (best-effort)",
     )
-    .option(
-      "--tls-ca-cert <path>",
-      "CA certificate file path for TLS (enables TLS when specified)"
+    .addOption(
+      new Option(
+        "--tls-ca-cert <path>",
+        "CA certificate file path for TLS (enables TLS when specified)",
+      ).env("BROWSERHIVE_TLS_CA_CERT"),
     )
     .allowExcessArguments(false)
     .allowUnknownOption(false)
@@ -117,6 +115,6 @@ export const logClientConfig = (options: ClientOptions): void => {
       dismissBanners: options.dismissBanners ?? false,
       limit: options.limit ?? null,
     },
-    "Client configuration"
+    "Client configuration",
   );
 };

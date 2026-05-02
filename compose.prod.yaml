@@ -15,13 +15,8 @@ services:
       # - ./certs:/app/certs:ro
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
-    command:
-      - "--browser-url"
-      - "http://chromium-server-1:9222"
-      - "--browser-url"
-      - "http://chromium-server-2:9222"
-      - "--output"
-      - "/app/output"
+      - BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222,http://chromium-server-2:9222
+      - BROWSERHIVE_OUTPUT_DIR=/app/output
     networks:
       - chromium-network
     depends_on:
