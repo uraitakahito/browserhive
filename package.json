@@ -8,7 +8,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "openapi:generate": "openapi-typescript src/http/openapi.yaml -o src/http/generated/types.ts",
+    "openapi:generate": "openapi-typescript src/http/openapi.yaml -o src/http/generated/types.ts && node scripts/generate-openapi-constants.mjs",
     "prebuild": "npm run openapi:generate",
     "pretest": "npm run openapi:generate",
     "prelint": "npm run openapi:generate",
