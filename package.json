@@ -7,6 +7,16 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "//scripts": [
+    "proto:generate / proto:breaking / build / test / lint all invoke `buf`, which is provided by",
+    "@bufbuild/buf. The buf launcher resolves a platform-specific binary via optionalDependencies",
+    "(e.g. @bufbuild/buf-darwin-arm64 on Apple Silicon, @bufbuild/buf-linux-aarch64 in the dev",
+    "container). npm only installs the optional package matching the OS+arch where npm ci/install",
+    "is executed, so `npm ci` MUST be run on the host where these scripts will run. If node_modules",
+    "was populated inside the dev container (Linux) and is then bind-mounted onto a macOS host,",
+    "running buf on the host fails with ENOENT — re-run `npm ci` on the host (or run the scripts",
+    "inside the container) before invoking buf."
+  ],
   "scripts": {
     "proto:generate": "buf generate",
     "proto:breaking": "buf breaking --against .git#branch=main",
