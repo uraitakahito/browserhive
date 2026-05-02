@@ -48,16 +48,16 @@ grpcurl -plaintext -d '{
 
 #### Request Parameters
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `url` | string | Yes | URL to capture |
-| `labels` | string[] | No | Labels used for filename (multiple can be specified) |
-| `correlation_id` | string | No | ID used for correlation on the client side |
-| `capture_options` | object | Yes | Capture options (at least one must be true) |
-| `capture_options.png` | bool | - | Capture PNG screenshot |
-| `capture_options.jpeg` | bool | - | Capture JPEG screenshot |
-| `capture_options.html` | bool | - | Capture HTML |
-| `dismiss_banners` | bool | No | Strip cookie-consent banners and large fixed/sticky overlays before capturing. Best-effort: dismissal failures do not fail the capture. The dismissal report (framework + selectors removed) appears in the server log line for the completed task. Default: `false` |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | string | Yes | — | URL to capture |
+| `labels` | string[] | No | `[]` | Labels used for filename (multiple can be specified) |
+| `correlation_id` | string | No | (unset) | ID used for correlation on the client side |
+| `capture_options` | object | Yes | — | Capture options (at least one must be true) |
+| `capture_options.png` | bool | - | `false` | Capture PNG screenshot |
+| `capture_options.jpeg` | bool | - | `false` | Capture JPEG screenshot |
+| `capture_options.html` | bool | - | `false` | Capture HTML |
+| `dismiss_banners` | bool | No | `false` | Strip cookie-consent banners and large fixed/sticky overlays before capturing. Best-effort: dismissal failures do not fail the capture. The dismissal report (framework + selectors removed) appears in the server log line for the completed task. |
 
 > **Note**: `capture_options` is required. At least one of `png`, `jpeg`, or `html` must be set to `true`. Omitting it or setting all to `false` will result in an error.
 
@@ -84,12 +84,12 @@ Generated filenames follow this format:
 
 #### Response Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `accepted` | bool | Whether the request was accepted |
-| `task_id` | string | Server-generated task ID (UUID, for log tracking) |
-| `correlation_id` | string | Correlation ID specified in the request |
-| `error` | string | Error message when `accepted=false` |
+| Field | Type | Presence | Description |
+|-------|------|----------|-------------|
+| `accepted` | bool | always | Whether the request was accepted |
+| `task_id` | string | always (`""` on rejection) | Server-generated task ID (UUID, for log tracking) |
+| `correlation_id` | string | only when `accepted=true` and the client provided one | Correlation ID specified in the request |
+| `error` | string | only when `accepted=false` | Error message |
 
 #### Example: Dismissing a Cookie Consent Dialog
 
@@ -148,15 +148,16 @@ grpcurl -plaintext localhost:50051 browserhive.v1.CaptureService/GetStatus
 
 #### Response Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `pending` | int32 | Number of tasks waiting in queue |
-| `processing` | int32 | Number of tasks being processed |
-| `completed` | int32 | Number of completed tasks |
-| `operational_workers` | int32 | Number of operational workers |
-| `total_workers` | int32 | Total number of workers |
-| `is_running` | bool | Whether the coordinator is in the `running` lifecycle state (all workers healthy) |
-| `is_degraded` | bool | Whether the coordinator is in the `degraded` lifecycle state (some/all workers unhealthy; retry loop is running) |
+| Field | Type | Presence | Description |
+|-------|------|----------|-------------|
+| `pending` | int32 | always | Number of tasks waiting in queue |
+| `processing` | int32 | always | Number of tasks being processed |
+| `completed` | int32 | always | Number of completed tasks |
+| `operational_workers` | int32 | always | Number of operational workers |
+| `total_workers` | int32 | always | Total number of workers |
+| `is_running` | bool | always | Whether the coordinator is in the `running` lifecycle state (all workers healthy) |
+| `is_degraded` | bool | always | Whether the coordinator is in the `degraded` lifecycle state (some/all workers unhealthy; retry loop is running) |
+| `workers` | WorkerInfo[] | always (`[]` if no workers configured) | Detailed per-worker information |
 
 ## TLS (Transport Layer Security)
 
