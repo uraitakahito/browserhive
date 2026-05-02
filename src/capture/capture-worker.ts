@@ -172,7 +172,7 @@ export const captureWorkerMachine = setup({
     connecting: {
       invoke: {
         src: "connectBrowser",
-        input: ({ context }) => ({ client: context.runtime.client }),
+        input: ({ context }): { client: BrowserClient } => ({ client: context.runtime.client }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
@@ -245,7 +245,7 @@ export const captureWorkerMachine = setup({
     disconnecting: {
       invoke: {
         src: "disconnectBrowser",
-        input: ({ context }) => ({ client: context.runtime.client }),
+        input: ({ context }): { client: BrowserClient } => ({ client: context.runtime.client }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,

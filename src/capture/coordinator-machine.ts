@@ -114,7 +114,7 @@ export const coordinatorMachine = setup({
       }),
       invoke: {
         src: "initializeWorkers",
-        input: ({ context }) => ({ workers: context.workers }),
+        input: ({ context }): { workers: WorkerEntry[] } => ({ workers: context.workers }),
         onDone: [
           {
             guard: ({ event }) => event.output.allHealthy,
@@ -186,7 +186,7 @@ export const coordinatorMachine = setup({
     shuttingDown: {
       invoke: {
         src: "shutdownWorkers",
-        input: ({ context }) => ({ workers: context.workers }),
+        input: ({ context }): { workers: WorkerEntry[] } => ({ workers: context.workers }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
