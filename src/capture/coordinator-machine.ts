@@ -48,7 +48,6 @@ import { captureWorkerMachine } from "./capture-worker.js";
 export interface WorkerEntry {
   ref: ActorRefFrom<typeof captureWorkerMachine>;
   client: BrowserClient;
-  index: number;
 }
 
 export interface CoordinatorMachineContext {
@@ -109,7 +108,7 @@ export const coordinatorMachine = setup({
                 },
               },
             });
-            return { ref, client, index };
+            return { ref, client };
           }),
       }),
       invoke: {

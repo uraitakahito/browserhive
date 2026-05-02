@@ -14,8 +14,8 @@ import type { CaptureWorkerSnapshot } from "../../src/capture/capture-worker.js"
 /**
  * Minimal ActorRef-shaped fake. Only `getSnapshot` and `subscribe` are
  * exercised by waitForWorkersToReach, so the rest of the WorkerEntry
- * (`worker`, `index`) is filled in with placeholders. The snapshot
- * exposes `matches` so predicates that call `snapshot.matches(target)`
+ * (`client`) is filled in with a placeholder. The snapshot exposes
+ * `matches` so predicates that call `snapshot.matches(target)`
  * (the production shape) work without spinning up a real machine.
  */
 const fakeEntry = (initialValue: string) => {
@@ -42,7 +42,6 @@ const fakeEntry = (initialValue: string) => {
       },
     },
     client: {} as never,
-    index: 0,
   } as unknown as WorkerEntry;
 
   return {
@@ -270,7 +269,6 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
     client: {
       profile: { browserURL },
     },
-    index: 0,
   } as unknown as WorkerEntry;
 
   return {
@@ -456,7 +454,6 @@ const fakeRetryEntry = (browserURL: string, initialValue: unknown = "error") => 
     client: {
       profile: { browserURL },
     },
-    index: 0,
   } as unknown as WorkerEntry;
   return {
     entry,
