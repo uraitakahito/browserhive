@@ -31,8 +31,6 @@
 
 # 3. Re-include build configuration files
 !tsconfig.json
-!buf.gen.yaml
-!buf.yaml
 
 # 4. Re-include source / entry / tsc-include directories.
 #    Use both `!dir` and `!dir/**` so the directory itself and its
@@ -47,9 +45,9 @@
 !test/**
 
 # 5. Within whitelisted dirs, re-exclude transient/generated content.
-#    `npm run build` regenerates these via `buf generate`.
-src/grpc/generated
-src/grpc/generated/**
+#    `npm run build` (prebuild hook) regenerates these via `openapi-typescript`.
+src/http/generated
+src/http/generated/**
 
 # 6. Defense-in-depth: never let private keys reach the build context,
 #    even if `certs/` were ever whitelisted by mistake.

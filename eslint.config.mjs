@@ -9,7 +9,7 @@ export default defineConfig(
   // Global ignores
   //
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'src/grpc/generated/**', '.Trash-*/**'],
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'src/http/generated/**', '.Trash-*/**'],
   },
 
   //
@@ -118,13 +118,11 @@ export default defineConfig(
   },
 
   //
-  // Mock-specific rules (only files using vi.mock with snake_case gRPC types)
+  // Mock-specific rules
   //
   {
-    files: ['test/capture/browser-client.test.ts', 'test/grpc/handlers.test.ts'],
+    files: ['test/capture/browser-client.test.ts'],
     rules: {
-      // Relax naming convention for mock objects (gRPC types use snake_case)
-      '@typescript-eslint/naming-convention': 'off',
       // Allow unsafe returns in mocks
       '@typescript-eslint/no-unsafe-return': 'off',
     },
@@ -145,7 +143,7 @@ export default defineConfig(
   // Naming convention rules
   //
   {
-    ignores: ['test/capture/browser-client.test.ts', 'test/grpc/handlers.test.ts'],
+    ignores: ['test/capture/browser-client.test.ts'],
     rules: {
       // Naming convention (TypeScript Handbook + JavaScript conventions + ESLint recommendations)
       // Reference: https://typescript-eslint.io/rules/naming-convention/

@@ -1,18 +1,23 @@
 /**
- * Sample client that sends capture requests from a CSV file.
+ * Sample client that submits capture requests from a CSV file (fire-and-forget).
+ *
+ * Uses openapi-fetch with the types generated from src/http/openapi.yaml,
+ * so request and response shapes are fully type-checked against the spec.
  */
 import { readFile } from "node:fs/promises";
-import { CaptureSubmitter, type CaptureRequest, type CaptureAcceptance } from "../src/grpc/client.js";
+import createClient from "openapi-fetch";
 import {
   parseClientOptions,
   logClientConfig,
   getCaptureOptions,
   type ClientOptions,
 } from "../src/cli/client-cli.js";
-import type { ClientTlsConfig } from "../src/config/types.js";
 import type { CaptureOptions } from "../src/capture/index.js";
-import { captureOptionsToProto } from "../src/grpc/response-mapper.js";
+import type { paths, components } from "../src/http/generated/types.js";
 import { logger } from "../src/logger.js";
+
+type CaptureRequest = components["schemas"]["CaptureRequest"];
+type Problem = components["schemas"]["Problem"];
 
 /** Labels separator in CSV file (pipe character) */
 const LABELS_CSV_SEPARATOR = "|";
@@ -59,45 +64,62 @@ const parseCsv = (content: string): CsvRecord[] => {
     const labels = labelsRaw
       ? labelsRaw.split(LABELS_CSV_SEPARATOR).map((l) => l.trim()).filter((l) => l)
       : [];
-    // Allow empty labels
     records.push({ labels, url });
   }
 
   return records;
 };
 
+type Client = ReturnType<typeof createClient<paths>>;
+
 /**
- * Submit a single capture request (fire-and-forget)
- *
- * Returns whether the request was accepted, not whether the capture succeeded.
+ * For TLS server verification with a custom CA, set the
+ * `NODE_EXTRA_CA_CERTS` env var to the CA certificate path before
+ * starting the process. The `--tls-ca-cert` flag below is logged for
+ * visibility but is otherwise informational — Node's global fetch picks
+ * up the trust anchor from the env var.
  */
+const buildClient = (options: ClientOptions): Client =>
+  createClient<paths>({ baseUrl: options.server });
+
 const submitRequest = async (
-  submitter: CaptureSubmitter,
+  client: Client,
   record: CsvRecord,
   captureOptions: CaptureOptions,
-  dismissBanners: boolean
+  dismissBanners: boolean,
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
-
-  const request: CaptureRequest = {
+  const body: CaptureRequest = {
     url: record.url,
     labels: record.labels,
-    correlation_id: correlationId,
-    capture_options: captureOptionsToProto(captureOptions),
-    dismiss_banners: dismissBanners,
+    correlationId,
+    captureOptions,
+    dismissBanners,
   };
 
   try {
-    const response: CaptureAcceptance = await submitter.submit(request);
+    const { data, error, response } = await client.POST("/v1/captures", {
+      body,
+    });
+    if (response.status === 202 && data) {
+      return {
+        taskId: data.taskId,
+        correlationId,
+        labels: record.labels,
+        accepted: true,
+      };
+    }
+    const problem: Problem | undefined = error;
+    const message = problem?.detail ?? problem?.title ?? `HTTP ${String(response.status)}`;
     return {
-      taskId: response.task_id,
+      taskId: "",
       correlationId,
       labels: record.labels,
-      accepted: response.accepted,
-      ...(response.error !== undefined && { error: response.error }),
+      accepted: false,
+      error: message,
     };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+  } catch (caught) {
+    const errorMessage = caught instanceof Error ? caught.message : String(caught);
     return {
       taskId: "",
       correlationId,
@@ -109,27 +131,27 @@ const submitRequest = async (
 };
 
 const submitAll = async (
-  submitter: CaptureSubmitter,
+  client: Client,
   records: CsvRecord[],
   captureOptions: CaptureOptions,
-  dismissBanners: boolean
+  dismissBanners: boolean,
 ): Promise<SubmitResult[]> => {
   const total = records.length;
   let completed = 0;
 
   const promises = records.map(async (record) => {
-    const result = await submitRequest(submitter, record, captureOptions, dismissBanners);
+    const result = await submitRequest(client, record, captureOptions, dismissBanners);
     completed++;
 
     if (result.accepted) {
       logger.info(
         { progress: `${String(completed)}/${String(total)}`, taskId: result.taskId, correlationId: result.correlationId, labels: result.labels },
-        "Request accepted"
+        "Request accepted",
       );
     } else {
       logger.warn(
         { progress: `${String(completed)}/${String(total)}`, taskId: result.taskId, correlationId: result.correlationId, labels: result.labels, error: result.error ?? "Unknown error" },
-        "Request rejected"
+        "Request rejected",
       );
     }
 
@@ -150,18 +172,8 @@ const logSummary = (results: SubmitResult[], totalDuration: number): void => {
       rejected: rejectedCount,
       durationMs: totalDuration,
     },
-    "Request summary"
+    "Request summary",
   );
-};
-
-const buildTlsConfig = (options: ClientOptions): ClientTlsConfig | undefined => {
-  if (options.tlsCaCert) {
-    return {
-      enabled: true,
-      caCertPath: options.tlsCaCert,
-    };
-  }
-  return undefined;
 };
 
 const runClient = async (options: ClientOptions): Promise<void> => {
@@ -184,24 +196,17 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     return;
   }
 
-  const tlsConfig = buildTlsConfig(options);
-  const submitter = new CaptureSubmitter(options.server, tlsConfig);
-  submitter.connect();
+  const client = buildClient(options);
+  const captureOptions = getCaptureOptions(options);
+  const results = await submitAll(
+    client,
+    records,
+    captureOptions,
+    options.dismissBanners ?? false,
+  );
 
-  try {
-    const captureOptions = getCaptureOptions(options);
-    const results = await submitAll(
-      submitter,
-      records,
-      captureOptions,
-      options.dismissBanners ?? false
-    );
-
-    const totalDuration = Date.now() - startTime;
-    logSummary(results, totalDuration);
-  } finally {
-    submitter.close();
-  }
+  const totalDuration = Date.now() - startTime;
+  logSummary(results, totalDuration);
 };
 
 const main = async (): Promise<void> => {

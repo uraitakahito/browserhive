@@ -1,7 +1,7 @@
 /**
  * Client CLI
  *
- * CLI logic for the gRPC capture client. `--server` and `--tls-ca-cert`
+ * CLI logic for the HTTP capture client. `--server` and `--tls-ca-cert`
  * fall back to `BROWSERHIVE_SERVER` / `BROWSERHIVE_TLS_CA_CERT` when not
  * given on the command line. Per-job flags (`--csv`, `--png`, `--jpeg`,
  * `--html`, `--limit`, `--dismiss-banners`) intentionally have no env
@@ -22,7 +22,7 @@ export interface ClientOptions {
   dismissBanners?: boolean;
 }
 
-const DEFAULT_SERVER_ADDRESS = "localhost:50051";
+const DEFAULT_SERVER_ADDRESS = "http://localhost:8080";
 
 const parsePositiveInt = (value: string): number => {
   const num = parseInt(value, 10);
@@ -37,10 +37,10 @@ export const createProgram = (): Command => {
 
   program
     .name("browserhive-csv-example")
-    .description("gRPC Capture Submitter - Submit capture requests from CSV (fire-and-forget)")
+    .description("HTTP Capture Submitter - Submit capture requests from CSV (fire-and-forget)")
     .requiredOption("--csv <path>", "CSV file path")
     .addOption(
-      new Option("--server <host:port>", "gRPC server address")
+      new Option("--server <url>", "HTTP server base URL (e.g., http://localhost:8080)")
         .env("BROWSERHIVE_SERVER")
         .default(DEFAULT_SERVER_ADDRESS),
     )

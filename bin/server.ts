@@ -12,7 +12,7 @@ import { logger } from "../src/logger.js";
  * Hard deadline for process exit.
  * If graceful shutdown hasn't completed by this time, force exit.
  * Must be greater than the sum of inner timeouts
- * (WorkerPool drain 5s + gRPC tryShutdown 4s = 9s).
+ * (CaptureCoordinator shutdown 5s + Fastify close 4s = 9s).
  */
 const HARD_EXIT_TIMEOUT_MS = 10000;
 

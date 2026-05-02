@@ -20,23 +20,23 @@ describe("client-cli parseClientOptions", () => {
 
   it("CLI 引数の --csv だけで既定値が組み立つ", () => {
     const opts = parseClientOptions(argv("--csv", "data/urls.csv"));
-    expect(opts.server).toBe("localhost:50051");
+    expect(opts.server).toBe("http://localhost:8080");
     expect(opts.csv).toBe("data/urls.csv");
     expect(opts.tlsCaCert).toBeUndefined();
   });
 
   it("BROWSERHIVE_SERVER で --server を上書きできる", () => {
-    vi.stubEnv("BROWSERHIVE_SERVER", "browserhive.internal:51000");
+    vi.stubEnv("BROWSERHIVE_SERVER", "https://browserhive.internal:9443");
     const opts = parseClientOptions(argv("--csv", "data/urls.csv"));
-    expect(opts.server).toBe("browserhive.internal:51000");
+    expect(opts.server).toBe("https://browserhive.internal:9443");
   });
 
   it("CLI の --server が env を上書きする", () => {
-    vi.stubEnv("BROWSERHIVE_SERVER", "browserhive.internal:51000");
+    vi.stubEnv("BROWSERHIVE_SERVER", "https://browserhive.internal:9443");
     const opts = parseClientOptions(
-      argv("--csv", "data/urls.csv", "--server", "127.0.0.1:9000"),
+      argv("--csv", "data/urls.csv", "--server", "http://127.0.0.1:9000"),
     );
-    expect(opts.server).toBe("127.0.0.1:9000");
+    expect(opts.server).toBe("http://127.0.0.1:9000");
   });
 
   it("BROWSERHIVE_TLS_CA_CERT が tlsCaCert に反映される", () => {
