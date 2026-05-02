@@ -68,6 +68,7 @@ export const createCaptureServiceHandlers = (coordinator: CaptureCoordinator) =>
         taskId: task.taskId,
         ...(task.correlationId && { correlationId: task.correlationId }),
         captureOptions: task.captureOptions,
+        dismissBanners: task.dismissBanners,
         url: task.url,
       },
       "Capture request accepted"

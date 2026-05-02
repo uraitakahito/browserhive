@@ -76,6 +76,7 @@ export const captureRequestToTask = (
     url: request.url.trim(),
     retryCount: 0,
     captureOptions,
+    dismissBanners: request.dismiss_banners,
     ...(request.correlation_id && { correlationId: request.correlation_id }),
   };
 

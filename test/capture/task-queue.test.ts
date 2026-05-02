@@ -8,6 +8,7 @@ const createTask = (id: string, overrides: Partial<CaptureTask> = {}): CaptureTa
   url: `https://example.com/${id}`,
   retryCount: 0,
   captureOptions: { png: true, jpeg: false, html: true },
+  dismissBanners: false,
   ...overrides,
 });
 

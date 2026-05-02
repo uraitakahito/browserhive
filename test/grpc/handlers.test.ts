@@ -27,6 +27,7 @@ describe("createCaptureServiceHandlers", () => {
       url: "https://example.com",
       labels: ["Test"],
       capture_options: { png: true, jpeg: false, html: true },
+      dismiss_banners: false,
       ...request,
     },
   });
@@ -382,6 +383,34 @@ describe("createCaptureServiceHandlers", () => {
         expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
           url: "https://example.com",
           labels: ["TestName", "Category"],
+        }));
+      });
+
+      it("should propagate dismiss_banners=true to the enqueued task", () => {
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
+        mockCall = createMockCall({ dismiss_banners: true });
+
+        handlers.submitCapture(
+          mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
+          mockCallback
+        );
+
+        expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
+          dismissBanners: true,
+        }));
+      });
+
+      it("should default dismissBanners to false when proto field is false", () => {
+        const enqueueTaskSpy = vi.spyOn(mockCaptureCoordinator, "enqueueTask");
+        mockCall = createMockCall({ dismiss_banners: false });
+
+        handlers.submitCapture(
+          mockCall as unknown as grpc.ServerUnaryCall<CaptureRequest, CaptureAcceptance>,
+          mockCallback
+        );
+
+        expect(enqueueTaskSpy).toHaveBeenCalledWith(expect.objectContaining({
+          dismissBanners: false,
         }));
       });
 

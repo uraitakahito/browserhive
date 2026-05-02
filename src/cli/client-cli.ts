@@ -15,6 +15,7 @@ export interface ClientOptions {
   html?: boolean;
   limit?: number;
   tlsCaCert?: string;
+  dismissBanners?: boolean;
 }
 
 const parsePositiveInt = (value: string): number => {
@@ -55,6 +56,10 @@ export const createProgram = (): Command => {
       parsePositiveInt
     )
     .option(
+      "--dismiss-banners",
+      "Run banner / modal dismissal before capturing (best-effort)"
+    )
+    .option(
       "--tls-ca-cert <path>",
       "CA certificate file path for TLS (enables TLS when specified)"
     )
@@ -77,6 +82,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     html?: boolean;
     limit?: number;
     tlsCaCert?: string;
+    dismissBanners?: boolean;
   }>();
 
   return {
@@ -87,6 +93,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.html !== undefined && { html: opts.html }),
     ...(opts.limit !== undefined && { limit: opts.limit }),
     ...(opts.tlsCaCert !== undefined && { tlsCaCert: opts.tlsCaCert }),
+    ...(opts.dismissBanners !== undefined && { dismissBanners: opts.dismissBanners }),
   };
 };
 
@@ -107,6 +114,7 @@ export const logClientConfig = (options: ClientOptions): void => {
         : { enabled: false },
       csv: options.csv,
       captureOptions: getCaptureOptions(options),
+      dismissBanners: options.dismissBanners ?? false,
       limit: options.limit ?? null,
     },
     "Client configuration"
