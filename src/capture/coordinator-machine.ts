@@ -99,7 +99,6 @@ export const coordinatorMachine = setup({
             const ref = spawn("captureWorker", {
               id: `worker-${String(index)}`,
               input: {
-                index,
                 maxRetryCount: context.config.maxRetryCount,
                 runtime: {
                   client,
