@@ -12,26 +12,25 @@ import type { WorkerRuntime } from "../../src/capture/worker-loop.js";
 import type { BrowserClient } from "../../src/capture/browser-client.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 
-const createMockClient = (): BrowserClient =>
+const createMockClient = (index = 0): BrowserClient =>
   ({
-    index: 0,
+    index,
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     connect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     disconnect: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
     process: vi.fn(),
   }) as unknown as BrowserClient;
 
-const createDefaultRuntime = (): WorkerRuntime => ({
-  client: createMockClient(),
+const createDefaultRuntime = (index = 0): WorkerRuntime => ({
+  client: createMockClient(index),
   taskQueue: new TaskQueue(),
   pollIntervalMs: 50,
 });
 
 const createInput = (overrides?: { index?: number; maxRetryCount?: number; runtime?: Partial<WorkerRuntime> }): CaptureWorkerInput => ({
-  index: overrides?.index ?? 0,
   maxRetryCount: overrides?.maxRetryCount ?? 2,
   runtime: {
-    ...createDefaultRuntime(),
+    ...createDefaultRuntime(overrides?.index),
     ...overrides?.runtime,
   },
 });
@@ -69,7 +68,7 @@ describe("capture-worker", () => {
       it("should initialize context from input", () => {
         const { actor } = createWorkerActor({ index: 3 });
         const ctx = actor.getSnapshot().context;
-        expect(ctx.index).toBe(3);
+        expect(ctx.runtime.client.index).toBe(3);
         expect(ctx.processedCount).toBe(0);
         expect(ctx.errorCount).toBe(0);
         expect(ctx.errorHistory).toHaveLength(0);

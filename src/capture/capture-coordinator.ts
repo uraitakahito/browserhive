@@ -132,7 +132,7 @@ export class CaptureCoordinator {
     const snapshot = entry.ref.getSnapshot();
     const ctx: CaptureWorkerContext = snapshot.context;
     return {
-      index: ctx.index,
+      index: entry.client.index,
       browserProfile: ctx.runtime.client.profile,
       health: toWorkerHealth(snapshot),
       processedCount: ctx.processedCount,

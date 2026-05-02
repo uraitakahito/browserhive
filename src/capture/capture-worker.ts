@@ -34,7 +34,6 @@ const MAX_ERROR_HISTORY = 10;
 
 /** External seed values supplied when the worker actor is spawned. */
 export interface CaptureWorkerInput {
-  index: number;
   /** Maximum retry count for failed capture tasks */
   maxRetryCount: number;
   /** Worker runtime (browser client, shared queue, polling) */

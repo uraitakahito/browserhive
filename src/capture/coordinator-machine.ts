@@ -48,7 +48,6 @@ import { captureWorkerMachine } from "./capture-worker.js";
 export interface WorkerEntry {
   ref: ActorRefFrom<typeof captureWorkerMachine>;
   client: BrowserClient;
-  index: number;
 }
 
 export interface CoordinatorMachineContext {
@@ -100,7 +99,6 @@ export const coordinatorMachine = setup({
             const ref = spawn("captureWorker", {
               id: `worker-${String(index)}`,
               input: {
-                index,
                 maxRetryCount: context.config.maxRetryCount,
                 runtime: {
                   client,
@@ -109,7 +107,7 @@ export const coordinatorMachine = setup({
                 },
               },
             });
-            return { ref, client, index };
+            return { ref, client };
           }),
       }),
       invoke: {
