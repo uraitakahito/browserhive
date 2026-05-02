@@ -6,6 +6,9 @@ info:
     Web page capture API. Submits URLs to capture as PNG/JPEG screenshots
     and/or HTML. Uses fire-and-forget pattern: requests are accepted
     immediately and processed asynchronously by the capture coordinator.
+# servers[0].url is the source of truth for the example client's default
+# baseURL. scripts/generate-openapi-constants.mjs extracts it into
+# src/http/generated/server.ts (chained behind `npm run openapi:generate`).
 servers:
   - url: http://localhost:8080
     description: Local development server
