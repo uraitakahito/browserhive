@@ -83,7 +83,7 @@ export const coordinatorMachine = setup({
 }).createMachine({
   id: "coordinatorLifecycle",
   initial: "created",
-  context: ({ input }) => ({
+  context: ({ input }): CoordinatorMachineContext => ({
     config: input.config,
     taskQueue: new TaskQueue(),
     workers: [],

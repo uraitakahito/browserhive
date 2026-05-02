@@ -159,7 +159,7 @@ export const captureWorkerMachine = setup({
 }).createMachine({
   id: "captureWorker",
   initial: "disconnected",
-  context: ({ input }) => ({
+  context: ({ input }): CaptureWorkerContext => ({
     ...input,
     processedCount: 0,
     errorCount: 0,
