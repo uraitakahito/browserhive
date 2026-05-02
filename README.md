@@ -147,6 +147,8 @@ Run the setup script:
 
 ### Development Environment
 
+`compose.dev.yaml` already injects `BROWSERHIVE_BROWSER_URLS` and `BROWSERHIVE_OUTPUT_DIR`, so the in-container start command takes no CLI flags:
+
 ```sh
 docker compose -f compose.dev.yaml up -d
 docker exec -it browserhive-container /bin/zsh
@@ -158,11 +160,10 @@ sudo chown -R $(id -u):$(id -g) /zsh-volume
 
 npm ci
 npm run build
-npm run server -- \
-  --browser-url http://chromium-server-1:9222 \
-  --browser-url http://chromium-server-2:9222 \
-  --output ./output/capture | pino-pretty
+npm run server | pino-pretty
 ```
+
+Override individual settings ad hoc by either setting another env var or by passing the equivalent CLI flag (CLI > env > default). See [Environment variables](#environment-variables) for the full list.
 
 Stop with:
 
@@ -180,6 +181,8 @@ The dev compose stack runs the development image for both chromium servers, whic
 | chromium-server-2 | http://localhost:6081/ | `localhost:5902` |
 
 ### Production Environment
+
+`compose.prod.yaml` supplies all required configuration via `BROWSERHIVE_*` environment variables; no `command:` overrides are needed.
 
 ```sh
 docker compose -f compose.prod.yaml up -d --build
@@ -199,6 +202,15 @@ To build the production image standalone (e.g. to push to a registry):
 
 ```sh
 docker build -f Dockerfile.prod -t browserhive:<version> .
+```
+
+Standalone run:
+
+```sh
+docker run --rm -p 50051:50051 -v "$(pwd)/output:/app/output" \
+  -e BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222 \
+  -e BROWSERHIVE_OUTPUT_DIR=/app/output \
+  browserhive:<version>
 ```
 
 ## Usage
@@ -223,15 +235,52 @@ Start the gRPC server to accept capture requests via Protocol Buffers.
 
 The server uses a **fire-and-forget** pattern: requests are accepted immediately and processed asynchronously by the capture coordinator. Multiple browser URLs can be specified to enable parallel processing.
 
-```sh
-LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --output ./output/capture --reject-duplicate-urls --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" | pino-pretty
-```
-
-**Using tsx:**
+When `BROWSERHIVE_BROWSER_URLS` and `BROWSERHIVE_OUTPUT_DIR` are set (the dev/prod compose files already do this), the start command is just:
 
 ```sh
-LOG_LEVEL=info npx tsx bin/server.ts --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --output ./output/capture --reject-duplicate-urls --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7"| pino-pretty
+LOG_LEVEL=info npm run server | pino-pretty
 ```
+
+CLI flags override env values; mix and match as needed:
+
+```sh
+LOG_LEVEL=info npm run server -- \
+  --reject-duplicate-urls \
+  --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" \
+  --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
+  | pino-pretty
+```
+
+**Using tsx (skip the build step):**
+
+```sh
+LOG_LEVEL=info npx tsx bin/server.ts | pino-pretty
+```
+
+#### Environment variables
+
+Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **CLI flag > env var > default**.
+
+| CLI flag | Environment variable | Type / format |
+|---|---|---|
+| `--port <port>` | `BROWSERHIVE_PORT` | integer (1–65535) |
+| `--browser-url <urls...>` | `BROWSERHIVE_BROWSER_URLS` | comma-separated list (required) |
+| `--output <dir>` | `BROWSERHIVE_OUTPUT_DIR` | path (required) |
+| `--page-load-timeout <ms>` | `BROWSERHIVE_PAGE_LOAD_TIMEOUT_MS` | positive integer |
+| `--capture-timeout <ms>` | `BROWSERHIVE_CAPTURE_TIMEOUT_MS` | positive integer |
+| `--max-retry-count <n>` | `BROWSERHIVE_MAX_RETRY_COUNT` | non-negative integer |
+| `--queue-poll-interval-ms <ms>` | `BROWSERHIVE_QUEUE_POLL_INTERVAL_MS` | positive integer |
+| `--viewport-width <px>` | `BROWSERHIVE_VIEWPORT_WIDTH` | positive integer |
+| `--viewport-height <px>` | `BROWSERHIVE_VIEWPORT_HEIGHT` | positive integer |
+| `--screenshot-full-page` | `BROWSERHIVE_SCREENSHOT_FULL_PAGE` | `"true"`/`"1"` or `"false"`/`"0"` |
+| `--screenshot-quality <n>` | `BROWSERHIVE_SCREENSHOT_QUALITY` | integer (1–100) |
+| `--reject-duplicate-urls` | `BROWSERHIVE_REJECT_DUPLICATE_URLS` | `"true"`/`"1"` or `"false"`/`"0"` |
+| `--user-agent <string>` | `BROWSERHIVE_USER_AGENT` | string |
+| `--accept-language <string>` | `BROWSERHIVE_ACCEPT_LANGUAGE` | string |
+| `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
+| `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
+
+The `csv-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `localhost:50051`) and `BROWSERHIVE_TLS_CA_CERT`. Per-job flags (`--csv`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`) intentionally have no env equivalents.
 
 #### Calling the gRPC API
 

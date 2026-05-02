@@ -2,15 +2,18 @@
  * Server CLI
  *
  * CLI logic for the gRPC capture server.
+ *
+ * Every option falls back to a `BROWSERHIVE_*` environment variable when the
+ * CLI flag is not given. CLI > env > default. The variadic `--browser-url`
+ * and the presence-only boolean flags use a manual post-parse env merge —
+ * commander's `Option#env` covers the scalar cases natively.
  */
-import { Command, InvalidArgumentError } from "commander";
+import { Command, InvalidArgumentError, Option } from "commander";
 import { BrowserHive } from "../browserhive.js";
 import type { BrowserHiveConfig, TlsConfig, CaptureConfig } from "../config/index.js";
 import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
 
-
-// Custom parsers for option validation
 const parsePort = (value: string): number => {
   const port = parseInt(value, 10);
   if (isNaN(port) || port < 1 || port > 65535) {
@@ -43,9 +46,22 @@ const parseQuality = (value: string): number => {
   return quality;
 };
 
+/**
+ * Parse a boolean from an environment-variable-style string.
+ * Accepts `"true"`/`"1"` → true, `"false"`/`"0"`/`""` → false. Throws otherwise.
+ */
+const parseEnvBool = (value: string, varName: string): boolean => {
+  const v = value.trim().toLowerCase();
+  if (v === "true" || v === "1") return true;
+  if (v === "false" || v === "0" || v === "") return false;
+  throw new InvalidArgumentError(
+    `${varName} must be "true"/"1" or "false"/"0" (got "${value}")`,
+  );
+};
+
 interface ParsedOptions {
   port: number;
-  browserUrl: string[];
+  browserUrl?: string[];
   output: string;
   pageLoadTimeout: number;
   captureTimeout: number;
@@ -62,7 +78,12 @@ interface ParsedOptions {
   acceptLanguage?: string;
 }
 
-const buildTlsConfig = (opts: ParsedOptions): TlsConfig | undefined => {
+/** Same as ParsedOptions but with all post-resolution fields required. */
+interface ResolvedOptions extends Omit<ParsedOptions, "browserUrl"> {
+  browserUrl: string[];
+}
+
+const buildTlsConfig = (opts: ResolvedOptions): TlsConfig | undefined => {
   if (opts.tlsCert && opts.tlsKey) {
     return {
       enabled: true,
@@ -73,7 +94,7 @@ const buildTlsConfig = (opts: ParsedOptions): TlsConfig | undefined => {
   return undefined;
 };
 
-const buildServerConfig = (opts: ParsedOptions): BrowserHiveConfig => {
+const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
   const tls = buildTlsConfig(opts);
 
   const capture: CaptureConfig = {
@@ -116,90 +137,100 @@ export const createProgram = (): Command => {
   program
     .name("browserhive")
     .description("gRPC Capture Server - Accept capture requests via gRPC")
-    .option(
-      "--port <port>",
-      `gRPC server port (default: ${String(defaults.port)})`,
-      parsePort,
-      defaults.port
+    .addOption(
+      new Option("--port <port>", "gRPC server port")
+        .env("BROWSERHIVE_PORT")
+        .default(defaults.port)
+        .argParser(parsePort),
     )
-    .requiredOption(
-      "--browser-url <urls...>",
-      "Browser URLs (required, can specify multiple)"
+    .addOption(
+      new Option(
+        "--browser-url <urls...>",
+        "Browser URLs (env: BROWSERHIVE_BROWSER_URLS, comma-separated). Required.",
+      ),
     )
-    // Why --output is required:
-    // Previously, the default value was calculated as a relative path from the executable location,
-    // but the output destination differed between `npx tsx bin/server.ts` and `node dist/bin/server.js`,
-    // causing confusion. Therefore, explicit specification is enforced.
-    .requiredOption(
-      "--output <dir>",
-      "Output directory for captured files (required)"
+    .addOption(
+      new Option("--output <dir>", "Output directory for captured files. Required.")
+        .env("BROWSERHIVE_OUTPUT_DIR")
+        .makeOptionMandatory(true),
     )
-    .option(
-      "--page-load-timeout <ms>",
-      `Page load timeout in milliseconds (default: ${String(defaultCapture.timeouts.pageLoad)})`,
-      parsePositiveInt,
-      defaultCapture.timeouts.pageLoad
+    .addOption(
+      new Option("--page-load-timeout <ms>", "Page load timeout in milliseconds")
+        .env("BROWSERHIVE_PAGE_LOAD_TIMEOUT_MS")
+        .default(defaultCapture.timeouts.pageLoad)
+        .argParser(parsePositiveInt),
     )
-    .option(
-      "--capture-timeout <ms>",
-      `Capture timeout in milliseconds (default: ${String(defaultCapture.timeouts.capture)})`,
-      parsePositiveInt,
-      defaultCapture.timeouts.capture
+    .addOption(
+      new Option("--capture-timeout <ms>", "Capture timeout in milliseconds")
+        .env("BROWSERHIVE_CAPTURE_TIMEOUT_MS")
+        .default(defaultCapture.timeouts.capture)
+        .argParser(parsePositiveInt),
     )
-    .option(
-      "--max-retry-count <n>",
-      `Max retry count for failed capture tasks (default: ${String(defaultWorker.maxRetryCount)})`,
-      parseNonNegativeInt,
-      defaultWorker.maxRetryCount
+    .addOption(
+      new Option("--max-retry-count <n>", "Max retry count for failed capture tasks")
+        .env("BROWSERHIVE_MAX_RETRY_COUNT")
+        .default(defaultWorker.maxRetryCount)
+        .argParser(parseNonNegativeInt),
     )
-    .option(
-      "--queue-poll-interval <ms>",
-      `Queue poll interval in milliseconds when queue is empty (default: ${String(defaultWorker.queuePollIntervalMs)})`,
-      parsePositiveInt,
-      defaultWorker.queuePollIntervalMs
+    .addOption(
+      new Option(
+        "--queue-poll-interval-ms <ms>",
+        "Queue poll interval in milliseconds when queue is empty",
+      )
+        .env("BROWSERHIVE_QUEUE_POLL_INTERVAL_MS")
+        .default(defaultWorker.queuePollIntervalMs)
+        .argParser(parsePositiveInt),
     )
-    .option(
-      "--viewport-width <px>",
-      `Viewport width in pixels (default: ${String(defaultCapture.viewport.width)})`,
-      parsePositiveInt,
-      defaultCapture.viewport.width
+    .addOption(
+      new Option("--viewport-width <px>", "Viewport width in pixels")
+        .env("BROWSERHIVE_VIEWPORT_WIDTH")
+        .default(defaultCapture.viewport.width)
+        .argParser(parsePositiveInt),
     )
-    .option(
-      "--viewport-height <px>",
-      `Viewport height in pixels (default: ${String(defaultCapture.viewport.height)})`,
-      parsePositiveInt,
-      defaultCapture.viewport.height
+    .addOption(
+      new Option("--viewport-height <px>", "Viewport height in pixels")
+        .env("BROWSERHIVE_VIEWPORT_HEIGHT")
+        .default(defaultCapture.viewport.height)
+        .argParser(parsePositiveInt),
     )
     .option(
       "--screenshot-full-page",
-      `Capture full page screenshot (default: ${String(defaultCapture.screenshot.fullPage)})`,
-      defaultCapture.screenshot.fullPage
+      "Capture full page screenshot (env: BROWSERHIVE_SCREENSHOT_FULL_PAGE)",
+      defaultCapture.screenshot.fullPage,
     )
-    .option(
-      "--screenshot-quality <n>",
-      "JPEG quality (1-100)",
-      parseQuality
+    .addOption(
+      new Option("--screenshot-quality <n>", "JPEG quality (1-100)")
+        .env("BROWSERHIVE_SCREENSHOT_QUALITY")
+        .argParser(parseQuality),
     )
     .option(
       "--reject-duplicate-urls",
-      "Reject capture requests for URLs already in the queue (default: false)",
-      false
+      "Reject capture requests for URLs already in the queue (env: BROWSERHIVE_REJECT_DUPLICATE_URLS)",
+      false,
     )
-    .option(
-      "--user-agent <string>",
-      "Custom User-Agent string (uses browser default if not specified)"
+    .addOption(
+      new Option(
+        "--user-agent <string>",
+        "Custom User-Agent string (uses browser default if not specified)",
+      ).env("BROWSERHIVE_USER_AGENT"),
     )
-    .option(
-      "--accept-language <string>",
-      "Accept-Language header value (e.g., 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7')"
+    .addOption(
+      new Option(
+        "--accept-language <string>",
+        "Accept-Language header value (e.g., 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7')",
+      ).env("BROWSERHIVE_ACCEPT_LANGUAGE"),
     )
-    .option(
-      "--tls-cert <path>",
-      "TLS certificate file path (enables TLS when specified with --tls-key)"
+    .addOption(
+      new Option(
+        "--tls-cert <path>",
+        "TLS certificate file path (enables TLS when specified with --tls-key)",
+      ).env("BROWSERHIVE_TLS_CERT"),
     )
-    .option(
-      "--tls-key <path>",
-      "TLS private key file path (enables TLS when specified with --tls-cert)"
+    .addOption(
+      new Option(
+        "--tls-key <path>",
+        "TLS private key file path (enables TLS when specified with --tls-cert)",
+      ).env("BROWSERHIVE_TLS_KEY"),
     )
     .allowExcessArguments(false)
     .allowUnknownOption(false)
@@ -208,18 +239,78 @@ export const createProgram = (): Command => {
   return program;
 };
 
+const splitCsv = (raw: string): string[] =>
+  raw.split(",").map((s) => s.trim()).filter((s) => s !== "");
+
+/**
+ * Variadic `--browser-url` cannot be expressed via commander's `Option#env`,
+ * so we merge the env value manually after parsing. CLI wins; env is a
+ * comma-separated list. Calls `program.error` (which exits) when the source
+ * is missing entirely.
+ */
+const requireBrowserUrls = (
+  cliValue: string[] | undefined,
+  program: Command,
+): string[] => {
+  if (cliValue !== undefined && cliValue.length > 0) return cliValue;
+  const envRaw = process.env["BROWSERHIVE_BROWSER_URLS"];
+  if (envRaw !== undefined) {
+    const parsed = splitCsv(envRaw);
+    if (parsed.length > 0) return parsed;
+  }
+  program.error(
+    "--browser-url is required (or set BROWSERHIVE_BROWSER_URLS as comma-separated list)",
+  );
+};
+
+/**
+ * Presence-only boolean flags: CLI true wins; otherwise consult the env.
+ * Throws via `program.error` (process exit, or interceptable via
+ * `program.exitOverride()` in tests) when the env value is malformed.
+ */
+const resolveBoolWithEnv = (
+  cliValue: boolean,
+  envName: string,
+  program: Command,
+): boolean => {
+  if (cliValue) return true;
+  const raw = process.env[envName];
+  if (raw === undefined) return false;
+  try {
+    return parseEnvBool(raw, envName);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : `Invalid ${envName}: ${raw}`;
+    program.error(message);
+  }
+};
+
 export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
   const program = createProgram();
   program.parse(argv);
 
   const opts = program.opts<ParsedOptions>();
 
-  // TLS options validation: both or neither
   if ((opts.tlsCert && !opts.tlsKey) || (!opts.tlsCert && opts.tlsKey)) {
     program.error("Both --tls-cert and --tls-key must be specified together");
   }
 
-  return buildServerConfig(opts);
+  const resolved: ResolvedOptions = {
+    ...opts,
+    browserUrl: requireBrowserUrls(opts.browserUrl, program),
+    screenshotFullPage: resolveBoolWithEnv(
+      opts.screenshotFullPage,
+      "BROWSERHIVE_SCREENSHOT_FULL_PAGE",
+      program,
+    ),
+    rejectDuplicateUrls: resolveBoolWithEnv(
+      opts.rejectDuplicateUrls,
+      "BROWSERHIVE_REJECT_DUPLICATE_URLS",
+      program,
+    ),
+  };
+
+  return buildServerConfig(resolved);
 };
 
 export const logServerConfig = (config: BrowserHiveConfig): void => {
@@ -252,7 +343,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       userAgent: capture.userAgent ?? "(browser default)",
       acceptLanguage: capture.acceptLanguage ?? "(browser default)",
     },
-    "Server configuration"
+    "Server configuration",
   );
 };
 
@@ -262,7 +353,7 @@ export interface ServerControl {
 }
 
 export const startServer = async (
-  config: BrowserHiveConfig
+  config: BrowserHiveConfig,
 ): Promise<ServerControl> => {
   const server = new BrowserHive(config);
 
