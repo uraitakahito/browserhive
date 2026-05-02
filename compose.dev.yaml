@@ -27,8 +27,7 @@ services:
     tty: true
     stdin_open: true
 
-  # Chromium Server 1 (development)
-  # NOTE: Uses docker/development/Dockerfile (different from chromium-server-2)
+  # Chromium Server 1 (development image, with noVNC at host:6080)
   chromium-server-1:
     build:
       context: ./chromium-server-docker
@@ -40,6 +39,8 @@ services:
     init: true
     ports:
       - "9222:9222"
+      - "5901:5901"
+      - "6080:6080"
     networks:
       - chromium-network
     healthcheck:
@@ -49,12 +50,11 @@ services:
       retries: 3
       start_period: 10s
 
-  # Chromium Server 2 (production)
-  # NOTE: Uses docker/production/Dockerfile (different from chromium-server-1)
+  # Chromium Server 2 (development image, with noVNC at host:6081)
   chromium-server-2:
     build:
       context: ./chromium-server-docker
-      dockerfile: docker/production/Dockerfile
+      dockerfile: docker/development/Dockerfile
       args:
         user_id: ${USER_ID}
         group_id: ${GROUP_ID}
@@ -62,6 +62,8 @@ services:
     init: true
     ports:
       - "9223:9222"
+      - "5902:5901"
+      - "6081:6080"
     networks:
       - chromium-network
     healthcheck:
