@@ -33,45 +33,6 @@ curl -i -X POST http://localhost:8080/v1/captures \
 
 See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full operation specification (request body, responses, status codes).
 
-#### Example: dismissing a cookie-consent dialog
-
-The Guardian (theguardian.com) uses Sourcepoint as its consent-management
-platform; by default the consent dialog covers the entire viewport.
-Setting `"dismissBanners": true` removes the banner — and any large
-fixed/sticky overlay caught by the heuristic fallback — before the
-screenshot is taken.
-
-```bash
-curl -i -X POST http://localhost:8080/v1/captures \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "url": "https://www.theguardian.com",
-    "labels": ["guardian"],
-    "captureFormats": { "png": true },
-    "dismissBanners": true
-  }'
-```
-
-When the task completes, the server log line includes a `dismissReport`:
-
-```json
-{
-  "msg": "Task completed",
-  "url": "https://www.theguardian.com",
-  "dismissReport": {
-    "framework": "Sourcepoint",
-    "removedSelectors": ["[id^=\"sp_message_container\"]"],
-    "removedOverlayCount": 1
-  }
-}
-```
-
-- `framework` — matched CMP name, or `"heuristic"` when only the fallback fired, or `null` when nothing matched.
-- `removedSelectors` — exact CSS selectors whose elements were removed in the CMP-selector pass.
-- `removedOverlayCount` — number of elements removed by the heuristic pass (fixed/sticky elements with high `z-index` that cover ≥30% of the viewport, excluding semantic landmarks).
-
-Dismissal is best-effort: a thrown error inside the page is caught and an empty report is returned, so a malformed page cannot fail the capture.
-
 ### `GET /v1/status` (GetStatus)
 
 Get the current status of the queue and capture coordinator.
