@@ -32,6 +32,8 @@
 
 # 3. Re-include build configuration files
 !tsconfig.json
+!redocly.yaml
+!openapi-ts.config.ts
 
 # 4. Re-include source / entry / tsc-include directories.
 #    Use both `!dir` and `!dir/**` so the directory itself and its
@@ -44,6 +46,8 @@
 !examples/**
 !test
 !test/**
+!scripts
+!scripts/**
 
 # 5. Within whitelisted dirs, re-exclude transient/generated content.
 #    `npm run build` (prebuild hook) regenerates these via `openapi-typescript`.
