@@ -29,9 +29,9 @@ curl -i -X POST http://localhost:8080/v1/captures \
 # {"accepted":true,"taskId":"bbf18297-fce4-4759-a953-4921d1876803","correlationId":"EXT-001"}%
 ```
 
-#### Request body fields
+#### Reference
 
-See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full request body schema.
+See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full operation specification (request body, responses, status codes).
 
 #### Filename format
 
@@ -102,7 +102,7 @@ curl http://localhost:8080/v1/status
 }
 ```
 
-See the [GetStatus reference](https://uraitakahito.github.io/browserhive/#operation/getStatus) for the response schema.
+See the [GetStatus reference](https://uraitakahito.github.io/browserhive/#operation/getStatus) for the full operation specification (response schema, status codes).
 
 ## TLS
 
