@@ -27,6 +27,18 @@ paths:
       description: |
         Accept a capture request for a single URL. Returns 202 immediately
         on acceptance; the actual capture is processed asynchronously.
+
+        ## Filename format
+
+        Captured files are written under the configured output directory.
+        The filename is derived from the task identifiers as follows:
+
+        | Case | Format | Example |
+        |------|--------|---------|
+        | With labels | `{taskId}_{labels}.{ext}` | `550e8400-..._my-label.png` |
+        | Without labels | `{taskId}.{ext}` | `550e8400-....png` |
+        | Labels + correlationId | `{taskId}_{correlationId}_{labels}.{ext}` | `550e8400-..._abc123_my-label.png` |
+        | correlationId only | `{taskId}_{correlationId}.{ext}` | `550e8400-..._abc123.png` |
       requestBody:
         required: true
         content:

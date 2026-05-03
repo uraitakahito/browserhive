@@ -33,15 +33,6 @@ curl -i -X POST http://localhost:8080/v1/captures \
 
 See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full operation specification (request body, responses, status codes).
 
-#### Filename format
-
-| Case | Format | Example |
-|------|--------|---------|
-| With labels | `{taskId}_{labels}.{ext}` | `550e8400-..._my-label.png` |
-| Without labels | `{taskId}.{ext}` | `550e8400-....png` |
-| Labels + correlationId | `{taskId}_{correlationId}_{labels}.{ext}` | `550e8400-..._abc123_my-label.png` |
-| correlationId only | `{taskId}_{correlationId}.{ext}` | `550e8400-..._abc123.png` |
-
 #### Example: dismissing a cookie-consent dialog
 
 The Guardian (theguardian.com) uses Sourcepoint as its consent-management
