@@ -122,10 +122,13 @@ export class HttpServer {
   }
 
   private buildFastify(): FastifyInstance {
-    // ajv-formats and the Fastify-bundled Ajv resolve to different package
-    // versions on disk (root ajv@v6, fastify-internal ajv@v8), so direct
-    // type assignment is not possible. The runtime call still works because
-    // Fastify only invokes the plugin against its own Ajv instance.
+    // ajv-formats exports `Plugin<FormatsPluginOptions>` while Fastify's
+    // plugins slot expects `Plugin<unknown>`, and Ajv's `Plugin<T>` is
+    // invariant in T — so direct assignment fails type-checking even
+    // though both packages resolve to the same root ajv@v8 (pinned in
+    // package.json so npm dedup keeps a single copy on disk). The
+    // runtime call still works because Fastify creates one Ajv instance
+    // and invokes plugins against it via duck-typed `addFormat` calls.
     //
     // `removeAdditional: false` overrides Fastify's default (`true`) so that
     // `additionalProperties: false` in the OpenAPI schema causes a 400 on
