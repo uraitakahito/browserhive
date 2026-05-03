@@ -22,6 +22,12 @@ export interface CaptureTask {
   captureFormats: CaptureFormats;
   /** Whether to run banner / modal dismissal before capturing */
   dismissBanners: boolean;
+  /**
+   * ISO 8601 wall-clock time of the original enqueue. Preserved across
+   * retries (`TaskQueue.requeue`) so a long-stuck task's true age stays
+   * visible in `/v1/status`.
+   */
+  enqueuedAt: string;
 }
 
 export interface ErrorDetails {
@@ -63,6 +69,19 @@ export interface ErrorRecord extends ErrorDetails {
   task?: ErrorTaskInfo;
 }
 
+/**
+ * Snapshot of the task a worker is currently processing.
+ *
+ * `startedAt` is an ISO 8601 string (the in-context epoch ms is converted
+ * at the domain boundary by `CaptureWorker.toInfo`). `elapsedMs` is not
+ * stored — the wire layer computes it from `startedAt` at response build
+ * time so the value reflects the actual response moment.
+ */
+export interface CurrentTaskInfo {
+  task: CaptureTask;
+  startedAt: string;
+}
+
 export interface WorkerInfo {
   index: number;
   browserProfile: BrowserProfile;
@@ -71,5 +90,7 @@ export interface WorkerInfo {
   errorCount: number;
   /** Error history (up to 10 most recent errors, newest first) */
   errorHistory: ErrorRecord[];
+  /** Set only while the worker is busy processing a task */
+  currentTask?: CurrentTaskInfo;
 }
 

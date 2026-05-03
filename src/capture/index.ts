@@ -6,6 +6,7 @@
 export type {
   CaptureTask,
   CaptureResult,
+  CurrentTaskInfo,
   ErrorTaskInfo,
   ErrorRecord,
   WorkerInfo,

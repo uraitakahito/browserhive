@@ -92,7 +92,23 @@ paths:
     get:
       operationId: getStatus
       summary: Get capture coordinator status
-      description: Returns the current status of the queue and worker pool.
+      description: |
+        Returns the current status of the queue and worker pool, including a
+        snapshot of pending tasks (head of the queue, capped by
+        `pendingLimit`).
+      parameters:
+        - name: pendingLimit
+          in: query
+          required: false
+          description: |
+            Maximum number of pending tasks to include in
+            `queue.pendingTasks`. Defaults to 50; clamp at 200 to bound the
+            response size.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 200
+            default: 50
       responses:
         "200":
           description: Current status of queue and workers
@@ -100,6 +116,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+        "400":
+          description: Invalid query parameter
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
 components:
   schemas:
     CaptureFormats:
@@ -243,6 +265,32 @@ components:
       properties:
         browserUrl:
           type: string
+    CurrentTask:
+      type: object
+      description: |
+        Snapshot of the task a worker is currently processing. Present only
+        when the worker is in the `busy` health state. `elapsedMs` is
+        computed at response-build time as `now - startedAt`.
+      required: [taskId, url, labels, startedAt, elapsedMs, retryCount]
+      additionalProperties: false
+      properties:
+        taskId:
+          type: string
+        url:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        correlationId:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        elapsedMs:
+          type: integer
+        retryCount:
+          type: integer
     WorkerInfo:
       type: object
       required:
@@ -268,6 +316,94 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ErrorRecord"
+        currentTask:
+          $ref: "#/components/schemas/CurrentTask"
+    PendingTask:
+      type: object
+      description: |
+        Snapshot of a task waiting in the queue. `queuedMs` is computed at
+        response-build time as `now - enqueuedAt` and is preserved across
+        retries (so a task stuck in retry loops shows its true total age).
+      required: [taskId, url, labels, enqueuedAt, queuedMs, retryCount]
+      additionalProperties: false
+      properties:
+        taskId:
+          type: string
+        url:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        correlationId:
+          type: string
+        enqueuedAt:
+          type: string
+          format: date-time
+        queuedMs:
+          type: integer
+        retryCount:
+          type: integer
+    ProcessingTask:
+      type: object
+      description: |
+        Snapshot of a task currently being processed by a worker. Mirrors
+        `PendingTask` but adds `workerIndex`, `startedAt`, and
+        `elapsedMs` so callers can correlate the processing task with the
+        owning worker and see how long it has been running.
+      required:
+        - taskId
+        - url
+        - labels
+        - enqueuedAt
+        - queuedMs
+        - retryCount
+        - workerIndex
+        - startedAt
+        - elapsedMs
+      additionalProperties: false
+      properties:
+        taskId:
+          type: string
+        url:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+        correlationId:
+          type: string
+        enqueuedAt:
+          type: string
+          format: date-time
+        queuedMs:
+          type: integer
+        retryCount:
+          type: integer
+        workerIndex:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        elapsedMs:
+          type: integer
+    QueueSnapshot:
+      type: object
+      description: |
+        Container for runtime queue introspection. `pendingTasks` is the
+        head of the pending queue; `processingTasks` is the set of tasks
+        currently held by busy workers (one per busy worker).
+      required: [pendingTasks, processingTasks]
+      additionalProperties: false
+      properties:
+        pendingTasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingTask"
+        processingTasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcessingTask"
     StatusResponse:
       type: object
       required:
@@ -279,6 +415,7 @@ components:
         - isRunning
         - isDegraded
         - workers
+        - queue
       additionalProperties: false
       properties:
         pending:
@@ -299,3 +436,5 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkerInfo"
+        queue:
+          $ref: "#/components/schemas/QueueSnapshot"

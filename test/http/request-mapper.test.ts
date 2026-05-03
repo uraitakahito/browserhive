@@ -51,6 +51,20 @@ describe("captureRequestToTask", () => {
     expect(result.value.dismissBanners).toBe(false);
   });
 
+  it("stamps enqueuedAt with a current ISO 8601 timestamp", () => {
+    const before = Date.now();
+    const result = captureRequestToTask(baseRequest());
+    const after = Date.now();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.enqueuedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
+    const t = new Date(result.value.enqueuedAt).getTime();
+    expect(t).toBeGreaterThanOrEqual(before);
+    expect(t).toBeLessThanOrEqual(after);
+  });
+
   it("omits correlationId when not provided", () => {
     const result = captureRequestToTask(baseRequest());
     expect(result.ok).toBe(true);

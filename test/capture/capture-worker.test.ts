@@ -73,6 +73,7 @@ describe("capture-worker", () => {
         expect(ctx.processedCount).toBe(0);
         expect(ctx.errorCount).toBe(0);
         expect(ctx.errorHistory).toHaveLength(0);
+        expect(ctx.currentTask).toBeNull();
       });
     });
 
@@ -147,18 +148,25 @@ describe("capture-worker", () => {
         expect(actor.getSnapshot().hasTag("canProcess")).toBe(true);
       });
 
-      it("should transition idle → processing on TASK_STARTED", async () => {
+      it("should transition idle → processing on TASK_STARTED and capture currentTask", async () => {
         const { actor } = await createOperationalActor();
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const before = Date.now();
         actor.send({ type: "TASK_STARTED", task });
+        const after = Date.now();
         expect(actor.getSnapshot().value).toEqual({ operational: "processing" });
         expect(actor.getSnapshot().hasTag("healthy")).toBe(true);
         expect(actor.getSnapshot().hasTag("canProcess")).toBe(false);
+        const current = actor.getSnapshot().context.currentTask;
+        expect(current).not.toBeNull();
+        expect(current?.task).toBe(task);
+        expect(current?.startedAt).toBeGreaterThanOrEqual(before);
+        expect(current?.startedAt).toBeLessThanOrEqual(after);
       });
 
-      it("should transition processing → idle on TASK_DONE and increment processedCount", async () => {
+      it("should transition processing → idle on TASK_DONE, increment processedCount, and clear currentTask", async () => {
         const { actor } = await createOperationalActor();
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         const result = { task, status: "success" as const, captureProcessingTimeMs: 100, timestamp: new Date().toISOString(), workerIndex: 0 };
 
         actor.send({ type: "TASK_STARTED", task });
@@ -166,12 +174,13 @@ describe("capture-worker", () => {
 
         expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
         expect(actor.getSnapshot().context.processedCount).toBe(1);
+        expect(actor.getSnapshot().context.currentTask).toBeNull();
       });
 
       it("should requeue task on TASK_FAILED when retries remain (canRetry guard)", async () => {
         const taskQueue = new TaskQueue();
         const { actor } = await createOperationalActor({ runtime: { taskQueue } });
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         const result = {
           task,
           status: "failed" as const,
@@ -192,12 +201,14 @@ describe("capture-worker", () => {
         expect(ctx.errorHistory).toHaveLength(0);
         // Task was requeued
         expect(taskQueue.remaining).toBe(1);
+        // currentTask cleared even on retry path
+        expect(ctx.currentTask).toBeNull();
       });
 
       it("should mark task complete on TASK_FAILED when retries exhausted", async () => {
         const taskQueue = new TaskQueue();
         const { actor } = await createOperationalActor({ runtime: { taskQueue } });
-        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         // Simulate dequeue to put task in processing set
         taskQueue.enqueue(task);
         taskQueue.dequeue();
@@ -221,14 +232,21 @@ describe("capture-worker", () => {
         expect(ctx.errorHistory[0]!.message).toBe("Page crashed");
         expect(ctx.errorHistory[0]!.task?.taskId).toBe("t1");
         expect(taskQueue.completedCount).toBe(1);
+        // currentTask cleared on terminal failure path
+        expect(ctx.currentTask).toBeNull();
       });
 
-      it("should transition to error on CONNECTION_LOST", async () => {
+      it("should transition to error on CONNECTION_LOST and clear currentTask", async () => {
         const { actor } = await createOperationalActor();
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        actor.send({ type: "TASK_STARTED", task });
+        expect(actor.getSnapshot().context.currentTask).not.toBeNull();
         actor.send({ type: "CONNECTION_LOST", message: "Browser disconnected" });
 
         expect(actor.getSnapshot().value).toBe("error");
         expect(actor.getSnapshot().context.errorCount).toBe(1);
+        // No ghost currentTask after connection drop mid-processing
+        expect(actor.getSnapshot().context.currentTask).toBeNull();
       });
 
       it("should transition to disconnecting on DISCONNECT", async () => {
@@ -301,7 +319,7 @@ describe("capture-worker", () => {
 
         // Generate 12 final failures (retryCount >= maxRetryCount to bypass canRetry guard)
         for (let i = 0; i < 12; i++) {
-          const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+          const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
           const result = {
             task,
             status: "failed" as const,
@@ -343,7 +361,7 @@ describe("capture-worker", () => {
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
       });
-      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
       actor.send({ type: "TASK_STARTED", task });
       expect(toWorkerHealth(actor.getSnapshot())).toBe("busy");
     });
@@ -403,7 +421,7 @@ describe("capture-worker", () => {
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
       });
-      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false };
+      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
       actor.send({ type: "TASK_STARTED", task });
       expect(actor.getSnapshot().value).toEqual({ operational: "processing" });
       expect(isWorkerSettled(actor.getSnapshot())).toBe(true);
@@ -640,12 +658,40 @@ describe("CaptureWorker class", () => {
       expect(info.processedCount).toBe(0);
       expect(info.errorCount).toBe(0);
       expect(info.errorHistory).toEqual([]);
+      expect(info.currentTask).toBeUndefined();
     });
 
     it("returns an independent errorHistory array (defensive copy)", () => {
       const { worker } = buildWorker();
       const info = worker.toInfo();
       expect(info.errorHistory).not.toBe(worker.getSnapshot().context.errorHistory);
+    });
+
+    it("emits currentTask when the worker is busy, with ISO startedAt", async () => {
+      const { worker, actor } = buildWorker();
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      const task = {
+        taskId: "t-busy",
+        labels: ["a"],
+        url: "https://example.com",
+        retryCount: 1,
+        captureFormats: { png: true, jpeg: false, html: false },
+        dismissBanners: false,
+        correlationId: "EXT-7",
+        enqueuedAt: "2024-01-01T00:00:00.000Z",
+      };
+      actor.send({ type: "TASK_STARTED", task });
+
+      const info = worker.toInfo();
+      expect(info.currentTask).toBeDefined();
+      expect(info.currentTask?.task).toBe(task);
+      // ISO 8601 (z-suffixed UTC)
+      expect(info.currentTask?.startedAt).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+      );
     });
   });
 

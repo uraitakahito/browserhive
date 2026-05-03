@@ -35,11 +35,22 @@ export class TaskQueue {
   requeue(task: CaptureTask): void {
     this.processing.delete(task.taskId);
     this.processingUrls.delete(task.taskId);
+    // `enqueuedAt` is intentionally preserved so the task's true age stays
+    // visible to /v1/status across retries — only `retryCount` is bumped.
     const retriedTask: CaptureTask = {
       ...task,
       retryCount: task.retryCount + 1,
     };
     this.queue.push(retriedTask);
+  }
+
+  /**
+   * Return up to `limit` tasks from the head of the pending queue without
+   * removing them. Used by `/v1/status` to expose what's waiting.
+   */
+  peekPending(limit: number): CaptureTask[] {
+    if (limit <= 0) return [];
+    return this.queue.slice(0, limit);
   }
 
   markComplete(taskId: string): void {

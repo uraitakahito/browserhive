@@ -61,6 +61,7 @@ export const captureRequestToTask = (
     retryCount: 0,
     captureFormats,
     dismissBanners: request.dismissBanners ?? false,
+    enqueuedAt: new Date().toISOString(),
     ...(request.correlationId !== undefined &&
       request.correlationId !== "" && {
         correlationId: request.correlationId,
