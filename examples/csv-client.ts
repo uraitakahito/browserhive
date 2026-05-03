@@ -9,10 +9,10 @@ import createClient from "openapi-fetch";
 import {
   parseClientOptions,
   logClientConfig,
-  getCaptureOptions,
+  getCaptureFormats,
   type ClientOptions,
 } from "../src/cli/client-cli.js";
-import type { CaptureOptions } from "../src/capture/index.js";
+import type { CaptureFormats } from "../src/capture/index.js";
 import type { paths, components } from "../src/http/generated/types.js";
 import { logger } from "../src/logger.js";
 
@@ -85,7 +85,7 @@ const buildClient = (options: ClientOptions): Client =>
 const submitRequest = async (
   client: Client,
   record: CsvRecord,
-  captureOptions: CaptureOptions,
+  captureFormats: CaptureFormats,
   dismissBanners: boolean,
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
@@ -93,7 +93,7 @@ const submitRequest = async (
     url: record.url,
     labels: record.labels,
     correlationId,
-    captureOptions,
+    captureFormats,
     dismissBanners,
   };
 
@@ -133,14 +133,14 @@ const submitRequest = async (
 const submitAll = async (
   client: Client,
   records: CsvRecord[],
-  captureOptions: CaptureOptions,
+  captureFormats: CaptureFormats,
   dismissBanners: boolean,
 ): Promise<SubmitResult[]> => {
   const total = records.length;
   let completed = 0;
 
   const promises = records.map(async (record) => {
-    const result = await submitRequest(client, record, captureOptions, dismissBanners);
+    const result = await submitRequest(client, record, captureFormats, dismissBanners);
     completed++;
 
     if (result.accepted) {
@@ -197,11 +197,11 @@ const runClient = async (options: ClientOptions): Promise<void> => {
   }
 
   const client = buildClient(options);
-  const captureOptions = getCaptureOptions(options);
+  const captureFormats = getCaptureFormats(options);
   const results = await submitAll(
     client,
     records,
-    captureOptions,
+    captureFormats,
     options.dismissBanners ?? false,
   );
 

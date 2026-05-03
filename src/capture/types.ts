@@ -4,7 +4,7 @@
 
 import type { BrowserProfile } from "../config/index.js";
 import type { WorkerHealth } from "./capture-worker.js";
-import type { CaptureOptions } from "./capture-mode.js";
+import type { CaptureFormats } from "./capture-formats.js";
 import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
 import type { DismissReport } from "./banner-dismisser.js";
@@ -19,7 +19,7 @@ export interface CaptureTask {
   labels: string[];
   url: string;
   retryCount: number;
-  captureOptions: CaptureOptions;
+  captureFormats: CaptureFormats;
   /** Whether to run banner / modal dismissal before capturing */
   dismissBanners: boolean;
 }

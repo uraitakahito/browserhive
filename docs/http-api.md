@@ -18,7 +18,7 @@ curl -i -X POST http://localhost:8080/v1/captures \
     "url": "https://example.com",
     "labels": ["example"],
     "correlationId": "EXT-001",
-    "captureOptions": { "png": true, "jpeg": false, "html": true },
+    "captureFormats": { "png": true, "jpeg": false, "html": true },
     "dismissBanners": true
   }'
 ```
@@ -30,10 +30,10 @@ curl -i -X POST http://localhost:8080/v1/captures \
 | `url` | string | Yes | — | URL to capture |
 | `labels` | string[] | No | `[]` | Labels used for filename (multiple can be specified) |
 | `correlationId` | string | No | (unset) | ID echoed back on the acceptance response, useful for client-side correlation |
-| `captureOptions` | object | Yes | — | Capture options (at least one of `png`/`jpeg`/`html` must be true) |
-| `captureOptions.png` | bool | — | `false` | Capture PNG screenshot |
-| `captureOptions.jpeg` | bool | — | `false` | Capture JPEG screenshot |
-| `captureOptions.html` | bool | — | `false` | Capture HTML |
+| `captureFormats` | object | Yes | — | Capture output formats (at least one of `png`/`jpeg`/`html` must be true) |
+| `captureFormats.png` | bool | — | `false` | Capture PNG screenshot |
+| `captureFormats.jpeg` | bool | — | `false` | Capture JPEG screenshot |
+| `captureFormats.html` | bool | — | `false` | Capture HTML |
 | `dismissBanners` | bool | No | `false` | Strip cookie-consent banners and large fixed/sticky overlays before capturing. Best-effort: dismissal failures do not fail the capture. The dismissal report (framework + selectors removed) appears in the server log line for the completed task. |
 
 #### Filename format
@@ -67,7 +67,7 @@ Failures use `Content-Type: application/problem+json` (RFC 7807).
 
 | Status | Title | When |
 |--------|-------|------|
-| `400` | Validation failed | `url` missing, `captureOptions` all false, invalid label/correlationId chars |
+| `400` | Validation failed | `url` missing, `captureFormats` all false, invalid label/correlationId chars |
 | `409` | Duplicate URL | `--reject-duplicate-urls` is enabled and the URL is already pending or in flight |
 | `503` | No operational workers available | The coordinator has zero healthy workers (request again once at least one reconnects) |
 
@@ -76,7 +76,7 @@ Failures use `Content-Type: application/problem+json` (RFC 7807).
   "type": "about:blank",
   "title": "Validation failed",
   "status": 400,
-  "detail": "At least one capture option must be enabled (png, jpeg, or html)"
+  "detail": "At least one capture format must be enabled (png, jpeg, or html)"
 }
 ```
 
@@ -94,7 +94,7 @@ curl -i -X POST http://localhost:8080/v1/captures \
   -d '{
     "url": "https://www.theguardian.com",
     "labels": ["guardian"],
-    "captureOptions": { "png": true },
+    "captureFormats": { "png": true },
     "dismissBanners": true
   }'
 ```

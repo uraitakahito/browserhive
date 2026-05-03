@@ -71,7 +71,7 @@ export const createCaptureHandlers = (
         taskLabels: task.labels,
         taskId: task.taskId,
         ...(task.correlationId && { correlationId: task.correlationId }),
-        captureOptions: task.captureOptions,
+        captureFormats: task.captureFormats,
         dismissBanners: task.dismissBanners,
         url: task.url,
       },

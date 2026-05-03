@@ -11,11 +11,11 @@ export type {
   WorkerInfo,
 } from "./types.js";
 
-// Capture Options
-export type { CaptureOptions } from "./capture-mode.js";
+// Capture Formats
+export type { CaptureFormats } from "./capture-formats.js";
 export {
-  validateCaptureOptions,
-} from "./capture-mode.js";
+  validateCaptureFormats,
+} from "./capture-formats.js";
 
 // Capture Status
 export type { CaptureStatus } from "./capture-status.js";

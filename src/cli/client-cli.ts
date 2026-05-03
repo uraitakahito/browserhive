@@ -8,7 +8,7 @@
  * equivalents — they are caller-side intent, not deployment configuration.
  */
 import { Command, InvalidArgumentError, Option } from "commander";
-import { type CaptureOptions } from "../capture/index.js";
+import { type CaptureFormats } from "../capture/index.js";
 import { DEFAULT_SERVER_ADDRESS } from "../http/generated/server.js";
 import { logger } from "../logger.js";
 
@@ -94,7 +94,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
   };
 };
 
-export const getCaptureOptions = (options: ClientOptions): CaptureOptions => {
+export const getCaptureFormats = (options: ClientOptions): CaptureFormats => {
   return {
     png: options.png ?? false,
     jpeg: options.jpeg ?? false,
@@ -110,7 +110,7 @@ export const logClientConfig = (options: ClientOptions): void => {
         ? { enabled: true, caCertPath: options.tlsCaCert }
         : { enabled: false },
       csv: options.csv,
-      captureOptions: getCaptureOptions(options),
+      captureFormats: getCaptureFormats(options),
       dismissBanners: options.dismissBanners ?? false,
       limit: options.limit ?? null,
     },

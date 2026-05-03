@@ -38,7 +38,7 @@ const buildApp = (stub: CoordinatorStub): FastifyInstance => {
 const validBody = {
   url: "https://example.com",
   labels: ["my-label"],
-  captureOptions: { png: true, jpeg: false, html: false },
+  captureFormats: { png: true, jpeg: false, html: false },
   dismissBanners: false,
 };
 
@@ -82,7 +82,7 @@ describe("submitCapture handler", () => {
       url: "/v1/captures",
       payload: {
         ...validBody,
-        captureOptions: { png: false, jpeg: false, html: false },
+        captureFormats: { png: false, jpeg: false, html: false },
       },
     });
     expect(response.statusCode).toBe(400);

@@ -20,7 +20,7 @@ describe("taskToAcceptance", () => {
       labels: [],
       url: "https://example.com",
       retryCount: 0,
-      captureOptions: { png: true, jpeg: false, html: false },
+      captureFormats: { png: true, jpeg: false, html: false },
       dismissBanners: false,
       correlationId: "EXT-1",
     };
@@ -37,7 +37,7 @@ describe("taskToAcceptance", () => {
       labels: [],
       url: "https://example.com",
       retryCount: 0,
-      captureOptions: { png: true, jpeg: false, html: false },
+      captureFormats: { png: true, jpeg: false, html: false },
       dismissBanners: false,
     };
     expect(taskToAcceptance(task)).toEqual({

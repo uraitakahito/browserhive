@@ -65,7 +65,7 @@ paths:
                 $ref: "#/components/schemas/StatusResponse"
 components:
   schemas:
-    CaptureOptions:
+    CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
       required: [png, jpeg, html]
@@ -79,7 +79,7 @@ components:
           type: boolean
     CaptureRequest:
       type: object
-      required: [url, captureOptions]
+      required: [url, captureFormats]
       additionalProperties: false
       properties:
         url:
@@ -96,8 +96,8 @@ components:
         correlationId:
           type: string
           description: Correlation ID provided by the client for tracking
-        captureOptions:
-          $ref: "#/components/schemas/CaptureOptions"
+        captureFormats:
+          $ref: "#/components/schemas/CaptureFormats"
         dismissBanners:
           type: boolean
           default: false

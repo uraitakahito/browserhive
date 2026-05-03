@@ -60,7 +60,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["test"],
   url: "https://example.com",
   retryCount: 0,
-  captureOptions: { png: false, jpeg: false, html: true },
+  captureFormats: { png: false, jpeg: false, html: true },
   dismissBanners: false,
   ...overrides,
 });
