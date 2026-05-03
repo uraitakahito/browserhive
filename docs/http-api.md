@@ -29,88 +29,9 @@ curl -i -X POST http://localhost:8080/v1/captures \
 # {"accepted":true,"taskId":"bbf18297-fce4-4759-a953-4921d1876803","correlationId":"EXT-001"}%
 ```
 
-#### Request body fields
+#### Reference
 
-See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full request body schema.
-
-#### Filename format
-
-| Case | Format | Example |
-|------|--------|---------|
-| With labels | `{taskId}_{labels}.{ext}` | `550e8400-..._my-label.png` |
-| Without labels | `{taskId}.{ext}` | `550e8400-....png` |
-| Labels + correlationId | `{taskId}_{correlationId}_{labels}.{ext}` | `550e8400-..._abc123_my-label.png` |
-| correlationId only | `{taskId}_{correlationId}.{ext}` | `550e8400-..._abc123.png` |
-
-#### Success response (`202 Accepted`)
-
-```json
-{
-  "accepted": true,
-  "taskId": "550e8400-e29b-41d4-a716-446655440000",
-  "correlationId": "EXT-001"
-}
-```
-
-See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the response schema.
-
-#### Error responses
-
-Failures use `Content-Type: application/problem+json` (RFC 7807).
-
-| Status | Title | When |
-|--------|-------|------|
-| `400` | Validation failed | `url` missing, `captureFormats` all false, invalid label/correlationId chars |
-| `409` | Duplicate URL | `--reject-duplicate-urls` is enabled and the URL is already pending or in flight |
-| `503` | No operational workers available | The coordinator has zero healthy workers (request again once at least one reconnects) |
-
-```json
-{
-  "type": "about:blank",
-  "title": "Validation failed",
-  "status": 400,
-  "detail": "At least one capture format must be enabled (png, jpeg, or html)"
-}
-```
-
-#### Example: dismissing a cookie-consent dialog
-
-The Guardian (theguardian.com) uses Sourcepoint as its consent-management
-platform; by default the consent dialog covers the entire viewport.
-Setting `"dismissBanners": true` removes the banner — and any large
-fixed/sticky overlay caught by the heuristic fallback — before the
-screenshot is taken.
-
-```bash
-curl -i -X POST http://localhost:8080/v1/captures \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "url": "https://www.theguardian.com",
-    "labels": ["guardian"],
-    "captureFormats": { "png": true },
-    "dismissBanners": true
-  }'
-```
-
-When the task completes, the server log line includes a `dismissReport`:
-
-```json
-{
-  "msg": "Task completed",
-  "url": "https://www.theguardian.com",
-  "dismissReport": {
-    "framework": "Sourcepoint",
-    "removedSelectors": ["[id^=\"sp_message_container\"]"],
-    "removedOverlayCount": 1
-  }
-}
-```
-
-- `framework` — matched CMP name, or `"heuristic"` when only the fallback fired, or `null` when nothing matched.
-- `removedSelectors` — exact CSS selectors whose elements were removed in the CMP-selector pass.
-- `removedOverlayCount` — number of elements removed by the heuristic pass (fixed/sticky elements with high `z-index` that cover ≥30% of the viewport, excluding semantic landmarks).
-
-Dismissal is best-effort: a thrown error inside the page is caught and an empty report is returned, so a malformed page cannot fail the capture.
+See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full operation specification (request body, responses, status codes).
 
 ### `GET /v1/status` (GetStatus)
 
@@ -133,7 +54,7 @@ curl http://localhost:8080/v1/status
 }
 ```
 
-See the [GetStatus reference](https://uraitakahito.github.io/browserhive/#operation/getStatus) for the response schema.
+See the [GetStatus reference](https://uraitakahito.github.io/browserhive/#operation/getStatus) for the full operation specification (response schema, status codes).
 
 ## TLS
 

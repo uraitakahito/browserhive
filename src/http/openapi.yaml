@@ -27,12 +27,42 @@ paths:
       description: |
         Accept a capture request for a single URL. Returns 202 immediately
         on acceptance; the actual capture is processed asynchronously.
+
+        ## Filename format
+
+        Captured files are written under the configured output directory.
+        The filename is derived from the task identifiers as follows:
+
+        | Case | Format | Example |
+        |------|--------|---------|
+        | With labels | `{taskId}_{labels}.{ext}` | `550e8400-..._my-label.png` |
+        | Without labels | `{taskId}.{ext}` | `550e8400-....png` |
+        | Labels + correlationId | `{taskId}_{correlationId}_{labels}.{ext}` | `550e8400-..._abc123_my-label.png` |
+        | correlationId only | `{taskId}_{correlationId}.{ext}` | `550e8400-..._abc123.png` |
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CaptureRequest"
+            examples:
+              dismissBanners:
+                summary: Dismiss cookie-consent banners
+                description: |
+                  Captures The Guardian (which uses Sourcepoint as its
+                  consent-management platform). With `dismissBanners: true`
+                  the consent dialog — and any large fixed/sticky overlay
+                  caught by the heuristic fallback — are removed before the
+                  screenshot is taken. See the `dismissBanners` field of
+                  `CaptureRequest` for the resulting `dismissReport` shape.
+                value:
+                  url: https://www.theguardian.com
+                  labels: [guardian]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                  dismissBanners: true
       responses:
         "202":
           description: Request accepted for processing
@@ -111,8 +141,30 @@ components:
           description: |
             Run banner / modal dismissal before capturing. Removes known
             consent-management-platform overlays and large fixed/sticky
-            overlays via heuristic. Best-effort: dismissal failures do not
-            fail the capture.
+            overlays via heuristic.
+
+            When enabled, the server log line for the completed task
+            includes a `dismissReport`:
+
+            ```json
+            {
+              "msg": "Task completed",
+              "url": "https://www.theguardian.com",
+              "dismissReport": {
+                "framework": "Sourcepoint",
+                "removedSelectors": ["[id^=\"sp_message_container\"]"],
+                "removedOverlayCount": 1
+              }
+            }
+            ```
+
+            - `framework` — matched CMP name, or `"heuristic"` when only the fallback fired, or `null` when nothing matched.
+            - `removedSelectors` — exact CSS selectors whose elements were removed in the CMP-selector pass.
+            - `removedOverlayCount` — number of elements removed by the heuristic pass (fixed/sticky elements with high `z-index` that cover ≥30% of the viewport, excluding semantic landmarks).
+
+            Best-effort: dismissal failures (including thrown errors inside
+            the page) are swallowed and an empty report is returned, so a
+            malformed page cannot fail the capture.
     CaptureAcceptance:
       type: object
       required: [accepted, taskId]
