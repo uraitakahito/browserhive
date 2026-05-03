@@ -42,37 +42,6 @@ See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#op
 | Labels + correlationId | `{taskId}_{correlationId}_{labels}.{ext}` | `550e8400-..._abc123_my-label.png` |
 | correlationId only | `{taskId}_{correlationId}.{ext}` | `550e8400-..._abc123.png` |
 
-#### Success response (`202 Accepted`)
-
-```json
-{
-  "accepted": true,
-  "taskId": "550e8400-e29b-41d4-a716-446655440000",
-  "correlationId": "EXT-001"
-}
-```
-
-See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the response schema.
-
-#### Error responses
-
-Failures use `Content-Type: application/problem+json` (RFC 7807).
-
-| Status | Title | When |
-|--------|-------|------|
-| `400` | Validation failed | `url` missing, `captureFormats` all false, invalid label/correlationId chars |
-| `409` | Duplicate URL | `--reject-duplicate-urls` is enabled and the URL is already pending or in flight |
-| `503` | No operational workers available | The coordinator has zero healthy workers (request again once at least one reconnects) |
-
-```json
-{
-  "type": "about:blank",
-  "title": "Validation failed",
-  "status": 400,
-  "detail": "At least one capture format must be enabled (png, jpeg, or html)"
-}
-```
-
 #### Example: dismissing a cookie-consent dialog
 
 The Guardian (theguardian.com) uses Sourcepoint as its consent-management
