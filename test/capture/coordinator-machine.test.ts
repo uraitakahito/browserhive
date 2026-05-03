@@ -147,31 +147,6 @@ describe("coordinator-machine", () => {
         });
       });
 
-      it("records the InitializeWorkersOutput into context.lastInitSummary on active.degraded", async () => {
-        const summary: InitializeWorkersOutput = {
-          allHealthy: false,
-          failed: [
-            {
-              browserURL: "http://b:9222",
-              reason: { type: "connection", message: "boom" },
-            },
-          ],
-        };
-        const machine = machineWith({
-          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
-            Promise.resolve(summary),
-          ),
-        });
-        const actor = createActor(machine, { input: createTestInput() });
-        actor.start();
-        actor.send({ type: "INITIALIZE" });
-
-        await vi.waitFor(() => {
-          expect(actor.getSnapshot().matches({ active: "degraded" })).toBe(true);
-        });
-        expect(actor.getSnapshot().context.lastInitSummary).toEqual(summary);
-      });
-
       it("active.running → active.degraded via WORKER_DEGRADED", () => {
         const actor = actorAt({ active: "running" });
         expect(actor.getSnapshot().can({ type: "WORKER_DEGRADED" })).toBe(true);

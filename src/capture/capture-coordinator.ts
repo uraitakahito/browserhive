@@ -11,7 +11,6 @@ import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
 import { coordinatorMachine } from "./coordinator-machine.js";
-import type { WorkerInitFailure } from "./coordinator-errors.js";
 import type { CaptureWorker } from "./capture-worker.js";
 
 /** Argument type accepted by `snapshot.matches()` for the coordinator machine. */
@@ -52,19 +51,11 @@ export class CaptureCoordinator {
    * Worker spawning and browser connection are driven by the lifecycle
    * machine. Init failures do not abort startup — the coordinator
    * lands in `active.running` (all healthy) or `active.degraded`
-   * (some/all failed). Inspect `lastInitFailedWorkers` for detail.
+   * (some/all failed).
    */
   async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("active");
-  }
-
-  /**
-   * Workers that did not reach operational during the last `initialize()`.
-   * Empty when all workers connected successfully.
-   */
-  get lastInitFailedWorkers(): WorkerInitFailure[] {
-    return this.lifecycleActor.getSnapshot().context.lastInitSummary?.failed ?? [];
   }
 
   enqueueTask(task: CaptureTask): Result<void, string> {
