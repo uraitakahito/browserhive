@@ -2,7 +2,8 @@
 
 The OpenAPI 3.1 specification for the Capture API lives in
 [`src/http/openapi.yaml`](../src/http/openapi.yaml). At runtime the server
-also serves Swagger UI at `/docs` (browse to <http://localhost:8080/docs>).
+also serves the Redoc-rendered reference docs at `/docs` (browse to
+<http://localhost:8080/docs>) and the raw spec at `/openapi.yaml`.
 
 ## Endpoints
 

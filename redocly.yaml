@@ -1,0 +1,12 @@
+apis:
+  capture@v1:
+    root: src/http/openapi.yaml
+extends:
+  - recommended-strict
+rules:
+  # servers[0].url is intentionally http://localhost:8080 — it is the
+  # source of truth for the SDK's default baseUrl (see openapi.yaml).
+  no-server-example.com: off
+  # GET /v1/status takes no input and never returns 4xx; declaring a
+  # synthetic one would just be lint-appeasement noise.
+  operation-4xx-response: off

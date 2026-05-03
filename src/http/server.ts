@@ -13,16 +13,19 @@
  *     `schema` option. Fastify's Ajv enforces them.
  *   - Domain-level invariants (e.g. "at least one capture format must be
  *     true", filename safety for labels) live in src/http/request-mapper.ts.
+ *
+ * Documentation strategy:
+ *   - `npm run openapi:build-docs` (in `prebuild`) renders a self-contained
+ *     Redoc HTML with the spec embedded into `dist/docs/index.html`.
+ *   - `/docs` reads that file at server start and serves it as a single
+ *     static route. `/openapi.yaml` exposes the raw spec for tooling.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import Fastify, { type FastifyInstance, type FastifyError } from "fastify";
-import fastifySwagger from "@fastify/swagger";
-import fastifySwaggerUi from "@fastify/swagger-ui";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import addFormats from "ajv-formats";
-import type { OpenAPIV3 } from "openapi-types";
 import type { CaptureCoordinator } from "../capture/index.js";
 import type { TlsConfig } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -31,6 +34,7 @@ import { createCaptureHandlers } from "./handlers.js";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(currentDir, "..", "..", "..");
 const OPENAPI_PATH = join(projectRoot, "src", "http", "openapi.yaml");
+const REDOC_HTML_PATH = join(projectRoot, "dist", "docs", "index.html");
 
 interface PathItem {
   post?: OperationObject;
@@ -47,6 +51,19 @@ interface OpenApiDocument {
   paths: Record<string, PathItem>;
   components?: { schemas?: Record<string, unknown> };
 }
+
+const readDocsHtml = (): string => {
+  try {
+    return readFileSync(REDOC_HTML_PATH, "utf-8");
+  } catch (error) {
+    throw new Error(
+      `Redoc HTML not found at ${REDOC_HTML_PATH}. Run \`npm run openapi:build-docs\` (or \`npm run build\`) first.`,
+      { cause: error },
+    );
+  }
+};
+
+const readOpenapiYaml = (): string => readFileSync(OPENAPI_PATH, "utf-8");
 
 const extractRouteSchema = (
   operation: OperationObject | undefined,
@@ -151,11 +168,16 @@ export class HttpServer {
       OPENAPI_PATH,
     )) as OpenApiDocument;
 
-    await app.register(fastifySwagger, {
-      mode: "static",
-      specification: { document: document as unknown as OpenAPIV3.Document },
-    });
-    await app.register(fastifySwaggerUi, { routePrefix: "/docs" });
+    // Loaded eagerly at initialize time so a missing build artifact fails
+    // fast at startup instead of returning 500 on the first /docs request.
+    const docsHtml = readDocsHtml();
+    const openapiYaml = readOpenapiYaml();
+    app.get("/docs", (_request, reply) =>
+      reply.type("text/html; charset=utf-8").send(docsHtml),
+    );
+    app.get("/openapi.yaml", (_request, reply) =>
+      reply.type("application/yaml; charset=utf-8").send(openapiYaml),
+    );
 
     // Convert Fastify's default validation error envelope into our
     // RFC 7807 Problem shape so the response matches the OpenAPI 400 schema.
