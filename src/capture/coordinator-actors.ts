@@ -71,10 +71,14 @@ export const waitForWorkersToReach = async (
         workers.map(
           (worker) =>
             new Promise<void>((resolve) => {
+              // [1] Already in the target state — resolve immediately.
+              // subscribe() does not replay the current snapshot, so without
+              // this we would hang on workers that settled before we attached.
               if (predicate(worker.getSnapshot())) {
                 resolve();
                 return;
               }
+              // [2] Not there yet — wait for a future matching transition.
               const sub = worker.ref.subscribe((snapshot) => {
                 if (predicate(snapshot)) resolve();
               });
@@ -82,6 +86,8 @@ export const waitForWorkersToReach = async (
             }),
         ),
       ),
+      // [3] Timeout escape. Resolves (not rejects) so the caller can judge
+      // success/failure from the workers' actual post-wait state.
       new Promise<void>((resolve) => {
         timeoutId = setTimeout(() => {
           options.onTimeout();

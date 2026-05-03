@@ -37,7 +37,6 @@ import {
   retryFailedWorkers,
   shutdownWorkers,
   watchWorkerHealth,
-  type InitializeWorkersOutput,
 } from "./coordinator-actors.js";
 import { TaskQueue } from "./task-queue.js";
 import { BrowserClient } from "./browser-client.js";
@@ -47,8 +46,6 @@ export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   taskQueue: TaskQueue;
   workers: CaptureWorker[];
-  /** Most recent init outcome — informational only (does not gate the lifecycle). */
-  lastInitSummary?: InitializeWorkersOutput;
 }
 
 export interface CoordinatorMachineInput {
@@ -110,32 +107,26 @@ export const coordinatorMachine = setup({
           {
             guard: ({ event }) => event.output.allHealthy,
             target: "active.running",
-            actions: [
-              assign({ lastInitSummary: ({ event }) => event.output }),
-              ({ context }) => {
-                logger.info(
-                  { totalCount: context.workers.length },
-                  "Capture coordinator initialized",
-                );
-              },
-            ],
+            actions: ({ context }) => {
+              logger.info(
+                { totalCount: context.workers.length },
+                "Capture coordinator initialized",
+              );
+            },
           },
           {
             target: "active.degraded",
-            actions: [
-              assign({ lastInitSummary: ({ event }) => event.output }),
-              ({ event, context }) => {
-                logger.warn(
-                  {
-                    operational:
-                      context.workers.length - event.output.failed.length,
-                    total: context.workers.length,
-                    failed: event.output.failed,
-                  },
-                  "Capture coordinator started in degraded state",
-                );
-              },
-            ],
+            actions: ({ event, context }) => {
+              logger.warn(
+                {
+                  operational:
+                    context.workers.length - event.output.failed.length,
+                  total: context.workers.length,
+                  failed: event.output.failed,
+                },
+                "Capture coordinator started in degraded state",
+              );
+            },
           },
         ],
       },

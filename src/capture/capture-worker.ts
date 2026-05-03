@@ -305,11 +305,6 @@ export const toWorkerHealth = (snapshot: CaptureWorkerSnapshot): WorkerHealth =>
   }
 };
 
-/**
- * True when the worker has reached either `operational` or `error` —
- * i.e. a CONNECT attempt has settled with a definite outcome. Used by
- * the coordinator's `initializeWorkers` to decide when waiting is done.
- */
 export const isWorkerSettled = (snapshot: CaptureWorkerSnapshot): boolean =>
   snapshot.matches("operational") || snapshot.matches("error");
 
@@ -325,8 +320,7 @@ export const isWorkerDisconnected = (snapshot: CaptureWorkerSnapshot): boolean =
  * CaptureWorker
  *
  * The coordinator and its actors hold `CaptureWorker` instances
- * directly, giving the diagram-level "Worker" concept a concrete
- * runtime object.
+ * directly.
  *
  * The class is intentionally a thin wrapper:
  *   - `ref` and `client` are exposed as readonly fields so low-level

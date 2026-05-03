@@ -62,9 +62,6 @@ export {
   coordinatorMachine,
 } from "./coordinator-machine.js";
 
-// Coordinator failure types
-export type { WorkerInitFailure } from "./coordinator-errors.js";
-
 // Banner / modal dismissal
 export type {
   CmpEntry,
