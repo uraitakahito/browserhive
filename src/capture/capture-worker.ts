@@ -23,9 +23,10 @@
  *   | `disconnectBrowser` (Promise)         | no             | yes         | no           | yes   | yes    |
  *   | `workerLoop` (Callback)               | yes            | yes         | no           | yes   | no     |
  */
-import { setup, assign, fromPromise, type SnapshotFrom } from "xstate";
+import { setup, assign, fromPromise, type ActorRefFrom, type SnapshotFrom } from "xstate";
 import type { BrowserClient } from "./browser-client.js";
-import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails } from "./types.js";
+import type { BrowserProfile } from "../config/index.js";
+import type { CaptureResult, CaptureTask, ErrorRecord, ErrorDetails, WorkerInfo } from "./types.js";
 import { createConnectionError, createInternalError } from "./error-details.js";
 import { workerLoopCallback, type WorkerRuntime } from "./worker-loop.js";
 import type { Result } from "../result.js";
@@ -319,3 +320,93 @@ export const isWorkerSettled = (snapshot: CaptureWorkerSnapshot): boolean =>
  */
 export const isWorkerDisconnected = (snapshot: CaptureWorkerSnapshot): boolean =>
   snapshot.matches("disconnected");
+
+/**
+ * CaptureWorker
+ *
+ * Bundles a spawned `captureWorkerMachine` actor with its associated
+ * `BrowserClient`. The coordinator and its actors hold `CaptureWorker`
+ * instances directly, giving the diagram-level "Worker" concept a
+ * concrete runtime object.
+ *
+ * The class is intentionally a thin wrapper:
+ *   - `ref` and `client` are exposed as readonly fields so low-level
+ *     XState idioms (`subscribe`, `send`, `getSnapshot`) remain
+ *     accessible to consumers that need them.
+ *   - Convenience getters / methods (`isHealthy`, `connect`, `toInfo`,
+ *     …) express the most common operations in domain terms.
+ */
+export class CaptureWorker {
+  readonly ref: ActorRefFrom<typeof captureWorkerMachine>;
+  readonly client: BrowserClient;
+
+  constructor(
+    ref: ActorRefFrom<typeof captureWorkerMachine>,
+    client: BrowserClient,
+  ) {
+    this.ref = ref;
+    this.client = client;
+  }
+
+  // -- identity / config --
+  get index(): number {
+    return this.client.index;
+  }
+  get profile(): BrowserProfile {
+    return this.client.profile;
+  }
+  get browserURL(): string {
+    return this.client.profile.browserURL;
+  }
+
+  // -- state queries --
+  getSnapshot(): CaptureWorkerSnapshot {
+    return this.ref.getSnapshot();
+  }
+  get health(): WorkerHealth {
+    return toWorkerHealth(this.ref.getSnapshot());
+  }
+  get isHealthy(): boolean {
+    return this.ref.getSnapshot().hasTag("healthy");
+  }
+  get isSettled(): boolean {
+    return isWorkerSettled(this.ref.getSnapshot());
+  }
+  get isDisconnected(): boolean {
+    return isWorkerDisconnected(this.ref.getSnapshot());
+  }
+  get isInError(): boolean {
+    return this.ref.getSnapshot().value === "error";
+  }
+
+  // -- actions --
+  connect(): void {
+    this.ref.send({ type: "CONNECT" });
+  }
+  disconnect(): void {
+    this.ref.send({ type: "DISCONNECT" });
+  }
+
+  // -- reporting --
+  toInfo(): WorkerInfo {
+    const snapshot = this.ref.getSnapshot();
+    return {
+      index: this.client.index,
+      browserProfile: this.client.profile,
+      health: toWorkerHealth(snapshot),
+      processedCount: snapshot.context.processedCount,
+      errorCount: snapshot.context.errorCount,
+      errorHistory: [...snapshot.context.errorHistory],
+    };
+  }
+
+  /**
+   * Disconnect the underlying BrowserClient directly, bypassing the
+   * actor's `disconnecting` state. Used as a safety net by
+   * `shutdownWorkers` after the disconnect timeout, so a stuck actor
+   * cannot leave the puppeteer connection open.
+   */
+  async forceDisconnectClient(): Promise<Result<void, ErrorDetails>> {
+    return this.client.disconnect();
+  }
+}

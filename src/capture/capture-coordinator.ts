@@ -10,15 +10,9 @@ import type { CoordinatorConfig } from "../config/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
-import {
-  coordinatorMachine,
-  type WorkerEntry,
-} from "./coordinator-machine.js";
+import { coordinatorMachine } from "./coordinator-machine.js";
 import type { WorkerInitFailure } from "./coordinator-errors.js";
-import {
-  toWorkerHealth,
-  type CaptureWorkerContext,
-} from "./capture-worker.js";
+import type { CaptureWorker } from "./capture-worker.js";
 
 /** Argument type accepted by `snapshot.matches()` for the coordinator machine. */
 type LifecycleMatchesArg = Parameters<SnapshotFrom<typeof coordinatorMachine>["matches"]>[0];
@@ -50,7 +44,7 @@ export class CaptureCoordinator {
     return this.lifecycleActor.getSnapshot().context.taskQueue;
   }
 
-  private get workers(): WorkerEntry[] {
+  private get workers(): CaptureWorker[] {
     return this.lifecycleActor.getSnapshot().context.workers;
   }
 
@@ -112,9 +106,7 @@ export class CaptureCoordinator {
   }
 
   get operationalWorkerCount(): number {
-    return this.workers.filter(
-      (entry) => entry.ref.getSnapshot().hasTag("healthy")
-    ).length;
+    return this.workers.filter((worker) => worker.isHealthy).length;
   }
 
   getStatus(): CoordinatorStatusReport {
@@ -124,20 +116,7 @@ export class CaptureCoordinator {
       totalWorkers: this.workers.length,
       isRunning: this.isRunning,
       isDegraded: this.isDegraded,
-      workers: this.workers.map((entry) => this.workerEntryToInfo(entry)),
-    };
-  }
-
-  private workerEntryToInfo(entry: WorkerEntry): WorkerInfo {
-    const snapshot = entry.ref.getSnapshot();
-    const ctx: CaptureWorkerContext = snapshot.context;
-    return {
-      index: entry.client.index,
-      browserProfile: ctx.runtime.client.profile,
-      health: toWorkerHealth(snapshot),
-      processedCount: ctx.processedCount,
-      errorCount: ctx.errorCount,
-      errorHistory: [...ctx.errorHistory],
+      workers: this.workers.map((worker) => worker.toInfo()),
     };
   }
 

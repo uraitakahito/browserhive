@@ -11,6 +11,9 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 
 ## Architecture
 
+Each "Worker" box below corresponds to one `CaptureWorker` instance — a
+spawned `captureWorkerMachine` actor bundled with its `BrowserClient`.
+
 ```mermaid
 flowchart TB
     subgraph Client
@@ -26,9 +29,9 @@ flowchart TB
         end
         subgraph CaptureCoordinator
             Queue[TaskQueue]
-            Worker1[Worker 1]
-            Worker2[Worker 2]
-            Worker3[Worker N]
+            Worker1[CaptureWorker 1]
+            Worker2[CaptureWorker 2]
+            Worker3[CaptureWorker N]
         end
     end
 
