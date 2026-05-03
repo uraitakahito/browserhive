@@ -46,14 +46,12 @@
   "//dependencies": {
     "fastify": "Fast, low-overhead HTTP framework with native JSON Schema validation (Ajv).",
     "ajv": "JSON Schema validator. Pinned at the root so transitive resolutions land on v8 (matches Fastify's bundled compiler).",
-    "ajv-formats": "Adds format keywords (uri, uuid, date-time, etc.) to Fastify's Ajv instance.",
     "puppeteer": "Headless browser library. Used at runtime via puppeteer-extra to connect to remote Chromium servers.",
     "puppeteer-extra": "Puppeteer wrapper that allows plugins. Used with stealth plugin to avoid bot detection.",
     "puppeteer-extra-plugin-stealth": "Stealth plugin for puppeteer-extra. Applies various evasion techniques to avoid headless browser detection."
   },
   "dependencies": {
     "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
     "commander": "^14.0.2",
     "fastify": "^5.2.0",
     "pino": "^10.1.0",

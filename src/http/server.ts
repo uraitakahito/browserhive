@@ -31,10 +31,10 @@ import Fastify, {
   type FastifyInstance,
   type FastifyError,
 } from "fastify";
-import addFormats from "ajv-formats";
 import type { CaptureCoordinator } from "../capture/index.js";
 import type { TlsConfig } from "../config/index.js";
 import { logger } from "../logger.js";
+import { INLINE_FORMATS } from "./ajv-formats-inline.js";
 import { createCaptureHandlers, type CaptureHandlers } from "./handlers.js";
 import {
   OPERATIONS,
@@ -153,14 +153,6 @@ export class HttpServer {
   }
 
   private buildFastify(): FastifyInstance {
-    // ajv-formats exports `Plugin<FormatsPluginOptions>` while Fastify's
-    // plugins slot expects `Plugin<unknown>`, and Ajv's `Plugin<T>` is
-    // invariant in T — so direct assignment fails type-checking even
-    // though both packages resolve to the same root ajv@v8 (pinned in
-    // package.json so npm dedup keeps a single copy on disk). The
-    // runtime call still works because Fastify creates one Ajv instance
-    // and invokes plugins against it via duck-typed `addFormat` calls.
-    //
     // `removeAdditional: false` overrides Fastify's default (`true`) so that
     // `additionalProperties: false` in the OpenAPI schema causes a 400 on
     // unknown fields, instead of silently stripping them before validation.
@@ -170,8 +162,8 @@ export class HttpServer {
         strict: false,
         allErrors: true,
         removeAdditional: false,
+        formats: INLINE_FORMATS,
       },
-      plugins: [addFormats as unknown as never],
     };
 
     const tls = this.config.tls;
