@@ -84,10 +84,26 @@ export const createCaptureHandlers = (
   };
 
   const getStatus: RouteHandlerMethod = (
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply,
-  ): FastifyReply =>
-    reply.code(200).send(coordinatorStatusToResponse(coordinator.getStatus()));
+  ): FastifyReply => {
+    // Fastify's Ajv coerces the string query into `number` and applies the
+    // OpenAPI `default: 50`. A redundant `?? 50` in coordinator.getStatus
+    // backstops cases where this handler is invoked without the schema
+    // (e.g. the unit tests in test/http/handlers.test.ts wire the route
+    // directly without registerOperation).
+    const pendingLimit = (request.query as { pendingLimit?: number })
+      .pendingLimit;
+    return reply
+      .code(200)
+      .send(
+        coordinatorStatusToResponse(
+          coordinator.getStatus({
+            ...(pendingLimit !== undefined && { pendingLimit }),
+          }),
+        ),
+      );
+  };
 
   return { submitCapture, getStatus };
 };

@@ -9,6 +9,7 @@ const createTask = (id: string, overrides: Partial<CaptureTask> = {}): CaptureTa
   retryCount: 0,
   captureFormats: { png: true, jpeg: false, html: true },
   dismissBanners: false,
+  enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
 
@@ -97,6 +98,48 @@ describe("TaskQueue", () => {
 
       expect(queue.dequeue()?.taskId).toBe("2");
       expect(queue.dequeue()?.taskId).toBe("1");
+    });
+
+    it("preserves the original enqueuedAt across retries", () => {
+      const original = "2024-01-01T00:00:00.000Z";
+      const task = createTask("1", { retryCount: 0, enqueuedAt: original });
+      queue.enqueue(task);
+      queue.dequeue();
+      queue.requeue(task);
+      const requeued = queue.dequeue();
+      expect(requeued?.enqueuedAt).toBe(original);
+      expect(requeued?.retryCount).toBe(1);
+    });
+  });
+
+  describe("peekPending", () => {
+    it("returns up to `limit` tasks from the head, newest left in queue", () => {
+      queue.enqueue(createTask("1"));
+      queue.enqueue(createTask("2"));
+      queue.enqueue(createTask("3"));
+
+      const head = queue.peekPending(2);
+      expect(head.map((t) => t.taskId)).toEqual(["1", "2"]);
+      // Non-destructive: queue length unchanged
+      expect(queue.remaining).toBe(3);
+    });
+
+    it("returns all tasks when limit exceeds queue size", () => {
+      queue.enqueue(createTask("1"));
+      queue.enqueue(createTask("2"));
+      const all = queue.peekPending(50);
+      expect(all).toHaveLength(2);
+    });
+
+    it("returns [] for limit=0 or empty queue", () => {
+      expect(queue.peekPending(0)).toEqual([]);
+      queue.enqueue(createTask("1"));
+      expect(queue.peekPending(0)).toEqual([]);
+    });
+
+    it("returns [] for negative limit (defensive)", () => {
+      queue.enqueue(createTask("1"));
+      expect(queue.peekPending(-1)).toEqual([]);
     });
   });
 

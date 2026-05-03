@@ -62,6 +62,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   retryCount: 0,
   captureFormats: { png: false, jpeg: false, html: true },
   dismissBanners: false,
+  enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
 

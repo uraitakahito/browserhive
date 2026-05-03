@@ -16,6 +16,17 @@ import type { CaptureWorker } from "./capture-worker.js";
 /** Argument type accepted by `snapshot.matches()` for the coordinator machine. */
 type LifecycleMatchesArg = Parameters<SnapshotFrom<typeof coordinatorMachine>["matches"]>[0];
 
+/**
+ * View of a task currently held by a worker. Aggregated from
+ * `WorkerInfo.currentTask` so the wire layer does not need to traverse
+ * `workers` itself.
+ */
+export interface ProcessingTaskView {
+  workerIndex: number;
+  task: CaptureTask;
+  startedAt: string;
+}
+
 export interface CoordinatorStatusReport {
   taskCounts: TaskCounts;
   operationalWorkers: number;
@@ -23,6 +34,21 @@ export interface CoordinatorStatusReport {
   isRunning: boolean;
   isDegraded: boolean;
   workers: WorkerInfo[];
+  /**
+   * Snapshot of the head of the pending queue (size capped by the caller).
+   * Tasks are returned without being removed from the queue.
+   */
+  pendingTasks: CaptureTask[];
+  /** All tasks currently being processed (one entry per busy worker). */
+  processingTasks: ProcessingTaskView[];
+}
+
+/** Default pending-task snapshot size used by `getStatus` when no override is given. */
+export const DEFAULT_PENDING_TASKS_LIMIT = 50;
+
+export interface GetStatusOptions {
+  /** Maximum number of pending tasks to include. Defaults to {@link DEFAULT_PENDING_TASKS_LIMIT}. */
+  pendingLimit?: number;
 }
 
 export class CaptureCoordinator {
@@ -99,14 +125,29 @@ export class CaptureCoordinator {
     return this.workers.filter((worker) => worker.isHealthy).length;
   }
 
-  getStatus(): CoordinatorStatusReport {
+  getStatus(opts: GetStatusOptions = {}): CoordinatorStatusReport {
+    const pendingLimit = opts.pendingLimit ?? DEFAULT_PENDING_TASKS_LIMIT;
+    const workerInfos = this.workers.map((worker) => worker.toInfo());
+    const processingTasks: ProcessingTaskView[] = workerInfos.flatMap((info) =>
+      info.currentTask
+        ? [
+            {
+              workerIndex: info.index,
+              task: info.currentTask.task,
+              startedAt: info.currentTask.startedAt,
+            },
+          ]
+        : [],
+    );
     return {
       taskCounts: this.taskQueue.getStatus(),
       operationalWorkers: this.operationalWorkerCount,
       totalWorkers: this.workers.length,
       isRunning: this.isRunning,
       isDegraded: this.isDegraded,
-      workers: this.workers.map((worker) => worker.toInfo()),
+      workers: workerInfos,
+      pendingTasks: this.taskQueue.peekPending(pendingLimit),
+      processingTasks,
     };
   }
 

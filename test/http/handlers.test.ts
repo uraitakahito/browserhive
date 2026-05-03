@@ -9,7 +9,7 @@ interface CoordinatorStub {
   isActive: boolean;
   operationalWorkerCount: number;
   enqueueTask: ReturnType<typeof vi.fn>;
-  getStatus: () => CoordinatorStatusReport;
+  getStatus: (opts?: { pendingLimit?: number }) => CoordinatorStatusReport;
 }
 
 const buildStub = (overrides: Partial<CoordinatorStub> = {}): CoordinatorStub => ({
@@ -23,6 +23,8 @@ const buildStub = (overrides: Partial<CoordinatorStub> = {}): CoordinatorStub =>
     isRunning: true,
     isDegraded: false,
     workers: [],
+    pendingTasks: [],
+    processingTasks: [],
   }),
   ...overrides,
 });
@@ -136,6 +138,8 @@ describe("getStatus handler", () => {
         isRunning: true,
         isDegraded: false,
         workers: [],
+        pendingTasks: [],
+        processingTasks: [],
       }),
     });
     const app = buildApp(stub);
@@ -144,5 +148,156 @@ describe("getStatus handler", () => {
     const body = response.json<{ pending: number; isRunning: boolean }>();
     expect(body.pending).toBe(5);
     expect(body.isRunning).toBe(true);
+  });
+
+  it("forwards ?pendingLimit to coordinator.getStatus", async () => {
+    const getStatus = vi.fn().mockReturnValue({
+      taskCounts: { pending: 0, processing: 0, completed: 0 },
+      operationalWorkers: 1,
+      totalWorkers: 1,
+      isRunning: true,
+      isDegraded: false,
+      workers: [],
+      pendingTasks: [],
+      processingTasks: [],
+    });
+    const stub = buildStub({ getStatus });
+    const app = buildApp(stub);
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/status?pendingLimit=10",
+    });
+    expect(response.statusCode).toBe(200);
+    // Without an Ajv-driven schema in this stub setup, the query value
+    // arrives as a string. The handler still forwards it; coordinator
+    // backstop normalizes via `?? DEFAULT_PENDING_TASKS_LIMIT` for missing
+    // values. Schema-level coercion is exercised through the real server
+    // wiring.
+    expect(getStatus).toHaveBeenCalledTimes(1);
+    const arg = getStatus.mock.calls[0]?.[0] as { pendingLimit?: unknown } | undefined;
+    expect(arg?.pendingLimit).toBeDefined();
+  });
+
+  it("omits pendingLimit when the query is absent", async () => {
+    const getStatus = vi.fn().mockReturnValue({
+      taskCounts: { pending: 0, processing: 0, completed: 0 },
+      operationalWorkers: 1,
+      totalWorkers: 1,
+      isRunning: true,
+      isDegraded: false,
+      workers: [],
+      pendingTasks: [],
+      processingTasks: [],
+    });
+    const stub = buildStub({ getStatus });
+    const app = buildApp(stub);
+    const response = await app.inject({ method: "GET", url: "/v1/status" });
+    expect(response.statusCode).toBe(200);
+    expect(getStatus).toHaveBeenCalledWith({});
+  });
+
+  it("includes currentTask on busy workers", async () => {
+    const startedAt = new Date(Date.now() - 2_000).toISOString();
+    const stub = buildStub({
+      getStatus: (): CoordinatorStatusReport => ({
+        taskCounts: { pending: 0, processing: 1, completed: 0 },
+        operationalWorkers: 1,
+        totalWorkers: 1,
+        isRunning: true,
+        isDegraded: false,
+        workers: [
+          {
+            index: 0,
+            browserProfile: {
+              browserURL: "http://chromium-1:9222",
+              capture: {
+                outputDir: "/tmp",
+                timeouts: { pageLoad: 30000, capture: 10000, taskTotal: 90000 },
+                viewport: { width: 1280, height: 800 },
+                screenshot: { fullPage: false },
+              },
+            },
+            health: "busy",
+            processedCount: 0,
+            errorCount: 0,
+            errorHistory: [],
+            currentTask: {
+              startedAt,
+              task: {
+                taskId: "t-busy",
+                labels: ["x"],
+                url: "https://example.com/slow",
+                retryCount: 0,
+                captureFormats: { png: true, jpeg: false, html: false },
+                dismissBanners: false,
+                enqueuedAt: "2024-01-01T00:00:00.000Z",
+              },
+            },
+          },
+        ],
+        pendingTasks: [],
+        processingTasks: [],
+      }),
+    });
+    const app = buildApp(stub);
+    const response = await app.inject({ method: "GET", url: "/v1/status" });
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      workers: { currentTask?: { taskId: string; elapsedMs: number; startedAt: string } }[];
+    }>();
+    const cur = body.workers[0]?.currentTask;
+    expect(cur?.taskId).toBe("t-busy");
+    expect(cur?.startedAt).toBe(startedAt);
+    expect(cur?.elapsedMs).toBeGreaterThanOrEqual(2_000);
+  });
+
+  it("emits queue.processingTasks for busy workers", async () => {
+    const enqueuedAt = new Date(Date.now() - 6_000).toISOString();
+    const startedAt = new Date(Date.now() - 1_500).toISOString();
+    const stub = buildStub({
+      getStatus: (): CoordinatorStatusReport => ({
+        taskCounts: { pending: 0, processing: 1, completed: 0 },
+        operationalWorkers: 1,
+        totalWorkers: 1,
+        isRunning: true,
+        isDegraded: false,
+        workers: [],
+        pendingTasks: [],
+        processingTasks: [
+          {
+            workerIndex: 0,
+            startedAt,
+            task: {
+              taskId: "running-1",
+              labels: [],
+              url: "https://example.com/running",
+              retryCount: 0,
+              captureFormats: { png: true, jpeg: false, html: false },
+              dismissBanners: false,
+              enqueuedAt,
+            },
+          },
+        ],
+      }),
+    });
+    const app = buildApp(stub);
+    const response = await app.inject({ method: "GET", url: "/v1/status" });
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      queue: {
+        processingTasks: {
+          taskId: string;
+          workerIndex: number;
+          startedAt: string;
+          elapsedMs: number;
+        }[];
+      };
+    }>();
+    expect(body.queue.processingTasks).toHaveLength(1);
+    const proc = body.queue.processingTasks[0];
+    expect(proc?.taskId).toBe("running-1");
+    expect(proc?.workerIndex).toBe(0);
+    expect(proc?.startedAt).toBe(startedAt);
+    expect(proc?.elapsedMs).toBeGreaterThanOrEqual(1_500);
   });
 });

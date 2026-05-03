@@ -46,6 +46,13 @@ interface CaptureWorkerStats {
   processedCount: number;
   errorCount: number;
   errorHistory: ErrorRecord[];
+  /**
+   * Snapshot of the task currently being processed. Set on TASK_STARTED,
+   * cleared on TASK_DONE / TASK_FAILED / CONNECTION_LOST. `startedAt` is a
+   * `Date.now()` epoch ms value — converted to ISO at the domain boundary
+   * (`toInfo`) so the wire layer can compute `elapsedMs` cheaply.
+   */
+  currentTask: { task: CaptureTask; startedAt: number } | null;
 }
 
 export interface CaptureWorkerContext
@@ -104,6 +111,13 @@ export const captureWorkerMachine = setup({
     },
   },
   actions: {
+    setCurrentTask: assign({
+      currentTask: ({ event }) => {
+        if (event.type !== "TASK_STARTED") return null;
+        return { task: event.task, startedAt: Date.now() };
+      },
+    }),
+    clearCurrentTask: assign({ currentTask: () => null }),
     retryTask: ({ context, event }) => {
       if (event.type !== "TASK_FAILED") return;
       context.runtime.taskQueue.requeue(event.task);
@@ -164,6 +178,7 @@ export const captureWorkerMachine = setup({
     processedCount: 0,
     errorCount: 0,
     errorHistory: [],
+    currentTask: null,
   }),
   states: {
     disconnected: {
@@ -202,24 +217,27 @@ export const captureWorkerMachine = setup({
         idle: {
           tags: ["canProcess"],
           on: {
-            TASK_STARTED: "processing",
+            TASK_STARTED: {
+              target: "processing",
+              actions: "setCurrentTask",
+            },
           },
         },
         processing: {
           on: {
             TASK_DONE: {
               target: "idle",
-              actions: "recordTaskSuccess",
+              actions: ["recordTaskSuccess", "clearCurrentTask"],
             },
             TASK_FAILED: [
               {
                 guard: "canRetry",
                 target: "idle",
-                actions: ["retryTask"],
+                actions: ["retryTask", "clearCurrentTask"],
               },
               {
                 target: "idle",
-                actions: ["markTaskComplete", "recordTaskFailure"],
+                actions: ["markTaskComplete", "recordTaskFailure", "clearCurrentTask"],
               },
             ],
           },
@@ -228,7 +246,7 @@ export const captureWorkerMachine = setup({
       on: {
         CONNECTION_LOST: {
           target: "error",
-          actions: "recordConnectionError",
+          actions: ["recordConnectionError", "clearCurrentTask"],
         },
         DISCONNECT: "disconnecting",
       },
@@ -383,6 +401,7 @@ export class CaptureWorker {
   // -- reporting --
   toInfo(): WorkerInfo {
     const snapshot = this.ref.getSnapshot();
+    const current = snapshot.context.currentTask;
     return {
       index: this.client.index,
       browserProfile: this.client.profile,
@@ -390,6 +409,12 @@ export class CaptureWorker {
       processedCount: snapshot.context.processedCount,
       errorCount: snapshot.context.errorCount,
       errorHistory: [...snapshot.context.errorHistory],
+      ...(current && {
+        currentTask: {
+          task: current.task,
+          startedAt: new Date(current.startedAt).toISOString(),
+        },
+      }),
     };
   }
 

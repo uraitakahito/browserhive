@@ -64,8 +64,16 @@ const readDereferencedSpec = (): OpenApiDocument => {
 
 type PathItem = Partial<Record<OperationMethod, OperationObject>>;
 
+interface ParameterObject {
+  name: string;
+  in: "query" | "path" | "header" | "cookie";
+  required?: boolean;
+  schema?: unknown;
+}
+
 interface OperationObject {
   operationId?: string;
+  parameters?: ParameterObject[];
   requestBody?: { content: Record<string, { schema: unknown }> };
   responses?: Record<string, { content?: Record<string, { schema: unknown }> }>;
 }
@@ -75,10 +83,37 @@ interface OpenApiDocument {
   components?: { schemas?: Record<string, unknown> };
 }
 
+/**
+ * Synthesize a JSON Schema object from the operation's `in: query` parameters.
+ * Returns `undefined` when there are none, so callers can omit the
+ * `querystring` key entirely (Fastify's Ajv treats omitted as "no validation").
+ */
+const extractQuerystringSchema = (
+  operation: OperationObject,
+): Record<string, unknown> | undefined => {
+  const queryParams = (operation.parameters ?? []).filter((p) => p.in === "query");
+  if (queryParams.length === 0) return undefined;
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const param of queryParams) {
+    if (param.schema !== undefined) {
+      properties[param.name] = param.schema;
+    }
+    if (param.required) required.push(param.name);
+  }
+  return {
+    type: "object",
+    properties,
+    ...(required.length > 0 && { required }),
+    additionalProperties: false,
+  };
+};
+
 const extractRouteSchema = (
   operation: OperationObject | undefined,
 ): {
   body?: unknown;
+  querystring?: unknown;
   response: Record<number, unknown>;
 } => {
   const response: Record<number, unknown> = {};
@@ -97,10 +132,12 @@ const extractRouteSchema = (
 
   const bodySchema =
     operation.requestBody?.content["application/json"]?.schema;
+  const querystringSchema = extractQuerystringSchema(operation);
 
   return {
     response,
     ...(bodySchema !== undefined && { body: bodySchema }),
+    ...(querystringSchema !== undefined && { querystring: querystringSchema }),
   };
 };
 
@@ -124,6 +161,7 @@ const registerOperation = (
     url: op.path,
     schema: {
       ...(schema.body !== undefined && { body: schema.body }),
+      ...(schema.querystring !== undefined && { querystring: schema.querystring }),
       response: schema.response,
     },
     handler: handlers[operationId],
