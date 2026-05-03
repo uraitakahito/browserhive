@@ -1,0 +1,154 @@
+/**
+ * Integration tests for PageCapturer.capture across redirect-induced
+ * destroyed-context errors.
+ *
+ * The retry contract of `runOnStableContext` itself is covered exhaustively
+ * in `page-capturer-stable-context.test.ts`. This file pins down a
+ * complementary property: the capture pipeline as a whole
+ * (newPage → goto → evaluate → addStyleTag → screenshot → content → close)
+ * routes EVERY execution-context-bound operation through that helper, so a
+ * 1-step JS redirect like the ones in `data/js-redirect.csv`:
+ *
+ *   * https://www.imhds.co.jp/         →  /corporate/index_en.html
+ *   * https://www.itochu.co.jp/        →  /ja/
+ *   * https://www.daiwahouse.com/      →  /jp/
+ *
+ * still yields a `status: success` result with all requested formats
+ * written, instead of bailing out on the first destroyed-context throw.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { Browser, HTTPResponse, Page } from "puppeteer";
+import { PageCapturer } from "../../src/capture/page-capturer.js";
+import type { CaptureTask } from "../../src/capture/types.js";
+import { createTestCaptureConfig } from "../helpers/config.js";
+
+// Capture pipeline writes screenshots / HTML to disk on the success path.
+// These tests need that path to run, so stub the writer.
+vi.mock("node:fs/promises", () => ({
+  writeFile: vi.fn().mockResolvedValue(undefined),
+}));
+
+const DESTROYED =
+  "Execution context was destroyed, most likely because of a navigation.";
+
+const createTask = (): CaptureTask => ({
+  taskId: "redirect-test-task",
+  labels: ["3099", "IsetanMitsukoshi"],
+  url: "https://www.imhds.co.jp/",
+  retryCount: 0,
+  captureFormats: { png: false, jpeg: true, html: true },
+  dismissBanners: false,
+  enqueuedAt: "2024-01-01T00:00:00.000Z",
+});
+
+interface RedirectMockOpts {
+  /** First call rejects with destroyed-context, second resolves normally. */
+  evaluateDestroysOnce?: boolean;
+  screenshotDestroysOnce?: boolean;
+  contentDestroysOnce?: boolean;
+}
+
+/**
+ * Build a single-rejection-then-resolve mock for one of the puppeteer methods
+ * we route through `runOnStableContext`. The first invocation rejects with
+ * the destroyed-context message — exactly what we observe on imhds.co.jp /
+ * itochu.co.jp / daiwahouse.com when their JS redirect lands during the call.
+ */
+const oneShotDestroyed = (resolveValue: unknown): ReturnType<typeof vi.fn> => {
+  let called = 0;
+  return vi.fn().mockImplementation(() => {
+    called += 1;
+    if (called === 1) return Promise.reject(new Error(DESTROYED));
+    return Promise.resolve(resolveValue);
+  });
+};
+
+const buildBrowser = (opts: RedirectMockOpts = {}): Browser => {
+  const successResponse = {
+    status: () => 200,
+    statusText: () => "OK",
+  } as unknown as HTTPResponse;
+
+  const evaluate = opts.evaluateDestroysOnce
+    ? oneShotDestroyed(undefined)
+    : vi.fn().mockResolvedValue(undefined);
+
+  const screenshot = opts.screenshotDestroysOnce
+    ? oneShotDestroyed(Buffer.from("img"))
+    : vi.fn().mockResolvedValue(Buffer.from("img"));
+
+  const content = opts.contentDestroysOnce
+    ? oneShotDestroyed("<html></html>")
+    : vi.fn().mockResolvedValue("<html></html>");
+
+  const page = {
+    setViewport: vi.fn().mockResolvedValue(undefined),
+    setUserAgent: vi.fn().mockResolvedValue(undefined),
+    setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
+    goto: vi.fn().mockResolvedValue(successResponse),
+    evaluate,
+    addStyleTag: vi.fn().mockResolvedValue(undefined),
+    screenshot,
+    content,
+    close: vi.fn().mockResolvedValue(undefined),
+    // After a destroyed-context throw the helper waits for the next
+    // navigation. Resolving immediately lets the retry proceed without
+    // burning the settle timeout.
+    waitForNavigation: vi.fn().mockResolvedValue(undefined),
+  } as unknown as Page;
+
+  return { newPage: vi.fn().mockResolvedValue(page) } as unknown as Browser;
+};
+
+describe("PageCapturer.capture — redirect-induced destroyed-context recovery", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("recovers when page.evaluate (dynamic-content wait) destroys context once", async () => {
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+    );
+    const browser = buildBrowser({ evaluateDestroysOnce: true });
+
+    const promise = capturer.capture(browser, createTask(), 0);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.status).toBe("success");
+    expect(result.jpegPath).toBeDefined();
+    expect(result.htmlPath).toBeDefined();
+  });
+
+  it("recovers when page.screenshot destroys context once", async () => {
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+    );
+    const browser = buildBrowser({ screenshotDestroysOnce: true });
+
+    const promise = capturer.capture(browser, createTask(), 0);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.status).toBe("success");
+    expect(result.jpegPath).toBeDefined();
+  });
+
+  it("recovers when page.content (HTML) destroys context once", async () => {
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+    );
+    const browser = buildBrowser({ contentDestroysOnce: true });
+
+    const promise = capturer.capture(browser, createTask(), 0);
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.status).toBe("success");
+    expect(result.htmlPath).toBeDefined();
+  });
+});
