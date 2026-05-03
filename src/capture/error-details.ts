@@ -122,21 +122,38 @@ export const createInternalError = (message: string): ErrorDetails => ({
   message,
 });
 
+/**
+ * Classify an arbitrary thrown value into structured `ErrorDetails`.
+ *
+ * Classification is `instanceof`-first; the classes that can show up here
+ * are enumerable (our own `TimeoutError`, puppeteer's `TimeoutError`).
+ * The `connection` heuristic is intentionally still string-based — there
+ * is no shared base class for the disconnect / "Connection closed" errors
+ * Puppeteer surfaces, and broadening that to typed checks is out of scope
+ * for the timeout-classification fix.
+ */
 export const errorDetailsFromException = (error: unknown): ErrorDetails => {
-  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof TimeoutError) {
+    return {
+      type: errorType.timeout,
+      message: error.message,
+      timeoutMs: error.timeoutMs,
+    };
+  }
 
-  if (message.includes("Timeout")) {
-    // Extract ms value from timeout message (e.g., "Timeout: Navigation (30000ms)")
-    const match = /\((\d+)ms\)/.exec(message);
+  if (error instanceof PuppeteerTimeoutError) {
     const details: ErrorDetails = {
       type: errorType.timeout,
-      message,
+      message: error.message,
     };
-    if (match?.[1] !== undefined) {
-      details.timeoutMs = parseInt(match[1], 10);
+    const timeoutMs = extractPuppeteerTimeoutMs(error.message);
+    if (timeoutMs !== undefined) {
+      details.timeoutMs = timeoutMs;
     }
     return details;
   }
+
+  const message = error instanceof Error ? error.message : String(error);
 
   if (message.includes("disconnect") || message.includes("closed")) {
     return {
