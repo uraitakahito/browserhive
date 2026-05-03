@@ -66,6 +66,7 @@ interface ParsedOptions {
   output: string;
   pageLoadTimeout: number;
   captureTimeout: number;
+  taskTimeout: number;
   maxRetryCount: number;
   queuePollIntervalMs: number;
   viewportWidth: number;
@@ -103,6 +104,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     timeouts: {
       pageLoad: opts.pageLoadTimeout,
       capture: opts.captureTimeout,
+      taskTotal: opts.taskTimeout,
     },
     viewport: {
       width: opts.viewportWidth,
@@ -165,6 +167,17 @@ export const createProgram = (): Command => {
       new Option("--capture-timeout <ms>", "Capture timeout in milliseconds")
         .env("BROWSERHIVE_CAPTURE_TIMEOUT_MS")
         .default(defaultCapture.timeouts.capture)
+        .argParser(parsePositiveInt),
+    )
+    .addOption(
+      // Layer B per-task safety net. Sized larger than the sum of inner
+      // Layer A timeouts; see DEFAULT_CAPTURE_CONFIG.timeouts.taskTotal.
+      new Option(
+        "--task-timeout <ms>",
+        "Total task processing timeout in milliseconds (Layer B safety net)",
+      )
+        .env("BROWSERHIVE_TASK_TIMEOUT_MS")
+        .default(defaultCapture.timeouts.taskTotal)
         .argParser(parsePositiveInt),
     )
     .addOption(
@@ -329,6 +342,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       timeouts: {
         pageLoad: capture.timeouts.pageLoad,
         capture: capture.timeouts.capture,
+        taskTotal: capture.timeouts.taskTotal,
       },
       maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,

@@ -19,6 +19,18 @@
  * remain self-contained — it cannot reference any closure variables.
  */
 import type { Page } from "puppeteer";
+import { withTimeout } from "./page-capturer.js";
+
+/**
+ * Upper bound for the in-page dismissal `page.evaluate`. The serialized
+ * script does pure DOM walking and removal — no I/O — so a healthy page
+ * completes in milliseconds. The same execution-context-await hazard that
+ * justifies Layer A timeouts in `PageCapturer.capture` applies here: if
+ * the page is mid-navigation (e.g. a CMP that immediately redirects on
+ * accept), `page.evaluate` blocks until the new context is established,
+ * which may be never.
+ */
+const DISMISS_EVALUATE_TIMEOUT_MS = 5_000;
 
 export interface CmpEntry {
   framework: string;
@@ -190,7 +202,15 @@ export const dismissBanners = async (
 ): Promise<DismissReport> => {
   try {
     const source = `(${runDismissalInDocument.toString()})(document, window, ${JSON.stringify(opts)})`;
-    const result: unknown = await page.evaluate(source);
+    // Bounded by DISMISS_EVALUATE_TIMEOUT_MS — a hung evaluate (page
+    // mid-navigation, no fresh execution context) is swallowed by the
+    // catch below and surfaces as EMPTY_DISMISS_REPORT, preserving the
+    // best-effort contract.
+    const result: unknown = await withTimeout(
+      page.evaluate(source),
+      DISMISS_EVALUATE_TIMEOUT_MS,
+      "Banner dismissal evaluate"
+    );
     return result as DismissReport;
   } catch (error) {
     onError?.(error);

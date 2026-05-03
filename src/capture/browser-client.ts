@@ -14,9 +14,11 @@
 import type { Browser } from "puppeteer";
 import connectBrowser from "../browser.js";
 import type { BrowserProfile } from "../config/index.js";
-import { PageCapturer } from "./page-capturer.js";
+import { captureStatus } from "./capture-status.js";
+import { PageCapturer, withTimeout } from "./page-capturer.js";
 import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
-import { createConnectionError } from "./error-details.js";
+import { createConnectionError, errorDetailsFromException } from "./error-details.js";
+import { errorType } from "./error-type.js";
 import { createChildLogger, type Logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
 
@@ -72,15 +74,59 @@ export class BrowserClient {
 
   /**
    * Process a capture task.
-   * Delegates to PageCapturer and returns the result.
-   * Throws if browser is not connected.
+   *
+   * Layer B safety net: the entire `pageCapturer.capture` invocation is
+   * bounded by `timeouts.taskTotal`. Layer A (per-call `withTimeout`s
+   * inside `PageCapturer.capture` and `dismissBanners`) catches the common
+   * cases — `page.evaluate` / `page.addStyleTag` blocking on a redirected
+   * page that never settles — and surfaces them with a precise error
+   * message naming the operation. This outer wrap exists only as a
+   * backstop for whatever Layer A misses (newly added unprotected awaits,
+   * unforeseen puppeteer behaviour, a wedged CDP connection that doesn't
+   * raise an error).
+   *
+   * On Layer B timeout the inner `pageCapturer.capture` promise is
+   * abandoned but continues to run until its own finally block closes the
+   * page. The remote Chromium page may stay open for a while (or
+   * indefinitely if the puppeteer connection itself is wedged). We accept
+   * this leak in exchange for worker liveness — the alternative is to
+   * disconnect the entire browser, which would also kill in-flight
+   * successful tasks on sibling pages.
+   *
+   * Returns a synthetic `CaptureResult { status: "timeout" }` on Layer B
+   * timeout instead of throwing, so the worker-loop's existing
+   * `isSuccessStatus(...) === false → TASK_FAILED` path handles retry and
+   * error-history accounting uniformly.
+   *
+   * Throws only if browser is not connected (programmer error).
    */
   async process(task: CaptureTask): Promise<CaptureResult> {
     if (!this.browser) {
       throw new Error(`BrowserClient ${String(this.index)} has no browser connection`);
     }
 
-    return this.pageCapturer.capture(this.browser, task, this.index);
+    const startTime = Date.now();
+    const taskTotalMs = this.profile.capture.timeouts.taskTotal;
+    try {
+      return await withTimeout(
+        this.pageCapturer.capture(this.browser, task, this.index),
+        taskTotalMs,
+        `Task processing for ${task.url}`,
+      );
+    } catch (error) {
+      const errorDetails = errorDetailsFromException(error);
+      return {
+        task,
+        status:
+          errorDetails.type === errorType.timeout
+            ? captureStatus.timeout
+            : captureStatus.failed,
+        errorDetails,
+        captureProcessingTimeMs: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+        workerIndex: this.index,
+      };
+    }
   }
 
   /** Whether the browser is currently connected */

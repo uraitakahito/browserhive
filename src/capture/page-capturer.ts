@@ -63,6 +63,48 @@ export const withTimeout = async <T>(
   }
 };
 
+// ---------------------------------------------------------------------------
+// Layer A timeouts — per-call upper bounds on otherwise-unprotected puppeteer
+// awaits inside `PageCapturer.capture`. Puppeteer does not expose a built-in
+// timeout for these methods, and `page.goto({ waitUntil: "domcontentloaded" })`
+// only bounds the *first* DOMContentLoaded — it does nothing for follow-up
+// navigations triggered by the page itself (e.g. itochu.co.jp/ → /ja/,
+// imhds.co.jp/ → /corporate/index_en.html). When such a redirect lands on a
+// page that never settles (heavy SPA, third-party trackers), `page.evaluate`
+// and `page.addStyleTag` await a new execution context indefinitely and the
+// worker stays in `processing` forever — no exception is thrown.
+//
+// See `BrowserClient.process` for the outer Layer B safety net that catches
+// anything the Layer A bounds below miss.
+// ---------------------------------------------------------------------------
+
+/**
+ * Upper bound for `browser.newPage()`. Internally a single CDP roundtrip
+ * (`Target.createTarget`), so a healthy connection completes in well under
+ * a second; 10s is "definitely something is wrong" territory and lets the
+ * worker recycle rather than wedge waiting on a broken connection.
+ */
+const NEW_PAGE_TIMEOUT_MS = 10_000;
+
+/**
+ * Upper bound for the post-load dynamic-content sleep. The inner
+ * `setTimeout(resolve, DEFAULT_DYNAMIC_CONTENT_WAIT_MS)` resolves in the
+ * page's execution context, but if a JS redirect tears that context down
+ * mid-sleep `page.evaluate` blocks waiting for a fresh context. The 2s
+ * buffer over the sleep duration covers normal context-reestablishment
+ * latency; anything beyond is treated as the redirected page failing to
+ * settle, which is the exact symptom that hangs the worker.
+ */
+const EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS = DEFAULT_DYNAMIC_CONTENT_WAIT_MS + 2_000;
+
+/**
+ * Upper bound for `page.addStyleTag` (used by `hideScrollbars`). Internally
+ * uses `evaluateHandle`, so it carries the same execution-context-await
+ * risk as `page.evaluate`. Pure DOM mutation with no I/O — 5s is a generous
+ * ceiling for a healthy page.
+ */
+const STYLE_INJECTION_TIMEOUT_MS = 5_000;
+
 export const INVALID_FILENAME_CHARS_LIST = ["<", ">", ":", '"', "/", "\\", "|", "?", "*", "_"] as const;
 
 const INVALID_FILENAME_CHARS = new RegExp(
@@ -195,6 +237,29 @@ export class PageCapturer {
     this.config = config;
   }
 
+  /**
+   * Capture pipeline.
+   *
+   * Layer A defense: every otherwise-unprotected puppeteer await below is
+   * bounded by a per-call `withTimeout`. The reason — `page.goto` with
+   * `waitUntil: "domcontentloaded"` resolves on the FIRST DOMContentLoaded,
+   * but pages that perform a JS redirect (e.g. itochu.co.jp/ → /ja/,
+   * imhds.co.jp/ → /corporate/index_en.html) trigger a follow-up navigation
+   * that destroys the execution context. Subsequent `page.evaluate` /
+   * `page.addStyleTag` calls then await a fresh context that may never
+   * settle (heavy SPA, third-party trackers), and puppeteer provides no
+   * built-in timeout for these methods. Without these wraps the worker
+   * stays in `processing` forever — no exception is thrown, the await
+   * simply never resolves — and the queue stops draining.
+   *
+   * `configureViewport` / `setUserAgent` / `setAcceptLanguage` are single
+   * CDP calls (`Emulation.*`, `Network.setExtraHTTPHeaders`) that do not
+   * await navigation and complete in microseconds; intentionally not
+   * wrapped.
+   *
+   * See `BrowserClient.process` for the outer Layer B safety net that
+   * catches anything that slips through here.
+   */
   async capture(
     browser: Browser,
     task: CaptureTask,
@@ -204,7 +269,11 @@ export class PageCapturer {
     let page: Page | null = null;
 
     try {
-      page = await browser.newPage();
+      page = await withTimeout(
+        browser.newPage(),
+        NEW_PAGE_TIMEOUT_MS,
+        `newPage for ${task.url}`
+      );
       await configureViewport(page, this.config);
       await setUserAgent(page, this.config.userAgent);
       await setAcceptLanguage(page, this.config.acceptLanguage);
@@ -234,12 +303,20 @@ export class PageCapturer {
         };
       }
 
-      await page.evaluate(
-        (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
-        DEFAULT_DYNAMIC_CONTENT_WAIT_MS
+      await withTimeout(
+        page.evaluate(
+          (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
+          DEFAULT_DYNAMIC_CONTENT_WAIT_MS
+        ),
+        EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS,
+        `Dynamic content wait for ${task.url}`
       );
 
-      await hideScrollbars(page);
+      await withTimeout(
+        hideScrollbars(page),
+        STYLE_INJECTION_TIMEOUT_MS,
+        `hideScrollbars for ${task.url}`
+      );
 
       let dismissReport: DismissReport | undefined;
       if (task.dismissBanners) {

@@ -1,7 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
+import type { Page } from "puppeteer";
 import {
   runDismissalInDocument,
+  dismissBanners,
+  EMPTY_DISMISS_REPORT,
   KNOWN_CMP_ENTRIES,
   DEFAULT_DISMISS_OPTIONS,
   DEFAULT_HEURISTIC_THRESHOLDS,
@@ -327,5 +330,38 @@ describe("runDismissalInDocument — combined passes", () => {
     expect(report.removedOverlayCount).toBe(1);
     // First match wins for the framework label.
     expect(report.framework).toBe("OneTrust");
+  });
+});
+
+describe("dismissBanners — Layer A timeout", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns EMPTY_DISMISS_REPORT and invokes onError when page.evaluate hangs", async () => {
+    const onError = vi.fn();
+    const mockPage = {
+      evaluate: vi.fn().mockReturnValue(
+        new Promise<never>(() => {
+          /* never resolves — simulates page mid-navigation */
+        }),
+      ),
+    } as unknown as Page;
+
+    const reportPromise = dismissBanners(mockPage, DEFAULT_DISMISS_OPTIONS, onError);
+
+    // DISMISS_EVALUATE_TIMEOUT_MS = 5_000 in banner-dismisser.ts
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    const report = await reportPromise;
+    expect(report).toEqual(EMPTY_DISMISS_REPORT);
+    expect(onError).toHaveBeenCalledTimes(1);
+    const onErrorArg: unknown = onError.mock.calls[0]?.[0];
+    expect(onErrorArg).toBeInstanceOf(Error);
+    expect((onErrorArg as Error).message).toContain("Banner dismissal evaluate");
   });
 });
