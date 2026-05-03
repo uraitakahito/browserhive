@@ -17,7 +17,7 @@ spawned `captureWorkerMachine` actor bundled with its `BrowserClient`.
 ```mermaid
 flowchart TB
     subgraph Client
-        CLI[CSV Client / curl / hey-api SDK]
+        CLI[Data Client / curl / hey-api SDK]
     end
 
     subgraph BrowserHive["BrowserHive"]
@@ -277,15 +277,15 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `csv-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--csv`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`) intentionally have no env equivalents.
 
 #### Calling the HTTP API
 
 The full operation reference (request/response schemas, status codes, request samples) is published as a static Redoc site on GitHub Pages — see [OpenAPI specification](#openapi-specification) below.
 
-### Example: CSV Client
+### Example: Data Client
 
-Example client that sends capture requests from a CSV file (fire-and-forget).
+Example client that sends capture requests from a YAML data file (fire-and-forget). The format and parser live in [`examples/data-file.ts`](examples/data-file.ts); see [`data/README.md`](data/README.md) for the schema and a description of the bundled fixtures.
 
 The client sends requests and receives acceptance confirmations. Actual captures are processed asynchronously by the server. Check server logs for completion status.
 
@@ -295,7 +295,7 @@ Build first (the example is shipped only as TypeScript source):
 
 ```sh
 npm run build
-node dist/examples/csv-client.js --csv data/urls.csv --jpeg --html --limit 30 | pino-pretty
+node dist/examples/data-client.js --data data/urls.yaml --jpeg --html --limit 30 | pino-pretty
 ```
 
 ## TLS (Transport Layer Security)
@@ -320,12 +320,12 @@ For curl, use `--cacert`:
 curl --cacert ./certs/sample-ca.crt https://localhost:8080/v1/status
 ```
 
-For Node-based clients (including `examples/csv-client.ts`), set `NODE_EXTRA_CA_CERTS=/path/to/ca.crt` before starting the process — Node's global `fetch` will pick the additional trust anchor up automatically:
+For Node-based clients (including `examples/data-client.ts`), set `NODE_EXTRA_CA_CERTS=/path/to/ca.crt` before starting the process — Node's global `fetch` will pick the additional trust anchor up automatically:
 
 ```sh
 NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
-  node dist/examples/csv-client.js \
-    --csv data/urls.csv \
+  node dist/examples/data-client.js \
+    --data data/urls.yaml \
     --server https://localhost:8080 \
     --jpeg --html --limit 50 \
   | pino-pretty

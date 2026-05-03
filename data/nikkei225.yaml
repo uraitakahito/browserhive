@@ -1,0 +1,685 @@
+# data/nikkei225.yaml — load-test fixture
+#
+# Every Nikkei 225 constituent's corporate top page. A realistic mix of
+# fast pages, redirect chains, banner-heavy pages, and rare 4xx/5xx —
+# used to exercise concurrency, retry, and error-path code under a
+# workload that resembles production.
+#
+# `labels` is [<TickerCode>, <CompanyName>]. Numeric-only tickers (e.g.
+# 9202) and alphanumeric tickers (e.g. 543A) are both quoted so the
+# parser receives strings uniformly.
+
+- labels: ["9202", "ANAHoldings"]
+  url: https://www.ana.co.jp/group/
+
+- labels: ["9201", "JapanAirlines"]
+  url: https://www.jal.com/
+
+- labels: ["543A", "Archion"]
+  url: https://www.archion.co.jp/
+
+- labels: ["7267", "Honda"]
+  url: https://global.honda/
+
+- labels: ["7202", "Isuzu"]
+  url: https://www.isuzu.co.jp/
+
+- labels: ["7261", "Mazda"]
+  url: https://www.mazda.com/
+
+- labels: ["7211", "MitsubishiMotors"]
+  url: https://www.mitsubishi-motors.com/
+
+- labels: ["7201", "Nissan"]
+  url: https://www.nissan-global.com/
+
+- labels: ["7270", "Subaru"]
+  url: https://www.subaru.co.jp/
+
+- labels: ["7269", "Suzuki"]
+  url: https://www.globalsuzuki.com/
+
+- labels: ["7203", "Toyota"]
+  url: https://global.toyota/
+
+- labels: ["7272", "YamahaMotor"]
+  url: https://global.yamaha-motor.com/
+
+- labels: ["8304", "AozoraBank"]
+  url: https://www.aozorabank.co.jp/
+
+- labels: ["8331", "ChibaBank"]
+  url: https://www.chibabank.co.jp/
+
+- labels: ["8354", "FukuokaFG"]
+  url: https://www.fukuoka-fg.com/
+
+- labels: ["8306", "MUFG"]
+  url: https://www.mufg.jp/
+
+- labels: ["8411", "MizuhoFG"]
+  url: https://www.mizuho-fg.com/
+
+- labels: ["8308", "Resona"]
+  url: https://www.resona-gr.co.jp/
+
+- labels: ["5831", "ShizuokaFG"]
+  url: https://www.szfg.co.jp/
+
+- labels: ["8316", "SMFG"]
+  url: https://www.smfg.co.jp/
+
+- labels: ["8309", "SMTH"]
+  url: https://www.smth.jp/
+
+- labels: ["7186", "ConcordiaFG"]
+  url: https://www.concordia-fg.jp/
+
+- labels: ["3407", "AsahiKasei"]
+  url: https://www.asahi-kasei.com/
+
+- labels: ["4061", "Denka"]
+  url: https://www.denka.co.jp/
+
+- labels: ["4901", "Fujifilm"]
+  url: https://www.fujifilm.com/
+
+- labels: ["4452", "Kao"]
+  url: https://www.kao.com/
+
+- labels: ["3405", "Kuraray"]
+  url: https://www.kuraray.com/
+
+- labels: ["4188", "MitsubishiChemical"]
+  url: https://www.mcgc.com/
+
+- labels: ["4183", "MitsuiChemicals"]
+  url: https://jp.mitsuichemicals.com/
+
+- labels: ["4021", "NissanChemical"]
+  url: https://www.nissanchem.co.jp/
+
+- labels: ["6988", "NittoDenko"]
+  url: https://www.nitto.com/
+
+- labels: ["4004", "Resonac"]
+  url: https://www.resonac.com/
+
+- labels: ["4063", "ShinEtsuChemical"]
+  url: https://www.shinetsu.co.jp/
+
+- labels: ["4911", "Shiseido"]
+  url: https://corp.shiseido.com/
+
+- labels: ["4005", "SumitomoChemical"]
+  url: https://www.sumitomo-chem.co.jp/
+
+- labels: ["4043", "Tokuyama"]
+  url: https://www.tokuyama.co.jp/
+
+- labels: ["4042", "Tosoh"]
+  url: https://www.tosoh.com/
+
+- labels: ["4208", "UbeIndustries"]
+  url: https://www.ube.com/
+
+- labels: ["9433", "KDDI"]
+  url: https://www.kddi.com/
+
+- labels: ["9432", "NTT"]
+  url: https://group.ntt/
+
+- labels: ["9434", "SoftBankCorp"]
+  url: https://www.softbank.jp/
+
+- labels: ["9984", "SoftBankGroup"]
+  url: https://group.softbank/
+
+- labels: ["1721", "ComsysHoldings"]
+  url: https://www.comsys-hd.co.jp/
+
+- labels: ["1925", "DaiwaHouse"]
+  url: https://www.daiwahouse.com/
+
+- labels: ["1808", "Haseko"]
+  url: https://www.haseko.co.jp/
+
+- labels: ["1963", "JGC"]
+  url: https://www.jgc.com/
+
+- labels: ["1812", "Kajima"]
+  url: https://www.kajima.co.jp/
+
+- labels: ["1802", "Obayashi"]
+  url: https://www.obayashi.co.jp/
+
+- labels: ["1928", "SekisuiHouse"]
+  url: https://www.sekisuihouse.co.jp/
+
+- labels: ["1803", "Shimizu"]
+  url: https://www.shimz.co.jp/
+
+- labels: ["1801", "Taisei"]
+  url: https://www.taisei.co.jp/
+
+- labels: ["6857", "Advantest"]
+  url: https://www.advantest.com/
+
+- labels: ["6770", "AlpsAlpine"]
+  url: https://www.alpsalpine.com/
+
+- labels: ["7751", "Canon"]
+  url: https://global.canon/
+
+- labels: ["6902", "Denso"]
+  url: https://www.denso.com/
+
+- labels: ["6954", "FANUC"]
+  url: https://www.fanuc.co.jp/
+
+- labels: ["6504", "FujiElectric"]
+  url: https://www.fujielectric.com/
+
+- labels: ["6702", "Fujitsu"]
+  url: https://www.fujitsu.com/
+
+- labels: ["6501", "Hitachi"]
+  url: https://www.hitachi.com/
+
+- labels: ["6861", "Keyence"]
+  url: https://www.keyence.com/
+
+- labels: ["285A", "Kioxia"]
+  url: https://www.kioxia.com/
+
+- labels: ["6971", "Kyocera"]
+  url: https://global.kyocera.com/
+
+- labels: ["6920", "Lasertec"]
+  url: https://www.lasertec.co.jp/
+
+- labels: ["6479", "MinebeaMitsumi"]
+  url: https://www.minebeamitsumi.com/
+
+- labels: ["6503", "MitsubishiElectric"]
+  url: https://www.mitsubishielectric.com/
+
+- labels: ["6981", "Murata"]
+  url: https://www.murata.com/
+
+- labels: ["6701", "NEC"]
+  url: https://www.nec.com/
+
+- labels: ["6594", "Nidec"]
+  url: https://www.nidec.com/
+
+- labels: ["6645", "Omron"]
+  url: https://www.omron.com/
+
+- labels: ["6752", "Panasonic"]
+  url: https://holdings.panasonic/
+
+- labels: ["6723", "Renesas"]
+  url: https://www.renesas.com/
+
+- labels: ["7752", "Ricoh"]
+  url: https://www.ricoh.com/
+
+- labels: ["6963", "Rohm"]
+  url: https://www.rohm.com/
+
+- labels: ["7735", "SCREEN"]
+  url: https://www.screen.co.jp/
+
+- labels: ["6724", "SeikoEpson"]
+  url: https://global.epson.com/
+
+- labels: ["6753", "Sharp"]
+  url: https://global.sharp/
+
+- labels: ["6758", "Sony"]
+  url: https://www.sony.com/
+
+- labels: ["6526", "Socionext"]
+  url: https://www.socionext.com/
+
+- labels: ["6976", "TaiyoYuden"]
+  url: https://www.yuden.co.jp/
+
+- labels: ["6762", "TDK"]
+  url: https://www.tdk.com/
+
+- labels: ["8035", "TokyoElectron"]
+  url: https://www.tel.com/
+
+- labels: ["6506", "Yaskawa"]
+  url: https://www.yaskawa-global.com/
+
+- labels: ["6841", "Yokogawa"]
+  url: https://www.yokogawa.com/
+
+- labels: ["9502", "ChubuElectric"]
+  url: https://www.chuden.co.jp/
+
+- labels: ["9503", "KansaiElectric"]
+  url: https://www.kepco.co.jp/
+
+- labels: ["9501", "TEPCO"]
+  url: https://www.tepco.co.jp/
+
+- labels: ["1332", "Nissui"]
+  url: https://www.nissui.co.jp/
+
+- labels: ["2802", "Ajinomoto"]
+  url: https://www.ajinomoto.com/
+
+- labels: ["2502", "AsahiGroup"]
+  url: https://www.asahigroup-holdings.com/
+
+- labels: ["2914", "JT"]
+  url: https://www.jt.com/
+
+- labels: ["2801", "Kikkoman"]
+  url: https://www.kikkoman.com/
+
+- labels: ["2503", "Kirin"]
+  url: https://www.kirinholdings.com/
+
+- labels: ["2269", "Meiji"]
+  url: https://www.meiji.com/
+
+- labels: ["2282", "NHFoods"]
+  url: https://www.nipponham.co.jp/
+
+- labels: ["2871", "Nichirei"]
+  url: https://www.nichirei.co.jp/
+
+- labels: ["2002", "NisshinSeifun"]
+  url: https://www.nisshin.com/
+
+- labels: ["2501", "Sapporo"]
+  url: https://www.sapporoholdings.jp/
+
+- labels: ["9532", "OsakaGas"]
+  url: https://www.osakagas.co.jp/
+
+- labels: ["9531", "TokyoGas"]
+  url: https://www.tokyo-gas.co.jp/
+
+- labels: ["5201", "AGC"]
+  url: https://www.agc.com/
+
+- labels: ["5333", "NGKInsulators"]
+  url: https://www.ngk-insulators.com/
+
+- labels: ["5214", "NipponElectricGlass"]
+  url: https://www.neg.co.jp/
+
+- labels: ["5233", "TaiheiyoCement"]
+  url: https://www.taiheiyo-cement.co.jp/
+
+- labels: ["5301", "TokaiCarbon"]
+  url: https://www.tokaicarbon.co.jp/
+
+- labels: ["5332", "Toto"]
+  url: https://jp.toto.com/
+
+- labels: ["8750", "DaiichiLife"]
+  url: https://www.dai-ichi-life-hd.com/
+
+- labels: ["8725", "MSAD"]
+  url: https://www.ms-ad-hd.com/
+
+- labels: ["8630", "Sompo"]
+  url: https://www.sompo-hd.com/
+
+- labels: ["8795", "TDHoldings"]
+  url: https://www.td-holdings.co.jp/
+
+- labels: ["8766", "TokioMarine"]
+  url: https://www.tokiomarinehd.com/
+
+- labels: ["9147", "NipponExpress"]
+  url: https://www.nipponexpress-holdings.com/
+
+- labels: ["9064", "Yamato"]
+  url: https://www.yamato-hd.co.jp/
+
+- labels: ["6113", "Amada"]
+  url: https://www.amada.co.jp/
+
+- labels: ["6367", "Daikin"]
+  url: https://www.daikin.com/
+
+- labels: ["6361", "Ebara"]
+  url: https://www.ebara.com/
+
+- labels: ["6305", "HitachiCM"]
+  url: https://www.hitachicm.com/
+
+- labels: ["7004", "Kanadevia"]
+  url: https://www.kanadevia.com/
+
+- labels: ["7013", "IHI"]
+  url: https://www.ihi.co.jp/
+
+- labels: ["5631", "JapanSteelWorks"]
+  url: https://www.jsw.co.jp/
+
+- labels: ["6473", "JTEKT"]
+  url: https://www.jtekt.co.jp/
+
+- labels: ["6301", "Komatsu"]
+  url: https://www.komatsu.jp/
+
+- labels: ["6326", "Kubota"]
+  url: https://www.kubota.com/
+
+- labels: ["7011", "MHI"]
+  url: https://www.mhi.com/
+
+- labels: ["6471", "NSK"]
+  url: https://www.nsk.com/
+
+- labels: ["6472", "NTN"]
+  url: https://www.ntnglobal.com/
+
+- labels: ["6103", "Okuma"]
+  url: https://www.okuma.co.jp/
+
+- labels: ["6302", "SumitomoHeavy"]
+  url: https://www.shi.co.jp/
+
+- labels: ["6273", "SMC"]
+  url: https://www.smcworld.com/
+
+- labels: ["9107", "KLine"]
+  url: https://www.kline.co.jp/
+
+- labels: ["9104", "MOL"]
+  url: https://www.mol.co.jp/
+
+- labels: ["9101", "NYK"]
+  url: https://www.nyk.com/
+
+- labels: ["1605", "Inpex"]
+  url: https://www.inpex.co.jp/
+
+- labels: ["5714", "Dowa"]
+  url: https://www.dowa.co.jp/
+
+- labels: ["5803", "Fujikura"]
+  url: https://www.fujikura.com/
+
+- labels: ["5801", "FurukawaElectric"]
+  url: https://www.furukawa.co.jp/
+
+- labels: ["5711", "MitsubishiMaterials"]
+  url: https://www.mmc.co.jp/
+
+- labels: ["5706", "MitsuiKinzoku"]
+  url: https://www.mitsui-kinzoku.com/
+
+- labels: ["3436", "SUMCO"]
+  url: https://www.sumcosi.com/
+
+- labels: ["5802", "SumitomoElectric"]
+  url: https://sumitomoelectric.com/
+
+- labels: ["5713", "SumitomoMetalMining"]
+  url: https://www.smm.co.jp/
+
+- labels: ["8253", "CreditSaison"]
+  url: https://corporate.saisoncard.co.jp/
+
+- labels: ["8697", "JPX"]
+  url: https://www.jpx.co.jp/
+
+- labels: ["8591", "Orix"]
+  url: https://www.orix.co.jp/
+
+- labels: ["7832", "BandaiNamco"]
+  url: https://www.bandainamcoholdings.com/
+
+- labels: ["7912", "DNP"]
+  url: https://www.dnp.co.jp/
+
+- labels: ["7911", "Toppan"]
+  url: https://www.toppan.com/
+
+- labels: ["7951", "Yamaha"]
+  url: https://www.yamaha.com/
+
+- labels: ["5020", "Eneos"]
+  url: https://www.eneos.co.jp/
+
+- labels: ["5019", "Idemitsu"]
+  url: https://www.idemitsu.com/
+
+- labels: ["4503", "Astellas"]
+  url: https://www.astellas.com/
+
+- labels: ["4519", "Chugai"]
+  url: https://www.chugai-pharm.co.jp/
+
+- labels: ["4568", "DaiichiSankyo"]
+  url: https://www.daiichisankyo.com/
+
+- labels: ["4523", "Eisai"]
+  url: https://www.eisai.com/
+
+- labels: ["4151", "KyowaKirin"]
+  url: https://www.kyowakirin.com/
+
+- labels: ["4578", "Otsuka"]
+  url: https://www.otsuka.com/
+
+- labels: ["4506", "SumitomoPharma"]
+  url: https://www.sumitomo-pharma.com/
+
+- labels: ["4507", "Shionogi"]
+  url: https://www.shionogi.com/
+
+- labels: ["4502", "Takeda"]
+  url: https://www.takeda.com/
+
+- labels: ["6146", "Disco"]
+  url: https://www.disco.co.jp/
+
+- labels: ["7741", "Hoya"]
+  url: https://www.hoya.com/
+
+- labels: ["4902", "KonicaMinolta"]
+  url: https://www.konicaminolta.com/
+
+- labels: ["7731", "Nikon"]
+  url: https://www.nikon.com/
+
+- labels: ["7733", "Olympus"]
+  url: https://www.olympus-global.com/
+
+- labels: ["4543", "Terumo"]
+  url: https://www.terumo.com/
+
+- labels: ["3861", "OjiHoldings"]
+  url: https://www.ojiholdings.co.jp/
+
+- labels: ["9022", "JRCentral"]
+  url: https://global.jr-central.co.jp/
+
+- labels: ["9020", "JREast"]
+  url: https://www.jreast.co.jp/
+
+- labels: ["9008", "Keio"]
+  url: https://www.keio.co.jp/
+
+- labels: ["9009", "Keisei"]
+  url: https://www.keisei.co.jp/
+
+- labels: ["9007", "Odakyu"]
+  url: https://www.odakyu.jp/
+
+- labels: ["9001", "Tobu"]
+  url: https://www.tobu.co.jp/
+
+- labels: ["9005", "Tokyu"]
+  url: https://www.tokyu.co.jp/
+
+- labels: ["9021", "JRWest"]
+  url: https://www.westjr.co.jp/
+
+- labels: ["8802", "MitsubishiEstate"]
+  url: https://www.mec.co.jp/
+
+- labels: ["8801", "MitsuiFudosan"]
+  url: https://www.mitsuifudosan.co.jp/
+
+- labels: ["8830", "SumitomoRealty"]
+  url: https://www.sumitomo-rd.co.jp/
+
+- labels: ["8804", "TokyoTatemono"]
+  url: https://www.tatemono.com/
+
+- labels: ["3289", "TokyuLand"]
+  url: https://www.tokyu-land.co.jp/
+
+- labels: ["8267", "Aeon"]
+  url: https://www.aeon.info/
+
+- labels: ["9983", "FastRetailing"]
+  url: https://www.fastretailing.com/
+
+- labels: ["3099", "IsetanMitsukoshi"]
+  url: https://www.imhds.co.jp/
+
+- labels: ["3086", "JFront"]
+  url: https://www.j-front-retailing.com/
+
+- labels: ["8252", "Marui"]
+  url: https://www.0101maruigroup.co.jp/
+
+- labels: ["7453", "RyohinKeikaku"]
+  url: https://ryohin-keikaku.jp/
+
+- labels: ["9843", "Nitori"]
+  url: https://www.nitorihd.co.jp/
+
+- labels: ["7532", "PPIH"]
+  url: https://www.ppih.co.jp/
+
+- labels: ["3382", "SevenAndI"]
+  url: https://www.7andi.com/
+
+- labels: ["8233", "Takashimaya"]
+  url: https://www.takashimaya.co.jp/
+
+- labels: ["3092", "Zozo"]
+  url: https://corp.zozo.com/
+
+- labels: ["5108", "Bridgestone"]
+  url: https://www.bridgestone.com/
+
+- labels: ["5101", "YokohamaRubber"]
+  url: https://www.y-yokohama.com/
+
+- labels: ["8601", "DaiwaSecurities"]
+  url: https://www.daiwa-grp.jp/
+
+- labels: ["8604", "Nomura"]
+  url: https://www.nomuraholdings.com/
+
+- labels: ["6532", "Baycurrent"]
+  url: https://www.baycurrent.co.jp/
+
+- labels: ["4751", "CyberAgent"]
+  url: https://www.cyberagent.co.jp/
+
+- labels: ["2432", "DeNA"]
+  url: https://dena.com/
+
+- labels: ["4324", "Dentsu"]
+  url: https://www.dentsu.com/
+
+- labels: ["6178", "JapanPost"]
+  url: https://www.japanpost.jp/
+
+- labels: ["9766", "Konami"]
+  url: https://www.konami.com/
+
+- labels: ["4689", "LYCorp"]
+  url: https://www.lycorp.co.jp/
+
+- labels: ["4385", "Mercari"]
+  url: https://about.mercari.com/
+
+- labels: ["2413", "M3"]
+  url: https://corporate.m3.com/
+
+- labels: ["3659", "Nexon"]
+  url: https://www.nexon.co.jp/
+
+- labels: ["7974", "Nintendo"]
+  url: https://www.nintendo.co.jp/
+
+- labels: ["4307", "NRI"]
+  url: https://www.nri.com/
+
+- labels: ["4661", "OrientalLand"]
+  url: https://www.olc.co.jp/
+
+- labels: ["4755", "Rakuten"]
+  url: https://corp.rakuten.co.jp/
+
+- labels: ["6098", "Recruit"]
+  url: https://recruit-holdings.com/
+
+- labels: ["9735", "Secom"]
+  url: https://www.secom.co.jp/
+
+- labels: ["3697", "SHIFT"]
+  url: https://www.shiftinc.jp/
+
+- labels: ["9602", "Toho"]
+  url: https://www.toho.co.jp/
+
+- labels: ["4704", "TrendMicro"]
+  url: https://www.trendmicro.com/
+
+- labels: ["7012", "KawasakiHeavy"]
+  url: https://global.kawasaki.com/
+
+- labels: ["5411", "JFE"]
+  url: https://www.jfe-holdings.co.jp/
+
+- labels: ["5406", "KobeSteel"]
+  url: https://www.kobelco.co.jp/
+
+- labels: ["5401", "NipponSteel"]
+  url: https://www.nipponsteel.com/
+
+- labels: ["3401", "Teijin"]
+  url: https://www.teijin.com/
+
+- labels: ["3402", "Toray"]
+  url: https://www.toray.com/
+
+- labels: ["8001", "Itochu"]
+  url: https://www.itochu.co.jp/
+
+- labels: ["8002", "Marubeni"]
+  url: https://www.marubeni.com/
+
+- labels: ["8058", "MitsubishiCorp"]
+  url: https://www.mitsubishicorp.com/
+
+- labels: ["8031", "Mitsui"]
+  url: https://www.mitsui.com/
+
+- labels: ["2768", "Sojitz"]
+  url: https://www.sojitz.com/
+
+- labels: ["8053", "SumitomoCorp"]
+  url: https://www.sumitomocorp.com/
+
+- labels: ["8015", "ToyotaTsusho"]
+  url: https://www.toyota-tsusho.com/

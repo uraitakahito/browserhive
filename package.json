@@ -48,7 +48,8 @@
     "ajv": "JSON Schema validator. Pinned at the root so transitive resolutions land on v8 (matches Fastify's bundled compiler).",
     "puppeteer": "Headless browser library. Used at runtime via puppeteer-extra to connect to remote Chromium servers.",
     "puppeteer-extra": "Puppeteer wrapper that allows plugins. Used with stealth plugin to avoid bot detection.",
-    "puppeteer-extra-plugin-stealth": "Stealth plugin for puppeteer-extra. Applies various evasion techniques to avoid headless browser detection."
+    "puppeteer-extra-plugin-stealth": "Stealth plugin for puppeteer-extra. Applies various evasion techniques to avoid headless browser detection.",
+    "yaml": "YAML 1.2 parser used by examples/data-client.ts to read data/*.yaml fixtures (replaces the previous CSV format so entries can carry inline comments)."
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -58,7 +59,8 @@
     "puppeteer": "^24.33.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "xstate": "^5.30.0"
+    "xstate": "^5.30.0",
+    "yaml": "^2.8.3"
   },
   "//devDependencies": {
     "@apidevtools/swagger-parser": "Pre-dereferences openapi.yaml at build time (scripts/openapi-bundle.mjs). The output JSON is shipped instead of the YAML, so this is build-time only — not required at runtime.",

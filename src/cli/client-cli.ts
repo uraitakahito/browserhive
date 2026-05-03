@@ -3,7 +3,7 @@
  *
  * CLI logic for the HTTP capture client. `--server` and `--tls-ca-cert`
  * fall back to `BROWSERHIVE_SERVER` / `BROWSERHIVE_TLS_CA_CERT` when not
- * given on the command line. Per-job flags (`--csv`, `--png`, `--jpeg`,
+ * given on the command line. Per-job flags (`--data`, `--png`, `--jpeg`,
  * `--html`, `--limit`, `--dismiss-banners`) intentionally have no env
  * equivalents — they are caller-side intent, not deployment configuration.
  *
@@ -18,7 +18,7 @@ import { logger } from "../logger.js";
 
 export interface ClientOptions {
   server?: string;
-  csv: string;
+  data: string;
   png?: boolean;
   jpeg?: boolean;
   html?: boolean;
@@ -39,9 +39,9 @@ export const createProgram = (): Command => {
   const program = new Command();
 
   program
-    .name("browserhive-csv-example")
-    .description("HTTP Capture Submitter - Submit capture requests from CSV (fire-and-forget)")
-    .requiredOption("--csv <path>", "CSV file path")
+    .name("browserhive-example")
+    .description("HTTP Capture Submitter - Submit capture requests from a YAML data file (fire-and-forget)")
+    .requiredOption("--data <path>", "YAML data file path")
     .addOption(
       new Option(
         "--server <url>",
@@ -52,7 +52,7 @@ export const createProgram = (): Command => {
     .option("--jpeg", "Capture JPEG screenshot")
     .option("--html", "Capture HTML")
     .addOption(
-      new Option("--limit <n>", "Maximum number of URLs to read from CSV")
+      new Option("--limit <n>", "Maximum number of entries to read from the data file")
         .argParser(parsePositiveInt),
     )
     .option(
@@ -77,7 +77,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
   program.parse(argv);
 
   const opts = program.opts<{
-    csv: string;
+    data: string;
     server?: string;
     png?: boolean;
     jpeg?: boolean;
@@ -88,7 +88,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
   }>();
 
   return {
-    csv: opts.csv,
+    data: opts.data,
     ...(opts.server !== undefined && { server: opts.server }),
     ...(opts.png !== undefined && { png: opts.png }),
     ...(opts.jpeg !== undefined && { jpeg: opts.jpeg }),
@@ -114,7 +114,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       tls: options.tlsCaCert
         ? { enabled: true, caCertPath: options.tlsCaCert }
         : { enabled: false },
-      csv: options.csv,
+      data: options.data,
       captureFormats: getCaptureFormats(options),
       dismissBanners: options.dismissBanners ?? false,
       limit: options.limit ?? null,

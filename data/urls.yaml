@@ -1,0 +1,161 @@
+# data/urls.yaml — smoke-test fixture
+#
+# Major global brands (Apple, Microsoft, Amazon, NVIDIA, ...) — fast,
+# predictable HTTP 200 pages used as a sanity check that the capture
+# pipeline is wired up end-to-end.
+#
+# Each entry's `labels` becomes part of the captured filename:
+#   {taskId}_{correlationId}_{labels-joined-by-dash}.{ext}
+
+- labels: ["Apple"]
+  url: https://www.apple.com/
+
+- labels: ["Microsoft"]
+  url: https://www.microsoft.com/
+
+- labels: ["Amazon"]
+  url: https://www.amazon.com/
+
+- labels: ["NVIDIA"]
+  url: https://www.nvidia.com/
+
+- labels: ["Tesla"]
+  url: https://www.tesla.com/
+
+- labels: ["Netflix"]
+  url: https://www.netflix.com/
+
+- labels: ["Adobe"]
+  url: https://www.adobe.com/
+
+- labels: ["Intel"]
+  url: https://www.intel.com/
+
+- labels: ["Broadcom"]
+  url: https://www.broadcom.com/
+
+- labels: ["Costco"]
+  url: https://www.costco.com/
+
+- labels: ["AMD"]
+  url: https://www.amd.com/
+
+- labels: ["Qualcomm"]
+  url: https://www.qualcomm.com/
+
+- labels: ["Intuit"]
+  url: https://www.intuit.com/
+
+- labels: ["Starbucks"]
+  url: https://www.starbucks.com/
+
+- labels: ["Amgen"]
+  url: https://www.amgen.com/
+
+- labels: ["Moderna"]
+  url: https://www.modernatx.com/
+
+- labels: ["PayPal"]
+  url: https://www.paypal.com/
+
+- labels: ["Synopsys"]
+  url: https://www.synopsys.com/
+
+- labels: ["Illumina"]
+  url: https://www.illumina.com/
+
+- labels: ["Biogen"]
+  url: https://www.biogen.com/
+
+- labels: ["CrowdStrike"]
+  url: https://www.crowdstrike.com/
+
+- labels: ["Fortinet"]
+  url: https://www.fortinet.com/
+
+- labels: ["Datadog"]
+  url: https://www.datadoghq.com/
+
+- labels: ["DocuSign"]
+  url: https://www.docusign.com/
+
+- labels: ["Zscaler"]
+  url: https://www.zscaler.com/
+
+- labels: ["Splunk"]
+  url: https://www.splunk.com/
+
+- labels: ["Workday"]
+  url: https://www.workday.com/
+
+- labels: ["ceNow"]
+  url: https://www.servicenow.com/
+
+- labels: ["Atlassian"]
+  url: https://www.atlassian.com/
+
+- labels: ["MongoDB"]
+  url: https://www.mongodb.com/
+
+- labels: ["Snowflake"]
+  url: https://www.snowflake.com/
+
+- labels: ["Cloudflare"]
+  url: https://www.cloudflare.com/
+
+- labels: ["Okta"]
+  url: https://www.okta.com/
+
+- labels: ["Roku"]
+  url: https://www.roku.com/
+
+- labels: ["DoorDash"]
+  url: https://www.doordash.com/
+
+- labels: ["Airbnb"]
+  url: https://www.airbnb.com/
+
+- labels: ["Lyft"]
+  url: https://www.lyft.com/
+
+- labels: ["Pinterest"]
+  url: https://www.pinterest.com/
+
+- labels: ["Snap"]
+  url: https://www.snap.com/
+
+- labels: ["Roblox"]
+  url: https://www.roblox.com/
+
+- labels: ["Copart"]
+  url: https://www.copart.com/
+
+- labels: ["eBay"]
+  url: https://www.ebay.com/
+
+- labels: ["MercadoLibre"]
+  url: https://www.mercadolibre.com/
+
+- labels: ["JD.com"]
+  url: https://www.jd.com/
+
+- labels: ["Pinduoduo"]
+  url: https://www.pinduoduo.com/
+
+- labels: ["Baidu"]
+  url: https://www.baidu.com/
+
+- labels: ["NetEase"]
+  url: https://www.neteasegames.com/
+
+- labels: ["NIO"]
+  url: https://www.nio.com/
+
+- labels: ["Exelon"]
+  url: https://www.exeloncorp.com/
+
+- labels: ["Dexcom"]
+  url: https://www.dexcom.com/
+
+- labels: ["Paychex"]
+  url: https://www.paychex.com/

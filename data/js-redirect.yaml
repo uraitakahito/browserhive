@@ -1,0 +1,28 @@
+# data/js-redirect.yaml — regression fixture for `runOnStableContext`
+# (`src/capture/page-capturer.ts`).
+#
+# Each URL performs a JS-driven navigation immediately after the initial
+# DOMContentLoaded. Before `runOnStableContext` landed, every entry
+# surfaced as `internal: "Execution context was destroyed, ..."` in
+# errorHistory and produced no screenshot; with the helper, all six
+# should yield `status: success` with both JPEG and HTML written.
+#
+# Drawn from the `nikkei225.yaml` superset.
+
+- labels: ["1925", "DaiwaHouse"]
+  url: https://www.daiwahouse.com/
+
+- labels: ["3099", "IsetanMitsukoshi"]
+  url: https://www.imhds.co.jp/
+
+- labels: ["4307", "NRI"]
+  url: https://www.nri.com/
+
+- labels: ["6724", "SeikoEpson"]
+  url: https://global.epson.com/
+
+- labels: ["8001", "Itochu"]
+  url: https://www.itochu.co.jp/
+
+- labels: ["8058", "MitsubishiCorp"]
+  url: https://www.mitsubishicorp.com/

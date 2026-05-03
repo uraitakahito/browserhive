@@ -11,7 +11,7 @@ info:
     identifier: Unlicense
 # servers[0].url is the source of truth for the SDK's default baseUrl.
 # @hey-api/openapi-ts bakes it into src/http/generated/client.gen.ts at
-# generation time, so example clients (e.g. examples/csv-client.ts)
+# generation time, so example clients (e.g. examples/data-client.ts)
 # inherit it without a hardcoded fallback.
 servers:
   - url: http://localhost:8080
