@@ -1,6 +1,8 @@
 import { defineConfig } from "@hey-api/openapi-ts";
 
 /**
+ * Configuration file for @hey-api/openapi-ts (https://heyapi.dev/openapi-ts).
+ *
  * Single source of truth: src/http/openapi.yaml.
  *
  * Generates types, an operationId-keyed SDK (e.g. `submitCapture(...)`),
