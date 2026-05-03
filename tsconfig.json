@@ -70,5 +70,9 @@
     // Set the JavaScript language version for emitted JavaScript
     "target": "ES2023"
   },
-  "include": ["src/**/*", "bin/**/*", "examples/**/*", "test/**/*"]
+  "include": ["src/**/*", "bin/**/*", "examples/**/*", "test/**/*"],
+  // src/http/generated is built as a separate subproject (tsconfig.generated.json)
+  // so exactOptionalPropertyTypes can be disabled only for the generated runtime.
+  "exclude": ["src/http/generated"],
+  "references": [{ "path": "./tsconfig.generated.json" }]
 }

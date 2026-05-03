@@ -1,6 +1,8 @@
 import { defineConfig } from "@hey-api/openapi-ts";
 
 /**
+ * Configuration file for @hey-api/openapi-ts (https://heyapi.dev/openapi-ts).
+ *
  * Single source of truth: src/http/openapi.yaml.
  *
  * Generates types, an operationId-keyed SDK (e.g. `submitCapture(...)`),
@@ -12,6 +14,13 @@ import { defineConfig } from "@hey-api/openapi-ts";
  */
 export default defineConfig({
   input: "src/http/openapi.yaml",
-  output: "src/http/generated",
+  output: {
+    path: "src/http/generated",
+    // Append `.js` to relative imports so the emitted code is loadable by
+    // Node's ESM resolver (which requires explicit extensions). The project's
+    // tsconfig uses `moduleResolution: "Bundler"`, which would otherwise
+    // suppress hey-api's auto-detection.
+    module: { extension: ".js" },
+  },
   plugins: ["@hey-api/client-fetch"],
 });

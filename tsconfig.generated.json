@@ -1,0 +1,27 @@
+/*
+ * Child project for generated OpenAPI artifacts.
+ *
+ * src/http/generated/ is treated as a separate TypeScript subproject so we
+ * can disable `exactOptionalPropertyTypes` only for it. The bundled fetch
+ * runtime in client/ and core/ is not authored against that flag and would
+ * otherwise force us to suppress all type checks via `// @ts-nocheck`. By
+ * scoping the relaxation here, consumer code keeps full strict checking
+ * against the generated types.
+ *
+ * Built via `tsc -b` from the root tsconfig.json (which references this file).
+ */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "exactOptionalPropertyTypes": false,
+    "rootDir": "./src/http/generated",
+    "outDir": "./dist/src/http/generated",
+    "tsBuildInfoFile": "./dist/.generated.tsbuildinfo"
+  },
+  "include": ["src/http/generated/**/*"],
+  // The root tsconfig.json excludes src/http/generated. That exclude is
+  // inherited via `extends`, so we override it back to empty here, otherwise
+  // `include` would be cancelled out and tsc reports TS18003 (No inputs).
+  "exclude": []
+}

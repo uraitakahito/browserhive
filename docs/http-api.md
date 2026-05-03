@@ -1,17 +1,13 @@
 # HTTP API Usage Guide
 
 The OpenAPI 3.1 specification for the Capture API lives in
-[`src/http/openapi.yaml`](../src/http/openapi.yaml). The running server
-intentionally does not expose `/docs` or `/openapi.yaml`; Redoc-rendered
-reference docs are published as a separate static artifact via the
-GitHub Pages workflow (`.github/workflows/docs.yml`).
+[`src/http/openapi.yaml`](../src/http/openapi.yaml).
 
 ## Endpoints
 
 ### `POST /v1/captures` (SubmitCapture)
 
-Submit a capture request for a single URL. Fire-and-forget: returns
-`202 Accepted` immediately, the actual capture is processed asynchronously.
+Submit a capture request for a single URL.
 
 ```bash
 curl -i -X POST http://localhost:8080/v1/captures \
@@ -23,20 +19,19 @@ curl -i -X POST http://localhost:8080/v1/captures \
     "captureFormats": { "png": true, "jpeg": false, "html": true },
     "dismissBanners": true
   }'
+# HTTP/1.1 202 Accepted
+# content-type: application/json; charset=utf-8
+# content-length: 91
+# Date: Sun, 03 May 2026 08:00:21 GMT
+# Connection: keep-alive
+# Keep-Alive: timeout=72
+#
+# {"accepted":true,"taskId":"bbf18297-fce4-4759-a953-4921d1876803","correlationId":"EXT-001"}%
 ```
 
 #### Request body fields
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `url` | string | Yes | — | URL to capture |
-| `labels` | string[] | No | `[]` | Labels used for filename (multiple can be specified) |
-| `correlationId` | string | No | (unset) | ID echoed back on the acceptance response, useful for client-side correlation |
-| `captureFormats` | object | Yes | — | Capture output formats (at least one of `png`/`jpeg`/`html` must be true) |
-| `captureFormats.png` | bool | — | `false` | Capture PNG screenshot |
-| `captureFormats.jpeg` | bool | — | `false` | Capture JPEG screenshot |
-| `captureFormats.html` | bool | — | `false` | Capture HTML |
-| `dismissBanners` | bool | No | `false` | Strip cookie-consent banners and large fixed/sticky overlays before capturing. Best-effort: dismissal failures do not fail the capture. The dismissal report (framework + selectors removed) appears in the server log line for the completed task. |
+See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full request body schema.
 
 #### Filename format
 
@@ -57,11 +52,7 @@ curl -i -X POST http://localhost:8080/v1/captures \
 }
 ```
 
-| Field | Type | Presence | Description |
-|-------|------|----------|-------------|
-| `accepted` | bool | always | `true` (errors are surfaced as 4xx/5xx with `application/problem+json` body) |
-| `taskId` | string (uuid) | always | Server-generated task ID, useful for matching server log lines |
-| `correlationId` | string | only when provided in the request | Echoed back from the request |
+See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the response schema.
 
 #### Error responses
 
@@ -142,16 +133,7 @@ curl http://localhost:8080/v1/status
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `pending` | int32 | Number of tasks waiting in queue |
-| `processing` | int32 | Number of tasks being processed |
-| `completed` | int32 | Number of completed tasks |
-| `operationalWorkers` | int32 | Number of operational workers |
-| `totalWorkers` | int32 | Total number of workers |
-| `isRunning` | bool | Whether the coordinator is in the `running` lifecycle state (all workers healthy) |
-| `isDegraded` | bool | Whether the coordinator is in the `degraded` lifecycle state (some/all workers unhealthy; retry loop is running) |
-| `workers` | WorkerInfo[] | Detailed per-worker information (empty array if no workers configured) |
+See the [GetStatus reference](https://uraitakahito.github.io/browserhive/#operation/getStatus) for the response schema.
 
 ## TLS
 

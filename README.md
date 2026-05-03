@@ -306,19 +306,6 @@ TypeScript types and an operationId-keyed SDK (e.g. `submitCapture(...)`) are au
 
 The same yaml is also dereferenced at server start and fed to Fastify's Ajv validator (per-route `schema`).
 
-### Redocly (lint + reference docs)
-
-The spec is gated by [`@redocly/cli`](https://redocly.com/docs/cli) using the [`recommended-strict`](https://redocly.com/docs/cli/rules) ruleset. The configuration lives in [`redocly.yaml`](redocly.yaml).
-
-- `npm run openapi:lint` — validate the spec (also runs as part of `prebuild` / `pretest` / `prelint`, halting the pipeline on any violation)
-- `npm run openapi:build-docs` — render `dist/docs/index.html` (self-contained Redoc HTML with the spec embedded). Used by the GitHub Pages workflow; not consumed by the runtime server.
-- `npm run docs:preview` — local one-shot preview wrapper: builds the HTML and prints a `file://` URL to open in your browser.
-- CI:
-  - [`.github/workflows/openapi.yml`](.github/workflows/openapi.yml) re-runs `redocly lint` on every PR with GitHub Actions annotations.
-  - [`.github/workflows/docs.yml`](.github/workflows/docs.yml) rebuilds the Redoc HTML on every push to `main` and publishes it to GitHub Pages.
-
-The Redoc reference docs are not served by the running process. They live exclusively as the static GitHub Pages artifact above.
-
 ## TLS (Transport Layer Security)
 
 The server supports TLS for secure communication. See [docs/tls-certificates.md](docs/tls-certificates.md) for certificate generation instructions.
