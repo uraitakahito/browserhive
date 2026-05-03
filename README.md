@@ -230,8 +230,6 @@ Start the HTTP server to accept capture requests via JSON over HTTP.
 
 The server uses a **fire-and-forget** pattern: requests are accepted immediately and processed asynchronously by the capture coordinator. Multiple browser URLs can be specified to enable parallel processing.
 
-Reference docs are not served by the running process. They are published as a static site on GitHub Pages — see [OpenAPI specification](#openapi-specification) below.
-
 When `BROWSERHIVE_BROWSER_URLS` and `BROWSERHIVE_OUTPUT_DIR` are set (the dev/prod compose files already do this), the start command is just:
 
 ```sh
