@@ -1,0 +1,25 @@
+name: openapi
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/http/openapi.yaml'
+      - 'redocly.yaml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/openapi.yml'
+
+jobs:
+  lint:
+    name: Redocly lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx redocly lint --format=github-actions
