@@ -49,11 +49,10 @@ export class CaptureCoordinator {
   }
 
   /**
-   * Initialize the capture coordinator. Worker spawning and browser
-   * connection are driven by the lifecycle machine. Init failures do
-   * not abort startup — the coordinator lands in `active.running` (all
-   * healthy) or `active.degraded` (some/all failed). Inspect
-   * `lastInitFailedWorkers` for detail.
+   * Worker spawning and browser connection are driven by the lifecycle
+   * machine. Init failures do not abort startup — the coordinator
+   * lands in `active.running` (all healthy) or `active.degraded`
+   * (some/all failed). Inspect `lastInitFailedWorkers` for detail.
    */
   async initialize(): Promise<void> {
     this.lifecycleActor.send({ type: "INITIALIZE" });
