@@ -10,8 +10,34 @@
  * format is preserved (`"Timeout: <op> (<ms>ms)"`) for wire compatibility
  * with `errorRecord.message`.
  */
+import { TimeoutError as PuppeteerTimeoutError } from "puppeteer";
 import { errorType } from "./error-type.js";
 import type { ErrorDetails } from "./types.js";
+
+export { PuppeteerTimeoutError };
+
+/**
+ * Pull the milliseconds budget out of a `puppeteer.TimeoutError` message.
+ *
+ * Puppeteer renders timeout messages in a few related shapes — see
+ * `node_modules/puppeteer-core/.../LifecycleWatcher.js`,
+ * `WaitTask.js`, etc.:
+ *
+ *   - `"Navigation timeout of 30000 ms exceeded"`              (with space)
+ *   - `"Waiting failed: 100ms exceeded"`                       (no space)
+ *   - "Waiting for `FileChooser` failed: 5000ms exceeded"      (no space)
+ *
+ * The shared tail is `<N><opt-space>ms<space>+exceeded`. Returns `undefined`
+ * when the message does not match the pattern, so the caller can leave
+ * `ErrorDetails.timeoutMs` unset rather than fabricating a value.
+ *
+ * Exported for direct unit testing.
+ */
+export const extractPuppeteerTimeoutMs = (message: string): number | undefined => {
+  const match = /(\d+)\s*ms\s+exceeded/.exec(message);
+  if (!match?.[1]) return undefined;
+  return parseInt(match[1], 10);
+};
 
 export class TimeoutError extends Error {
   readonly operation: string;
