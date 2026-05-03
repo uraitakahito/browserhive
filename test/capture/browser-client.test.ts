@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import type { BrowserProfile } from "../../src/config/index.js";
 import type { CaptureTask, CaptureResult } from "../../src/capture/types.js";
 import type { Browser } from "puppeteer";
@@ -13,13 +13,24 @@ vi.mock("../../src/browser.js", () => ({
   default: vi.fn(),
 }));
 
-vi.mock("../../src/capture/page-capturer.js", () => ({
-  PageCapturer: vi.fn().mockImplementation(function PageCapturer() {
-    return {
-      capture: (...args: unknown[]) => mockCapture(...args),
-    };
-  }),
-}));
+// Keep the real `withTimeout` (used by BrowserClient.process for the Layer B
+// safety net) while replacing PageCapturer with a stub that delegates to
+// `mockCapture`. A bare factory would erase every other export and resolve
+// `withTimeout` to undefined, which silently makes the outer setTimeout
+// fire immediately and turns every process() result into a "timeout".
+vi.mock("../../src/capture/page-capturer.js", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("../../src/capture/page-capturer.js")
+  >();
+  return {
+    ...actual,
+    PageCapturer: vi.fn().mockImplementation(function PageCapturer() {
+      return {
+        capture: (...args: unknown[]) => mockCapture(...args),
+      };
+    }),
+  };
+});
 
 // Import after mocking
 import { BrowserClient } from "../../src/capture/browser-client.js";
@@ -154,12 +165,20 @@ describe("BrowserClient", () => {
       );
     });
 
-    it("should propagate capture exceptions", async () => {
+    it("converts thrown capture exceptions into a failed CaptureResult", async () => {
+      // Layer B: process() catches anything pageCapturer.capture throws and
+      // synthesises a CaptureResult so the worker-loop's TASK_FAILED path
+      // handles error-history accounting uniformly. The previous contract
+      // (re-throw) was changed when Layer B was introduced.
       await client.connect();
       const task = createTask();
       mockCapture.mockRejectedValue(new Error("Unexpected error"));
 
-      await expect(client.process(task)).rejects.toThrow("Unexpected error");
+      const result = await client.process(task);
+
+      expect(result.status).toBe(captureStatus.failed);
+      expect(result.errorDetails?.type).toBe("internal");
+      expect(result.errorDetails?.message).toBe("Unexpected error");
     });
 
     it("should return capture result including error details", async () => {
@@ -182,6 +201,63 @@ describe("BrowserClient", () => {
 
       expect(result.status).toBe(captureStatus.failed);
       expect(result.errorDetails?.message).toBe("Capture failed");
+    });
+
+    describe("Layer B taskTotal timeout", () => {
+      // Layer B is the outer per-task safety net wired in
+      // BrowserClient.process. When the inner pageCapturer.capture promise
+      // never resolves (the symptom we observed on JS-redirect pages whose
+      // execution context never settles), the outer withTimeout must return
+      // a CaptureResult with status=timeout so the worker-loop can move on.
+      // The inner promise being abandoned and leaking the remote Page is an
+      // accepted tradeoff — see browser-client.ts process() doc comment.
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("returns timeout CaptureResult when pageCapturer.capture never resolves", async () => {
+        // Use a short taskTotal so the test is fast; default is 90s.
+        const shortTimeout = 100;
+        const fastClient = new BrowserClient(
+          0,
+          {
+            browserURL: "http://chromium:9222",
+            capture: {
+              ...createBrowserProfile().capture,
+              timeouts: {
+                ...createBrowserProfile().capture.timeouts,
+                taskTotal: shortTimeout,
+              },
+            },
+          },
+        );
+        // connectBrowser is mocked at module scope; await connect to set
+        // the internal browser reference on this fresh client too.
+        await fastClient.connect();
+
+        const task = createTask();
+        mockCapture.mockReturnValue(
+          new Promise<never>(() => {
+            /* never resolves — simulates a wedged puppeteer call that no
+               Layer A timeout fired on */
+          }),
+        );
+
+        const resultPromise = fastClient.process(task);
+
+        await vi.advanceTimersByTimeAsync(shortTimeout + 1);
+
+        const result = await resultPromise;
+        expect(result.status).toBe(captureStatus.timeout);
+        expect(result.errorDetails?.type).toBe("timeout");
+        expect(result.errorDetails?.timeoutMs).toBe(shortTimeout);
+        expect(result.errorDetails?.message).toContain("Task processing for");
+        expect(result.workerIndex).toBe(0);
+      });
     });
   });
 

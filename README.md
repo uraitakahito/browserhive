@@ -264,6 +264,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--output <dir>` | `BROWSERHIVE_OUTPUT_DIR` | path (required) |
 | `--page-load-timeout <ms>` | `BROWSERHIVE_PAGE_LOAD_TIMEOUT_MS` | positive integer |
 | `--capture-timeout <ms>` | `BROWSERHIVE_CAPTURE_TIMEOUT_MS` | positive integer |
+| `--task-timeout <ms>` | `BROWSERHIVE_TASK_TIMEOUT_MS` | positive integer (Layer B per-task safety net) |
 | `--max-retry-count <n>` | `BROWSERHIVE_MAX_RETRY_COUNT` | non-negative integer |
 | `--queue-poll-interval-ms <ms>` | `BROWSERHIVE_QUEUE_POLL_INTERVAL_MS` | positive integer |
 | `--viewport-width <px>` | `BROWSERHIVE_VIEWPORT_WIDTH` | positive integer |

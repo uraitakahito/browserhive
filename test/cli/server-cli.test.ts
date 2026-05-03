@@ -228,4 +228,53 @@ describe("server-cli parseCliOptions", () => {
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
     });
   });
+
+  describe("taskTotal (Layer B safety net)", () => {
+    it("--task-timeout が capture.timeouts.taskTotal に反映される", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          "--output",
+          "/tmp/out",
+          "--task-timeout",
+          "60000",
+        ),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
+      ).toBe(60000);
+    });
+
+    it("BROWSERHIVE_TASK_TIMEOUT_MS が capture.timeouts.taskTotal に反映される", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      vi.stubEnv("BROWSERHIVE_OUTPUT_DIR", "/tmp/out");
+      vi.stubEnv("BROWSERHIVE_TASK_TIMEOUT_MS", "45000");
+
+      const config = parseCliOptions(argv());
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
+      ).toBe(45000);
+    });
+
+    it("未指定時はデフォルト 90s が入る", () => {
+      const config = parseCliOptions(
+        argv("--browser-url", "http://a:9222", "--output", "/tmp/out"),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
+      ).toBe(90000);
+    });
+
+    it("不正な BROWSERHIVE_TASK_TIMEOUT_MS で exit する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      vi.stubEnv("BROWSERHIVE_OUTPUT_DIR", "/tmp/out");
+      vi.stubEnv("BROWSERHIVE_TASK_TIMEOUT_MS", "0");
+
+      expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
+    });
+  });
 });

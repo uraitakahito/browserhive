@@ -23,6 +23,14 @@ export interface CaptureConfig {
     pageLoad: number;
     /** Capture operation timeout in milliseconds */
     capture: number;
+    /**
+     * Layer B safety net — upper bound for the entire `PageCapturer.capture`
+     * invocation, applied in `BrowserClient.process`. Must be wider than the
+     * sum of the inner Layer A timeouts (newPage + pageLoad + dynamic-content
+     * wait + addStyleTag + dismissBanners + N × capture). Catches any
+     * hang that escapes the per-call wraps inside `PageCapturer.capture`.
+     */
+    taskTotal: number;
   };
   /** Viewport dimensions */
   viewport: {
