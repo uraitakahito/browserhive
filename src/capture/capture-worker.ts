@@ -325,8 +325,7 @@ export const isWorkerDisconnected = (snapshot: CaptureWorkerSnapshot): boolean =
  * CaptureWorker
  *
  * The coordinator and its actors hold `CaptureWorker` instances
- * directly, giving the diagram-level "Worker" concept a concrete
- * runtime object.
+ * directly.
  *
  * The class is intentionally a thin wrapper:
  *   - `ref` and `client` are exposed as readonly fields so low-level
