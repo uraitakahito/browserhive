@@ -101,11 +101,6 @@ export const validateFilename = (name: string): Result<void, string> => {
 /** Labels separator for filename generation */
 export const LABELS_SEPARATOR = "-";
 
-/**
- * Validate all labels in the array
- * Returns failure for the first invalid label, or ok if all pass
- * Empty array is valid (labels are optional)
- */
 export const validateLabels = (labels: string[]): Result<void, string> => {
   if (labels.length === 0) {
     return ok();
