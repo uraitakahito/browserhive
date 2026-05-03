@@ -1,10 +1,55 @@
 /**
  * Error Details Builder
  *
- * Utility functions for constructing ErrorDetails objects.
+ * Utility functions for constructing ErrorDetails objects, plus the
+ * `TimeoutError` class thrown by `withTimeout` (`page-capturer.ts`).
+ *
+ * `TimeoutError` carries `operation` and `timeoutMs` as typed fields so
+ * downstream classification (`errorDetailsFromException`) can identify it
+ * via `instanceof` rather than message-string heuristics. The `message`
+ * format is preserved (`"Timeout: <op> (<ms>ms)"`) for wire compatibility
+ * with `errorRecord.message`.
  */
+import { TimeoutError as PuppeteerTimeoutError } from "puppeteer";
 import { errorType } from "./error-type.js";
 import type { ErrorDetails } from "./types.js";
+
+export { PuppeteerTimeoutError };
+
+/**
+ * Pull the milliseconds budget out of a `puppeteer.TimeoutError` message.
+ *
+ * Puppeteer renders timeout messages in a few related shapes — see
+ * `node_modules/puppeteer-core/.../LifecycleWatcher.js`,
+ * `WaitTask.js`, etc.:
+ *
+ *   - `"Navigation timeout of 30000 ms exceeded"`              (with space)
+ *   - `"Waiting failed: 100ms exceeded"`                       (no space)
+ *   - "Waiting for `FileChooser` failed: 5000ms exceeded"      (no space)
+ *
+ * The shared tail is `<N><opt-space>ms<space>+exceeded`. Returns `undefined`
+ * when the message does not match the pattern, so the caller can leave
+ * `ErrorDetails.timeoutMs` unset rather than fabricating a value.
+ *
+ * Exported for direct unit testing.
+ */
+export const extractPuppeteerTimeoutMs = (message: string): number | undefined => {
+  const match = /(\d+)\s*ms\s+exceeded/.exec(message);
+  if (!match?.[1]) return undefined;
+  return parseInt(match[1], 10);
+};
+
+export class TimeoutError extends Error {
+  readonly operation: string;
+  readonly timeoutMs: number;
+
+  constructor({ operation, timeoutMs }: { operation: string; timeoutMs: number }) {
+    super(`Timeout: ${operation} (${String(timeoutMs)}ms)`);
+    this.name = "TimeoutError";
+    this.operation = operation;
+    this.timeoutMs = timeoutMs;
+  }
+}
 
 /**
  * Standard HTTP status text mapping
@@ -67,15 +112,6 @@ export const createHttpError = (
   return details;
 };
 
-export const createTimeoutError = (
-  timeoutMs: number,
-  operation: string
-): ErrorDetails => ({
-  type: errorType.timeout,
-  message: `Timeout: ${operation} (${String(timeoutMs)}ms)`,
-  timeoutMs,
-});
-
 export const createConnectionError = (reason: string): ErrorDetails => ({
   type: errorType.connection,
   message: reason,
@@ -86,21 +122,73 @@ export const createInternalError = (message: string): ErrorDetails => ({
   message,
 });
 
-export const errorDetailsFromException = (error: unknown): ErrorDetails => {
-  const message = error instanceof Error ? error.message : String(error);
+/**
+ * Identify a Puppeteer-emitted `TimeoutError` resiliently against the
+ * CJS/ESM dual-package hazard.
+ *
+ * `puppeteer-extra` (used by `src/browser.ts`) is published as CJS, so it
+ * `require()`s `puppeteer-core` through the CJS branch of that package's
+ * `exports` map. Our own `import { TimeoutError as PuppeteerTimeoutError }
+ * from "puppeteer"` above resolves through the ESM branch. The CJS and
+ * ESM copies of `puppeteer-core/.../Errors.js` evaluate as independent
+ * modules under Node's loader, so the two `TimeoutError` classes have
+ * distinct identities even though they share source. `instanceof
+ * PuppeteerTimeoutError` therefore misses errors thrown from inside a
+ * puppeteer-extra-driven session — which is every error this server
+ * sees in production.
+ *
+ * Match structurally instead: the error's own constructor must be named
+ * `TimeoutError`, and somewhere up its prototype chain there must be a
+ * constructor named `PuppeteerError`. That pair is unique to puppeteer's
+ * own error hierarchy and won't false-positive on other libraries' or
+ * our own `TimeoutError` (which extends `Error`, not `PuppeteerError`).
+ */
+const isPuppeteerTimeout = (error: unknown): error is Error => {
+  if (error instanceof PuppeteerTimeoutError) return true;
+  if (!(error instanceof Error)) return false;
+  if (error.name !== "TimeoutError") return false;
+  let proto = Object.getPrototypeOf(error) as object | null;
+  while (proto) {
+    const ctor = (proto as { constructor?: { name?: string } }).constructor;
+    if (ctor?.name === "PuppeteerError") return true;
+    proto = Object.getPrototypeOf(proto) as object | null;
+  }
+  return false;
+};
 
-  if (message.includes("Timeout")) {
-    // Extract ms value from timeout message (e.g., "Timeout: Navigation (30000ms)")
-    const match = /\((\d+)ms\)/.exec(message);
+/**
+ * Classify an arbitrary thrown value into structured `ErrorDetails`.
+ *
+ * Classification is `instanceof`-first for our own `TimeoutError`, with a
+ * structural duck check for puppeteer's `TimeoutError` to bypass the
+ * CJS/ESM dual-package hazard documented on `isPuppeteerTimeout`. The
+ * `connection` heuristic is intentionally still string-based — there is
+ * no shared base class for the disconnect / "Connection closed" errors
+ * Puppeteer surfaces, and broadening that is out of scope for the
+ * timeout-classification fix.
+ */
+export const errorDetailsFromException = (error: unknown): ErrorDetails => {
+  if (error instanceof TimeoutError) {
+    return {
+      type: errorType.timeout,
+      message: error.message,
+      timeoutMs: error.timeoutMs,
+    };
+  }
+
+  if (isPuppeteerTimeout(error)) {
     const details: ErrorDetails = {
       type: errorType.timeout,
-      message,
+      message: error.message,
     };
-    if (match?.[1] !== undefined) {
-      details.timeoutMs = parseInt(match[1], 10);
+    const timeoutMs = extractPuppeteerTimeoutMs(error.message);
+    if (timeoutMs !== undefined) {
+      details.timeoutMs = timeoutMs;
     }
     return details;
   }
+
+  const message = error instanceof Error ? error.message : String(error);
 
   if (message.includes("disconnect") || message.includes("closed")) {
     return {

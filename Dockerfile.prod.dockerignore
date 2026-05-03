@@ -32,6 +32,7 @@
 
 # 3. Re-include build configuration files
 !tsconfig.json
+!tsconfig.generated.json
 !redocly.yaml
 !openapi-ts.config.ts
 

@@ -33,10 +33,10 @@ export {
 export type { ErrorDetails } from "./types.js";
 export {
   createHttpError,
-  createTimeoutError,
   createConnectionError,
   createInternalError,
   errorDetailsFromException,
+  TimeoutError,
 } from "./error-details.js";
 
 // Capture Worker (XState machine with compound states and context)
