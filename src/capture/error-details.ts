@@ -1,10 +1,29 @@
 /**
  * Error Details Builder
  *
- * Utility functions for constructing ErrorDetails objects.
+ * Utility functions for constructing ErrorDetails objects, plus the
+ * `TimeoutError` class thrown by `withTimeout` (`page-capturer.ts`).
+ *
+ * `TimeoutError` carries `operation` and `timeoutMs` as typed fields so
+ * downstream classification (`errorDetailsFromException`) can identify it
+ * via `instanceof` rather than message-string heuristics. The `message`
+ * format is preserved (`"Timeout: <op> (<ms>ms)"`) for wire compatibility
+ * with `errorRecord.message`.
  */
 import { errorType } from "./error-type.js";
 import type { ErrorDetails } from "./types.js";
+
+export class TimeoutError extends Error {
+  readonly operation: string;
+  readonly timeoutMs: number;
+
+  constructor({ operation, timeoutMs }: { operation: string; timeoutMs: number }) {
+    super(`Timeout: ${operation} (${String(timeoutMs)}ms)`);
+    this.name = "TimeoutError";
+    this.operation = operation;
+    this.timeoutMs = timeoutMs;
+  }
+}
 
 /**
  * Standard HTTP status text mapping
@@ -66,15 +85,6 @@ export const createHttpError = (
   }
   return details;
 };
-
-export const createTimeoutError = (
-  timeoutMs: number,
-  operation: string
-): ErrorDetails => ({
-  type: errorType.timeout,
-  message: `Timeout: ${operation} (${String(timeoutMs)}ms)`,
-  timeoutMs,
-});
 
 export const createConnectionError = (reason: string): ErrorDetails => ({
   type: errorType.connection,

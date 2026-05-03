@@ -11,6 +11,7 @@ import {
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "../../src/capture/page-capturer.js";
+import { TimeoutError } from "../../src/capture/error-details.js";
 import type { CaptureTask } from "../../src/capture/types.js";
 import type { Page } from "puppeteer";
 
@@ -270,6 +271,24 @@ describe("withTimeout", () => {
     vi.advanceTimersByTime(100);
 
     await expect(resultPromise).rejects.toThrow("Timeout: test operation (100ms)");
+  });
+
+  it("should throw a TimeoutError carrying typed operation/timeoutMs", async () => {
+    const neverResolves = new Promise(() => {
+      // Never resolves
+    });
+
+    const resultPromise = withTimeout(neverResolves, 250, "test operation");
+    vi.advanceTimersByTime(250);
+
+    await expect(resultPromise).rejects.toBeInstanceOf(TimeoutError);
+    await resultPromise.catch((error: unknown) => {
+      expect(error).toBeInstanceOf(TimeoutError);
+      const timeoutError = error as TimeoutError;
+      expect(timeoutError.operation).toBe("test operation");
+      expect(timeoutError.timeoutMs).toBe(250);
+      expect(timeoutError.name).toBe("TimeoutError");
+    });
   });
 
   it("should include timeout duration in error message", async () => {

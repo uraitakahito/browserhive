@@ -13,6 +13,7 @@ import { captureStatus } from "./capture-status.js";
 import {
   createHttpError,
   errorDetailsFromException,
+  TimeoutError,
 } from "./error-details.js";
 import { errorType } from "./error-type.js";
 import { err, ok, type Result } from "../result.js";
@@ -34,18 +35,19 @@ const HIDE_SCROLLBAR_CSS = `
 `;
 
 /**
- * Execute a promise with a timeout
+ * Execute a promise with a timeout. Throws `TimeoutError` (typed, carries
+ * `operation` and `timeoutMs`) when the budget is exceeded.
  */
 export const withTimeout = async <T>(
   promise: Promise<T>,
   timeoutMs: number,
-  message: string
+  operation: string
 ): Promise<T> => {
   let timeoutId: NodeJS.Timeout | undefined;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new Error(`Timeout: ${message} (${String(timeoutMs)}ms)`));
+      reject(new TimeoutError({ operation, timeoutMs }));
     }, timeoutMs);
   });
 
