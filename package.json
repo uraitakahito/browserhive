@@ -17,17 +17,19 @@
       "runs pretest → test, and `npm run lint` runs prelint → lint.",
       "Docs: https://docs.npmjs.com/cli/v10/using-npm/scripts#pre-and-post-scripts"
     ],
-    "prebuild": "Auto-runs before `npm run build` via the pre-hook above. Lints openapi.yaml, regenerates the SDK, and renders Redoc HTML — gating tsc on contract drift.",
-    "pretest": "Auto-runs before `npm test`. Same lint + generate as prebuild (no build-docs, since tests do not serve /docs).",
-    "prelint": "Auto-runs before `npm run lint`. Ensures eslint sees up-to-date generated/ output."
+    "openapi:prep": "Composite of openapi:lint + openapi:generate. Extracted so prebuild/pretest/prelint do not duplicate the chain.",
+    "prebuild": "Auto-runs before `npm run build` via the pre-hook above. Runs openapi:prep then renders Redoc HTML — gating tsc on contract drift.",
+    "pretest": "Auto-runs before `npm test`. Calls openapi:prep (no build-docs, since tests do not serve /docs).",
+    "prelint": "Auto-runs before `npm run lint` via openapi:prep, so eslint sees up-to-date generated/ output."
   },
   "scripts": {
     "openapi:lint": "redocly lint",
     "openapi:generate": "openapi-ts && node scripts/openapi-postgenerate.mjs",
     "openapi:build-docs": "redocly build-docs --output dist/docs/index.html --title 'BrowserHive Capture API'",
-    "prebuild": "npm run openapi:lint && npm run openapi:generate && npm run openapi:build-docs",
-    "pretest": "npm run openapi:lint && npm run openapi:generate",
-    "prelint": "npm run openapi:lint && npm run openapi:generate",
+    "openapi:prep": "npm run openapi:lint && npm run openapi:generate",
+    "prebuild": "npm run openapi:prep && npm run openapi:build-docs",
+    "pretest": "npm run openapi:prep",
+    "prelint": "npm run openapi:prep",
     "build": "tsc",
     "test": "vitest run",
     "lint": "eslint . --max-warnings 0",

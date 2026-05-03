@@ -231,7 +231,7 @@ This command:
 2. Generates TypeScript types and an operationId-keyed SDK from `src/http/openapi.yaml` using `@hey-api/openapi-ts` (`prebuild` hook)
 3. Compiles TypeScript to JavaScript
 
-The same `openapi:lint` + `openapi:generate` pair also runs as `pretest` and `prelint`, so contract drift surfaces in `npm test` and `npm run lint` as well.
+The same `openapi:prep` (= `openapi:lint` + `openapi:generate`) also runs as `pretest` and `prelint`, so contract drift surfaces in `npm test` and `npm run lint` as well.
 
 ### HTTP Server
 
