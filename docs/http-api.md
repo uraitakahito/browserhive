@@ -7,8 +7,7 @@ The OpenAPI 3.1 specification for the Capture API lives in
 
 ### `POST /v1/captures` (SubmitCapture)
 
-Submit a capture request for a single URL. Fire-and-forget: returns
-`202 Accepted` immediately, the actual capture is processed asynchronously.
+Submit a capture request for a single URL.
 
 ```bash
 curl -i -X POST http://localhost:8080/v1/captures \
@@ -20,6 +19,14 @@ curl -i -X POST http://localhost:8080/v1/captures \
     "captureFormats": { "png": true, "jpeg": false, "html": true },
     "dismissBanners": true
   }'
+# HTTP/1.1 202 Accepted
+# content-type: application/json; charset=utf-8
+# content-length: 91
+# Date: Sun, 03 May 2026 08:00:21 GMT
+# Connection: keep-alive
+# Keep-Alive: timeout=72
+#
+# {"accepted":true,"taskId":"bbf18297-fce4-4759-a953-4921d1876803","correlationId":"EXT-001"}%
 ```
 
 #### Request body fields
