@@ -7,7 +7,7 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 - **Multiple output formats**: PNG, JPEG screenshots and HTML capture
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Optional per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing — best-effort, never fails the capture
-- **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — request/response types and runtime validation are both driven from it.
+- **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
 
 ## Architecture
 
