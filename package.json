@@ -8,7 +8,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "openapi:generate": "openapi-typescript src/http/openapi.yaml -o src/http/generated/types.ts && node scripts/generate-openapi-constants.mjs",
+    "openapi:generate": "openapi-ts && node scripts/openapi-postgenerate.mjs",
     "prebuild": "npm run openapi:generate",
     "pretest": "npm run openapi:generate",
     "prelint": "npm run openapi:generate",
@@ -28,7 +28,6 @@
     "@apidevtools/swagger-parser": "Parses and dereferences openapi.yaml ($ref resolution) at server startup.",
     "ajv": "JSON Schema validator. Pinned at the root so transitive resolutions land on v8 (matches Fastify's bundled compiler).",
     "ajv-formats": "Adds format keywords (uri, uuid, date-time, etc.) to Fastify's Ajv instance.",
-    "openapi-fetch": "Type-safe HTTP client driven by the generated openapi.yaml types. Used by examples/csv-client.ts.",
     "puppeteer": "Headless browser library. Used at runtime via puppeteer-extra to connect to remote Chromium servers.",
     "puppeteer-extra": "Puppeteer wrapper that allows plugins. Used with stealth plugin to avoid bot detection.",
     "puppeteer-extra-plugin-stealth": "Stealth plugin for puppeteer-extra. Applies various evasion techniques to avoid headless browser detection."
@@ -41,7 +40,6 @@
     "ajv-formats": "^3.0.1",
     "commander": "^14.0.2",
     "fastify": "^5.2.0",
-    "openapi-fetch": "^0.13.4",
     "pino": "^10.1.0",
     "puppeteer": "^24.33.0",
     "puppeteer-extra": "^3.3.6",
@@ -49,7 +47,7 @@
     "xstate": "^5.30.0"
   },
   "//devDependencies": {
-    "openapi-typescript": "Generates TypeScript types from openapi.yaml. Output is src/http/generated/types.ts.",
+    "@hey-api/openapi-ts": "Generates TypeScript types, operationId-keyed SDK functions, and a fetch-based client from openapi.yaml. Output is src/http/generated/. Replaces openapi-typescript + openapi-fetch (one tool for both type and runtime client).",
     "@types/estree": "Required for TypeScript type resolution. Transitive dependency from eslint and rollup (via vite).",
     "@types/json-schema": "Required for TypeScript type resolution. Transitive dependency from @eslint/core.",
     "@types/node": "Required for TypeScript type resolution. Transitive dependency from vitest and vite.",
@@ -81,11 +79,11 @@
     "@types/json-schema": "^7.0.15",
     "@types/node": "^25.5.2",
     "@types/yauzl": "^2.10.3",
+    "@hey-api/openapi-ts": "^0.97.0",
     "eslint": "^10.2.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",
     "jsdom": "^29.1.0",
-    "openapi-typescript": "^7.5.1",
     "pino-pretty": "^13.1.3",
     "rimraf": "^6.0.1",
     "typescript": "^6.0.2",

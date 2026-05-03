@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { captureRequestToTask } from "../../src/http/request-mapper.js";
-import type { components } from "../../src/http/generated/types.js";
-
-type CaptureRequest = components["schemas"]["CaptureRequest"];
+import type { CaptureRequest } from "../../src/http/generated/index.js";
 
 const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest => ({
   url: "https://example.com",

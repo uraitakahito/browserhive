@@ -6,14 +6,18 @@
  * given on the command line. Per-job flags (`--csv`, `--png`, `--jpeg`,
  * `--html`, `--limit`, `--dismiss-banners`) intentionally have no env
  * equivalents — they are caller-side intent, not deployment configuration.
+ *
+ * `--server` has no commander-level default. When omitted, the generated
+ * SDK falls back to its built-in baseUrl (extracted from `servers[0].url`
+ * in openapi.yaml at generation time), keeping the spec as the single
+ * source of truth for the default address.
  */
 import { Command, InvalidArgumentError, Option } from "commander";
 import { type CaptureFormats } from "../capture/index.js";
-import { DEFAULT_SERVER_ADDRESS } from "../http/generated/server.js";
 import { logger } from "../logger.js";
 
 export interface ClientOptions {
-  server: string;
+  server?: string;
   csv: string;
   png?: boolean;
   jpeg?: boolean;
@@ -39,9 +43,10 @@ export const createProgram = (): Command => {
     .description("HTTP Capture Submitter - Submit capture requests from CSV (fire-and-forget)")
     .requiredOption("--csv <path>", "CSV file path")
     .addOption(
-      new Option("--server <url>", "HTTP server base URL (e.g., http://localhost:8080)")
-        .env("BROWSERHIVE_SERVER")
-        .default(DEFAULT_SERVER_ADDRESS),
+      new Option(
+        "--server <url>",
+        "HTTP server base URL. Defaults to the SDK's baked-in baseUrl (servers[0].url in openapi.yaml).",
+      ).env("BROWSERHIVE_SERVER"),
     )
     .option("--png", "Capture PNG screenshot")
     .option("--jpeg", "Capture JPEG screenshot")
@@ -73,7 +78,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
 
   const opts = program.opts<{
     csv: string;
-    server: string;
+    server?: string;
     png?: boolean;
     jpeg?: boolean;
     html?: boolean;
@@ -83,8 +88,8 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
   }>();
 
   return {
-    server: opts.server,
     csv: opts.csv,
+    ...(opts.server !== undefined && { server: opts.server }),
     ...(opts.png !== undefined && { png: opts.png }),
     ...(opts.jpeg !== undefined && { jpeg: opts.jpeg }),
     ...(opts.html !== undefined && { html: opts.html }),
@@ -105,7 +110,7 @@ export const getCaptureFormats = (options: ClientOptions): CaptureFormats => {
 export const logClientConfig = (options: ClientOptions): void => {
   logger.info(
     {
-      server: options.server,
+      server: options.server ?? "(SDK default)",
       tls: options.tlsCaCert
         ? { enabled: true, caCertPath: options.tlsCaCert }
         : { enabled: false },

@@ -13,7 +13,7 @@
 import type { FastifyReply, FastifyRequest, RouteHandlerMethod } from "fastify";
 import type { CaptureCoordinator } from "../capture/index.js";
 import { createChildLogger } from "../logger.js";
-import type { components } from "./generated/types.js";
+import type { CaptureRequest, Problem } from "./generated/index.js";
 import {
   duplicateUrlProblem,
   noOperationalWorkersProblem,
@@ -27,11 +27,9 @@ import {
 
 const PROBLEM_CONTENT_TYPE = "application/problem+json";
 
-type CaptureRequest = components["schemas"]["CaptureRequest"];
-
 const sendProblem = (
   reply: FastifyReply,
-  problem: components["schemas"]["Problem"],
+  problem: Problem,
 ): FastifyReply =>
   reply.code(problem.status).type(PROBLEM_CONTENT_TYPE).send(problem);
 

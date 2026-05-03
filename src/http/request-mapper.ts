@@ -20,9 +20,7 @@ import {
 } from "../capture/index.js";
 import type { CaptureTask } from "../capture/index.js";
 import { err, ok, type Result } from "../result.js";
-import type { components } from "./generated/types.js";
-
-type CaptureRequest = components["schemas"]["CaptureRequest"];
+import type { CaptureRequest } from "./generated/index.js";
 
 export const captureRequestToTask = (
   request: CaptureRequest,
@@ -38,7 +36,7 @@ export const captureRequestToTask = (
     return err(formatsValidation.error);
   }
 
-  const trimmedLabels = request.labels
+  const trimmedLabels = (request.labels ?? [])
     .map((l) => l.trim())
     .filter((l) => l !== "");
   if (trimmedLabels.length > 0) {
@@ -62,7 +60,7 @@ export const captureRequestToTask = (
     url,
     retryCount: 0,
     captureFormats,
-    dismissBanners: request.dismissBanners,
+    dismissBanners: request.dismissBanners ?? false,
     ...(request.correlationId !== undefined &&
       request.correlationId !== "" && {
         correlationId: request.correlationId,
