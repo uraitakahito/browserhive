@@ -19,13 +19,13 @@
 import { fromCallback, fromPromise } from "xstate";
 import { logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
-import type { WorkerEntry } from "./coordinator-machine.js";
 import type {
   ShutdownFailure,
   WorkerInitFailure,
 } from "./coordinator-errors.js";
 import { createConnectionError } from "./error-details.js";
 import {
+  CaptureWorker,
   isWorkerSettled,
   isWorkerDisconnected,
   type CaptureWorkerSnapshot,
@@ -58,7 +58,7 @@ export interface InitializeWorkersOutput {
  *   - Unsubscribes from every worker actor (so listeners do not leak)
  */
 export const waitForWorkersToReach = async (
-  workers: WorkerEntry[],
+  workers: CaptureWorker[],
   predicate: (snapshot: CaptureWorkerSnapshot) => boolean,
   options: { timeoutMs: number; onTimeout: () => void },
 ): Promise<void> => {
@@ -69,13 +69,13 @@ export const waitForWorkersToReach = async (
     await Promise.race([
       Promise.all(
         workers.map(
-          (entry) =>
+          (worker) =>
             new Promise<void>((resolve) => {
-              if (predicate(entry.ref.getSnapshot())) {
+              if (predicate(worker.getSnapshot())) {
                 resolve();
                 return;
               }
-              const sub = entry.ref.subscribe((snapshot) => {
+              const sub = worker.ref.subscribe((snapshot) => {
                 if (predicate(snapshot)) resolve();
               });
               subscriptions.push(sub);
@@ -96,16 +96,16 @@ export const waitForWorkersToReach = async (
   }
 };
 
-const countOperational = (workers: WorkerEntry[]): number =>
-  workers.filter((entry) => entry.ref.getSnapshot().hasTag("healthy")).length;
+const countOperational = (workers: CaptureWorker[]): number =>
+  workers.filter((worker) => worker.isHealthy).length;
 
-const collectFailedWorkers = (workers: WorkerEntry[]): WorkerInitFailure[] =>
+const collectFailedWorkers = (workers: CaptureWorker[]): WorkerInitFailure[] =>
   workers
-    .filter((entry) => !entry.ref.getSnapshot().hasTag("healthy"))
-    .map((entry) => {
-      const lastError = entry.ref.getSnapshot().context.errorHistory[0];
+    .filter((worker) => !worker.isHealthy)
+    .map((worker) => {
+      const lastError = worker.getSnapshot().context.errorHistory[0];
       return {
-        browserURL: entry.client.profile.browserURL,
+        browserURL: worker.browserURL,
         reason:
           lastError ??
           createConnectionError("Unknown failure (no error recorded)"),
@@ -114,10 +114,10 @@ const collectFailedWorkers = (workers: WorkerEntry[]): WorkerInitFailure[] =>
 
 export const initializeWorkers = fromPromise<
   InitializeWorkersOutput,
-  { workers: WorkerEntry[] }
+  { workers: CaptureWorker[] }
 >(async ({ input }) => {
-  for (const entry of input.workers) {
-    entry.ref.send({ type: "CONNECT" });
+  for (const worker of input.workers) {
+    worker.connect();
   }
   await waitForWorkersToReach(input.workers, isWorkerSettled, {
     timeoutMs: WORKER_INIT_TIMEOUT_MS,
@@ -158,17 +158,17 @@ export const initializeWorkers = fromPromise<
  */
 export const watchWorkerHealth = fromCallback<
   { type: "WORKER_DEGRADED" } | { type: "ALL_WORKERS_HEALTHY" },
-  WorkerEntry[]
+  CaptureWorker[]
 >(({ sendBack, input }) => {
   if (input.length === 0) return;
 
   const isAllHealthy = (): boolean =>
-    input.every((entry) => entry.ref.getSnapshot().hasTag("healthy"));
+    input.every((worker) => worker.isHealthy);
 
   let lastAllHealthy = isAllHealthy();
 
-  const subscriptions = input.map((entry) =>
-    entry.ref.subscribe(() => {
+  const subscriptions = input.map((worker) =>
+    worker.ref.subscribe(() => {
       const allHealthy = isAllHealthy();
       if (allHealthy === lastAllHealthy) return;
       lastAllHealthy = allHealthy;
@@ -195,7 +195,7 @@ export const watchWorkerHealth = fromCallback<
  * pending timer when the parent leaves `degraded`. Backoff resets on each
  * fresh invocation (i.e. on every entry into `degraded`).
  */
-export const retryFailedWorkers = fromCallback<{ type: "noop" }, WorkerEntry[]>(
+export const retryFailedWorkers = fromCallback<{ type: "noop" }, CaptureWorker[]>(
   ({ input }) => {
     let timeoutId: NodeJS.Timeout | undefined;
     let attempt = 0;
@@ -209,20 +209,18 @@ export const retryFailedWorkers = fromCallback<{ type: "noop" }, WorkerEntry[]>(
       attempt += 1;
       timeoutId = setTimeout(() => {
         if (disposed) return;
-        const targets = input.filter(
-          (entry) => entry.ref.getSnapshot().value === "error",
-        );
+        const targets = input.filter((worker) => worker.isInError);
         if (targets.length > 0) {
           logger.info(
             {
               attempt,
               count: targets.length,
-              browserURLs: targets.map((t) => t.client.profile.browserURL),
+              browserURLs: targets.map((t) => t.browserURL),
             },
             "Retrying failed workers",
           );
-          for (const entry of targets) {
-            entry.ref.send({ type: "CONNECT" });
+          for (const worker of targets) {
+            worker.connect();
           }
         }
         scheduleNext();
@@ -240,10 +238,10 @@ export const retryFailedWorkers = fromCallback<{ type: "noop" }, WorkerEntry[]>(
 
 export const shutdownWorkers = fromPromise<
   Result<void, ShutdownFailure>,
-  { workers: WorkerEntry[] }
+  { workers: CaptureWorker[] }
 >(async ({ input }) => {
-  for (const entry of input.workers) {
-    entry.ref.send({ type: "DISCONNECT" });
+  for (const worker of input.workers) {
+    worker.disconnect();
   }
   await waitForWorkersToReach(input.workers, isWorkerDisconnected, {
     timeoutMs: WORKER_SHUTDOWN_TIMEOUT_MS,
@@ -258,15 +256,15 @@ export const shutdownWorkers = fromPromise<
   // Snapshot before the safety-net disconnect below, which is idempotent
   // for already-settled workers but races the actor for stuck ones.
   const unsettled = input.workers
-    .filter((entry) => !isWorkerDisconnected(entry.ref.getSnapshot()))
-    .map((entry) => entry.client.profile.browserURL);
+    .filter((worker) => !worker.isDisconnected)
+    .map((worker) => worker.browserURL);
   await Promise.all(
-    input.workers.map(async (entry) => {
-      const result = await entry.client.disconnect();
+    input.workers.map(async (worker) => {
+      const result = await worker.forceDisconnectClient();
       if (!result.ok) {
         logger.warn(
           {
-            browserURL: entry.client.profile.browserURL,
+            browserURL: worker.browserURL,
             reason: result.error,
           },
           "Safety-net disconnect failed",

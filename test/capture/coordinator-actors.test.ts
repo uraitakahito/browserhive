@@ -1,22 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createActor } from "xstate";
+import { createActor, type ActorRefFrom } from "xstate";
 import {
   initializeWorkers,
   retryFailedWorkers,
   waitForWorkersToReach,
   type InitializeWorkersOutput,
 } from "../../src/capture/coordinator-actors.js";
-import type { WorkerEntry } from "../../src/capture/coordinator-machine.js";
 import type { ErrorRecord } from "../../src/capture/types.js";
 import { errorType } from "../../src/capture/error-type.js";
-import type { CaptureWorkerSnapshot } from "../../src/capture/capture-worker.js";
+import {
+  CaptureWorker,
+  type captureWorkerMachine,
+  type CaptureWorkerSnapshot,
+} from "../../src/capture/capture-worker.js";
+import type { BrowserClient } from "../../src/capture/browser-client.js";
+
+type WorkerRef = ActorRefFrom<typeof captureWorkerMachine>;
 
 /**
  * Minimal ActorRef-shaped fake. Only `getSnapshot` and `subscribe` are
- * exercised by waitForWorkersToReach, so the rest of the WorkerEntry
- * (`client`) is filled in with a placeholder. The snapshot exposes
- * `matches` so predicates that call `snapshot.matches(target)`
- * (the production shape) work without spinning up a real machine.
+ * exercised by waitForWorkersToReach, so the rest of the BrowserClient
+ * is filled in with a placeholder. The snapshot exposes `matches` so
+ * predicates that call `snapshot.matches(target)` (the production shape)
+ * work without spinning up a real machine.
  */
 const fakeEntry = (initialValue: string) => {
   interface FakeSnapshot {
@@ -29,20 +35,19 @@ const fakeEntry = (initialValue: string) => {
     value,
     matches: (target) => target === value,
   });
-  const entry = {
-    ref: {
-      getSnapshot: makeSnapshot,
-      subscribe: (listener: (snap: FakeSnapshot) => void) => {
-        listeners.add(listener);
-        return {
-          unsubscribe: () => {
-            listeners.delete(listener);
-          },
-        };
-      },
+  const fakeRef = {
+    getSnapshot: makeSnapshot,
+    subscribe: (listener: (snap: FakeSnapshot) => void) => {
+      listeners.add(listener);
+      return {
+        unsubscribe: () => {
+          listeners.delete(listener);
+        },
+      };
     },
-    client: {} as never,
-  } as unknown as WorkerEntry;
+  } as unknown as WorkerRef;
+  const fakeClient = {} as unknown as BrowserClient;
+  const entry = new CaptureWorker(fakeRef, fakeClient);
 
   return {
     entry,
@@ -217,11 +222,11 @@ describe("waitForWorkersToReach", () => {
 });
 
 /**
- * Fake WorkerEntry with state controls for initializeWorkers tests.
+ * Fake CaptureWorker with state controls for initializeWorkers tests.
  * Reproduces the worker status machine surface that initializeWorkers
  * depends on: `send`, `getSnapshot().value`, `getSnapshot().matches()`,
  * `getSnapshot().hasTag()`, `getSnapshot().context.errorHistory`,
- * `subscribe`, and `worker.profile.browserURL`.
+ * `subscribe`, and `worker.browserURL`.
  */
 const fakeInitEntry = (browserURL = "http://test:9222") => {
   interface FakeSnapshot {
@@ -255,21 +260,20 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
 
   const send = vi.fn();
 
-  const entry = {
-    ref: {
-      getSnapshot: snap,
-      subscribe: (listener: (s: FakeSnapshot) => void) => {
-        listeners.add(listener);
-        return {
-          unsubscribe: (): void => { listeners.delete(listener); },
-        };
-      },
-      send,
+  const fakeRef = {
+    getSnapshot: snap,
+    subscribe: (listener: (s: FakeSnapshot) => void) => {
+      listeners.add(listener);
+      return {
+        unsubscribe: (): void => { listeners.delete(listener); },
+      };
     },
-    client: {
-      profile: { browserURL },
-    },
-  } as unknown as WorkerEntry;
+    send,
+  } as unknown as WorkerRef;
+  const fakeClient = {
+    profile: { browserURL },
+  } as unknown as BrowserClient;
+  const entry = new CaptureWorker(fakeRef, fakeClient);
 
   return {
     entry,
@@ -294,7 +298,7 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
  * `subscribe` so any unexpected actor error is routed through the
  * `error` callback instead of becoming an unhandled exception.
  */
-const runInitializeWorkers = (workers: WorkerEntry[]): {
+const runInitializeWorkers = (workers: CaptureWorker[]): {
   actor: ReturnType<typeof createActor<typeof initializeWorkers>>;
   settled: Promise<InitializeWorkersOutput>;
 } => {
@@ -446,15 +450,14 @@ describe("initializeWorkers", () => {
 const fakeRetryEntry = (browserURL: string, initialValue: unknown = "error") => {
   let value = initialValue;
   const send = vi.fn();
-  const entry = {
-    ref: {
-      getSnapshot: () => ({ value }),
-      send,
-    },
-    client: {
-      profile: { browserURL },
-    },
-  } as unknown as WorkerEntry;
+  const fakeRef = {
+    getSnapshot: () => ({ value }),
+    send,
+  } as unknown as WorkerRef;
+  const fakeClient = {
+    profile: { browserURL },
+  } as unknown as BrowserClient;
+  const entry = new CaptureWorker(fakeRef, fakeClient);
   return {
     entry,
     setValue: (v: unknown): void => {

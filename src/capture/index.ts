@@ -45,6 +45,7 @@ export type { CaptureWorkerContext, CaptureWorkerInput, CaptureWorkerSnapshot } 
 export {
   ALL_WORKER_HEALTH_VALUES,
   captureWorkerMachine,
+  CaptureWorker,
   toWorkerHealth,
   isWorkerSettled,
   isWorkerDisconnected,

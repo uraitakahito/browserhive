@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createActor } from "xstate";
 import {
   ALL_WORKER_HEALTH_VALUES,
+  CaptureWorker,
   captureWorkerMachine,
   toWorkerHealth,
   isWorkerSettled,
@@ -499,6 +500,162 @@ describe("capture-worker", () => {
         expect(actor.getSnapshot().value).toBe("disconnected");
       });
       expect(isWorkerDisconnected(actor.getSnapshot())).toBe(true);
+    });
+  });
+});
+
+describe("CaptureWorker class", () => {
+  const buildWorker = (overrides?: { index?: number; browserURL?: string }) => {
+    const client = createMockClient(overrides?.index ?? 0);
+    if (overrides?.browserURL !== undefined) {
+      (client as unknown as { profile: { browserURL: string } }).profile = {
+        browserURL: overrides.browserURL,
+      };
+    } else {
+      (client as unknown as { profile: { browserURL: string } }).profile = {
+        browserURL: "http://test:9222",
+      };
+    }
+    const runtime: WorkerRuntime = {
+      client,
+      taskQueue: new TaskQueue(),
+      pollIntervalMs: 50,
+    };
+    const actor = createActor(captureWorkerMachine, {
+      input: { maxRetryCount: 2, runtime },
+    });
+    actor.start();
+    const worker = new CaptureWorker(actor, client);
+    return { worker, actor, client };
+  };
+
+  describe("identity / config delegation", () => {
+    it("exposes index from client", () => {
+      const { worker } = buildWorker({ index: 7 });
+      expect(worker.index).toBe(7);
+    });
+
+    it("exposes browserURL from client.profile", () => {
+      const { worker } = buildWorker({ browserURL: "http://example:9222" });
+      expect(worker.browserURL).toBe("http://example:9222");
+    });
+
+    it("exposes profile reference", () => {
+      const { worker, client } = buildWorker();
+      expect(worker.profile).toBe(client.profile);
+    });
+  });
+
+  describe("state queries", () => {
+    it("getSnapshot returns the current actor snapshot", () => {
+      const { worker } = buildWorker();
+      expect(worker.getSnapshot().value).toBe("disconnected");
+    });
+
+    it("isHealthy reflects the operational tag", async () => {
+      const { worker } = buildWorker();
+      expect(worker.isHealthy).toBe(false);
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      expect(worker.isHealthy).toBe(true);
+    });
+
+    it("isInError is true only in error state", async () => {
+      const client = createMockClient();
+      vi.mocked(client.connect).mockResolvedValue({
+        ok: false,
+        error: { type: "connection", message: "refused" },
+      });
+      const runtime: WorkerRuntime = {
+        client,
+        taskQueue: new TaskQueue(),
+        pollIntervalMs: 50,
+      };
+      const actor = createActor(captureWorkerMachine, {
+        input: { maxRetryCount: 2, runtime },
+      });
+      actor.start();
+      const worker = new CaptureWorker(actor, client);
+
+      expect(worker.isInError).toBe(false);
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toBe("error");
+      });
+      expect(worker.isInError).toBe(true);
+    });
+
+    it("isDisconnected matches the disconnected leaf only", async () => {
+      const { worker } = buildWorker();
+      expect(worker.isDisconnected).toBe(true);
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      expect(worker.isDisconnected).toBe(false);
+    });
+
+    it("health collapses compound state to flat string", async () => {
+      const { worker } = buildWorker();
+      expect(worker.health).toBe("disconnected");
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      expect(worker.health).toBe("ready");
+    });
+  });
+
+  describe("actions", () => {
+    it("connect() drives disconnected → connecting", () => {
+      const { worker } = buildWorker();
+      worker.connect();
+      expect(worker.getSnapshot().value).toBe("connecting");
+    });
+
+    it("disconnect() drives operational → disconnecting", async () => {
+      const { worker } = buildWorker();
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      worker.disconnect();
+      expect(worker.getSnapshot().value).toBe("disconnecting");
+    });
+  });
+
+  describe("toInfo", () => {
+    it("produces a WorkerInfo snapshot from the actor context", async () => {
+      const { worker } = buildWorker({ index: 3, browserURL: "http://x:9222" });
+      worker.connect();
+      await vi.waitFor(() => {
+        expect(worker.getSnapshot().value).toEqual({ operational: "idle" });
+      });
+      const info = worker.toInfo();
+      expect(info.index).toBe(3);
+      expect(info.browserProfile.browserURL).toBe("http://x:9222");
+      expect(info.health).toBe("ready");
+      expect(info.processedCount).toBe(0);
+      expect(info.errorCount).toBe(0);
+      expect(info.errorHistory).toEqual([]);
+    });
+
+    it("returns an independent errorHistory array (defensive copy)", () => {
+      const { worker } = buildWorker();
+      const info = worker.toInfo();
+      expect(info.errorHistory).not.toBe(worker.getSnapshot().context.errorHistory);
+    });
+  });
+
+  describe("forceDisconnectClient", () => {
+    it("delegates to client.disconnect()", async () => {
+      const { worker, client } = buildWorker();
+      vi.mocked(client.disconnect).mockResolvedValue({ ok: true, value: undefined });
+      const result = await worker.forceDisconnectClient();
+      expect(result.ok).toBe(true);
+      expect(client.disconnect).toHaveBeenCalledTimes(1);
     });
   });
 });

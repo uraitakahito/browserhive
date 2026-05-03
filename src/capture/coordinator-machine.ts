@@ -29,7 +29,6 @@
 import {
   assign,
   setup,
-  type ActorRefFrom,
 } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -42,18 +41,12 @@ import {
 } from "./coordinator-actors.js";
 import { TaskQueue } from "./task-queue.js";
 import { BrowserClient } from "./browser-client.js";
-import { captureWorkerMachine } from "./capture-worker.js";
-
-/** Reference to a spawned capture worker actor with its associated BrowserClient instance */
-export interface WorkerEntry {
-  ref: ActorRefFrom<typeof captureWorkerMachine>;
-  client: BrowserClient;
-}
+import { CaptureWorker, captureWorkerMachine } from "./capture-worker.js";
 
 export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   taskQueue: TaskQueue;
-  workers: WorkerEntry[];
+  workers: CaptureWorker[];
   /** Most recent init outcome — informational only (does not gate the lifecycle). */
   lastInitSummary?: InitializeWorkersOutput;
 }
@@ -93,7 +86,7 @@ export const coordinatorMachine = setup({
     },
     initializing: {
       entry: assign({
-        workers: ({ context, spawn }): WorkerEntry[] =>
+        workers: ({ context, spawn }): CaptureWorker[] =>
           context.config.browserProfiles.map((profile, index) => {
             const client = new BrowserClient(index, profile);
             const ref = spawn("captureWorker", {
@@ -107,12 +100,12 @@ export const coordinatorMachine = setup({
                 },
               },
             });
-            return { ref, client };
+            return new CaptureWorker(ref, client);
           }),
       }),
       invoke: {
         src: "initializeWorkers",
-        input: ({ context }): { workers: WorkerEntry[] } => ({ workers: context.workers }),
+        input: ({ context }): { workers: CaptureWorker[] } => ({ workers: context.workers }),
         onDone: [
           {
             guard: ({ event }) => event.output.allHealthy,
@@ -184,7 +177,7 @@ export const coordinatorMachine = setup({
     shuttingDown: {
       invoke: {
         src: "shutdownWorkers",
-        input: ({ context }): { workers: WorkerEntry[] } => ({ workers: context.workers }),
+        input: ({ context }): { workers: CaptureWorker[] } => ({ workers: context.workers }),
         onDone: [
           {
             guard: ({ event }) => event.output.ok,
