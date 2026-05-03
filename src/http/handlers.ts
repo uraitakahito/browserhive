@@ -14,6 +14,7 @@ import type { FastifyReply, FastifyRequest, RouteHandlerMethod } from "fastify";
 import type { CaptureCoordinator } from "../capture/index.js";
 import { createChildLogger } from "../logger.js";
 import type { CaptureRequest, Problem } from "./generated/index.js";
+import type { OperationId } from "./generated/operations.gen.js";
 import {
   duplicateUrlProblem,
   noOperationalWorkersProblem,
@@ -33,10 +34,13 @@ const sendProblem = (
 ): FastifyReply =>
   reply.code(problem.status).type(PROBLEM_CONTENT_TYPE).send(problem);
 
-export interface CaptureHandlers {
-  submitCapture: RouteHandlerMethod;
-  getStatus: RouteHandlerMethod;
-}
+/**
+ * Handler map keyed by operationId. Using `Record<OperationId, …>` makes a
+ * mismatch between the YAML spec and the handler implementation a compile
+ * error: renaming an operationId in `openapi.yaml` regenerates
+ * `OperationId`, which then forces this map to be updated in lock-step.
+ */
+export type CaptureHandlers = Record<OperationId, RouteHandlerMethod>;
 
 export const createCaptureHandlers = (
   coordinator: CaptureCoordinator,

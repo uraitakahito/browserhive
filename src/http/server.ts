@@ -27,12 +27,20 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import Fastify, { type FastifyInstance, type FastifyError } from "fastify";
+import Fastify, {
+  type FastifyInstance,
+  type FastifyError,
+} from "fastify";
 import addFormats from "ajv-formats";
 import type { CaptureCoordinator } from "../capture/index.js";
 import type { TlsConfig } from "../config/index.js";
 import { logger } from "../logger.js";
-import { createCaptureHandlers } from "./handlers.js";
+import { createCaptureHandlers, type CaptureHandlers } from "./handlers.js";
+import {
+  OPERATIONS,
+  type OperationId,
+  type OperationMethod,
+} from "./generated/operations.gen.js";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(currentDir, "..", "..", "..");
@@ -54,10 +62,7 @@ const readDereferencedSpec = (): OpenApiDocument => {
   }
 };
 
-interface PathItem {
-  post?: OperationObject;
-  get?: OperationObject;
-}
+type PathItem = Partial<Record<OperationMethod, OperationObject>>;
 
 interface OperationObject {
   operationId?: string;
@@ -97,6 +102,32 @@ const extractRouteSchema = (
     response,
     ...(bodySchema !== undefined && { body: bodySchema }),
   };
+};
+
+/**
+ * Bind one operation from `OPERATIONS` to its handler. Path / method come
+ * from the build-time generated map (see scripts/generate-operations.mjs);
+ * the schema is pulled from the dereferenced document at runtime. The HTTP
+ * method is upper-cased for Fastify's `app.route` API.
+ */
+const registerOperation = (
+  app: FastifyInstance,
+  document: OpenApiDocument,
+  operationId: OperationId,
+  handlers: CaptureHandlers,
+): void => {
+  const op = OPERATIONS[operationId];
+  const operation = document.paths[op.path]?.[op.method];
+  const schema = extractRouteSchema(operation);
+  app.route({
+    method: op.method.toUpperCase(),
+    url: op.path,
+    schema: {
+      ...(schema.body !== undefined && { body: schema.body }),
+      response: schema.response,
+    },
+    handler: handlers[operationId],
+  });
 };
 
 export interface HttpServerConfig {
@@ -209,26 +240,9 @@ export class HttpServer {
 
     const handlers = createCaptureHandlers(this.coordinator);
 
-    const submitOperation = document.paths["/v1/captures"]?.post;
-    const submitSchema = extractRouteSchema(submitOperation);
-    app.post(
-      "/v1/captures",
-      {
-        schema: {
-          ...(submitSchema.body !== undefined && { body: submitSchema.body }),
-          response: submitSchema.response,
-        },
-      },
-      handlers.submitCapture,
-    );
-
-    const statusOperation = document.paths["/v1/status"]?.get;
-    const statusSchema = extractRouteSchema(statusOperation);
-    app.get(
-      "/v1/status",
-      { schema: { response: statusSchema.response } },
-      handlers.getStatus,
-    );
+    for (const operationId of Object.keys(OPERATIONS) as OperationId[]) {
+      registerOperation(app, document, operationId, handlers);
+    }
   }
 
   async start(): Promise<void> {
