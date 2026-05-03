@@ -146,7 +146,7 @@ const PAGE_CLOSE_TIMEOUT_MS = 5_000;
  * here as "the redirect already finished, retry the operation immediately"
  * rather than as a failure.
  *
- * Empirically, the redirects observed in `data/js-redirect.csv`
+ * Empirically, the redirects observed in `data/js-redirect.yaml`
  * complete within ~1-2s of the initial DOMContentLoaded:
  *
  *   * https://www.imhds.co.jp/         ~1.0s redirect to /corporate/index_en.html
@@ -163,7 +163,7 @@ const STABLE_CONTEXT_SETTLE_TIMEOUT_MS = 3_000;
  *
  * 2 covers both single-step (most common: `/ → /ja/`) and chained two-step
  * redirects observed in production traffic. A third retry has not been
- * observed in `data/js-redirect.csv`; if a future URL needs more, the
+ * observed in `data/js-redirect.yaml`; if a future URL needs more, the
  * cost of bumping this is one constant. Worst-case helper-call duration
  * with these defaults is documented on `runOnStableContext` itself.
  */
@@ -189,7 +189,7 @@ const STABLE_CONTEXT_MAX_RETRIES = 2;
  * perspective, the redirect is **normal** behaviour and we *do* want to
  * capture the final landing page.
  *
- * Concrete URLs from `data/js-redirect.csv` that exhibit this and
+ * Concrete URLs from `data/js-redirect.yaml` that exhibit this and
  * motivated this helper (each previously failed every attempt with
  * `internal: "Execution context was destroyed, ..."` in errorHistory,
  * never producing a screenshot):
@@ -633,7 +633,7 @@ export class PageCapturer {
 
     // JS-redirect-aware. `page.content` serialises the document, which
     // requires a live execution context; same redirect hazard as the
-    // screenshot path above. URLs from data/js-redirect.csv (e.g.
+    // screenshot path above. URLs from data/js-redirect.yaml (e.g.
     // imhds.co.jp → /corporate/index_en.html) hit this every time without
     // the retry layer.
     const html = await runOnStableContext(

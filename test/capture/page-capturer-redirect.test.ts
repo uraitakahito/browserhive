@@ -7,7 +7,7 @@
  * complementary property: the capture pipeline as a whole
  * (newPage → goto → evaluate → addStyleTag → screenshot → content → close)
  * routes EVERY execution-context-bound operation through that helper, so a
- * 1-step JS redirect like the ones in `data/js-redirect.csv`:
+ * 1-step JS redirect like the ones in `data/js-redirect.yaml`:
  *
  *   * https://www.imhds.co.jp/         →  /corporate/index_en.html
  *   * https://www.itochu.co.jp/        →  /ja/

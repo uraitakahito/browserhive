@@ -134,7 +134,7 @@ export const createInternalError = (message: string): ErrorDetails => ({
  * the previous frame. Treating it as a regular failure would push
  * recoverable URLs into errorHistory and lose the screenshot.
  *
- * Concrete production URLs (data/js-redirect.csv) that throw this
+ * Concrete production URLs (data/js-redirect.yaml) that throw this
  * exception on every attempt because they redirect immediately after
  * the initial DOMContentLoaded:
  *

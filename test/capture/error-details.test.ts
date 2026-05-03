@@ -139,7 +139,7 @@ describe("errorDetailsFromException", () => {
 
 describe("isExecutionContextDestroyed", () => {
   // The exact wording puppeteer emits on a JS-redirect mid-evaluate. Seen
-  // in production traffic from data/js-redirect.csv (e.g. imhds.co.jp,
+  // in production traffic from data/js-redirect.yaml (e.g. imhds.co.jp,
   // itochu.co.jp, daiwahouse.com). The test cases below pin the contract
   // that runOnStableContext relies on.
   const CANONICAL_MESSAGE =

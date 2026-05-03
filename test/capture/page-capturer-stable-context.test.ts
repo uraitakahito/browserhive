@@ -2,7 +2,7 @@
  * Unit tests for `runOnStableContext` — the helper that retries puppeteer
  * operations across "Execution context was destroyed, most likely because
  * of a navigation." rejections so JS-redirecting top pages can still be
- * captured (see `data/js-redirect.csv` for the production URLs that
+ * captured (see `data/js-redirect.yaml` for the production URLs that
  * motivated this helper).
  *
  * These tests target the helper directly with Page mocks, so they are
