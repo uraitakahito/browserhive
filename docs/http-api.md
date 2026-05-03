@@ -31,16 +31,7 @@ curl -i -X POST http://localhost:8080/v1/captures \
 
 #### Request body fields
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `url` | string | Yes | — | URL to capture |
-| `labels` | string[] | No | `[]` | Labels used for filename (multiple can be specified) |
-| `correlationId` | string | No | (unset) | ID echoed back on the acceptance response, useful for client-side correlation |
-| `captureFormats` | object | Yes | — | Capture output formats (at least one of `png`/`jpeg`/`html` must be true) |
-| `captureFormats.png` | bool | — | `false` | Capture PNG screenshot |
-| `captureFormats.jpeg` | bool | — | `false` | Capture JPEG screenshot |
-| `captureFormats.html` | bool | — | `false` | Capture HTML |
-| `dismissBanners` | bool | No | `false` | Strip cookie-consent banners and large fixed/sticky overlays before capturing. Best-effort: dismissal failures do not fail the capture. The dismissal report (framework + selectors removed) appears in the server log line for the completed task. |
+See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the full request body schema.
 
 #### Filename format
 
@@ -61,11 +52,7 @@ curl -i -X POST http://localhost:8080/v1/captures \
 }
 ```
 
-| Field | Type | Presence | Description |
-|-------|------|----------|-------------|
-| `accepted` | bool | always | `true` (errors are surfaced as 4xx/5xx with `application/problem+json` body) |
-| `taskId` | string (uuid) | always | Server-generated task ID, useful for matching server log lines |
-| `correlationId` | string | only when provided in the request | Echoed back from the request |
+See the [SubmitCapture reference](https://uraitakahito.github.io/browserhive/#operation/submitCapture) for the response schema.
 
 #### Error responses
 
@@ -146,16 +133,7 @@ curl http://localhost:8080/v1/status
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `pending` | int32 | Number of tasks waiting in queue |
-| `processing` | int32 | Number of tasks being processed |
-| `completed` | int32 | Number of completed tasks |
-| `operationalWorkers` | int32 | Number of operational workers |
-| `totalWorkers` | int32 | Total number of workers |
-| `isRunning` | bool | Whether the coordinator is in the `running` lifecycle state (all workers healthy) |
-| `isDegraded` | bool | Whether the coordinator is in the `degraded` lifecycle state (some/all workers unhealthy; retry loop is running) |
-| `workers` | WorkerInfo[] | Detailed per-worker information (empty array if no workers configured) |
+See the [GetStatus reference](https://uraitakahito.github.io/browserhive/#operation/getStatus) for the response schema.
 
 ## TLS
 
