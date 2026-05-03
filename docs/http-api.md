@@ -1,9 +1,10 @@
 # HTTP API Usage Guide
 
 The OpenAPI 3.1 specification for the Capture API lives in
-[`src/http/openapi.yaml`](../src/http/openapi.yaml). At runtime the server
-also serves the Redoc-rendered reference docs at `/docs` (browse to
-<http://localhost:8080/docs>) and the raw spec at `/openapi.yaml`.
+[`src/http/openapi.yaml`](../src/http/openapi.yaml). The running server
+intentionally does not expose `/docs` or `/openapi.yaml`; Redoc-rendered
+reference docs are published as a separate static artifact via the
+GitHub Pages workflow (`.github/workflows/docs.yml`).
 
 ## Endpoints
 

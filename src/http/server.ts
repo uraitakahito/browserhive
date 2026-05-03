@@ -8,23 +8,26 @@
  *
  * Validation strategy:
  *   - openapi.yaml is the single source of truth.
- *   - At startup we dereference the document with @apidevtools/swagger-parser
- *     and feed each route's request body / response schemas to Fastify's
- *     `schema` option. Fastify's Ajv enforces them.
+ *   - At build time `scripts/openapi-bundle.mjs` dereferences the spec
+ *     and writes `dist/openapi.dereferenced.json`. The runtime server
+ *     reads that JSON and feeds each route's request body / response
+ *     schemas to Fastify's `schema` option. Fastify's Ajv enforces them.
+ *   - The source YAML and `@apidevtools/swagger-parser` are not present
+ *     in the production image — the runtime only sees the pre-resolved
+ *     JSON.
  *   - Domain-level invariants (e.g. "at least one capture format must be
  *     true", filename safety for labels) live in src/http/request-mapper.ts.
  *
- * Documentation strategy:
- *   - `npm run openapi:build-docs` (in `prebuild`) renders a self-contained
- *     Redoc HTML with the spec embedded into `dist/docs/index.html`.
- *   - `/docs` reads that file at server start and serves it as a single
- *     static route. `/openapi.yaml` exposes the raw spec for tooling.
+ * Documentation:
+ *   - The Redoc-rendered reference docs are no longer served by this
+ *     process. They are published as a static artifact (see
+ *     `.github/workflows/docs.yml`); the running server has no
+ *     `/docs` or `/openapi.yaml` endpoint.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import Fastify, { type FastifyInstance, type FastifyError } from "fastify";
-import SwaggerParser from "@apidevtools/swagger-parser";
 import addFormats from "ajv-formats";
 import type { CaptureCoordinator } from "../capture/index.js";
 import type { TlsConfig } from "../config/index.js";
@@ -33,8 +36,23 @@ import { createCaptureHandlers } from "./handlers.js";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(currentDir, "..", "..", "..");
-const OPENAPI_PATH = join(projectRoot, "src", "http", "openapi.yaml");
-const REDOC_HTML_PATH = join(projectRoot, "dist", "docs", "index.html");
+const DEREFERENCED_SPEC_PATH = join(
+  projectRoot,
+  "dist",
+  "openapi.dereferenced.json",
+);
+
+const readDereferencedSpec = (): OpenApiDocument => {
+  try {
+    const raw = readFileSync(DEREFERENCED_SPEC_PATH, "utf-8");
+    return JSON.parse(raw) as OpenApiDocument;
+  } catch (error) {
+    throw new Error(
+      `Dereferenced OpenAPI spec not found at ${DEREFERENCED_SPEC_PATH}. Run \`npm run openapi:bundle\` (or \`npm run build\`) first.`,
+      { cause: error },
+    );
+  }
+};
 
 interface PathItem {
   post?: OperationObject;
@@ -51,19 +69,6 @@ interface OpenApiDocument {
   paths: Record<string, PathItem>;
   components?: { schemas?: Record<string, unknown> };
 }
-
-const readDocsHtml = (): string => {
-  try {
-    return readFileSync(REDOC_HTML_PATH, "utf-8");
-  } catch (error) {
-    throw new Error(
-      `Redoc HTML not found at ${REDOC_HTML_PATH}. Run \`npm run openapi:build-docs\` (or \`npm run build\`) first.`,
-      { cause: error },
-    );
-  }
-};
-
-const readOpenapiYaml = (): string => readFileSync(OPENAPI_PATH, "utf-8");
 
 const extractRouteSchema = (
   operation: OperationObject | undefined,
@@ -164,20 +169,7 @@ export class HttpServer {
     const app = this.buildFastify();
     this.app = app;
 
-    const document = (await SwaggerParser.dereference(
-      OPENAPI_PATH,
-    )) as OpenApiDocument;
-
-    // Loaded eagerly at initialize time so a missing build artifact fails
-    // fast at startup instead of returning 500 on the first /docs request.
-    const docsHtml = readDocsHtml();
-    const openapiYaml = readOpenapiYaml();
-    app.get("/docs", (_request, reply) =>
-      reply.type("text/html; charset=utf-8").send(docsHtml),
-    );
-    app.get("/openapi.yaml", (_request, reply) =>
-      reply.type("application/yaml; charset=utf-8").send(openapiYaml),
-    );
+    const document = readDereferencedSpec();
 
     // Convert Fastify's default validation error envelope into our
     // RFC 7807 Problem shape so the response matches the OpenAPI 400 schema.

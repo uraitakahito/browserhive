@@ -1,0 +1,71 @@
+name: docs
+
+# Build the Redoc reference HTML from src/http/openapi.yaml on every
+# push to main and publish it to GitHub Pages. The running BrowserHive
+# server intentionally does not serve `/docs` or `/openapi.yaml`; this
+# workflow is the canonical (and only) way to view the rendered docs.
+#
+# Security notes:
+#   - Triggered only by push to main and manual dispatch. Never on
+#     pull_request — that would build untrusted code from forks.
+#   - Permissions are split per job: build gets contents:read only;
+#     deploy gets pages:write + id-token:write (required by the
+#     official actions/deploy-pages OIDC handshake).
+#   - No secrets are referenced. Pages deployment uses the implicit
+#     GITHUB_TOKEN scoped by the permissions above.
+#   - Only ./dist/docs (a single self-contained index.html) is uploaded
+#     as the Pages artifact — no other files in the workspace.
+#   - All actions are pinned to major versions of the official
+#     actions/* org. No third-party actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/http/openapi.yaml'
+      - 'redocly.yaml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# Allow only one in-flight Pages deployment; queue (don't cancel) so
+# in-progress deploys finish cleanly before the next one starts.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Redoc HTML
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run openapi:build-docs
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Strictly limit upload scope to the single rendered HTML
+          # directory. Do NOT widen this path.
+          path: ./dist/docs
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
