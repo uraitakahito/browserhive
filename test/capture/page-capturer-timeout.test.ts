@@ -16,7 +16,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Browser, HTTPResponse, Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
 import type { CaptureTask } from "../../src/capture/types.js";
+import { logger } from "../../src/logger.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
+
+// Stub fs writes so the success-path tests below can run without touching
+// disk. The hang/throw timeout cases above bail before reaching captureScreenshot,
+// but the new close-timeout tests do hit the screenshot/HTML write step.
+vi.mock("node:fs/promises", () => ({
+  writeFile: vi.fn().mockResolvedValue(undefined),
+}));
 
 const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-uuid-1234",
@@ -32,6 +40,8 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
 interface MockPageOverrides {
   evaluateHangs?: boolean;
   addStyleTagHangs?: boolean;
+  closeHangs?: boolean;
+  closeThrows?: Error;
 }
 
 const NEVER: Promise<never> = new Promise<never>(() => {
@@ -49,7 +59,15 @@ const buildMockPage = (overrides: MockPageOverrides = {}): MockPageBundle => {
     statusText: () => "OK",
   } as unknown as HTTPResponse;
 
-  const closeMock = vi.fn().mockResolvedValue(undefined);
+  const closeMock = (() => {
+    if (overrides.closeHangs) {
+      return vi.fn<() => Promise<void>>().mockReturnValue(NEVER);
+    }
+    if (overrides.closeThrows) {
+      return vi.fn<() => Promise<void>>().mockRejectedValue(overrides.closeThrows);
+    }
+    return vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  })();
 
   const page = {
     setViewport: vi.fn().mockResolvedValue(undefined),
@@ -149,5 +167,90 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
     expect(result.errorDetails?.type).toBe("timeout");
     expect(result.errorDetails?.message).toContain("hideScrollbars");
     expect(closeMock).toHaveBeenCalled();
+  });
+});
+
+describe("PageCapturer.capture — page.close timeout in finally", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("returns within PAGE_CLOSE_TIMEOUT_MS when page.close() hangs (success-path subject)", async () => {
+    const warnSpy = vi.spyOn(logger, "warn").mockReturnValue(undefined);
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+    );
+    const { browser } = buildMockBrowser({ closeHangs: true });
+
+    const resultPromise = capturer.capture(browser, createTask(), 0);
+
+    // Main pipeline resolves at virtual t=0 (all puppeteer mocks resolve
+    // immediately). Then finally → withTimeout(page.close, 5_000) holds
+    // the promise until PAGE_CLOSE_TIMEOUT_MS elapses.
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    const result = await resultPromise;
+    // Close-timeout is best-effort: it must not flip the outer status
+    // away from the value the main try-block resolved with.
+    expect(result.status).toBe("success");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[1]).toContain(
+      "page.close failed or timed out",
+    );
+  });
+
+  it("emits warn and still returns when page.close() throws synchronously rejected", async () => {
+    const warnSpy = vi.spyOn(logger, "warn").mockReturnValue(undefined);
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+    );
+    const { browser } = buildMockBrowser({
+      closeThrows: new Error("Connection closed"),
+    });
+
+    const result = await capturer.capture(browser, createTask(), 0);
+
+    expect(result.status).toBe("success");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not emit warn on the happy path (page.close() resolves)", async () => {
+    const warnSpy = vi.spyOn(logger, "warn").mockReturnValue(undefined);
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+    );
+    const { browser } = buildMockBrowser();
+
+    const result = await capturer.capture(browser, createTask(), 0);
+
+    expect(result.status).toBe("success");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("preserves inner Layer A timeout status even when close also hangs", async () => {
+    const warnSpy = vi.spyOn(logger, "warn").mockReturnValue(undefined);
+    const capturer = new PageCapturer(
+      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+    );
+    const { browser } = buildMockBrowser({
+      evaluateHangs: true,
+      closeHangs: true,
+    });
+
+    const resultPromise = capturer.capture(browser, createTask(), 0);
+
+    // Inner page.evaluate (dynamic-content wait) hits its 5s timeout
+    // first, then finally → page.close hits its own 5s timeout.
+    await vi.advanceTimersByTimeAsync(10_001);
+
+    const result = await resultPromise;
+    expect(result.status).toBe("timeout");
+    expect(result.errorDetails?.message).toContain("Dynamic content wait");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 });

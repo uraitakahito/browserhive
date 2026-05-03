@@ -221,7 +221,7 @@ describe("BrowserClient", () => {
       });
 
       it("returns timeout CaptureResult when pageCapturer.capture never resolves", async () => {
-        // Use a short taskTotal so the test is fast; default is 90s.
+        // Use a short taskTotal so the test is fast; default is 100s.
         const shortTimeout = 100;
         const fastClient = new BrowserClient(
           0,

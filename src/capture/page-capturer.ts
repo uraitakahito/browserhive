@@ -17,6 +17,7 @@ import {
 } from "./error-details.js";
 import { errorType } from "./error-type.js";
 import { err, ok, type Result } from "../result.js";
+import { logger } from "../logger.js";
 import {
   dismissBanners,
   type DismissReport,
@@ -106,6 +107,22 @@ const EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS = DEFAULT_DYNAMIC_CONTENT_WAIT_MS + 2_000
  * ceiling for a healthy page.
  */
 const STYLE_INJECTION_TIMEOUT_MS = 5_000;
+
+/**
+ * Upper bound for `page.close` in the capture-pipeline `finally`. Internally
+ * a single `Target.closeTarget` CDP command (~ms on a healthy page), but on
+ * a page whose execution context has already been destroyed by a JS redirect
+ * (e.g. imhds.co.jp /→/corporate/index_en.html) puppeteer awaits the target
+ * teardown ack indefinitely — the await never settles. Without this bound the
+ * Layer A timeout that already fired in the main `try` block ends up trapped
+ * here, the synthetic `CaptureResult` cannot be returned, and the entire task
+ * stays pinned in `processing` until the outer Layer B (90s) wins. 5s mirrors
+ * the other "single CDP call" Layer A budgets and keeps the worst-case
+ * close-leak window short. Page leaks on timeout are accepted in exchange
+ * for worker liveness — the Chromium target may stay open for a while, but
+ * the worker is freed to drain the queue.
+ */
+const PAGE_CLOSE_TIMEOUT_MS = 5_000;
 
 export const INVALID_FILENAME_CHARS_LIST = ["<", ">", ":", '"', "/", "\\", "|", "?", "*", "_"] as const;
 
@@ -371,9 +388,20 @@ export class PageCapturer {
     } finally {
       if (page) {
         try {
-          await page.close();
-        } catch {
-          // Ignore page close errors
+          await withTimeout(
+            page.close(),
+            PAGE_CLOSE_TIMEOUT_MS,
+            `page.close for ${task.url}`,
+          );
+        } catch (error) {
+          // Best-effort close. If the underlying page is wedged (typical on
+          // a context-destroyed redirect target), the timeout above wins and
+          // we leak the Chromium page in exchange for freeing the worker.
+          // Surface as warn so this is observable without failing the task.
+          logger.warn(
+            { err: error, url: task.url, workerIndex },
+            "page.close failed or timed out (page leaked, continuing)",
+          );
         }
       }
     }
