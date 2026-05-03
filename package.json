@@ -24,7 +24,7 @@
   },
   "scripts": {
     "openapi:lint": "redocly lint",
-    "openapi:generate": "openapi-ts && node scripts/openapi-postgenerate.mjs",
+    "openapi:generate": "openapi-ts",
     "openapi:bundle": "node scripts/openapi-bundle.mjs",
     "openapi:build-docs": "redocly build-docs --output dist/docs/index.html --title 'BrowserHive Capture API'",
     "docs:preview": "npm run openapi:build-docs && node -e \"console.log('Open file://' + require('path').resolve('dist/docs/index.html') + ' in your browser')\"",
@@ -32,7 +32,7 @@
     "prebuild": "npm run openapi:prep",
     "pretest": "npm run openapi:prep",
     "prelint": "npm run openapi:prep",
-    "build": "tsc",
+    "build": "tsc -b",
     "test": "vitest run",
     "lint": "eslint . --max-warnings 0",
     "server": "node dist/bin/server.js"

@@ -9,6 +9,9 @@ chromium-server-docker/
 # Generated OpenAPI types
 src/http/generated/
 
+# TypeScript project references build info
+*.tsbuildinfo
+
 # VSCode settings
 .vscode/extensions.json
 .vscode/launch.json
