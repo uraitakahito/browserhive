@@ -1,23 +1,18 @@
 /**
  * Postprocess @hey-api/openapi-ts output for our toolchain.
  *
- * Two adjustments per generated *.ts file:
+ * Prepends `// @ts-nocheck` to every generated *.ts file. The bundled
+ * fetch runtime in `client/` and `core/` is not authored against
+ * `exactOptionalPropertyTypes: true` (our project default), so tsc
+ * rejects it. Skipping type checks on generated files only affects the
+ * generated module itself — consumer code still gets the emitted .d.ts
+ * and full type safety.
  *
- *   1. Prepend `// @ts-nocheck`. The bundled fetch runtime in
- *      `client/` and `core/` is not authored against
- *      `exactOptionalPropertyTypes: true` (our project default), so
- *      tsc rejects it. Skipping type checks on generated files only
- *      affects the generated module itself — consumer code still gets
- *      the emitted .d.ts and full type safety.
- *
- *   2. Rewrite relative `from './foo'` imports to `from './foo.js'`
- *      (or `'./foo/index.js'` for directory imports). hey-api emits
- *      bundler-style extensionless paths; Node's ESM resolver requires
- *      explicit extensions. We resolve against the source tree to
- *      decide between file vs. directory.
+ * (`.js` import extensions are handled by hey-api itself via
+ * `output.module.extension` in openapi-ts.config.ts, not here.)
  */
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../src/http/generated", import.meta.url));
@@ -36,31 +31,11 @@ const walk = (dir) => {
   return out;
 };
 
-const withJsExtension = (importPath, fileDir) => {
-  if (!importPath.startsWith("./") && !importPath.startsWith("../")) return importPath;
-  if (/\.(js|mjs|cjs|json)$/.test(importPath)) return importPath;
-
-  const resolved = resolve(fileDir, importPath);
-  if (existsSync(`${resolved}.ts`)) return `${importPath}.js`;
-  if (existsSync(resolved) && statSync(resolved).isDirectory()) {
-    return `${importPath}/index.js`;
-  }
-  return importPath;
-};
-
-const IMPORT_FROM_RE = /(from\s+['"])([^'"]+)(['"])/g;
-
-const rewriteImports = (content, fileDir) =>
-  content.replace(IMPORT_FROM_RE, (_m, pre, path, post) =>
-    `${pre}${withJsExtension(path, fileDir)}${post}`,
-  );
-
 let count = 0;
 for (const file of walk(ROOT)) {
-  let content = readFileSync(file, "utf8");
-  if (!content.startsWith(TS_NOCHECK)) content = TS_NOCHECK + content;
-  content = rewriteImports(content, dirname(file));
-  writeFileSync(file, content);
+  const content = readFileSync(file, "utf8");
+  if (content.startsWith(TS_NOCHECK)) continue;
+  writeFileSync(file, TS_NOCHECK + content);
   count += 1;
 }
 
