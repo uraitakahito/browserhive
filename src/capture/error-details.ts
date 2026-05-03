@@ -123,14 +123,49 @@ export const createInternalError = (message: string): ErrorDetails => ({
 });
 
 /**
+ * Identify a Puppeteer-emitted `TimeoutError` resiliently against the
+ * CJS/ESM dual-package hazard.
+ *
+ * `puppeteer-extra` (used by `src/browser.ts`) is published as CJS, so it
+ * `require()`s `puppeteer-core` through the CJS branch of that package's
+ * `exports` map. Our own `import { TimeoutError as PuppeteerTimeoutError }
+ * from "puppeteer"` above resolves through the ESM branch. The CJS and
+ * ESM copies of `puppeteer-core/.../Errors.js` evaluate as independent
+ * modules under Node's loader, so the two `TimeoutError` classes have
+ * distinct identities even though they share source. `instanceof
+ * PuppeteerTimeoutError` therefore misses errors thrown from inside a
+ * puppeteer-extra-driven session — which is every error this server
+ * sees in production.
+ *
+ * Match structurally instead: the error's own constructor must be named
+ * `TimeoutError`, and somewhere up its prototype chain there must be a
+ * constructor named `PuppeteerError`. That pair is unique to puppeteer's
+ * own error hierarchy and won't false-positive on other libraries' or
+ * our own `TimeoutError` (which extends `Error`, not `PuppeteerError`).
+ */
+const isPuppeteerTimeout = (error: unknown): error is Error => {
+  if (error instanceof PuppeteerTimeoutError) return true;
+  if (!(error instanceof Error)) return false;
+  if (error.name !== "TimeoutError") return false;
+  let proto = Object.getPrototypeOf(error) as object | null;
+  while (proto) {
+    const ctor = (proto as { constructor?: { name?: string } }).constructor;
+    if (ctor?.name === "PuppeteerError") return true;
+    proto = Object.getPrototypeOf(proto) as object | null;
+  }
+  return false;
+};
+
+/**
  * Classify an arbitrary thrown value into structured `ErrorDetails`.
  *
- * Classification is `instanceof`-first; the classes that can show up here
- * are enumerable (our own `TimeoutError`, puppeteer's `TimeoutError`).
- * The `connection` heuristic is intentionally still string-based — there
- * is no shared base class for the disconnect / "Connection closed" errors
- * Puppeteer surfaces, and broadening that to typed checks is out of scope
- * for the timeout-classification fix.
+ * Classification is `instanceof`-first for our own `TimeoutError`, with a
+ * structural duck check for puppeteer's `TimeoutError` to bypass the
+ * CJS/ESM dual-package hazard documented on `isPuppeteerTimeout`. The
+ * `connection` heuristic is intentionally still string-based — there is
+ * no shared base class for the disconnect / "Connection closed" errors
+ * Puppeteer surfaces, and broadening that is out of scope for the
+ * timeout-classification fix.
  */
 export const errorDetailsFromException = (error: unknown): ErrorDetails => {
   if (error instanceof TimeoutError) {
@@ -141,7 +176,7 @@ export const errorDetailsFromException = (error: unknown): ErrorDetails => {
     };
   }
 
-  if (error instanceof PuppeteerTimeoutError) {
+  if (isPuppeteerTimeout(error)) {
     const details: ErrorDetails = {
       type: errorType.timeout,
       message: error.message,

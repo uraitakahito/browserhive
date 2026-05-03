@@ -68,6 +68,49 @@ describe("errorDetailsFromException", () => {
     expect(details.timeoutMs).toBeUndefined();
   });
 
+  it("classifies puppeteer's TimeoutError loaded under a different module identity (dual-package hazard)", () => {
+    // Reproduce the production scenario: `puppeteer-extra` (CJS) loads
+    // its own copy of `puppeteer-core/.../Errors.js` distinct from the
+    // ESM copy our `PuppeteerTimeoutError` import resolves to. The two
+    // classes share source and shape but `instanceof` won't bridge them.
+    // Hand-build a class with the same name + parent shape.
+    class PuppeteerError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "PuppeteerError";
+      }
+    }
+    class TimeoutErrorViaCjs extends PuppeteerError {
+      constructor(message: string) {
+        super(message);
+        this.name = "TimeoutError";
+      }
+    }
+    const err = new TimeoutErrorViaCjs("Navigation timeout of 30000 ms exceeded");
+
+    // Sanity: instanceof against our ESM-side import does NOT match.
+    expect(err instanceof PuppeteerTimeoutError).toBe(false);
+
+    const details = errorDetailsFromException(err);
+    expect(details.type).toBe("timeout");
+    expect(details.timeoutMs).toBe(30000);
+  });
+
+  it("does not false-positive on a foreign class merely named TimeoutError", () => {
+    // A class called TimeoutError without the PuppeteerError parent
+    // (e.g. some unrelated library's own timeout). Should fall through
+    // to internal, not be misclassified as a puppeteer timeout.
+    class UnrelatedTimeoutError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "TimeoutError";
+      }
+    }
+    const err = new UnrelatedTimeoutError("Unrelated 1000 ms exceeded");
+    const details = errorDetailsFromException(err);
+    expect(details.type).toBe("internal");
+  });
+
   it("classifies connection-closed errors as `connection`", () => {
     expect(errorDetailsFromException(new Error("Connection closed")).type).toBe(
       "connection",
