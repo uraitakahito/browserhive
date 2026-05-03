@@ -7,6 +7,20 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "//scripts": {
+    "pre*/post* hooks": [
+      "Scripts named `pre<name>` and `post<name>` are npm lifecycle hooks:",
+      "when you run `npm run <name>`, npm automatically runs pre<name> first,",
+      "then <name>, then post<name>. The chain is wired by npm from the name",
+      "alone — there is no reference from build/test/lint to the pre* scripts",
+      "below. So `npm run build` actually runs prebuild → build, `npm test`",
+      "runs pretest → test, and `npm run lint` runs prelint → lint.",
+      "Docs: https://docs.npmjs.com/cli/v10/using-npm/scripts#pre-and-post-scripts"
+    ],
+    "prebuild": "Auto-runs before `npm run build` via the pre-hook above. Lints openapi.yaml, regenerates the SDK, and renders Redoc HTML — gating tsc on contract drift.",
+    "pretest": "Auto-runs before `npm test`. Same lint + generate as prebuild (no build-docs, since tests do not serve /docs).",
+    "prelint": "Auto-runs before `npm run lint`. Ensures eslint sees up-to-date generated/ output."
+  },
   "scripts": {
     "openapi:lint": "redocly lint",
     "openapi:generate": "openapi-ts && node scripts/openapi-postgenerate.mjs",
