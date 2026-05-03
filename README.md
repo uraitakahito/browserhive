@@ -273,7 +273,7 @@ The `csv-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `ht
 
 #### Calling the HTTP API
 
-See [docs/http-api.md](docs/http-api.md) for curl examples and request/response details. Reference docs are published separately on GitHub Pages (see [OpenAPI specification](#openapi-specification)).
+The full operation reference (request/response schemas, status codes, request samples) is published as a static Redoc site on GitHub Pages — see [OpenAPI specification](#openapi-specification) below.
 
 ### Example: CSV Client
 
@@ -310,13 +310,25 @@ The same yaml is also dereferenced at server start and fed to Fastify's Ajv vali
 
 The server supports TLS for secure communication. See [docs/tls-certificates.md](docs/tls-certificates.md) for certificate generation instructions.
 
-To start the server using the pre-prepared sample certificates and private keys, follow these steps:
+### Starting the server
+
+To start the server using the pre-prepared sample certificates and private keys:
 
 ```sh
 LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --output ./output/capture --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" | pino-pretty
 ```
 
-Start the client as follows (use `NODE_EXTRA_CA_CERTS` so that Node's global `fetch` trusts the self-signed CA):
+### Calling the server
+
+When TLS is enabled, point clients at the HTTPS URL and supply the CA bundle.
+
+For curl, use `--cacert`:
+
+```bash
+curl --cacert ./certs/sample-ca.crt https://localhost:8080/v1/status
+```
+
+For Node-based clients (including `examples/csv-client.ts`), set `NODE_EXTRA_CA_CERTS=/path/to/ca.crt` before starting the process — Node's global `fetch` will pick the additional trust anchor up automatically:
 
 ```sh
 NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
