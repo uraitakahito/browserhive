@@ -19,8 +19,10 @@ describe("client-cli parseClientOptions", () => {
   });
 
   it("CLI 引数の --csv だけで既定値が組み立つ", () => {
+    // --server は commander 既定値を持たない(SDK の baked-in baseUrl にフォールバックさせる)。
+    // 本テストでは未指定で undefined となることだけ確認する。
     const opts = parseClientOptions(argv("--csv", "data/urls.csv"));
-    expect(opts.server).toBe("http://localhost:8080");
+    expect(opts.server).toBeUndefined();
     expect(opts.csv).toBe("data/urls.csv");
     expect(opts.tlsCaCert).toBeUndefined();
   });

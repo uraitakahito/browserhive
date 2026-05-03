@@ -13,12 +13,12 @@ import type {
   WorkerInfo,
 } from "../capture/index.js";
 import type { CoordinatorStatusReport } from "../capture/capture-coordinator.js";
-import type { components } from "./generated/types.js";
-
-type CaptureAcceptance = components["schemas"]["CaptureAcceptance"];
-type StatusResponse = components["schemas"]["StatusResponse"];
-type ErrorRecordWire = components["schemas"]["ErrorRecord"];
-type WorkerInfoWire = components["schemas"]["WorkerInfo"];
+import type {
+  CaptureAcceptance,
+  ErrorRecord as ErrorRecordWire,
+  StatusResponse,
+  WorkerInfo as WorkerInfoWire,
+} from "./generated/index.js";
 
 export const taskToAcceptance = (task: CaptureTask): CaptureAcceptance => ({
   accepted: true,

@@ -6,9 +6,10 @@ info:
     Web page capture API. Submits URLs to capture as PNG/JPEG screenshots
     and/or HTML. Uses fire-and-forget pattern: requests are accepted
     immediately and processed asynchronously by the capture coordinator.
-# servers[0].url is the source of truth for the example client's default
-# baseURL. scripts/generate-openapi-constants.mjs extracts it into
-# src/http/generated/server.ts (chained behind `npm run openapi:generate`).
+# servers[0].url is the source of truth for the SDK's default baseUrl.
+# @hey-api/openapi-ts bakes it into src/http/generated/client.gen.ts at
+# generation time, so example clients (e.g. examples/csv-client.ts)
+# inherit it without a hardcoded fallback.
 servers:
   - url: http://localhost:8080
     description: Local development server
@@ -65,7 +66,7 @@ paths:
                 $ref: "#/components/schemas/StatusResponse"
 components:
   schemas:
-    CaptureOptions:
+    CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
       required: [png, jpeg, html]
@@ -79,7 +80,7 @@ components:
           type: boolean
     CaptureRequest:
       type: object
-      required: [url, captureOptions]
+      required: [url, captureFormats]
       additionalProperties: false
       properties:
         url:
@@ -96,8 +97,8 @@ components:
         correlationId:
           type: string
           description: Correlation ID provided by the client for tracking
-        captureOptions:
-          $ref: "#/components/schemas/CaptureOptions"
+        captureFormats:
+          $ref: "#/components/schemas/CaptureFormats"
         dismissBanners:
           type: boolean
           default: false

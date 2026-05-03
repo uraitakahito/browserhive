@@ -11,7 +11,7 @@
  *   - At startup we dereference the document with @apidevtools/swagger-parser
  *     and feed each route's request body / response schemas to Fastify's
  *     `schema` option. Fastify's Ajv enforces them.
- *   - Domain-level invariants (e.g. "at least one capture option must be
+ *   - Domain-level invariants (e.g. "at least one capture format must be
  *     true", filename safety for labels) live in src/http/request-mapper.ts.
  */
 import { readFileSync } from "node:fs";

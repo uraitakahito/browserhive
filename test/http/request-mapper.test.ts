@@ -1,13 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { captureRequestToTask } from "../../src/http/request-mapper.js";
-import type { components } from "../../src/http/generated/types.js";
-
-type CaptureRequest = components["schemas"]["CaptureRequest"];
+import type { CaptureRequest } from "../../src/http/generated/index.js";
 
 const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest => ({
   url: "https://example.com",
   labels: [],
-  captureOptions: { png: true, jpeg: false, html: false },
+  captureFormats: { png: true, jpeg: false, html: false },
   dismissBanners: false,
   ...overrides,
 });
@@ -19,9 +17,9 @@ describe("captureRequestToTask", () => {
     if (!result.ok) expect(result.error).toBe("url is required");
   });
 
-  it("requires at least one capture option", () => {
+  it("requires at least one capture format", () => {
     const result = captureRequestToTask(
-      baseRequest({ captureOptions: { png: false, jpeg: false, html: false } }),
+      baseRequest({ captureFormats: { png: false, jpeg: false, html: false } }),
     );
     expect(result.ok).toBe(false);
   });

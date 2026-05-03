@@ -19,7 +19,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["TestTask"],
   url: "https://example.com",
   retryCount: 0,
-  captureOptions: { png: true, jpeg: false, html: true },
+  captureFormats: { png: true, jpeg: false, html: true },
   dismissBanners: false,
   ...overrides,
 });

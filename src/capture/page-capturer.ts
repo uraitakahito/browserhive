@@ -255,15 +255,15 @@ export class PageCapturer {
       let jpegPath: string | undefined;
       let htmlPath: string | undefined;
 
-      if (task.captureOptions.png) {
+      if (task.captureFormats.png) {
         pngPath = await this.captureScreenshot(page, task, "png");
       }
 
-      if (task.captureOptions.jpeg) {
+      if (task.captureFormats.jpeg) {
         jpegPath = await this.captureScreenshot(page, task, "jpeg");
       }
 
-      if (task.captureOptions.html) {
+      if (task.captureFormats.html) {
         htmlPath = await this.captureHtml(page, task);
       }
 

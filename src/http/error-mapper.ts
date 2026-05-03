@@ -6,9 +6,7 @@
  * bodies (Content-Type: application/problem+json) instead of using a
  * `{ accepted: false, error }` envelope on the success path.
  */
-import type { components } from "./generated/types.js";
-
-type Problem = components["schemas"]["Problem"];
+import type { Problem } from "./generated/index.js";
 
 export const validationProblem = (detail: string): Problem => ({
   type: "about:blank",
