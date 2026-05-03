@@ -1,0 +1,3 @@
+[submodule "chromium-server-docker"]
+	path = chromium-server-docker
+	url = https://github.com/uraitakahito/chromium-server-docker.git

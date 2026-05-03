@@ -3,7 +3,6 @@ set -e
 
 # Configuration
 BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/1.2.7"
-CHROMIUM_SERVER_TAG="0.2.0"
 
 echo "Starting BrowserHive setup..."
 
@@ -24,30 +23,17 @@ if ! curl -fL -O "${BASE_URL}/docker-entrypoint.sh"; then
 fi
 chmod 755 docker-entrypoint.sh
 
-# Clone chromium-server-docker at pinned tag
-if [ -d "chromium-server-docker" ]; then
-  echo "Removing existing chromium-server-docker..."
-  rm -rf chromium-server-docker
-fi
-echo "Cloning chromium-server-docker at tag ${CHROMIUM_SERVER_TAG}..."
-git -c advice.detachedHead=false clone --depth 1 --branch "${CHROMIUM_SERVER_TAG}" https://github.com/uraitakahito/chromium-server-docker.git
+# Initialize chromium-server-docker submodule (SHA pinned via .gitmodules / parent commit)
+echo "Initializing chromium-server-docker submodule..."
+git submodule update --init chromium-server-docker
 
-# Generate .env file (always regenerated to reflect current host state)
-GH_TOKEN=""
-if command -v gh &> /dev/null; then
-  GH_TOKEN=$(gh auth token 2>/dev/null || true)
-fi
-if [ -z "$GH_TOKEN" ]; then
-  echo "WARNING: gh CLI not found or not authenticated. GH_TOKEN will be empty." >&2
-  echo "  Install gh: https://cli.github.com/" >&2
-  echo "  Then run: gh auth login" >&2
-fi
-
+# Generate .env file (always regenerated to reflect current host state).
+# GH_TOKEN is intentionally NOT persisted here — it is injected from the
+# host's `gh` CLI at compose-time. See README "Development Environment".
 cat > .env << EOF
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 TZ=Asia/Tokyo
-GH_TOKEN=${GH_TOKEN}
 EOF
 echo "Created .env file"
 
@@ -55,4 +41,4 @@ echo ""
 echo "Setup complete!"
 echo ""
 echo "Next steps:"
-echo "  docker compose up -d"
+echo "  GH_TOKEN=\$(gh auth token) docker compose -f compose.dev.yaml up -d"
