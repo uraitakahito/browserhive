@@ -20,10 +20,7 @@
     "openapi:prep": "Composite of openapi:lint + openapi:generate + openapi:bundle. Extracted so prebuild/pretest/prelint do not duplicate the chain.",
     "openapi:bundle": "Pre-dereferences src/http/openapi.yaml to dist/openapi.dereferenced.json so the runtime server can wire up Fastify Ajv schemas without depending on @apidevtools/swagger-parser or the source YAML at runtime.",
     "openapi:build-docs": "Renders the Redoc HTML used as a static, externally published artifact (GitHub Pages workflow). Not required by the runtime server — `/docs` and `/openapi.yaml` are no longer served by the application.",
-    "docs:preview": "Local one-shot preview: builds the same Redoc HTML the CI publishes, then prints the absolute file:// URL. Open it in a browser. Self-contained — no local web server needed. (`redocly preview-docs` was removed in @redocly/cli v2; `redocly preview` requires paid Reunite packages and is not used here.)",
-    "prebuild": "Auto-runs before `npm run build` via the pre-hook above. Runs openapi:prep — gating tsc on contract drift and producing the dereferenced spec consumed by the runtime server.",
-    "pretest": "Auto-runs before `npm test`. Calls openapi:prep.",
-    "prelint": "Auto-runs before `npm run lint` via openapi:prep, so eslint sees up-to-date generated/ output."
+    "docs:preview": "Local one-shot preview: builds the same Redoc HTML the CI publishes, then prints the absolute file:// URL. Open it in a browser. Self-contained — no local web server needed. (`redocly preview-docs` was removed in @redocly/cli v2; `redocly preview` requires paid Reunite packages and is not used here.)"
   },
   "scripts": {
     "openapi:lint": "redocly lint",

@@ -6,8 +6,6 @@ extends:
 rules:
   # servers[0].url is intentionally http://localhost:8080 — it is the
   # source of truth for the SDK's default baseUrl (see openapi.yaml).
-  # The running server no longer serves /docs or /openapi.yaml, so this
-  # placeholder URL is never surfaced to end-users in production.
   no-server-example.com: off
   # GET /v1/status takes no input and never returns 4xx; declaring a
   # synthetic one would just be lint-appeasement noise.
