@@ -220,18 +220,9 @@ Please run the following commands inside the Docker container.
 
 ### Build
 
-Build the TypeScript source code before running:
-
 ```sh
 npm run build
 ```
-
-This command:
-1. Lints `src/http/openapi.yaml` against [`redocly.yaml`](redocly.yaml) using `@redocly/cli` (`prebuild` hook — the build halts here on any spec violation)
-2. Generates TypeScript types and an operationId-keyed SDK from `src/http/openapi.yaml` using `@hey-api/openapi-ts` (`prebuild` hook)
-3. Compiles TypeScript to JavaScript
-
-The same `openapi:prep` (= `openapi:lint` + `openapi:generate`) also runs as `pretest` and `prelint`, so contract drift surfaces in `npm test` and `npm run lint` as well.
 
 ### HTTP Server
 
