@@ -4,7 +4,6 @@
 Dockerfile.dev
 docker-entrypoint.sh
 .env
-chromium-server-docker/
 
 # Generated OpenAPI types
 src/http/generated/
