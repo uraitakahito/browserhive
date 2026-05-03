@@ -194,6 +194,12 @@ export const runDismissalInDocument = (
  * empty report is returned, so a malformed page cannot fail the capture.
  * Callers are responsible for surfacing the report (or the swallowed
  * error, via the optional `onError` hook) into their own logs.
+ *
+ * Intentionally NOT routed through `page-capturer.ts:runOnStableContext`:
+ * spending up to 24s retrying CMP detection on a JS-redirecting page that
+ * has no banner anyway is the wrong trade-off. A destroyed-context throw
+ * here simply collapses to an empty `DismissReport`, which is the same
+ * outcome as "no CMP matched" and is fine for the capture.
  */
 export const dismissBanners = async (
   page: Page,

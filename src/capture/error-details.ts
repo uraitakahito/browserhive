@@ -123,6 +123,44 @@ export const createInternalError = (message: string): ErrorDetails => ({
 });
 
 /**
+ * Identify puppeteer's "Execution context was destroyed, most likely because
+ * of a navigation." rejection.
+ *
+ * ## Why this is a *named* predicate rather than just message-grep
+ *
+ * The destroyed-context exception is unique among puppeteer errors in that
+ * it is **not** an error from the user's perspective — it is the signal
+ * that the page performed a navigation while we were holding a handle to
+ * the previous frame. Treating it as a regular failure would push
+ * recoverable URLs into errorHistory and lose the screenshot.
+ *
+ * Concrete production URLs (data/js-redirect.csv) that throw this
+ * exception on every attempt because they redirect immediately after
+ * the initial DOMContentLoaded:
+ *
+ *   * https://www.imhds.co.jp/        →  /corporate/index_en.html
+ *   * https://www.itochu.co.jp/       →  /ja/
+ *   * https://www.daiwahouse.com/     →  /jp/    (locale negotiation)
+ *
+ * Used by `runOnStableContext` in `page-capturer.ts` to decide whether a
+ * rejection is the recoverable redirect signal (retry) or a genuine error
+ * (propagate).
+ *
+ * ## Why this stays message-based
+ *
+ * Puppeteer does not export a dedicated error class for this case — both
+ * the CDP-level and protocol-level paths surface a plain `Error` with
+ * only `message` populated. The wording has been stable across puppeteer
+ * 19.x — 24.x, so a case-insensitive substring match on
+ * `"Execution context was destroyed"` is the contract here. If a future
+ * puppeteer release ever introduces a typed class for it, swap to
+ * `instanceof` here without touching call sites.
+ */
+export const isExecutionContextDestroyed = (error: unknown): error is Error =>
+  error instanceof Error &&
+  /Execution context was destroyed/i.test(error.message);
+
+/**
  * Identify a Puppeteer-emitted `TimeoutError` resiliently against the
  * CJS/ESM dual-package hazard.
  *

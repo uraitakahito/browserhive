@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   errorDetailsFromException,
   extractPuppeteerTimeoutMs,
+  isExecutionContextDestroyed,
   PuppeteerTimeoutError,
   TimeoutError,
 } from "../../src/capture/error-details.js";
@@ -133,5 +134,52 @@ describe("errorDetailsFromException", () => {
     const details = errorDetailsFromException("plain string");
     expect(details.type).toBe("internal");
     expect(details.message).toBe("plain string");
+  });
+});
+
+describe("isExecutionContextDestroyed", () => {
+  // The exact wording puppeteer emits on a JS-redirect mid-evaluate. Seen
+  // in production traffic from data/js-redirect.csv (e.g. imhds.co.jp,
+  // itochu.co.jp, daiwahouse.com). The test cases below pin the contract
+  // that runOnStableContext relies on.
+  const CANONICAL_MESSAGE =
+    "Execution context was destroyed, most likely because of a navigation.";
+
+  it("returns true on puppeteer's canonical destroyed-context message", () => {
+    expect(isExecutionContextDestroyed(new Error(CANONICAL_MESSAGE))).toBe(true);
+  });
+
+  it("returns true on a partial substring match (puppeteer minor versions add wording)", () => {
+    expect(
+      isExecutionContextDestroyed(new Error("Execution context was destroyed")),
+    ).toBe(true);
+    expect(
+      isExecutionContextDestroyed(
+        new Error("Protocol error: Execution context was destroyed unexpectedly"),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true case-insensitively (defends against logging/transport casing changes)", () => {
+    expect(
+      isExecutionContextDestroyed(new Error("EXECUTION CONTEXT WAS DESTROYED")),
+    ).toBe(true);
+  });
+
+  it("returns false on unrelated errors", () => {
+    expect(isExecutionContextDestroyed(new Error("Navigation timeout"))).toBe(false);
+    expect(isExecutionContextDestroyed(new Error("net::ERR_NAME_NOT_RESOLVED"))).toBe(
+      false,
+    );
+    expect(isExecutionContextDestroyed(new Error("HTTP 404"))).toBe(false);
+  });
+
+  it("returns false on non-Error rejections (string / undefined / null / object)", () => {
+    expect(isExecutionContextDestroyed("Execution context was destroyed")).toBe(false);
+    expect(isExecutionContextDestroyed(undefined)).toBe(false);
+    expect(isExecutionContextDestroyed(null)).toBe(false);
+    expect(
+      isExecutionContextDestroyed({ message: "Execution context was destroyed" }),
+    ).toBe(false);
   });
 });

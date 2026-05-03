@@ -13,10 +13,12 @@ import { captureStatus } from "./capture-status.js";
 import {
   createHttpError,
   errorDetailsFromException,
+  isExecutionContextDestroyed,
   TimeoutError,
 } from "./error-details.js";
 import { errorType } from "./error-type.js";
 import { err, ok, type Result } from "../result.js";
+import { logger } from "../logger.js";
 import {
   dismissBanners,
   type DismissReport,
@@ -96,6 +98,11 @@ const NEW_PAGE_TIMEOUT_MS = 10_000;
  * buffer over the sleep duration covers normal context-reestablishment
  * latency; anything beyond is treated as the redirected page failing to
  * settle, which is the exact symptom that hangs the worker.
+ *
+ * NOTE: this bound is the per-attempt budget passed to `runOnStableContext`,
+ * not the total time budget for the wait. The helper retries on
+ * destroyed-context rejection up to `STABLE_CONTEXT_MAX_RETRIES` times, so
+ * the worst-case wall-clock for this step is documented on the helper.
  */
 const EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS = DEFAULT_DYNAMIC_CONTENT_WAIT_MS + 2_000;
 
@@ -104,8 +111,180 @@ const EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS = DEFAULT_DYNAMIC_CONTENT_WAIT_MS + 2_000
  * uses `evaluateHandle`, so it carries the same execution-context-await
  * risk as `page.evaluate`. Pure DOM mutation with no I/O — 5s is a generous
  * ceiling for a healthy page.
+ *
+ * Per-attempt budget for `runOnStableContext`; see that helper for the
+ * retry semantics on destroyed-context rejection.
  */
 const STYLE_INJECTION_TIMEOUT_MS = 5_000;
+
+/**
+ * Upper bound for `page.close` in the capture-pipeline `finally`. Internally
+ * a single `Target.closeTarget` CDP command (~ms on a healthy page), but on
+ * a page whose execution context has already been destroyed by a JS redirect
+ * (e.g. imhds.co.jp /→/corporate/index_en.html) puppeteer awaits the target
+ * teardown ack indefinitely — the await never settles. Without this bound the
+ * Layer A timeout that already fired in the main `try` block ends up trapped
+ * here, the synthetic `CaptureResult` cannot be returned, and the entire task
+ * stays pinned in `processing` until the outer Layer B (90s) wins. 5s mirrors
+ * the other "single CDP call" Layer A budgets and keeps the worst-case
+ * close-leak window short. Page leaks on timeout are accepted in exchange
+ * for worker liveness — the Chromium target may stay open for a while, but
+ * the worker is freed to drain the queue.
+ */
+const PAGE_CLOSE_TIMEOUT_MS = 5_000;
+
+/**
+ * Upper bound for `page.waitForNavigation` after a destroyed-context catch
+ * inside `runOnStableContext`.
+ *
+ * ## Why short and not "as long as Layer A"
+ *
+ * `waitForNavigation` only resolves on FUTURE navigations — events that
+ * already fired are not replayed. When we catch a destroyed-context throw
+ * it is genuinely unknown whether the new navigation is still in flight or
+ * has already landed. We therefore bound the wait short and treat a timeout
+ * here as "the redirect already finished, retry the operation immediately"
+ * rather than as a failure.
+ *
+ * Empirically, the redirects observed in `data/js-redirect.csv`
+ * complete within ~1-2s of the initial DOMContentLoaded:
+ *
+ *   * https://www.imhds.co.jp/         ~1.0s redirect to /corporate/index_en.html
+ *   * https://www.itochu.co.jp/        ~0.4s locale switch to /ja/
+ *   * https://www.daiwahouse.com/      ~0.6s locale switch to /jp/
+ *
+ * 3s gives a comfortable margin while keeping the worst-case retry cost
+ * predictable.
+ */
+const STABLE_CONTEXT_SETTLE_TIMEOUT_MS = 3_000;
+
+/**
+ * Maximum number of retries on destroyed-context inside `runOnStableContext`.
+ *
+ * 2 covers both single-step (most common: `/ → /ja/`) and chained two-step
+ * redirects observed in production traffic. A third retry has not been
+ * observed in `data/js-redirect.csv`; if a future URL needs more, the
+ * cost of bumping this is one constant. Worst-case helper-call duration
+ * with these defaults is documented on `runOnStableContext` itself.
+ */
+const STABLE_CONTEXT_MAX_RETRIES = 2;
+
+/**
+ * Run a puppeteer operation that requires a live execution context, retrying
+ * across the "Execution context was destroyed, most likely because of a
+ * navigation." rejection so that JS-redirecting top pages can still be
+ * captured normally.
+ *
+ * ## Why this helper exists
+ *
+ * `page.goto({ waitUntil: "domcontentloaded" })` resolves on the FIRST
+ * DOMContentLoaded event of the target URL. A surprising number of
+ * production top pages dispatch a follow-up client-side navigation
+ * (`location.replace`, meta refresh, framework router locale negotiation, ...)
+ * **immediately** after that first DOMContentLoaded. The original frame's
+ * execution context is then torn down while a fresh one is constructed for
+ * the redirect target. Any `page.evaluate` / `page.addStyleTag` /
+ * `page.screenshot` / `page.content` invocation that lands during that gap
+ * rejects with the title-quoted message — even though, from a user's
+ * perspective, the redirect is **normal** behaviour and we *do* want to
+ * capture the final landing page.
+ *
+ * Concrete URLs from `data/js-redirect.csv` that exhibit this and
+ * motivated this helper (each previously failed every attempt with
+ * `internal: "Execution context was destroyed, ..."` in errorHistory,
+ * never producing a screenshot):
+ *
+ *   * https://www.imhds.co.jp/         (3099 IsetanMitsukoshi)
+ *       /  →  /corporate/index_en.html      (English landing redirect)
+ *   * https://www.itochu.co.jp/        (8001 Itochu)
+ *       /  →  /ja/                          (locale negotiation)
+ *   * https://www.daiwahouse.com/      (1925 DaiwaHouse)
+ *       /  →  /jp/                          (locale negotiation)
+ *
+ * ## Strategy
+ *
+ *  1. Run `operation` under the existing Layer A `withTimeout` so a genuine
+ *     hang is still bounded by `perAttemptMs`.
+ *  2. If it rejects and the rejection IS the destroyed-context signal:
+ *       - Wait for the next `framenavigated` settle (`waitForNavigation`)
+ *         with a short, separate budget (`STABLE_CONTEXT_SETTLE_TIMEOUT_MS`).
+ *       - If `waitForNavigation` itself times out, that is fine — it means
+ *         the redirect already settled before we got back here, so retry.
+ *     Then retry, up to `STABLE_CONTEXT_MAX_RETRIES` extra attempts.
+ *  3. If it rejects with anything else, propagate immediately (no retry).
+ *
+ * ## Race-safety note
+ *
+ * `page.waitForNavigation` resolves only on FUTURE navigations — already-
+ * fired events are not replayed. There is therefore an inherent race: if
+ * the redirect's DOMContentLoaded happens between the `try` block's await
+ * and our `catch` block, `waitForNavigation` would otherwise hang. We
+ * cannot use the canonical "register the listener BEFORE the operation"
+ * pattern because we don't know up-front whether a redirect is coming.
+ * The bounded settle timeout is the resolution: a missed event becomes a
+ * harmless ~3s wait and an immediate retry on the now-stable context.
+ *
+ * ## Total time budget
+ *
+ * Worst case for a single helper call:
+ *
+ *   `(perAttemptMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS) * (1 + maxRetries)`
+ *
+ * With current defaults (perAttemptMs varies by call site, settle=3s,
+ * maxRetries=2) the helper consumes at most:
+ *
+ *   * dynamic-content wait : (5s + 3s) * 3 = 24s
+ *   * hideScrollbars       : (5s + 3s) * 3 = 24s
+ *   * screenshot           : (10s + 3s) * 3 = 39s   (per format)
+ *   * content (HTML)       : (10s + 3s) * 3 = 39s
+ *
+ * Layer B (`taskTotal=100s`) covers the realistic case where at most one or
+ * two operations actually hit a retry; if production traffic ever drives the
+ * cumulative retry budget over 100s, raise `taskTotal` rather than shrinking
+ * any individual helper budget.
+ *
+ * ## Why `dismissBanners` is NOT routed through this helper
+ *
+ * `banner-dismisser.ts:dismissBanners` is best-effort by design — its catch
+ * block returns an empty `DismissReport` rather than failing the capture.
+ * Adding retries here would spend up to 24s on pages with no CMP banner,
+ * which is the common case. The destroyed-context throw inside dismissal
+ * is therefore intentionally swallowed at the dismisser level, not here.
+ */
+export const runOnStableContext = async <T>(
+  page: Page,
+  operation: () => Promise<T>,
+  description: string,
+  perAttemptMs: number,
+  maxRetries: number = STABLE_CONTEXT_MAX_RETRIES,
+): Promise<T> => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await withTimeout(operation(), perAttemptMs, description);
+    } catch (error) {
+      // Non-destroyed-context errors are real failures; do not retry.
+      if (!isExecutionContextDestroyed(error)) throw error;
+      // Out of retries → re-throw the most recent destroyed-context.
+      // It will land in errorHistory as `internal`, which is now the
+      // accurate signal that the redirect chain itself is unrecoverable
+      // within our retry budget.
+      if (attempt >= maxRetries) throw error;
+      // Wait for the in-flight navigation to settle. Treat a timeout
+      // here as "already settled" — the loop falls through to retry
+      // either way. The retry attempt does NOT count this settle wait
+      // against `perAttemptMs`.
+      try {
+        await withTimeout(
+          page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+          STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+          `${description} (await navigation settle)`,
+        );
+      } catch {
+        // Navigation already settled before we got here — proceed to retry.
+      }
+    }
+  }
+};
 
 export const INVALID_FILENAME_CHARS_LIST = ["<", ">", ":", '"', "/", "\\", "|", "?", "*", "_"] as const;
 
@@ -254,6 +433,15 @@ export class PageCapturer {
    * stays in `processing` forever — no exception is thrown, the await
    * simply never resolves — and the queue stops draining.
    *
+   * Redirect-aware retry: every operation that requires a live execution
+   * context (`page.evaluate`, `page.addStyleTag`, `page.screenshot`,
+   * `page.content`) is routed through `runOnStableContext`. That helper
+   * catches the destroyed-context rejection — which is normal for
+   * JS-redirecting top pages — waits for the next navigation to settle,
+   * and retries. The remaining `internal` errorHistory entry for this
+   * message is therefore reserved for cases where the redirect chain
+   * exceeds the helper's retry budget (very rare in practice).
+   *
    * `configureViewport` / `setUserAgent` / `setAcceptLanguage` are single
    * CDP calls (`Emulation.*`, `Network.setExtraHTTPHeaders`) that do not
    * await navigation and complete in microseconds; intentionally not
@@ -276,12 +464,18 @@ export class PageCapturer {
         NEW_PAGE_TIMEOUT_MS,
         `newPage for ${task.url}`
       );
-      await configureViewport(page, this.config);
-      await setUserAgent(page, this.config.userAgent);
-      await setAcceptLanguage(page, this.config.acceptLanguage);
+      // `page` is the let-binding kept for the finally block (it must remain
+      // assignable to null on the failure path). `livePage` is the same
+      // reference under a const alias so the closures handed to
+      // `runOnStableContext` below retain TS's `Page` narrowing — without
+      // it the closure body sees `page: Page | null` again.
+      const livePage = page;
+      await configureViewport(livePage, this.config);
+      await setUserAgent(livePage, this.config.userAgent);
+      await setAcceptLanguage(livePage, this.config.acceptLanguage);
 
       const response = await withTimeout(
-        page.goto(task.url, {
+        livePage.goto(task.url, {
           waitUntil: "domcontentloaded",
           timeout: this.config.timeouts.pageLoad,
         }),
@@ -305,24 +499,33 @@ export class PageCapturer {
         };
       }
 
-      await withTimeout(
-        page.evaluate(
-          (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
-          DEFAULT_DYNAMIC_CONTENT_WAIT_MS
-        ),
+      // JS-redirect-aware. The original frame's execution context is gone by
+      // the time we get here for sites like imhds.co.jp / itochu.co.jp /
+      // daiwahouse.com — see runOnStableContext for the recovery contract.
+      await runOnStableContext(
+        livePage,
+        () =>
+          livePage.evaluate(
+            (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
+            DEFAULT_DYNAMIC_CONTENT_WAIT_MS,
+          ),
+        `Dynamic content wait for ${task.url}`,
         EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS,
-        `Dynamic content wait for ${task.url}`
       );
 
-      await withTimeout(
-        hideScrollbars(page),
+      // Same redirect hazard as the dynamic-content wait above —
+      // `addStyleTag` runs `evaluateHandle` internally and rejects with
+      // destroyed-context if the redirect lands during the call.
+      await runOnStableContext(
+        livePage,
+        () => hideScrollbars(livePage),
+        `hideScrollbars for ${task.url}`,
         STYLE_INJECTION_TIMEOUT_MS,
-        `hideScrollbars for ${task.url}`
       );
 
       let dismissReport: DismissReport | undefined;
       if (task.dismissBanners) {
-        dismissReport = await dismissBanners(page);
+        dismissReport = await dismissBanners(livePage);
       }
 
       let pngPath: string | undefined;
@@ -330,15 +533,15 @@ export class PageCapturer {
       let htmlPath: string | undefined;
 
       if (task.captureFormats.png) {
-        pngPath = await this.captureScreenshot(page, task, "png");
+        pngPath = await this.captureScreenshot(livePage, task, "png");
       }
 
       if (task.captureFormats.jpeg) {
-        jpegPath = await this.captureScreenshot(page, task, "jpeg");
+        jpegPath = await this.captureScreenshot(livePage, task, "jpeg");
       }
 
       if (task.captureFormats.html) {
-        htmlPath = await this.captureHtml(page, task);
+        htmlPath = await this.captureHtml(livePage, task);
       }
 
       const captureProcessingTimeMs = Date.now() - startTime;
@@ -371,9 +574,20 @@ export class PageCapturer {
     } finally {
       if (page) {
         try {
-          await page.close();
-        } catch {
-          // Ignore page close errors
+          await withTimeout(
+            page.close(),
+            PAGE_CLOSE_TIMEOUT_MS,
+            `page.close for ${task.url}`,
+          );
+        } catch (error) {
+          // Best-effort close. If the underlying page is wedged (typical on
+          // a context-destroyed redirect target), the timeout above wins and
+          // we leak the Chromium page in exchange for freeing the worker.
+          // Surface as warn so this is observable without failing the task.
+          logger.warn(
+            { err: error, url: task.url, workerIndex },
+            "page.close failed or timed out (page leaked, continuing)",
+          );
         }
       }
     }
@@ -396,10 +610,16 @@ export class PageCapturer {
         }),
     };
 
-    const screenshotBuffer = await withTimeout(
-      page.screenshot(options),
+    // JS-redirect-aware. `page.screenshot` walks the render tree under the
+    // current execution context; if a redirect lands during the call (e.g.
+    // a delayed locale switch on daiwahouse.com / itochu.co.jp) it rejects
+    // with destroyed-context. The retry on the now-stable context produces
+    // a screenshot of the actual landing page rather than failing the task.
+    const screenshotBuffer = await runOnStableContext(
+      page,
+      () => page.screenshot(options),
+      `Screenshot (${type}) of ${task.url}`,
       this.config.timeouts.capture,
-      `Screenshot (${type}) of ${task.url}`
     );
 
     await writeFile(filePath, screenshotBuffer);
@@ -411,11 +631,16 @@ export class PageCapturer {
     const filename = generateFilename(task, "html");
     const filePath = join(this.config.outputDir, filename);
 
-    // Get HTML content with timeout
-    const html = await withTimeout(
-      page.content(),
+    // JS-redirect-aware. `page.content` serialises the document, which
+    // requires a live execution context; same redirect hazard as the
+    // screenshot path above. URLs from data/js-redirect.csv (e.g.
+    // imhds.co.jp → /corporate/index_en.html) hit this every time without
+    // the retry layer.
+    const html = await runOnStableContext(
+      page,
+      () => page.content(),
+      `HTML capture of ${task.url}`,
       this.config.timeouts.capture,
-      `HTML capture of ${task.url}`
     );
 
     await writeFile(filePath, html, "utf-8");

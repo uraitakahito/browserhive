@@ -29,11 +29,14 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     // Layer B outer task budget. Sized to be larger than the worst-case
     // sum of inner Layer A bounds in PageCapturer.capture:
     //   newPage(10s) + pageLoad(30s) + dynamic-wait(5s) + addStyleTag(5s)
-    //   + dismissBanners(5s) + 3 × capture(10s) ≈ 85s.
-    // 90s adds a 5s buffer for setViewport/setUserAgent/setExtraHTTPHeaders
-    // and the page.close in finally. Tune via --task-timeout /
+    //   + dismissBanners(5s) + 3 × capture(10s) + page.close(5s) = 90s.
+    // 100s adds a 10s buffer for the un-wrapped CDP single calls
+    // (setViewport / setUserAgent / setExtraHTTPHeaders) and finally-block
+    // entry overhead. Layer B must always exceed the Layer A sum so that a
+    // hang in the un-wrapped gap is the only thing this safety net catches —
+    // never a steady-state success. Tune via --task-timeout /
     // BROWSERHIVE_TASK_TIMEOUT_MS.
-    taskTotal: 90000,
+    taskTotal: 100000,
   },
   viewport: {
     width: 1280,

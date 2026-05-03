@@ -259,14 +259,14 @@ describe("server-cli parseCliOptions", () => {
       ).toBe(45000);
     });
 
-    it("未指定時はデフォルト 90s が入る", () => {
+    it("未指定時はデフォルト 100s が入る", () => {
       const config = parseCliOptions(
         argv("--browser-url", "http://a:9222", "--output", "/tmp/out"),
       );
 
       expect(
         config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
-      ).toBe(90000);
+      ).toBe(100000);
     });
 
     it("不正な BROWSERHIVE_TASK_TIMEOUT_MS で exit する", () => {

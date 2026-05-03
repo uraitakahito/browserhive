@@ -58,6 +58,17 @@ export class BrowserClient {
    * Disconnect from the browser. Always releases the browser reference
    * (even on failure) so subsequent connects can succeed; surfaces the
    * underlying error to the caller as a Result rather than swallowing.
+   *
+   * Intentionally NOT wrapped in `withTimeout` even though `browser.disconnect`
+   * is a CDP-roundtrip that could in principle hang on a wedged WebSocket:
+   * the call sites already sit behind two outer safety nets:
+   *   1. `coordinator-actors.ts:waitForWorkersToReach(isWorkerDisconnected,
+   *      WORKER_SHUTDOWN_TIMEOUT_MS=5_000)` races shutdown against a 5s timer.
+   *   2. `CaptureWorker.forceDisconnectClient` is invoked in parallel as a
+   *      final safety net after that race resolves.
+   * Adding a third bound here would only obscure those two contracts without
+   * changing observable behaviour. If a future call path needs a bound and
+   * those two safety nets are not in scope, wrap at that call site instead.
    */
   async disconnect(): Promise<Result<void, ErrorDetails>> {
     if (!this.browser) return ok();
