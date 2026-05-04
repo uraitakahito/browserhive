@@ -303,6 +303,8 @@ node dist/examples/data-client.js \
   | pino-pretty
 ```
 
+`data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
+
 ## TLS (Transport Layer Security)
 
 The server supports TLS for secure communication. See [docs/tls-certificates.md](docs/tls-certificates.md) for certificate generation instructions.
