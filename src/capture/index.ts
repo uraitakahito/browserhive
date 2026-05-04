@@ -93,6 +93,7 @@ export {
   generateFilename,
   hideScrollbars,
   isSuccessHttpStatus,
+  resetPageState,
   INVALID_FILENAME_CHARS_LIST,
   LABELS_SEPARATOR,
 } from "./page-capturer.js";

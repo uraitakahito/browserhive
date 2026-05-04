@@ -93,7 +93,7 @@ export const captureWorkerMachine = setup({
       | { type: "TASK_STARTED"; task: CaptureTask }
       | { type: "TASK_DONE"; task: CaptureTask; result: CaptureResult }
       | { type: "TASK_FAILED"; task: CaptureTask; result: CaptureResult }
-      | { type: "CONNECTION_LOST"; message: string },
+      | { type: "CONNECTION_LOST"; task: CaptureTask; message: string },
   },
   actors: {
     connectBrowser: fromPromise<Result<void, ErrorDetails>, { client: BrowserClient }>(
@@ -105,8 +105,14 @@ export const captureWorkerMachine = setup({
     workerLoop: workerLoopCallback,
   },
   guards: {
+    // Both `TASK_FAILED` and `CONNECTION_LOST` carry an in-flight task, and
+    // both should consume the same retry budget — the failure mode (task-level
+    // error vs. connection drop) does not change whether the task itself
+    // deserves another attempt.
     canRetry: ({ context, event }) => {
-      if (event.type !== "TASK_FAILED") return false;
+      if (event.type !== "TASK_FAILED" && event.type !== "CONNECTION_LOST") {
+        return false;
+      }
       return event.task.retryCount < context.maxRetryCount;
     },
   },
@@ -119,7 +125,7 @@ export const captureWorkerMachine = setup({
     }),
     clearCurrentTask: assign({ currentTask: () => null }),
     retryTask: ({ context, event }) => {
-      if (event.type !== "TASK_FAILED") return;
+      if (event.type !== "TASK_FAILED" && event.type !== "CONNECTION_LOST") return;
       context.runtime.taskQueue.requeue(event.task);
       context.runtime.client.logger.info(
         {
@@ -129,20 +135,28 @@ export const captureWorkerMachine = setup({
           attempt: event.task.retryCount + 1,
           maxRetryCount: context.maxRetryCount,
           url: event.task.url,
+          // Disambiguate "the task failed" vs "the connection dropped" in logs;
+          // both go through the same retry path now.
+          reason: event.type === "CONNECTION_LOST" ? "connection lost" : "task failed",
         },
         "Retrying task",
       );
     },
     markTaskComplete: ({ context, event }) => {
-      if (event.type !== "TASK_FAILED") return;
+      if (event.type !== "TASK_FAILED" && event.type !== "CONNECTION_LOST") return;
       context.runtime.taskQueue.markComplete(event.task.taskId);
+      const errorMessage =
+        event.type === "TASK_FAILED"
+          ? event.result.errorDetails?.message ?? "Unknown error"
+          : event.message;
       context.runtime.client.logger.warn(
         {
           taskLabels: event.task.labels,
           taskId: event.task.taskId,
           ...(event.task.correlationId && { correlationId: event.task.correlationId }),
-          error: event.result.errorDetails?.message ?? "Unknown error",
+          error: errorMessage,
           url: event.task.url,
+          reason: event.type === "CONNECTION_LOST" ? "connection lost" : "task failed",
         },
         "Task failed",
       );
@@ -163,11 +177,23 @@ export const captureWorkerMachine = setup({
       errorCount: ({ context }) => context.errorCount + 1,
       errorHistory: ({ context, event }): ErrorRecord[] => {
         if (event.type !== "CONNECTION_LOST") return context.errorHistory;
+        // Pass `event.task` so the errorHistory entry surfaces which task was
+        // in-flight when the connection dropped — operator-relevant signal
+        // visible in /v1/status without correlating logs.
         return addErrorToHistory(
           context.errorHistory,
           createConnectionError(event.message),
+          event.task,
         );
       },
+    }),
+    // Final-processed bump for the no-retry CONNECTION_LOST branch. Kept as a
+    // standalone action because `recordConnectionError` (which already
+    // increments errorCount + errorHistory) runs on BOTH branches — only the
+    // terminal branch should also bump processedCount, so we layer this on
+    // top instead of forking recordConnectionError into two variants.
+    recordConnectionFinalProcessed: assign({
+      processedCount: ({ context }) => context.processedCount + 1,
     }),
   },
 }).createMachine({
@@ -244,10 +270,29 @@ export const captureWorkerMachine = setup({
         },
       },
       on: {
-        CONNECTION_LOST: {
-          target: "error",
-          actions: ["recordConnectionError", "clearCurrentTask"],
-        },
+        // 2-branch mirroring TASK_FAILED so the in-flight task is always
+        // either requeued (within retry budget) or markComplete'd (budget
+        // exhausted) — without this, the task stays pinned in
+        // TaskQueue.processing forever after a connection drop. Both
+        // branches still target `error` so the worker's overall state
+        // reflects the connection loss; the coordinator's degraded retry
+        // is what brings it back to operational.
+        CONNECTION_LOST: [
+          {
+            guard: "canRetry",
+            target: "error",
+            actions: ["retryTask", "recordConnectionError", "clearCurrentTask"],
+          },
+          {
+            target: "error",
+            actions: [
+              "markTaskComplete",
+              "recordConnectionError",
+              "recordConnectionFinalProcessed",
+              "clearCurrentTask",
+            ],
+          },
+        ],
         DISCONNECT: "disconnecting",
       },
     },

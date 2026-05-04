@@ -23,7 +23,13 @@ export type WorkerLoopEvent =
   | { type: "TASK_STARTED"; task: CaptureTask }
   | { type: "TASK_DONE"; task: CaptureTask; result: CaptureResult }
   | { type: "TASK_FAILED"; task: CaptureTask; result: CaptureResult }
-  | { type: "CONNECTION_LOST"; message: string };
+  // `task` is the in-flight task at the moment of disconnection. `CONNECTION_LOST`
+  // is only sent from inside the catch block below, where a task has already
+  // been dequeued and `process()` was attempted on it — the field is therefore
+  // always populated. The state machine uses it to apply the same retry-budget
+  // policy as `TASK_FAILED` (requeue or markComplete) instead of leaking the
+  // task into TaskQueue.processing forever.
+  | { type: "CONNECTION_LOST"; task: CaptureTask; message: string };
 
 export interface WorkerLoopParentEvent { type: "STOP_LOOP" }
 
@@ -74,7 +80,11 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
           const errorDetails = errorDetailsFromException(error);
 
           if (errorDetails.type === "connection") {
-            sendBack({ type: "CONNECTION_LOST", message: errorDetails.message });
+            // `task` was dequeued earlier in this loop iteration; passing it
+            // here lets the state machine apply the same retry/markComplete
+            // policy as TASK_FAILED instead of leaving the task pinned in
+            // TaskQueue.processing.
+            sendBack({ type: "CONNECTION_LOST", task, message: errorDetails.message });
             break;
           }
 

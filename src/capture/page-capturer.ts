@@ -1,11 +1,14 @@
 /**
  * Page Capturer
  *
- * Handles the actual page capture process (screenshot and/or HTML) for a single URL.
+ * Handles the actual page capture process (screenshot and/or HTML) for a
+ * single URL. The page is supplied by the caller (`BrowserClient` holds
+ * a single persistent tab per worker) — `capture` only navigates,
+ * configures, reads, and resets it; it does not create or close tabs.
  */
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Browser, Page } from "puppeteer";
+import type { Page } from "puppeteer";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { CaptureTask, CaptureResult } from "./types.js";
@@ -83,14 +86,6 @@ export const withTimeout = async <T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Upper bound for `browser.newPage()`. Internally a single CDP roundtrip
- * (`Target.createTarget`), so a healthy connection completes in well under
- * a second; 10s is "definitely something is wrong" territory and lets the
- * worker recycle rather than wedge waiting on a broken connection.
- */
-const NEW_PAGE_TIMEOUT_MS = 10_000;
-
-/**
  * Upper bound for the post-load dynamic-content sleep. The inner
  * `setTimeout(resolve, DEFAULT_DYNAMIC_CONTENT_WAIT_MS)` resolves in the
  * page's execution context, but if a JS redirect tears that context down
@@ -107,6 +102,15 @@ const NEW_PAGE_TIMEOUT_MS = 10_000;
 const EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS = DEFAULT_DYNAMIC_CONTENT_WAIT_MS + 2_000;
 
 /**
+ * Upper bound for the inter-task `resetPageState` cleanup. The reset is a
+ * single navigation to `about:blank` plus one CDP `Network.clearBrowserCookies`
+ * roundtrip, both of which complete in well under a second on a healthy
+ * connection. 5s leaves margin for a temporarily wedged tab without
+ * letting a permanently wedged one block the next task.
+ */
+const RESET_PAGE_STATE_TIMEOUT_MS = 5_000;
+
+/**
  * Upper bound for `page.addStyleTag` (used by `hideScrollbars`). Internally
  * uses `evaluateHandle`, so it carries the same execution-context-await
  * risk as `page.evaluate`. Pure DOM mutation with no I/O — 5s is a generous
@@ -116,22 +120,6 @@ const EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS = DEFAULT_DYNAMIC_CONTENT_WAIT_MS + 2_000
  * retry semantics on destroyed-context rejection.
  */
 const STYLE_INJECTION_TIMEOUT_MS = 5_000;
-
-/**
- * Upper bound for `page.close` in the capture-pipeline `finally`. Internally
- * a single `Target.closeTarget` CDP command (~ms on a healthy page), but on
- * a page whose execution context has already been destroyed by a JS redirect
- * (e.g. imhds.co.jp /→/corporate/index_en.html) puppeteer awaits the target
- * teardown ack indefinitely — the await never settles. Without this bound the
- * Layer A timeout that already fired in the main `try` block ends up trapped
- * here, the synthetic `CaptureResult` cannot be returned, and the entire task
- * stays pinned in `processing` until the outer Layer B (90s) wins. 5s mirrors
- * the other "single CDP call" Layer A budgets and keeps the worst-case
- * close-leak window short. Page leaks on timeout are accepted in exchange
- * for worker liveness — the Chromium target may stay open for a while, but
- * the worker is freed to drain the queue.
- */
-const PAGE_CLOSE_TIMEOUT_MS = 5_000;
 
 /**
  * Upper bound for `page.waitForNavigation` after a destroyed-context catch
@@ -405,6 +393,74 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
 };
 
 /**
+ * Wipe per-task state from the worker's persistent page so the next task
+ * starts on a clean slate.
+ *
+ * Why this exists
+ * ---------------
+ * The page is reused across every task on the same worker (see
+ * `BrowserClient.connect`). Without an explicit reset, cookies set by task A
+ * are visible to task B, localStorage / sessionStorage / IndexedDB written
+ * by A persist into B, and DOM-attached event listeners or in-flight timers
+ * from A continue running in B's context. That cross-task contamination
+ * was implicitly avoided by the previous `newPage` / `page.close`-per-task
+ * design; reusing one page makes it our responsibility.
+ *
+ * Strategy
+ * --------
+ *  1. `page.goto("about:blank")` — this navigates away from the captured
+ *     URL, which discards the document, fires `unload`, tears down the JS
+ *     execution context (with all closures, timers, listeners), and drops
+ *     `localStorage` / `sessionStorage` / IndexedDB references because they
+ *     are origin-scoped and the new origin is `about:blank`.
+ *  2. `Network.clearBrowserCookies` via CDP — cookies live on the browser,
+ *     not the page, so the navigation alone doesn't drop them.
+ *
+ * Best-effort
+ * -----------
+ * Reset failures are logged at `warn` and swallowed: a wedged page should
+ * not fail the (already-completed) capture. The next task's `page.goto`
+ * will supersede the in-flight reset operation either way. Stage 4 will
+ * add page-death detection on top of this so a permanently wedged page
+ * gets surfaced as `CONNECTION_LOST` rather than silently leaking warnings.
+ */
+export const resetPageState = async (
+  page: Page,
+  workerIndex: number,
+): Promise<void> => {
+  let session: Awaited<ReturnType<Page["createCDPSession"]>> | null = null;
+  try {
+    await withTimeout(
+      page.goto("about:blank"),
+      RESET_PAGE_STATE_TIMEOUT_MS,
+      "resetPageState (about:blank)",
+    );
+    session = await page.createCDPSession();
+    await withTimeout(
+      session.send("Network.clearBrowserCookies"),
+      RESET_PAGE_STATE_TIMEOUT_MS,
+      "resetPageState (clearBrowserCookies)",
+    );
+  } catch (error) {
+    logger.warn(
+      { err: error, workerIndex },
+      "resetPageState failed (best-effort, continuing)",
+    );
+  } finally {
+    if (session) {
+      try {
+        await session.detach();
+      } catch (error) {
+        logger.warn(
+          { err: error, workerIndex },
+          "resetPageState CDP session detach failed",
+        );
+      }
+    }
+  }
+};
+
+/**
  * Check if HTTP status code indicates success (2xx)
  */
 export const isSuccessHttpStatus = (statusCode: number): boolean => {
@@ -420,6 +476,11 @@ export class PageCapturer {
 
   /**
    * Capture pipeline.
+   *
+   * The page is owned by the caller (`BrowserClient`), which holds a
+   * single Chromium tab for the worker's entire lifetime. `capture` does
+   * not create or close the page — it only navigates, configures, and
+   * reads from the supplied `page`.
    *
    * Layer A defense: every otherwise-unprotected puppeteer await below is
    * bounded by a per-call `withTimeout`. The reason — `page.goto` with
@@ -453,31 +514,19 @@ export class PageCapturer {
    * catches anything that slips through here.
    */
   async capture(
-    browser: Browser,
+    page: Page,
     task: CaptureTask,
     workerIndex: number
   ): Promise<CaptureResult> {
     const startTime = Date.now();
-    let page: Page | null = null;
 
     try {
-      page = await withTimeout(
-        browser.newPage(),
-        NEW_PAGE_TIMEOUT_MS,
-        `newPage for ${task.url}`
-      );
-      // `page` is the let-binding kept for the finally block (it must remain
-      // assignable to null on the failure path). `livePage` is the same
-      // reference under a const alias so the closures handed to
-      // `runOnStableContext` below retain TS's `Page` narrowing — without
-      // it the closure body sees `page: Page | null` again.
-      const livePage = page;
-      await configureViewport(livePage, this.config);
-      await setUserAgent(livePage, this.config.userAgent);
-      await setAcceptLanguage(livePage, task.acceptLanguage);
+      await configureViewport(page, this.config);
+      await setUserAgent(page, this.config.userAgent);
+      await setAcceptLanguage(page, task.acceptLanguage);
 
       const response = await withTimeout(
-        livePage.goto(task.url, {
+        page.goto(task.url, {
           waitUntil: "domcontentloaded",
           timeout: this.config.timeouts.pageLoad,
         }),
@@ -505,9 +554,9 @@ export class PageCapturer {
       // the time we get here for sites like imhds.co.jp / itochu.co.jp /
       // daiwahouse.com — see runOnStableContext for the recovery contract.
       await runOnStableContext(
-        livePage,
+        page,
         () =>
-          livePage.evaluate(
+          page.evaluate(
             (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
             DEFAULT_DYNAMIC_CONTENT_WAIT_MS,
           ),
@@ -519,15 +568,15 @@ export class PageCapturer {
       // `addStyleTag` runs `evaluateHandle` internally and rejects with
       // destroyed-context if the redirect lands during the call.
       await runOnStableContext(
-        livePage,
-        () => hideScrollbars(livePage),
+        page,
+        () => hideScrollbars(page),
         `hideScrollbars for ${task.url}`,
         STYLE_INJECTION_TIMEOUT_MS,
       );
 
       let dismissReport: DismissReport | undefined;
       if (task.dismissBanners) {
-        dismissReport = await dismissBanners(livePage);
+        dismissReport = await dismissBanners(page);
       }
 
       let pngPath: string | undefined;
@@ -535,15 +584,15 @@ export class PageCapturer {
       let htmlPath: string | undefined;
 
       if (task.captureFormats.png) {
-        pngPath = await this.captureScreenshot(livePage, task, "png");
+        pngPath = await this.captureScreenshot(page, task, "png");
       }
 
       if (task.captureFormats.jpeg) {
-        jpegPath = await this.captureScreenshot(livePage, task, "jpeg");
+        jpegPath = await this.captureScreenshot(page, task, "jpeg");
       }
 
       if (task.captureFormats.html) {
-        htmlPath = await this.captureHtml(livePage, task);
+        htmlPath = await this.captureHtml(page, task);
       }
 
       const captureProcessingTimeMs = Date.now() - startTime;
@@ -574,24 +623,12 @@ export class PageCapturer {
         workerIndex,
       };
     } finally {
-      if (page) {
-        try {
-          await withTimeout(
-            page.close(),
-            PAGE_CLOSE_TIMEOUT_MS,
-            `page.close for ${task.url}`,
-          );
-        } catch (error) {
-          // Best-effort close. If the underlying page is wedged (typical on
-          // a context-destroyed redirect target), the timeout above wins and
-          // we leak the Chromium page in exchange for freeing the worker.
-          // Surface as warn so this is observable without failing the task.
-          logger.warn(
-            { err: error, url: task.url, workerIndex },
-            "page.close failed or timed out (page leaked, continuing)",
-          );
-        }
-      }
+      // Reset cookies / storage / DOM context BEFORE the next task arrives.
+      // Placement on the failure side too: a failed capture's residue
+      // (cookies set during a partially-loaded page, in-flight timers) is
+      // exactly what we don't want bleeding into the retry or the next
+      // task's environment.
+      await resetPageState(page, workerIndex);
     }
   }
 

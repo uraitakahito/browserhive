@@ -13,6 +13,11 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 
 Each "Worker" box below corresponds to one `CaptureWorker` instance — a
 spawned `captureWorkerMachine` actor bundled with its `BrowserClient`.
+Each worker holds a single persistent Chromium tab (the one
+`chromium-server-docker` opens at startup) for its entire lifetime;
+capture tasks navigate that same tab rather than opening a new one per
+task. Per-task state (cookies / `localStorage` / DOM context) is wiped
+between tasks via `about:blank` + `Network.clearBrowserCookies`.
 
 ```mermaid
 flowchart TB

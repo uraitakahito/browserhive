@@ -5,9 +5,9 @@
  * The retry contract of `runOnStableContext` itself is covered exhaustively
  * in `page-capturer-stable-context.test.ts`. This file pins down a
  * complementary property: the capture pipeline as a whole
- * (newPage → goto → evaluate → addStyleTag → screenshot → content → close)
- * routes EVERY execution-context-bound operation through that helper, so a
- * 1-step JS redirect like the ones in `data/js-redirect.yaml`:
+ * (goto → evaluate → addStyleTag → screenshot → content) routes EVERY
+ * execution-context-bound operation through that helper, so a 1-step JS
+ * redirect like the ones in `data/js-redirect.yaml`:
  *
  *   * https://www.imhds.co.jp/         →  /corporate/index_en.html
  *   * https://www.itochu.co.jp/        →  /ja/
@@ -17,7 +17,7 @@
  * written, instead of bailing out on the first destroyed-context throw.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { Browser, HTTPResponse, Page } from "puppeteer";
+import type { HTTPResponse, Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
 import type { CaptureTask } from "../../src/capture/types.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
@@ -63,7 +63,7 @@ const oneShotDestroyed = (resolveValue: unknown): ReturnType<typeof vi.fn> => {
   });
 };
 
-const buildBrowser = (opts: RedirectMockOpts = {}): Browser => {
+const buildPage = (opts: RedirectMockOpts = {}): Page => {
   const successResponse = {
     status: () => 200,
     statusText: () => "OK",
@@ -81,7 +81,7 @@ const buildBrowser = (opts: RedirectMockOpts = {}): Browser => {
     ? oneShotDestroyed("<html></html>")
     : vi.fn().mockResolvedValue("<html></html>");
 
-  const page = {
+  return {
     setViewport: vi.fn().mockResolvedValue(undefined),
     setUserAgent: vi.fn().mockResolvedValue(undefined),
     setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
@@ -90,14 +90,19 @@ const buildBrowser = (opts: RedirectMockOpts = {}): Browser => {
     addStyleTag: vi.fn().mockResolvedValue(undefined),
     screenshot,
     content,
-    close: vi.fn().mockResolvedValue(undefined),
     // After a destroyed-context throw the helper waits for the next
     // navigation. Resolving immediately lets the retry proceed without
     // burning the settle timeout.
     waitForNavigation: vi.fn().mockResolvedValue(undefined),
+    // resetPageState (called from the capture finally block) opens a CDP
+    // session and sends Network.clearBrowserCookies; stub the minimum that
+    // satisfies that path so the test isn't a destructive-context retry +
+    // a separate "session detach" warn.
+    createCDPSession: vi.fn().mockResolvedValue({
+      send: vi.fn().mockResolvedValue(undefined),
+      detach: vi.fn().mockResolvedValue(undefined),
+    }),
   } as unknown as Page;
-
-  return { newPage: vi.fn().mockResolvedValue(page) } as unknown as Browser;
 };
 
 describe("PageCapturer.capture — redirect-induced destroyed-context recovery", () => {
@@ -113,9 +118,9 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
     const capturer = new PageCapturer(
       createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
     );
-    const browser = buildBrowser({ evaluateDestroysOnce: true });
+    const page = buildPage({ evaluateDestroysOnce: true });
 
-    const promise = capturer.capture(browser, createTask(), 0);
+    const promise = capturer.capture(page, createTask(), 0);
     await vi.runAllTimersAsync();
     const result = await promise;
 
@@ -128,9 +133,9 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
     const capturer = new PageCapturer(
       createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
     );
-    const browser = buildBrowser({ screenshotDestroysOnce: true });
+    const page = buildPage({ screenshotDestroysOnce: true });
 
-    const promise = capturer.capture(browser, createTask(), 0);
+    const promise = capturer.capture(page, createTask(), 0);
     await vi.runAllTimersAsync();
     const result = await promise;
 
@@ -142,9 +147,9 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
     const capturer = new PageCapturer(
       createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
     );
-    const browser = buildBrowser({ contentDestroysOnce: true });
+    const page = buildPage({ contentDestroysOnce: true });
 
-    const promise = capturer.capture(browser, createTask(), 0);
+    const promise = capturer.capture(page, createTask(), 0);
     await vi.runAllTimersAsync();
     const result = await promise;
 
