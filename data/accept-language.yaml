@@ -1,0 +1,78 @@
+# data/accept-language.yaml — Accept-Language regression / demo fixture
+#
+# Hand-curated subset of data/nikkei225.yaml whose top pages respond
+# differently when the upstream Accept-Language header is `ja` vs `en`.
+# Two patterns are represented; the trailing comment on each entry
+# names which one applies:
+#
+#   - redirect — final URL after the redirect chain differs between
+#     ja-JP and en-US (e.g. `/` → `/ja/` vs `/en/`).
+#   - content  — same final URL but `<html lang>` / Content-Language
+#     differs.
+#
+# Add an entry by hand when a new locale-sensitive top page surfaces
+# in nikkei225.yaml, with the same `# redirect: …` / `# content: …`
+# comment shape used below.
+#
+# Usage:
+#
+#   node dist/examples/data-client.js \
+#     --data data/accept-language.yaml --jpeg --html \
+#     --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
+#     | pino-pretty
+
+- labels: ["9432", "NTT"]
+  url: https://group.ntt/
+  # redirect: ja → https://group.ntt/jp/ | en → https://group.ntt/en/
+
+- labels: ["6770", "AlpsAlpine"]
+  url: https://www.alpsalpine.com/
+  # redirect: ja → https://www.alpsalpine.com/j/ | en → https://www.alpsalpine.com/e/
+
+- labels: ["2503", "Kirin"]
+  url: https://www.kirinholdings.com/
+  # redirect: ja → https://www.kirinholdings.com/jp/ | en → https://www.kirinholdings.com/en/
+
+- labels: ["9766", "Konami"]
+  url: https://www.konami.com/
+  # redirect: ja → https://www.konami.com/ja/ | en → https://www.konami.com/en/
+
+- labels: ["4689", "LYCorp"]
+  url: https://www.lycorp.co.jp/
+  # redirect: ja → https://www.lycorp.co.jp/ja/ | en → https://www.lycorp.co.jp/en/
+
+- labels: ["8002", "Marubeni"]
+  url: https://www.marubeni.com/
+  # redirect: ja → https://www.marubeni.com/jp/ | en → https://www.marubeni.com/en/
+
+- labels: ["7261", "Mazda"]
+  url: https://www.mazda.com/
+  # redirect: ja → https://www.mazda.com/ja/ | en → https://www.mazda.com/en/
+
+- labels: ["8031", "Mitsui"]
+  url: https://www.mitsui.com/
+  # redirect: ja → https://www.mitsui.com/jp/ja/index.html | en → https://www.mitsui.com/jp/en/index.html
+
+- labels: ["6594", "Nidec"]
+  url: https://www.nidec.com/
+  # redirect: ja → https://www.nidec.com/jp/ | en → https://www.nidec.com/en/
+
+- labels: ["6723", "Renesas"]
+  url: https://www.renesas.com/
+  # redirect: ja → https://www.renesas.com/ja | en → https://www.renesas.com/en
+
+- labels: ["4063", "ShinEtsuChemical"]
+  url: https://www.shinetsu.co.jp/
+  # redirect: ja → https://www.shinetsu.co.jp/jp/ | en → https://www.shinetsu.co.jp/en/
+
+- labels: ["6758", "Sony"]
+  url: https://www.sony.com/
+  # redirect: ja → https://www.sony.com/ja/ | en → https://www.sony.com/en/
+
+- labels: ["6762", "TDK"]
+  url: https://www.tdk.com/
+  # redirect: ja → https://www.tdk.com/ja/index.html | en → https://www.tdk.com/en/index.html
+
+- labels: ["6981", "Murata"]
+  url: https://www.murata.com/
+  # content: lang ja=ja-jp en=en-us

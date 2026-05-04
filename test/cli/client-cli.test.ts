@@ -50,4 +50,33 @@ describe("client-cli parseClientOptions", () => {
   it("--data が CLI 必須なので未指定だと exit する", () => {
     expect(() => parseClientOptions(argv())).toThrow(ProcessExitError);
   });
+
+  it("--accept-language を渡すと acceptLanguage に反映される", () => {
+    const opts = parseClientOptions(
+      argv("--data", "data/urls.yaml", "--accept-language", "ja-JP,ja;q=0.9,en;q=0.8"),
+    );
+    expect(opts.acceptLanguage).toBe("ja-JP,ja;q=0.9,en;q=0.8");
+  });
+
+  it("--accept-language の前後空白は trim される", () => {
+    const opts = parseClientOptions(
+      argv("--data", "data/urls.yaml", "--accept-language", "  ja-JP  "),
+    );
+    expect(opts.acceptLanguage).toBe("ja-JP");
+  });
+
+  it("--accept-language に空文字 / 空白のみを渡すと exit する", () => {
+    expect(() =>
+      parseClientOptions(argv("--data", "data/urls.yaml", "--accept-language", "")),
+    ).toThrow(ProcessExitError);
+    expect(() =>
+      parseClientOptions(argv("--data", "data/urls.yaml", "--accept-language", "   ")),
+    ).toThrow(ProcessExitError);
+  });
+
+  it("--accept-language 未指定なら ClientOptions にキー自体が乗らない", () => {
+    const opts = parseClientOptions(argv("--data", "data/urls.yaml"));
+    // exactOptionalPropertyTypes 下では「キーが無い」と「undefined」を区別する。
+    expect("acceptLanguage" in opts).toBe(false);
+  });
 });
