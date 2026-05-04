@@ -60,6 +60,7 @@ const submitRequest = async (
   entry: DataEntry,
   captureFormats: CaptureFormats,
   dismissBanners: boolean,
+  acceptLanguage: string | undefined,
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
   const body: CaptureRequest = {
@@ -68,6 +69,7 @@ const submitRequest = async (
     correlationId,
     captureFormats,
     dismissBanners,
+    ...(acceptLanguage !== undefined && { acceptLanguage }),
   };
 
   try {
@@ -106,12 +108,18 @@ const submitAll = async (
   entries: DataEntry[],
   captureFormats: CaptureFormats,
   dismissBanners: boolean,
+  acceptLanguage: string | undefined,
 ): Promise<SubmitResult[]> => {
   const total = entries.length;
   let completed = 0;
 
   const promises = entries.map(async (entry) => {
-    const result = await submitRequest(entry, captureFormats, dismissBanners);
+    const result = await submitRequest(
+      entry,
+      captureFormats,
+      dismissBanners,
+      acceptLanguage,
+    );
     completed++;
 
     if (result.accepted) {
@@ -178,6 +186,7 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     entries,
     captureFormats,
     options.dismissBanners ?? false,
+    options.acceptLanguage,
   );
 
   const totalDuration = Date.now() - startTime;

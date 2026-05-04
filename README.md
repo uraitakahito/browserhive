@@ -279,7 +279,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`, `--accept-language`) intentionally have no env equivalents.
 
 #### Calling the HTTP API
 
@@ -297,7 +297,10 @@ Build first (the example is shipped only as TypeScript source):
 
 ```sh
 npm run build
-node dist/examples/data-client.js --data data/urls.yaml --jpeg --html --limit 30 | pino-pretty
+node dist/examples/data-client.js \
+  --data data/urls.yaml --jpeg --html --limit 30 \
+  --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
+  | pino-pretty
 ```
 
 ## TLS (Transport Layer Security)
@@ -330,5 +333,6 @@ NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
     --data data/urls.yaml \
     --server https://localhost:8080 \
     --jpeg --html --limit 50 \
+    --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```

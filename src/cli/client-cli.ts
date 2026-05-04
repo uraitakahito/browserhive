@@ -25,6 +25,7 @@ export interface ClientOptions {
   limit?: number;
   tlsCaCert?: string;
   dismissBanners?: boolean;
+  acceptLanguage?: string;
 }
 
 const parsePositiveInt = (value: string): number => {
@@ -33,6 +34,17 @@ const parsePositiveInt = (value: string): number => {
     throw new InvalidArgumentError("Must be a positive integer");
   }
   return num;
+};
+
+// Reject empty / whitespace-only values up front; length and printable-ASCII
+// constraints are enforced server-side by Ajv via the OpenAPI schema
+// (`minLength:1` / `maxLength:200` / `pattern:^[\x20-\x7e]+$`).
+const parseNonEmpty = (value: string): string => {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new InvalidArgumentError("Must be a non-empty string");
+  }
+  return trimmed;
 };
 
 export const createProgram = (): Command => {
@@ -61,6 +73,12 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
+        "--accept-language <bcp47>",
+        'Accept-Language header to forward upstream for every entry (e.g. "ja-JP,ja;q=0.9,en;q=0.8")',
+      ).argParser(parseNonEmpty),
+    )
+    .addOption(
+      new Option(
         "--tls-ca-cert <path>",
         "CA certificate file path for TLS (enables TLS when specified)",
       ).env("BROWSERHIVE_TLS_CA_CERT"),
@@ -85,6 +103,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     limit?: number;
     tlsCaCert?: string;
     dismissBanners?: boolean;
+    acceptLanguage?: string;
   }>();
 
   return {
@@ -96,6 +115,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.limit !== undefined && { limit: opts.limit }),
     ...(opts.tlsCaCert !== undefined && { tlsCaCert: opts.tlsCaCert }),
     ...(opts.dismissBanners !== undefined && { dismissBanners: opts.dismissBanners }),
+    ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
   };
 };
 
@@ -117,6 +137,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       data: options.data,
       captureFormats: getCaptureFormats(options),
       dismissBanners: options.dismissBanners ?? false,
+      acceptLanguage: options.acceptLanguage ?? null,
       limit: options.limit ?? null,
     },
     "Client configuration",
