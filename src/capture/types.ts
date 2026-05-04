@@ -54,12 +54,38 @@ export interface CaptureResult {
   pngPath?: string;
   jpegPath?: string;
   htmlPath?: string;
+  /** Path to the extracted links JSON (only set when `task.captureFormats.links` is true) */
+  linksPath?: string;
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;
   workerIndex: number;
   /** Banner dismissal report (only set when `task.dismissBanners` is true) */
   dismissReport?: DismissReport;
+}
+
+/** A single anchor link extracted from a captured page. */
+export interface LinkRecord {
+  /** Absolute URL (already resolved against the page's base URL by the browser). */
+  href: string;
+  /** Trimmed `textContent`, capped at 200 chars. */
+  text: string;
+  /** Raw `rel` attribute (e.g. `"nofollow"`, `"nofollow noreferrer"`), or null when absent. */
+  rel: string | null;
+}
+
+/** Shape of the JSON file written when `task.captureFormats.links` is true. */
+export interface LinksFile {
+  taskId: string;
+  /** The URL the task asked to capture (pre-redirect). */
+  url: string;
+  /** The URL Chromium ended up on after any redirects (`page.url()`). */
+  finalUrl: string;
+  labels: string[];
+  correlationId?: string;
+  /** ISO 8601 timestamp of when the link extraction completed. */
+  capturedAt: string;
+  links: LinkRecord[];
 }
 
 export interface ErrorTaskInfo {

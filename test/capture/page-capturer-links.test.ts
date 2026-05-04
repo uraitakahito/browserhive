@@ -1,0 +1,258 @@
+/**
+ * PageCapturer integration test for link extraction wiring.
+ *
+ * Mocks `node:fs/promises.writeFile` so the test does not touch disk,
+ * and stubs `page.evaluate` to feed the captureLinks pass synthetic
+ * anchor records. Server-side filtering (http(s) only, dedupe by href)
+ * is exercised here; the in-page text trim / rel handling is browser-side
+ * and intentionally out of scope.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Page } from "puppeteer";
+import type { CaptureTask } from "../../src/capture/types.js";
+import { createTestCaptureConfig } from "../helpers/config.js";
+
+const writeFileMock =
+  vi.fn<
+    (path: string, content: string | Buffer, encoding?: string) => Promise<void>
+  >();
+vi.mock("node:fs/promises", () => ({
+  writeFile: (
+    path: string,
+    content: string | Buffer,
+    encoding?: string,
+  ): Promise<void> => writeFileMock(path, content, encoding),
+}));
+
+// Import after mocking.
+import { PageCapturer } from "../../src/capture/page-capturer.js";
+
+interface MockPage {
+  setViewport: ReturnType<typeof vi.fn>;
+  setUserAgent: ReturnType<typeof vi.fn>;
+  setExtraHTTPHeaders: ReturnType<typeof vi.fn>;
+  goto: ReturnType<typeof vi.fn>;
+  evaluate: ReturnType<typeof vi.fn>;
+  addStyleTag: ReturnType<typeof vi.fn>;
+  content: ReturnType<typeof vi.fn>;
+  screenshot: ReturnType<typeof vi.fn>;
+  url: ReturnType<typeof vi.fn>;
+  createCDPSession: ReturnType<typeof vi.fn>;
+}
+
+const buildMockCDPSession = (): {
+  send: ReturnType<typeof vi.fn>;
+  detach: ReturnType<typeof vi.fn>;
+} => ({
+  send: vi.fn().mockResolvedValue(undefined),
+  detach: vi.fn().mockResolvedValue(undefined),
+});
+
+const buildMockPage = (): MockPage => ({
+  setViewport: vi.fn().mockResolvedValue(undefined),
+  setUserAgent: vi.fn().mockResolvedValue(undefined),
+  setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
+  goto: vi.fn().mockResolvedValue({
+    status: () => 200,
+    statusText: () => "OK",
+  }),
+  evaluate: vi.fn(),
+  addStyleTag: vi.fn().mockResolvedValue(undefined),
+  content: vi.fn().mockResolvedValue("<html></html>"),
+  screenshot: vi.fn().mockResolvedValue(Buffer.from("scr")),
+  url: vi.fn().mockReturnValue("https://example.com/landing"),
+  createCDPSession: vi.fn().mockResolvedValue(buildMockCDPSession()),
+});
+
+const asPage = (page: MockPage): Page => page as unknown as Page;
+
+const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
+  taskId: "test-task-id",
+  labels: ["test"],
+  url: "https://example.com",
+  retryCount: 0,
+  captureFormats: { png: false, jpeg: false, html: false, links: true },
+  dismissBanners: false,
+  enqueuedAt: "2024-01-01T00:00:00.000Z",
+  ...overrides,
+});
+
+interface WrittenLinkRecord {
+  href: string;
+  text: string;
+  rel: string | null;
+}
+
+interface WrittenLinksFile {
+  taskId: string;
+  url: string;
+  finalUrl: string;
+  labels: string[];
+  correlationId?: string;
+  capturedAt: string;
+  links: WrittenLinkRecord[];
+}
+
+const findLinksWrite = (): WrittenLinksFile => {
+  const call = writeFileMock.mock.calls.find(
+    ([path]: unknown[]) =>
+      typeof path === "string" && path.endsWith(".links.json"),
+  );
+  if (!call) throw new Error("expected a .links.json writeFile call");
+  return JSON.parse(call[1] as string) as WrittenLinksFile;
+};
+
+describe("PageCapturer.capture — link extraction", () => {
+  beforeEach(() => {
+    writeFileMock.mockReset();
+    writeFileMock.mockResolvedValue(undefined);
+  });
+
+  it("writes a .links.json file with the extracted links", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate
+      .mockResolvedValueOnce(undefined) // dynamic-content wait
+      .mockResolvedValueOnce([
+        { href: "https://example.com/a", text: "About", rel: null },
+        { href: "https://example.com/b", text: "Help", rel: "nofollow" },
+      ]);
+
+    const result = await capturer.capture(asPage(page), buildTask(), 0);
+
+    expect(result.linksPath).toBe("/tmp/out/test-task-id_test.links.json");
+    const written = findLinksWrite();
+    expect(written).toMatchObject({
+      taskId: "test-task-id",
+      url: "https://example.com",
+      finalUrl: "https://example.com/landing",
+      labels: ["test"],
+      links: [
+        { href: "https://example.com/a", text: "About", rel: null },
+        { href: "https://example.com/b", text: "Help", rel: "nofollow" },
+      ],
+    });
+    expect(written.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("filters out non-http(s) schemes (mailto:, javascript:, tel:)", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        { href: "https://example.com/keep", text: "Keep", rel: null },
+        { href: "mailto:foo@example.com", text: "Mail", rel: null },
+        { href: "javascript:void(0)", text: "JS", rel: null },
+        { href: "tel:+81-3-1234-5678", text: "Tel", rel: null },
+        { href: "http://example.com/insecure", text: "Insecure", rel: null },
+      ]);
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
+    const written = findLinksWrite();
+    expect(written.links.map((l) => l.href)).toEqual([
+      "https://example.com/keep",
+      "http://example.com/insecure",
+    ]);
+  });
+
+  it("dedupes by href, keeping the first occurrence", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        { href: "https://example.com/a", text: "First", rel: null },
+        { href: "https://example.com/b", text: "Other", rel: null },
+        { href: "https://example.com/a", text: "Second", rel: "nofollow" },
+      ]);
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
+    const written = findLinksWrite();
+    expect(written.links).toEqual([
+      { href: "https://example.com/a", text: "First", rel: null },
+      { href: "https://example.com/b", text: "Other", rel: null },
+    ]);
+  });
+
+  it("drops malformed URLs that the URL constructor rejects", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        { href: "https://example.com/ok", text: "OK", rel: null },
+        { href: "not a url", text: "Bad", rel: null },
+        { href: "", text: "Empty", rel: null },
+      ]);
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
+    const written = findLinksWrite();
+    expect(written.links.map((l) => l.href)).toEqual([
+      "https://example.com/ok",
+    ]);
+  });
+
+  it("writes an empty links array when the page has no anchors", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([]);
+
+    const result = await capturer.capture(asPage(page), buildTask(), 0);
+
+    expect(result.linksPath).toBe("/tmp/out/test-task-id_test.links.json");
+    expect(findLinksWrite().links).toEqual([]);
+  });
+
+  it("does not extract links when captureFormats.links is false", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate.mockResolvedValueOnce(undefined); // dynamic-content wait only
+
+    const result = await capturer.capture(
+      asPage(page),
+      buildTask({
+        captureFormats: { png: false, jpeg: false, html: true, links: false },
+      }),
+      0,
+    );
+
+    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    expect(result.linksPath).toBeUndefined();
+    const linksCall = writeFileMock.mock.calls.find(
+      ([path]: unknown[]) =>
+        typeof path === "string" && path.endsWith(".links.json"),
+    );
+    expect(linksCall).toBeUndefined();
+  });
+
+  it("includes correlationId in the file payload when present on the task", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    page.evaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([
+        { href: "https://example.com/a", text: "A", rel: null },
+      ]);
+
+    await capturer.capture(
+      asPage(page),
+      buildTask({ correlationId: "ext-42" }),
+      0,
+    );
+
+    expect(findLinksWrite().correlationId).toBe("ext-42");
+  });
+});

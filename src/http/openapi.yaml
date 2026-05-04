@@ -62,6 +62,7 @@ paths:
                     png: true
                     jpeg: false
                     html: false
+                    links: false
                   dismissBanners: true
               acceptLanguageJa:
                 summary: Capture the Japanese variant of a multilingual site
@@ -77,7 +78,22 @@ paths:
                     png: true
                     jpeg: false
                     html: true
+                    links: false
                   acceptLanguage: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7
+              linksOnly:
+                summary: Extract links without taking a screenshot
+                description: |
+                  Skips PNG/JPEG/HTML capture and writes only the link list
+                  as `{taskId}_..._labels.links.json`. Useful for crawl-driver
+                  use cases where only URL discovery is needed.
+                value:
+                  url: https://www.example.com/
+                  labels: [example]
+                  captureFormats:
+                    png: false
+                    jpeg: false
+                    html: false
+                    links: true
       responses:
         "202":
           description: Request accepted for processing
@@ -142,7 +158,7 @@ components:
     CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
-      required: [png, jpeg, html]
+      required: [png, jpeg, html, links]
       additionalProperties: false
       properties:
         png:
@@ -151,6 +167,13 @@ components:
           type: boolean
         html:
           type: boolean
+        links:
+          type: boolean
+          description: |
+            Extract `<a href>` links from the rendered page and write the
+            list as `{taskId}_..._labels.links.json` in the output
+            directory (same naming pattern as the other capture formats).
+            Useful as the discovery side of an external crawl driver.
     CaptureRequest:
       type: object
       required: [url, captureFormats]
