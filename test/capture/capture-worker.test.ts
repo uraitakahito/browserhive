@@ -241,12 +241,59 @@ describe("capture-worker", () => {
         const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         actor.send({ type: "TASK_STARTED", task });
         expect(actor.getSnapshot().context.currentTask).not.toBeNull();
-        actor.send({ type: "CONNECTION_LOST", message: "Browser disconnected" });
+        actor.send({ type: "CONNECTION_LOST", task, message: "Browser disconnected" });
 
         expect(actor.getSnapshot().value).toBe("error");
         expect(actor.getSnapshot().context.errorCount).toBe(1);
         // No ghost currentTask after connection drop mid-processing
         expect(actor.getSnapshot().context.currentTask).toBeNull();
+      });
+
+      it("should requeue task on CONNECTION_LOST when retries remain (canRetry guard)", async () => {
+        const taskQueue = new TaskQueue();
+        const { actor } = await createOperationalActor({ runtime: { taskQueue } });
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        actor.send({ type: "TASK_STARTED", task });
+        actor.send({ type: "CONNECTION_LOST", task, message: "Connection closed" });
+
+        expect(actor.getSnapshot().value).toBe("error");
+        const ctx = actor.getSnapshot().context;
+        // Retry path: errorCount + errorHistory bumped (operator-relevant
+        // signal), processedCount not bumped (task isn't terminal yet).
+        expect(ctx.processedCount).toBe(0);
+        expect(ctx.errorCount).toBe(1);
+        expect(ctx.errorHistory).toHaveLength(1);
+        expect(ctx.errorHistory[0]!.task?.taskId).toBe("t1");
+        // Task requeued (no longer in processing set, back in pending queue
+        // with retryCount bumped).
+        expect(taskQueue.remaining).toBe(1);
+        expect(taskQueue.processingCount).toBe(0);
+        expect(ctx.currentTask).toBeNull();
+      });
+
+      it("should mark task complete on CONNECTION_LOST when retries exhausted", async () => {
+        const taskQueue = new TaskQueue();
+        const { actor } = await createOperationalActor({ runtime: { taskQueue } });
+        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false }, dismissBanners: false, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        // Simulate dequeue to put task in processing set so markComplete
+        // has something to remove.
+        taskQueue.enqueue(task);
+        taskQueue.dequeue();
+        actor.send({ type: "TASK_STARTED", task });
+        actor.send({ type: "CONNECTION_LOST", task, message: "Connection closed" });
+
+        expect(actor.getSnapshot().value).toBe("error");
+        const ctx = actor.getSnapshot().context;
+        // Terminal path: processedCount bumped via recordConnectionFinalProcessed.
+        expect(ctx.processedCount).toBe(1);
+        expect(ctx.errorCount).toBe(1);
+        expect(ctx.errorHistory).toHaveLength(1);
+        expect(ctx.errorHistory[0]!.type).toBe("connection");
+        expect(ctx.errorHistory[0]!.task?.taskId).toBe("t1");
+        // markComplete removes the task from processing AND adds to completed.
+        expect(taskQueue.processingCount).toBe(0);
+        expect(taskQueue.completedCount).toBe(1);
+        expect(ctx.currentTask).toBeNull();
       });
 
       it("should transition to disconnecting on DISCONNECT", async () => {
