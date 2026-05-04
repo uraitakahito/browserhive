@@ -1,16 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import type { BrowserProfile } from "../../src/config/index.js";
 import type { CaptureTask, CaptureResult } from "../../src/capture/types.js";
-import type { Browser } from "puppeteer";
+import type { Browser, Page } from "puppeteer";
 import { createTestCaptureConfig } from "../helpers/config.js";
 import { captureStatus } from "../../src/capture/capture-status.js";
 
 // Store mock capture function reference
 let mockCapture: Mock;
 
-// Mock modules with factories
+// Mock modules with factories. The `puppeteerExtra` named export is consumed
+// by BrowserClient.connect to manually fire `onPageCreated` on the initial
+// tab; in tests we hand it an empty `plugins` array so the loop is a no-op
+// but the property still exists to satisfy BrowserClient's interface.
 vi.mock("../../src/browser.js", () => ({
   default: vi.fn(),
+  puppeteerExtra: { plugins: [] },
 }));
 
 // Keep the real `withTimeout` (used by BrowserClient.process for the Layer B
@@ -55,12 +59,38 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
 describe("BrowserClient", () => {
   let client: BrowserClient;
   let mockBrowser: Partial<Browser>;
+  let mockPage: Partial<Page>;
+  // Captures the listener registered by `BrowserClient.acquirePage` so the
+  // page-death tests below can fire it without going through real puppeteer.
+  let pageCloseListener: (() => void) | undefined;
+  // Same idea for the browser-level `disconnected` listener registered in
+  // `BrowserClient.connect`.
+  let browserDisconnectedListener: (() => void) | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    pageCloseListener = undefined;
+    browserDisconnectedListener = undefined;
+
+    mockPage = {
+      isClosed: vi.fn().mockReturnValue(false),
+      on: vi.fn().mockImplementation((event: string, listener: () => void) => {
+        if (event === "close") pageCloseListener = listener;
+        return mockPage as Page;
+      }),
+    };
 
     mockBrowser = {
       disconnect: vi.fn().mockResolvedValue(undefined),
+      // `connect()` calls `browser.pages()` to acquire the initial tab.
+      // Default to a single existing page so the reuse path is exercised;
+      // tests that need the `newPage()` fallback override per case.
+      pages: vi.fn().mockResolvedValue([mockPage]),
+      newPage: vi.fn().mockResolvedValue(mockPage),
+      on: vi.fn().mockImplementation((event: string, listener: () => void) => {
+        if (event === "disconnected") browserDisconnectedListener = listener;
+        return mockBrowser as Browser;
+      }),
     };
 
     mockCapture = vi.fn();
@@ -100,6 +130,28 @@ describe("BrowserClient", () => {
         message: "Connection failed",
       });
     });
+
+    it("reuses the upstream's pre-existing initial tab", async () => {
+      await client.connect();
+
+      expect(mockBrowser.pages).toHaveBeenCalled();
+      expect(mockBrowser.newPage).not.toHaveBeenCalled();
+      expect(client.page).toBe(mockPage);
+    });
+
+    it("falls back to newPage() when no pre-existing tab is present", async () => {
+      const fallbackPage: Partial<Page> = {
+        isClosed: vi.fn().mockReturnValue(false),
+        on: vi.fn().mockImplementation(function (this: Page) { return this; }),
+      };
+      mockBrowser.pages = vi.fn().mockResolvedValue([]);
+      mockBrowser.newPage = vi.fn().mockResolvedValue(fallbackPage);
+
+      await client.connect();
+
+      expect(mockBrowser.newPage).toHaveBeenCalled();
+      expect(client.page).toBe(fallbackPage);
+    });
   });
 
   describe("disconnect", () => {
@@ -119,6 +171,59 @@ describe("BrowserClient", () => {
       expect(result).toEqual({ ok: true, value: undefined });
     });
 
+    it("releases the active page reference on disconnect", async () => {
+      await client.connect();
+      expect(() => client.page).not.toThrow();
+
+      await client.disconnect();
+
+      expect(() => client.page).toThrow(/no active page/);
+    });
+
+    it("clears browser ref on disconnected event so reconnect recreates the browser", async () => {
+      await client.connect();
+      expect(client.isConnected).toBe(true);
+
+      // Simulate the upstream Chromium dropping its CDP WebSocket (e.g.
+      // after we externally closed every page; Chromium recreates the
+      // browser-level target with a new UUID and the old WS goes dead).
+      browserDisconnectedListener?.();
+
+      expect(client.isConnected).toBe(false);
+      expect(() => client.page).toThrow(/no active page/);
+
+      // Next coordinator-driven reconnect MUST call connectBrowser again
+      // (not just acquirePage) because the old browser ref is unusable.
+      await client.connect();
+      expect(connectBrowser).toHaveBeenCalledTimes(2);
+    });
+
+    it("re-acquires a page on reconnect when the page died but the browser is still alive", async () => {
+      // Initial connect: page is held.
+      await client.connect();
+      expect(() => client.page).not.toThrow();
+
+      // Simulate page-only death (close event fires, browser stays connected).
+      pageCloseListener?.();
+      expect(() => client.page).toThrow(/no active page/);
+
+      // The coordinator's degraded retry sends CONNECT, which calls connect()
+      // again. Without the recovery branch in connect(), the early-return
+      // (browser still set) would skip page re-acquisition and leave the
+      // worker stuck. With it, acquirePage runs and a fresh page is held.
+      const fresh: Partial<Page> = {
+        isClosed: vi.fn().mockReturnValue(false),
+        on: vi.fn().mockImplementation(function (this: Page) { return this; }),
+      };
+      mockBrowser.pages = vi.fn().mockResolvedValue([fresh]);
+
+      const result = await client.connect();
+
+      expect(result.ok).toBe(true);
+      expect(mockBrowser.pages).toHaveBeenCalled();
+      expect(client.page).toBe(fresh);
+    });
+
     it("should release the browser reference and return err on disconnect failure", async () => {
       mockBrowser.disconnect = vi.fn().mockRejectedValue(new Error("Disconnect error"));
       await client.connect();
@@ -136,10 +241,28 @@ describe("BrowserClient", () => {
   });
 
   describe("process", () => {
-    it("should throw when browser is not connected", async () => {
+    it("should throw when no active page is held (not connected)", async () => {
       const task = createTask();
 
-      await expect(client.process(task)).rejects.toThrow("has no browser connection");
+      await expect(client.process(task)).rejects.toThrow("no active page");
+    });
+
+    it("throws connection-error when the page was closed via the close event", async () => {
+      await client.connect();
+      // Simulate Chromium tearing the tab down: the listener registered in
+      // `acquirePage` clears `currentPage`. process() then sees no active page.
+      pageCloseListener?.();
+
+      await expect(client.process(createTask())).rejects.toThrow("no active page");
+    });
+
+    it("throws connection-error when page.isClosed() returns true (defensive check)", async () => {
+      await client.connect();
+      // Page reference is still held but Chromium considers it gone — the
+      // close event hasn't fired yet. Defensive isClosed() check trips.
+      vi.mocked(mockPage.isClosed!).mockReturnValue(true);
+
+      await expect(client.process(createTask())).rejects.toThrow(/page is closed/);
     });
 
     it("should process task successfully", async () => {
@@ -160,7 +283,7 @@ describe("BrowserClient", () => {
 
       expect(result.status).toBe(captureStatus.success);
       expect(mockCapture).toHaveBeenCalledWith(
-        mockBrowser,
+        mockPage,
         task,
         0
       );

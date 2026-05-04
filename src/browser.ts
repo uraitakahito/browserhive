@@ -63,6 +63,15 @@ const stealth = StealthPlugin();
 stealth.enabledEvasions.delete('user-agent-override');
 puppeteer.use(stealth);
 
+/**
+ * Re-export the configured `puppeteer-extra` instance so `BrowserClient` can
+ * read its `plugins` array and manually fire `onPageCreated` against the
+ * initial Chromium tab obtained via `browser.pages()` at connect time. See
+ * `BrowserClient.connect` for the WHY (stealth evasions are otherwise
+ * skipped on pre-existing tabs).
+ */
+export const puppeteerExtra = puppeteer;
+
 interface VersionResponse {
   webSocketDebuggerUrl: string;
 }

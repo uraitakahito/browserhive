@@ -5,7 +5,7 @@
  * don't want it to affect the helper-utility tests in page-capturer.test.ts.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Browser, Page } from "puppeteer";
+import type { Page } from "puppeteer";
 import type { CaptureTask } from "../../src/capture/types.js";
 import type { DismissReport } from "../../src/capture/banner-dismisser.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
@@ -34,8 +34,16 @@ interface MockPage {
   addStyleTag: ReturnType<typeof vi.fn>;
   screenshot: ReturnType<typeof vi.fn>;
   content: ReturnType<typeof vi.fn>;
-  close: ReturnType<typeof vi.fn>;
+  createCDPSession: ReturnType<typeof vi.fn>;
 }
+
+const buildMockCDPSession = (): {
+  send: ReturnType<typeof vi.fn>;
+  detach: ReturnType<typeof vi.fn>;
+} => ({
+  send: vi.fn().mockResolvedValue(undefined),
+  detach: vi.fn().mockResolvedValue(undefined),
+});
 
 const buildMockPage = (): MockPage => ({
   setViewport: vi.fn().mockResolvedValue(undefined),
@@ -49,11 +57,10 @@ const buildMockPage = (): MockPage => ({
   addStyleTag: vi.fn().mockResolvedValue(undefined),
   screenshot: vi.fn().mockResolvedValue(Buffer.from("screenshot")),
   content: vi.fn().mockResolvedValue("<html></html>"),
-  close: vi.fn().mockResolvedValue(undefined),
+  createCDPSession: vi.fn().mockResolvedValue(buildMockCDPSession()),
 });
 
-const buildMockBrowser = (page: MockPage): Browser =>
-  ({ newPage: () => Promise.resolve(page as unknown as Page) }) as unknown as Browser;
+const asPage = (page: MockPage): Page => page as unknown as Page;
 
 const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-task",
@@ -85,9 +92,8 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
     const capturer = new PageCapturer(config);
     const page = buildMockPage();
-    const browser = buildMockBrowser(page);
 
-    const result = await capturer.capture(browser, buildTask({ dismissBanners: true }), 0);
+    const result = await capturer.capture(asPage(page), buildTask({ dismissBanners: true }), 0);
 
     expect(dismissBannersMock).toHaveBeenCalledTimes(1);
     expect(dismissBannersMock).toHaveBeenCalledWith(page);
@@ -102,9 +108,8 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
     const capturer = new PageCapturer(config);
     const page = buildMockPage();
-    const browser = buildMockBrowser(page);
 
-    const result = await capturer.capture(browser, buildTask({ dismissBanners: false }), 0);
+    const result = await capturer.capture(asPage(page), buildTask({ dismissBanners: false }), 0);
 
     expect(dismissBannersMock).not.toHaveBeenCalled();
     expect(result.dismissReport).toBeUndefined();
@@ -118,9 +123,8 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
       status: () => 404,
       statusText: () => "Not Found",
     });
-    const browser = buildMockBrowser(page);
 
-    const result = await capturer.capture(browser, buildTask({ dismissBanners: true }), 0);
+    const result = await capturer.capture(asPage(page), buildTask({ dismissBanners: true }), 0);
 
     expect(dismissBannersMock).not.toHaveBeenCalled();
     expect(result.status).toBe("httpError");
