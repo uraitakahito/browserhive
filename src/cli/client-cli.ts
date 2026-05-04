@@ -22,6 +22,7 @@ export interface ClientOptions {
   png?: boolean;
   jpeg?: boolean;
   html?: boolean;
+  links?: boolean;
   limit?: number;
   tlsCaCert?: string;
   dismissBanners?: boolean;
@@ -63,6 +64,7 @@ export const createProgram = (): Command => {
     .option("--png", "Capture PNG screenshot")
     .option("--jpeg", "Capture JPEG screenshot")
     .option("--html", "Capture HTML")
+    .option("--links", "Extract <a href> links to a .links.json file")
     .addOption(
       new Option("--limit <n>", "Maximum number of entries to read from the data file")
         .argParser(parsePositiveInt),
@@ -100,6 +102,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     png?: boolean;
     jpeg?: boolean;
     html?: boolean;
+    links?: boolean;
     limit?: number;
     tlsCaCert?: string;
     dismissBanners?: boolean;
@@ -112,6 +115,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.png !== undefined && { png: opts.png }),
     ...(opts.jpeg !== undefined && { jpeg: opts.jpeg }),
     ...(opts.html !== undefined && { html: opts.html }),
+    ...(opts.links !== undefined && { links: opts.links }),
     ...(opts.limit !== undefined && { limit: opts.limit }),
     ...(opts.tlsCaCert !== undefined && { tlsCaCert: opts.tlsCaCert }),
     ...(opts.dismissBanners !== undefined && { dismissBanners: opts.dismissBanners }),
@@ -124,6 +128,7 @@ export const getCaptureFormats = (options: ClientOptions): CaptureFormats => {
     png: options.png ?? false,
     jpeg: options.jpeg ?? false,
     html: options.html ?? false,
+    links: options.links ?? false,
   };
 };
 

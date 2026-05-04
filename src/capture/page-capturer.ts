@@ -11,7 +11,7 @@ import { join } from "node:path";
 import type { Page } from "puppeteer";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
-import type { CaptureTask, CaptureResult } from "./types.js";
+import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
 import { captureStatus } from "./capture-status.js";
 import {
   createHttpError,
@@ -582,6 +582,7 @@ export class PageCapturer {
       let pngPath: string | undefined;
       let jpegPath: string | undefined;
       let htmlPath: string | undefined;
+      let linksPath: string | undefined;
 
       if (task.captureFormats.png) {
         pngPath = await this.captureScreenshot(page, task, "png");
@@ -593,6 +594,10 @@ export class PageCapturer {
 
       if (task.captureFormats.html) {
         htmlPath = await this.captureHtml(page, task);
+      }
+
+      if (task.captureFormats.links) {
+        linksPath = await this.captureLinks(page, task);
       }
 
       const captureProcessingTimeMs = Date.now() - startTime;
@@ -607,6 +612,7 @@ export class PageCapturer {
         ...(pngPath !== undefined && { pngPath }),
         ...(jpegPath !== undefined && { jpegPath }),
         ...(htmlPath !== undefined && { htmlPath }),
+        ...(linksPath !== undefined && { linksPath }),
         ...(dismissReport !== undefined && { dismissReport }),
       };
     } catch (error) {
@@ -683,6 +689,67 @@ export class PageCapturer {
     );
 
     await writeFile(filePath, html, "utf-8");
+
+    return filePath;
+  }
+
+  /**
+   * Extract every `<a href>` from the rendered page and write the result as
+   * `{taskId}_..._labels.links.json`. Same redirect hazard as the screenshot/
+   * content paths — `page.evaluate` walks the DOM under the live execution
+   * context, so destroyed-context rejections during a follow-up navigation
+   * are recovered by `runOnStableContext`.
+   *
+   * Filtering is server-side (browser returns raw `a.href` already
+   * absolutised against the page's base URL): drop non-http(s) schemes
+   * (mailto:, javascript:, tel:, blob:, ...) and dedupe by exact href.
+   */
+  private async captureLinks(page: Page, task: CaptureTask): Promise<string> {
+    const filename = generateFilename(task, "links.json");
+    const filePath = join(this.config.outputDir, filename);
+
+    const raw = await runOnStableContext(
+      page,
+      () =>
+        page.evaluate(() =>
+          Array.from(
+            document.querySelectorAll<HTMLAnchorElement>("a[href]"),
+          ).map((a) => ({
+            href: a.href,
+            text: a.textContent.trim().slice(0, 200),
+            rel: a.rel || null,
+          })),
+        ),
+      `Link extraction of ${task.url}`,
+      this.config.timeouts.capture,
+    );
+
+    const seen = new Set<string>();
+    const links: LinkRecord[] = [];
+    for (const link of raw) {
+      let parsed: URL;
+      try {
+        parsed = new URL(link.href);
+      } catch {
+        continue;
+      }
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") continue;
+      if (seen.has(link.href)) continue;
+      seen.add(link.href);
+      links.push(link);
+    }
+
+    const file: LinksFile = {
+      taskId: task.taskId,
+      url: task.url,
+      finalUrl: page.url(),
+      labels: task.labels,
+      ...(task.correlationId !== undefined && { correlationId: task.correlationId }),
+      capturedAt: new Date().toISOString(),
+      links,
+    };
+
+    await writeFile(filePath, JSON.stringify(file, null, 2), "utf-8");
 
     return filePath;
   }

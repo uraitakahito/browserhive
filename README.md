@@ -5,6 +5,7 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
 - **Multiple output formats**: PNG, JPEG screenshots and HTML capture
+- **Link extraction**: Optional `<a href>` extraction written as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Optional per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing — best-effort, never fails the capture
 - **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
@@ -303,10 +304,12 @@ Build first (the example is shipped only as TypeScript source):
 ```sh
 npm run build
 node dist/examples/data-client.js \
-  --data data/urls.yaml --jpeg --html --limit 30 \
+  --data data/urls.yaml --jpeg --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
+
+`--png` / `--jpeg` / `--html` / `--links` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。
 
 `data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
 

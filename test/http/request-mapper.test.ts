@@ -5,7 +5,7 @@ import type { CaptureRequest } from "../../src/http/generated/index.js";
 const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest => ({
   url: "https://example.com",
   labels: [],
-  captureFormats: { png: true, jpeg: false, html: false },
+  captureFormats: { png: true, jpeg: false, html: false, links: false },
   dismissBanners: false,
   ...overrides,
 });
@@ -19,7 +19,7 @@ describe("captureRequestToTask", () => {
 
   it("requires at least one capture format", () => {
     const result = captureRequestToTask(
-      baseRequest({ captureFormats: { png: false, jpeg: false, html: false } }),
+      baseRequest({ captureFormats: { png: false, jpeg: false, html: false, links: false } }),
     );
     expect(result.ok).toBe(false);
   });
