@@ -287,7 +287,7 @@ The full operation reference (request/response schemas, status codes, request sa
 
 ### Example: Data Client
 
-Example client that sends capture requests from a YAML data file (fire-and-forget). The format and parser live in [`examples/data-file.ts`](examples/data-file.ts); see [`data/README.md`](data/README.md) for the schema and a description of the bundled fixtures.
+Example client that sends capture requests from a YAML data file (fire-and-forget). The format and parser live in [`examples/data-file.ts`](examples/data-file.ts).
 
 The client sends requests and receives acceptance confirmations. Actual captures are processed asynchronously by the server. Check server logs for completion status.
 
