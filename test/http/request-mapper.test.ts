@@ -71,4 +71,40 @@ describe("captureRequestToTask", () => {
     if (!result.ok) return;
     expect(result.value.correlationId).toBeUndefined();
   });
+
+  it("propagates acceptLanguage to the CaptureTask", () => {
+    const result = captureRequestToTask(
+      baseRequest({ acceptLanguage: "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.acceptLanguage).toBe(
+      "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
+    );
+  });
+
+  it("trims surrounding whitespace from acceptLanguage", () => {
+    const result = captureRequestToTask(
+      baseRequest({ acceptLanguage: "  en-US  " }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.acceptLanguage).toBe("en-US");
+  });
+
+  it("omits acceptLanguage when not provided", () => {
+    const result = captureRequestToTask(baseRequest());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.acceptLanguage).toBeUndefined();
+  });
+
+  it("omits acceptLanguage when only whitespace", () => {
+    const result = captureRequestToTask(
+      baseRequest({ acceptLanguage: "   " }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.acceptLanguage).toBeUndefined();
+  });
 });

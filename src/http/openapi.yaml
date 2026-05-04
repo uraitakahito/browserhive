@@ -63,6 +63,21 @@ paths:
                     jpeg: false
                     html: false
                   dismissBanners: true
+              acceptLanguageJa:
+                summary: Capture the Japanese variant of a multilingual site
+                description: |
+                  Sends `Accept-Language: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7`
+                  on the upstream request so sites that vary content by language
+                  (Google, Wikipedia, locale-redirecting corporate sites, etc.)
+                  return the Japanese rendition.
+                value:
+                  url: https://www.google.com/
+                  labels: [google, ja]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: true
+                  acceptLanguage: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7
       responses:
         "202":
           description: Request accepted for processing
@@ -157,6 +172,26 @@ components:
           description: Correlation ID provided by the client for tracking
         captureFormats:
           $ref: "#/components/schemas/CaptureFormats"
+        acceptLanguage:
+          type: string
+          minLength: 1
+          maxLength: 200
+          # Printable ASCII only — disallows CR / LF / NUL and other control
+          # characters so a malicious value cannot inject additional HTTP
+          # headers when forwarded via Network.setExtraHTTPHeaders.
+          pattern: "^[\\x20-\\x7e]+$"
+          description: |
+            Value to send as the upstream `Accept-Language` header for this
+            capture only. Useful for sites whose content varies by language
+            (locale-redirecting corporate top pages, search engines,
+            Wikipedia, etc.).
+
+            Format follows IETF BCP 47 quality-list syntax, e.g.
+            `ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7`.
+
+            When omitted, no `Accept-Language` header is set explicitly and
+            the upstream Chromium uses its built-in default (controlled by
+            its `--lang` startup flag / OS locale).
         dismissBanners:
           type: boolean
           default: false

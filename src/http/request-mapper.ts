@@ -53,6 +53,11 @@ export const captureRequestToTask = (
     }
   }
 
+  // Trim then drop empty — character-class checks (CR/LF/NUL) are already
+  // enforced by the OpenAPI schema's `pattern: ^[\x20-\x7e]+$`, so no
+  // additional domain validation is needed here.
+  const acceptLanguage = request.acceptLanguage?.trim();
+
   const taskId = randomUUID();
   const task: CaptureTask = {
     taskId,
@@ -66,6 +71,8 @@ export const captureRequestToTask = (
       request.correlationId !== "" && {
         correlationId: request.correlationId,
       }),
+    ...(acceptLanguage !== undefined &&
+      acceptLanguage !== "" && { acceptLanguage }),
   };
 
   return ok(task);

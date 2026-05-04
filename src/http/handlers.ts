@@ -75,6 +75,7 @@ export const createCaptureHandlers = (
         ...(task.correlationId && { correlationId: task.correlationId }),
         captureFormats: task.captureFormats,
         dismissBanners: task.dismissBanners,
+        ...(task.acceptLanguage && { acceptLanguage: task.acceptLanguage }),
         url: task.url,
       },
       "Capture request accepted",

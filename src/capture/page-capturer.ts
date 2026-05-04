@@ -445,7 +445,9 @@ export class PageCapturer {
    * `configureViewport` / `setUserAgent` / `setAcceptLanguage` are single
    * CDP calls (`Emulation.*`, `Network.setExtraHTTPHeaders`) that do not
    * await navigation and complete in microseconds; intentionally not
-   * wrapped.
+   * wrapped. `setAcceptLanguage` reads from `task.acceptLanguage` (per
+   * request) rather than a server-wide config — its single-CDP-call cost
+   * profile is unchanged whether the value is fixed or per-task.
    *
    * See `BrowserClient.process` for the outer Layer B safety net that
    * catches anything that slips through here.
@@ -472,7 +474,7 @@ export class PageCapturer {
       const livePage = page;
       await configureViewport(livePage, this.config);
       await setUserAgent(livePage, this.config.userAgent);
-      await setAcceptLanguage(livePage, this.config.acceptLanguage);
+      await setAcceptLanguage(livePage, task.acceptLanguage);
 
       const response = await withTimeout(
         livePage.goto(task.url, {

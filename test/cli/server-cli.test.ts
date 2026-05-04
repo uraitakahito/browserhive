@@ -81,7 +81,6 @@ describe("server-cli parseCliOptions", () => {
       vi.stubEnv("BROWSERHIVE_VIEWPORT_HEIGHT", "1080");
       vi.stubEnv("BROWSERHIVE_SCREENSHOT_QUALITY", "85");
       vi.stubEnv("BROWSERHIVE_USER_AGENT", "TestBot/1.0");
-      vi.stubEnv("BROWSERHIVE_ACCEPT_LANGUAGE", "ja-JP");
 
       const config = parseCliOptions(argv());
 
@@ -92,7 +91,6 @@ describe("server-cli parseCliOptions", () => {
       expect(capture?.viewport).toEqual({ width: 1920, height: 1080 });
       expect(capture?.screenshot.quality).toBe(85);
       expect(capture?.userAgent).toBe("TestBot/1.0");
-      expect(capture?.acceptLanguage).toBe("ja-JP");
     });
   });
 
