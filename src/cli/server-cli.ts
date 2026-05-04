@@ -77,7 +77,6 @@ interface ParsedOptions {
   tlsCert?: string;
   tlsKey?: string;
   userAgent?: string;
-  acceptLanguage?: string;
 }
 
 /** Same as ParsedOptions but with all post-resolution fields required. */
@@ -115,7 +114,6 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       ...(opts.screenshotQuality !== undefined && { quality: opts.screenshotQuality }),
     },
     ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
-    ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
   };
 
   return {
@@ -227,12 +225,6 @@ export const createProgram = (): Command => {
         "--user-agent <string>",
         "Custom User-Agent string (uses browser default if not specified)",
       ).env("BROWSERHIVE_USER_AGENT"),
-    )
-    .addOption(
-      new Option(
-        "--accept-language <string>",
-        "Accept-Language header value (e.g., 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7')",
-      ).env("BROWSERHIVE_ACCEPT_LANGUAGE"),
     )
     .addOption(
       new Option(
@@ -356,7 +348,6 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       },
       rejectDuplicateUrls: coordinator.rejectDuplicateUrls,
       userAgent: capture.userAgent ?? "(browser default)",
-      acceptLanguage: capture.acceptLanguage ?? "(browser default)",
     },
     "Server configuration",
   );

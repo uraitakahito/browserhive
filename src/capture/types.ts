@@ -20,6 +20,12 @@ export interface CaptureTask {
   url: string;
   retryCount: number;
   captureFormats: CaptureFormats;
+  /**
+   * Upstream `Accept-Language` header to send for this capture. Validated
+   * by the OpenAPI schema (printable ASCII only, ≤ 200 chars). Undefined
+   * means "let Chromium use its built-in default".
+   */
+  acceptLanguage?: string;
   /** Whether to run banner / modal dismissal before capturing */
   dismissBanners: boolean;
   /**

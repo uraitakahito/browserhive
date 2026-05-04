@@ -249,9 +249,12 @@ CLI flags override env values; mix and match as needed:
 LOG_LEVEL=info npm run server -- \
   --reject-duplicate-urls \
   --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" \
-  --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
+
+`Accept-Language` is configured per request via the `acceptLanguage` field on
+`POST /v1/captures` (see the OpenAPI reference below). When the field is
+omitted, the upstream Chromium uses its built-in default.
 
 #### Environment variables
 
@@ -273,7 +276,6 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--screenshot-quality <n>` | `BROWSERHIVE_SCREENSHOT_QUALITY` | integer (1–100) |
 | `--reject-duplicate-urls` | `BROWSERHIVE_REJECT_DUPLICATE_URLS` | `"true"`/`"1"` or `"false"`/`"0"` |
 | `--user-agent <string>` | `BROWSERHIVE_USER_AGENT` | string |
-| `--accept-language <string>` | `BROWSERHIVE_ACCEPT_LANGUAGE` | string |
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
