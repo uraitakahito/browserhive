@@ -2,8 +2,8 @@
  * S3-compatible artifact store.
  *
  * Targets MinIO and AWS S3 via the same `@aws-sdk/client-s3` SDK. The
- * caller injects the resolved `S3StorageConfig`; this class is unaware
- * of CLI / env handling.
+ * caller injects the resolved `StorageConfig`; this class is unaware of
+ * CLI / env handling.
  *
  * `initialize()` runs `HeadBucket` once at startup so misconfigured
  * deployments fail fast — without it, the operator would only learn
@@ -25,7 +25,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { S3StorageConfig } from "../config/index.js";
+import type { StorageConfig } from "../config/index.js";
 import type { ArtifactContentType, ArtifactStore } from "./types.js";
 
 export class S3ArtifactStore implements ArtifactStore {
@@ -33,7 +33,7 @@ export class S3ArtifactStore implements ArtifactStore {
   private readonly bucket: string;
   private readonly keyPrefix: string;
 
-  constructor(config: S3StorageConfig) {
+  constructor(config: StorageConfig) {
     this.client = new S3Client({
       endpoint: config.endpoint,
       region: config.region,

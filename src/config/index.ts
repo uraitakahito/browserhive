@@ -7,8 +7,6 @@ export type {
   CoordinatorConfig,
   BrowserHiveConfig,
   BrowserProfile,
-  LocalStorageConfig,
-  S3StorageConfig,
   StorageConfig,
   TlsConfig,
   ClientTlsConfig,
@@ -19,5 +17,4 @@ export {
   DEFAULT_BROWSERHIVE_CONFIG,
   DEFAULT_BROWSER_SLOW_MO_MS,
   DEFAULT_DYNAMIC_CONTENT_WAIT_MS,
-  DEFAULT_STORAGE_CONFIG,
 } from "./defaults.js";

@@ -1,32 +1,20 @@
 /**
  * PageCapturer integration test for link extraction wiring.
  *
- * Mocks `node:fs/promises.writeFile` so the test does not touch disk,
- * and stubs `page.evaluate` to feed the captureLinks pass synthetic
- * anchor records. Server-side filtering (http(s) only, dedupe by href)
- * is exercised here; the in-page text trim / rel handling is browser-side
- * and intentionally out of scope.
+ * Uses `createTestArtifactStore()` (in-memory FakeArtifactStore) to capture
+ * each `put()` call without touching the network. Server-side filtering
+ * (http(s) only, dedupe by href) is exercised here; the in-page text trim /
+ * rel handling is browser-side and intentionally out of scope.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Page } from "puppeteer";
 import type { CaptureTask } from "../../src/capture/types.js";
-import { createTestCaptureConfig } from "../helpers/config.js";
-
-const writeFileMock =
-  vi.fn<
-    (path: string, content: string | Buffer, encoding?: string) => Promise<void>
-  >();
-vi.mock("node:fs/promises", () => ({
-  writeFile: (
-    path: string,
-    content: string | Buffer,
-    encoding?: string,
-  ): Promise<void> => writeFileMock(path, content, encoding),
-}));
-
-// Import after mocking.
 import { PageCapturer } from "../../src/capture/page-capturer.js";
-import { LocalArtifactStore } from "../../src/storage/index.js";
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+  type FakeArtifactStore,
+} from "../helpers/config.js";
 
 interface MockPage {
   setViewport: ReturnType<typeof vi.fn>;
@@ -93,24 +81,25 @@ interface WrittenLinksFile {
   links: WrittenLinkRecord[];
 }
 
-const findLinksWrite = (): WrittenLinksFile => {
-  const call = writeFileMock.mock.calls.find(
-    ([path]: unknown[]) =>
-      typeof path === "string" && path.endsWith(".links.json"),
-  );
-  if (!call) throw new Error("expected a .links.json writeFile call");
-  return JSON.parse(call[1] as string) as WrittenLinksFile;
+const findLinksWrite = (store: FakeArtifactStore): WrittenLinksFile => {
+  const put = store.puts.find((p) => p.filename.endsWith(".links.json"));
+  if (!put) throw new Error("expected a .links.json put");
+  if (typeof put.body !== "string") {
+    throw new Error("expected .links.json body to be a string");
+  }
+  return JSON.parse(put.body) as WrittenLinksFile;
 };
 
 describe("PageCapturer.capture — link extraction", () => {
+  let store: FakeArtifactStore;
+
   beforeEach(() => {
-    writeFileMock.mockReset();
-    writeFileMock.mockResolvedValue(undefined);
+    store = createTestArtifactStore("/tmp/out");
   });
 
   it("writes a .links.json file with the extracted links", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate
       .mockResolvedValueOnce(undefined) // dynamic-content wait
@@ -122,7 +111,7 @@ describe("PageCapturer.capture — link extraction", () => {
     const result = await capturer.capture(asPage(page), buildTask(), 0);
 
     expect(result.linksLocation).toBe("/tmp/out/test-task-id_test.links.json");
-    const written = findLinksWrite();
+    const written = findLinksWrite(store);
     expect(written).toMatchObject({
       taskId: "test-task-id",
       url: "https://example.com",
@@ -138,7 +127,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
   it("filters out non-http(s) schemes (mailto:, javascript:, tel:)", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate
       .mockResolvedValueOnce(undefined)
@@ -152,7 +141,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
     await capturer.capture(asPage(page), buildTask(), 0);
 
-    const written = findLinksWrite();
+    const written = findLinksWrite(store);
     expect(written.links.map((l) => l.href)).toEqual([
       "https://example.com/keep",
       "http://example.com/insecure",
@@ -161,7 +150,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
   it("dedupes by href, keeping the first occurrence", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate
       .mockResolvedValueOnce(undefined)
@@ -173,7 +162,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
     await capturer.capture(asPage(page), buildTask(), 0);
 
-    const written = findLinksWrite();
+    const written = findLinksWrite(store);
     expect(written.links).toEqual([
       { href: "https://example.com/a", text: "First", rel: null },
       { href: "https://example.com/b", text: "Other", rel: null },
@@ -182,7 +171,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
   it("drops malformed URLs that the URL constructor rejects", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate
       .mockResolvedValueOnce(undefined)
@@ -194,7 +183,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
     await capturer.capture(asPage(page), buildTask(), 0);
 
-    const written = findLinksWrite();
+    const written = findLinksWrite(store);
     expect(written.links.map((l) => l.href)).toEqual([
       "https://example.com/ok",
     ]);
@@ -202,7 +191,7 @@ describe("PageCapturer.capture — link extraction", () => {
 
   it("writes an empty links array when the page has no anchors", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate
       .mockResolvedValueOnce(undefined)
@@ -211,12 +200,12 @@ describe("PageCapturer.capture — link extraction", () => {
     const result = await capturer.capture(asPage(page), buildTask(), 0);
 
     expect(result.linksLocation).toBe("/tmp/out/test-task-id_test.links.json");
-    expect(findLinksWrite().links).toEqual([]);
+    expect(findLinksWrite(store).links).toEqual([]);
   });
 
   it("does not extract links when captureFormats.links is false", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate.mockResolvedValueOnce(undefined); // dynamic-content wait only
 
@@ -230,16 +219,13 @@ describe("PageCapturer.capture — link extraction", () => {
 
     expect(page.evaluate).toHaveBeenCalledTimes(1);
     expect(result.linksLocation).toBeUndefined();
-    const linksCall = writeFileMock.mock.calls.find(
-      ([path]: unknown[]) =>
-        typeof path === "string" && path.endsWith(".links.json"),
-    );
-    expect(linksCall).toBeUndefined();
+    const linksPut = store.puts.find((p) => p.filename.endsWith(".links.json"));
+    expect(linksPut).toBeUndefined();
   });
 
   it("includes correlationId in the file payload when present on the task", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
     page.evaluate
       .mockResolvedValueOnce(undefined)
@@ -253,6 +239,6 @@ describe("PageCapturer.capture — link extraction", () => {
       0,
     );
 
-    expect(findLinksWrite().correlationId).toBe("ext-42");
+    expect(findLinksWrite(store).correlationId).toBe("ext-42");
   });
 });

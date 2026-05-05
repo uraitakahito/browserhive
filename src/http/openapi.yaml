@@ -30,8 +30,9 @@ paths:
 
         ## Filename format
 
-        Captured files are written under the configured output directory.
-        The filename is derived from the task identifiers as follows:
+        Captured artifacts are uploaded to the configured S3-compatible
+        bucket as `s3://<bucket>/[<keyPrefix>/]<filename>`. The filename
+        is derived from the task identifiers as follows:
 
         | Case | Format | Example |
         |------|--------|---------|
@@ -241,20 +242,20 @@ components:
         links:
           type: boolean
           description: |
-            Extract `<a href>` links from the rendered page and write the
-            list as `{taskId}_..._labels.links.json` in the output
-            directory (same naming pattern as the other capture formats).
+            Extract `<a href>` links from the rendered page and upload the
+            list as `{taskId}_..._labels.links.json` to the configured
+            S3 bucket (same naming pattern as the other capture formats).
             Useful as the discovery side of an external crawl driver.
         pdf:
           type: boolean
           description: |
-            Render the page to PDF and write it as
-            `{taskId}_..._labels.pdf` in the output directory (same naming
-            pattern as the other capture formats). Uses Chromium's print
-            pipeline with the `print` CSS media type and `printBackground:
-            true`; the page format is fixed to A4. Distinct from the PNG /
-            JPEG screenshot path — PDF is intended for archival /
-            print-oriented use cases.
+            Render the page to PDF and upload it as
+            `{taskId}_..._labels.pdf` to the configured S3 bucket (same
+            naming pattern as the other capture formats). Uses Chromium's
+            print pipeline with the `print` CSS media type and
+            `printBackground: true`; the page format is fixed to A4.
+            Distinct from the PNG / JPEG screenshot path — PDF is intended
+            for archival / print-oriented use cases.
     CaptureRequest:
       type: object
       required: [url, captureFormats]

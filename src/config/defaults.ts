@@ -2,7 +2,6 @@ import type {
   CaptureConfig,
   CoordinatorConfig,
   BrowserHiveConfig,
-  StorageConfig,
 } from "./types.js";
 
 /**
@@ -23,16 +22,6 @@ export const DEFAULT_BROWSER_SLOW_MO_MS = 0;
  * @see https://pptr.dev/api/puppeteer.page.evaluate
  */
 export const DEFAULT_DYNAMIC_CONTENT_WAIT_MS = 3000;
-
-/**
- * Default storage backend. The `kind: "local"` arm is the historical
- * behaviour; `outputDir` is empty here because it is always supplied
- * by the CLI / env layer (`buildServerConfig` in `server-cli.ts`).
- */
-export const DEFAULT_STORAGE_CONFIG: StorageConfig = {
-  kind: "local",
-  outputDir: "",
-};
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   timeouts: {
@@ -64,15 +53,28 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   },
 };
 
-export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
+/**
+ * Defaults that apply regardless of the deploy target. `storage` and
+ * `browserProfiles` have no meaningful default — they are always supplied by
+ * `buildServerConfig` in `server-cli.ts` from CLI / env input — so they are
+ * absent from this object. Test fixtures fill them in via
+ * `createTestCoordinatorConfig`.
+ */
+export const DEFAULT_COORDINATOR_CONFIG = {
   browserProfiles: [],
-  storage: DEFAULT_STORAGE_CONFIG,
   maxRetryCount: 2,
   queuePollIntervalMs: 50,
   rejectDuplicateUrls: false,
-};
+} satisfies Omit<CoordinatorConfig, "storage">;
 
-export const DEFAULT_BROWSERHIVE_CONFIG: BrowserHiveConfig = {
+/**
+ * Top-level default for documentation / test seeds. The `storage` key under
+ * `coordinator` is intentionally absent because no useful global default
+ * exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
+ */
+export const DEFAULT_BROWSERHIVE_CONFIG = {
   port: 8080,
   coordinator: DEFAULT_COORDINATOR_CONFIG,
+} satisfies Omit<BrowserHiveConfig, "coordinator"> & {
+  coordinator: typeof DEFAULT_COORDINATOR_CONFIG;
 };

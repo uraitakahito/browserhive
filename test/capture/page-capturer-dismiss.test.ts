@@ -11,7 +11,10 @@ import type {
   DismissOptions,
   DismissReport,
 } from "../../src/capture/banner-dismisser.js";
-import { createTestCaptureConfig } from "../helpers/config.js";
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+} from "../helpers/config.js";
 
 const dismissBannersMock =
   vi.fn<(page: Page, opts: DismissOptions) => Promise<DismissReport>>();
@@ -29,7 +32,6 @@ vi.mock("../../src/capture/banner-dismisser.js", async () => {
 
 // Import after mocking.
 import { PageCapturer } from "../../src/capture/page-capturer.js";
-import { LocalArtifactStore } from "../../src/storage/index.js";
 
 /**
  * Equivalent in shape to `DEFAULT_DISMISS_OPTIONS` from production. We
@@ -92,11 +94,6 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   ...overrides,
 });
 
-// Use writeFile mock so the test does not actually touch disk.
-vi.mock("node:fs/promises", () => ({
-  writeFile: vi.fn().mockResolvedValue(undefined),
-}));
-
 describe("PageCapturer.capture — banner dismissal integration", () => {
   beforeEach(() => {
     dismissBannersMock.mockReset();
@@ -109,7 +106,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
 
   it("calls dismissBanners and attaches the report when task.dismissOptions is set", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
 
     const result = await capturer.capture(
@@ -129,7 +126,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
 
   it("does not call dismissBanners when task.dismissOptions is undefined", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
 
     const result = await capturer.capture(asPage(page), buildTask(), 0);
@@ -140,7 +137,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
 
   it("forwards inline custom DismissOptions verbatim to dismissBanners", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
 
     const customOpts: DismissOptions = {
@@ -160,7 +157,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
 
   it("does not call dismissBanners when the page returned an HTTP error", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
     page.goto.mockResolvedValue({
       status: () => 404,
@@ -179,7 +176,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
 
   it("propagates a strict-mode dismissal rejection as a failed CaptureResult", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
+    const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
     const cdpSession = buildMockCDPSession();
     page.createCDPSession.mockResolvedValue(cdpSession);

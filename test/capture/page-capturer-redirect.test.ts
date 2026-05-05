@@ -19,15 +19,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { HTTPResponse, Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
-import { LocalArtifactStore } from "../../src/storage/index.js";
 import type { CaptureTask } from "../../src/capture/types.js";
-import { createTestCaptureConfig } from "../helpers/config.js";
-
-// Capture pipeline writes screenshots / HTML to disk on the success path.
-// These tests need that path to run, so stub the writer.
-vi.mock("node:fs/promises", () => ({
-  writeFile: vi.fn().mockResolvedValue(undefined),
-}));
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+} from "../helpers/config.js";
 
 const DESTROYED =
   "Execution context was destroyed, most likely because of a navigation.";
@@ -117,7 +113,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
   it("recovers when page.evaluate (dynamic-content wait) destroys context once", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig(),
-      new LocalArtifactStore("/tmp/redirect-test-out"),
+      createTestArtifactStore(),
     );
     const page = buildPage({ evaluateDestroysOnce: true });
 
@@ -133,7 +129,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
   it("recovers when page.screenshot destroys context once", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig(),
-      new LocalArtifactStore("/tmp/redirect-test-out"),
+      createTestArtifactStore(),
     );
     const page = buildPage({ screenshotDestroysOnce: true });
 
@@ -148,7 +144,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
   it("recovers when page.content (HTML) destroys context once", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig(),
-      new LocalArtifactStore("/tmp/redirect-test-out"),
+      createTestArtifactStore(),
     );
     const page = buildPage({ contentDestroysOnce: true });
 

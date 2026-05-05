@@ -1,34 +1,19 @@
 /**
  * PageCapturer integration test for PDF rendering wiring.
  *
- * Mocks `node:fs/promises.writeFile` so the test does not touch disk,
- * and stubs `page.pdf` to return a synthetic byte buffer. Mirrors the
- * structure of `page-capturer-links.test.ts` — only the PDF-specific
- * assertions differ.
+ * Uses `createTestArtifactStore()` (in-memory FakeArtifactStore) to capture
+ * each `put()` call without touching the network. Mirrors the structure of
+ * `page-capturer-links.test.ts` — only the PDF-specific assertions differ.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Page } from "puppeteer";
 import type { CaptureTask } from "../../src/capture/types.js";
-import { createTestCaptureConfig } from "../helpers/config.js";
-
-const writeFileMock =
-  vi.fn<
-    (path: string, content: string | Buffer, encoding?: string) => Promise<void>
-  >();
-vi.mock("node:fs/promises", () => ({
-  writeFile: (
-    path: string,
-    content: string | Buffer,
-    encoding?: string,
-  ): Promise<void> => writeFileMock(path, content, encoding),
-}));
-
-// Import after mocking.
 import { PageCapturer } from "../../src/capture/page-capturer.js";
-import { LocalArtifactStore } from "../../src/storage/index.js";
-
-const buildStore = (outputDir: string): LocalArtifactStore =>
-  new LocalArtifactStore(outputDir);
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+  type FakeArtifactStore,
+} from "../helpers/config.js";
 
 interface MockPage {
   setViewport: ReturnType<typeof vi.fn>;
@@ -81,23 +66,25 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   ...overrides,
 });
 
-const findPdfWrite = (): { path: string; buffer: Buffer } => {
-  const call = writeFileMock.mock.calls.find(
-    ([path]: unknown[]) => typeof path === "string" && path.endsWith(".pdf"),
-  );
-  if (!call) throw new Error("expected a .pdf writeFile call");
-  return { path: call[0], buffer: call[1] as Buffer };
+const findPdfPut = (store: FakeArtifactStore): { filename: string; buffer: Buffer } => {
+  const put = store.puts.find((p) => p.filename.endsWith(".pdf"));
+  if (!put) throw new Error("expected a .pdf put");
+  if (!Buffer.isBuffer(put.body)) {
+    throw new Error("expected .pdf body to be a Buffer");
+  }
+  return { filename: put.filename, buffer: put.body };
 };
 
 describe("PageCapturer.capture — PDF rendering", () => {
+  let store: FakeArtifactStore;
+
   beforeEach(() => {
-    writeFileMock.mockReset();
-    writeFileMock.mockResolvedValue(undefined);
+    store = createTestArtifactStore("/tmp/out");
   });
 
   it("writes a .pdf file when captureFormats.pdf is true", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, buildStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
 
     const result = await capturer.capture(asPage(page), buildTask(), 0);
@@ -108,14 +95,14 @@ describe("PageCapturer.capture — PDF rendering", () => {
       format: "A4",
       printBackground: true,
     });
-    const written = findPdfWrite();
-    expect(written.path).toBe("/tmp/out/test-task-id_test.pdf");
+    const written = findPdfPut(store);
+    expect(written.filename).toBe("test-task-id_test.pdf");
     expect(written.buffer.toString()).toBe("%PDF-1.4 fake");
   });
 
   it("does not call page.pdf when captureFormats.pdf is false", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, buildStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
 
     const result = await capturer.capture(
@@ -132,7 +119,7 @@ describe("PageCapturer.capture — PDF rendering", () => {
 
   it("retries page.pdf once when the first attempt hits a destroyed-context", async () => {
     const config = createTestCaptureConfig();
-    const capturer = new PageCapturer(config, buildStore("/tmp/out"));
+    const capturer = new PageCapturer(config, store);
     const page = buildMockPage();
 
     page.pdf
@@ -149,7 +136,7 @@ describe("PageCapturer.capture — PDF rendering", () => {
     expect(page.pdf).toHaveBeenCalledTimes(2);
     expect(waitForNavigationMock).toHaveBeenCalledTimes(1);
     expect(result.pdfLocation).toBe("/tmp/out/test-task-id_test.pdf");
-    const written = findPdfWrite();
+    const written = findPdfPut(store);
     expect(written.buffer.toString()).toBe("%PDF-after-retry");
   });
 });

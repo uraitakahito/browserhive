@@ -14,26 +14,11 @@ export interface ScreenshotConfig {
 }
 
 /**
- * Discriminated union of artifact storage backends.
- *
- * `local` writes to the host filesystem (the legacy behaviour).
- * `s3` writes to any S3-compatible object store (MinIO, AWS S3, etc.).
- *
- * The two backends are mutually exclusive — exactly one is selected per
- * server process via `--storage <local|s3>`.
+ * S3-compatible artifact storage configuration. The server writes every
+ * captured artifact to a single bucket via `@aws-sdk/client-s3`, which
+ * works against MinIO, AWS S3, Cloudflare R2, and similar object stores.
  */
-export type StorageConfig =
-  | LocalStorageConfig
-  | S3StorageConfig;
-
-export interface LocalStorageConfig {
-  kind: "local";
-  /** Filesystem directory where artifacts are written. */
-  outputDir: string;
-}
-
-export interface S3StorageConfig {
-  kind: "s3";
+export interface StorageConfig {
   /** Endpoint URL (e.g. `http://minio:9000` for MinIO, `https://s3.amazonaws.com` for AWS). */
   endpoint: string;
   /** Region label sent on every request. MinIO ignores it; AWS does not. */

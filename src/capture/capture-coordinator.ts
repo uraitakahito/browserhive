@@ -7,11 +7,7 @@
  */
 import { createActor, type SnapshotFrom } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
-import {
-  LocalArtifactStore,
-  S3ArtifactStore,
-  type ArtifactStore,
-} from "../storage/index.js";
+import { S3ArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
@@ -56,26 +52,12 @@ export interface GetStatusOptions {
   pendingLimit?: number;
 }
 
-/**
- * Build the `ArtifactStore` instance that backs every capture this
- * coordinator will run. Dispatches on `CoordinatorConfig.storage.kind`.
- */
-const buildArtifactStore = (config: CoordinatorConfig): ArtifactStore => {
-  const storage = config.storage;
-  switch (storage.kind) {
-    case "local":
-      return new LocalArtifactStore(storage.outputDir);
-    case "s3":
-      return new S3ArtifactStore(storage);
-  }
-};
-
 export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
 
   constructor(config: CoordinatorConfig) {
-    this.store = buildArtifactStore(config);
+    this.store = new S3ArtifactStore(config.storage);
     this.lifecycleActor = createActor(coordinatorMachine, {
       input: { config, store: this.store },
     });
