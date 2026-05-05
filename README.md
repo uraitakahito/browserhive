@@ -124,10 +124,6 @@ LOG_LEVEL=info npm run server -- \
   | pino-pretty
 ```
 
-`Accept-Language` is configured per request via the `acceptLanguage` field on
-`POST /v1/captures` (see the OpenAPI reference below). When the field is
-omitted, the upstream Chromium uses its built-in default.
-
 #### Environment variables
 
 Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **CLI flag > env var > default**.
