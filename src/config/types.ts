@@ -16,12 +16,13 @@ export interface ScreenshotConfig {
 /**
  * S3-compatible artifact storage configuration. The server writes every
  * captured artifact to a single bucket via `@aws-sdk/client-s3`, which
- * works against MinIO, AWS S3, Cloudflare R2, and similar object stores.
+ * works against the bundled SeaweedFS and any other S3-compatible
+ * store — AWS S3, Cloudflare R2, MinIO-compatible managed services.
  */
 export interface StorageConfig {
-  /** Endpoint URL (e.g. `http://minio:9000` for MinIO, `https://s3.amazonaws.com` for AWS). */
+  /** Endpoint URL (e.g. `http://seaweedfs:8333` for the bundled SeaweedFS, `https://s3.amazonaws.com` for AWS). */
   endpoint: string;
-  /** Region label sent on every request. MinIO ignores it; AWS does not. */
+  /** Region label sent on every request. SeaweedFS ignores it; AWS does not. */
   region: string;
   /** Target bucket. Must exist before the server starts. */
   bucket: string;
@@ -30,10 +31,11 @@ export interface StorageConfig {
   /** Optional prefix prepended to every object key (no trailing slash needed). */
   keyPrefix?: string;
   /**
-   * MinIO requires path-style addressing (`endpoint/bucket/key`) because
-   * its endpoint hostname does not match the bucket. AWS S3 supports
-   * virtual-hosted-style by default. Defaults to `true` so MinIO works
-   * out of the box.
+   * SeaweedFS (and most S3-compatible self-hosted stores) require
+   * path-style addressing (`endpoint/bucket/key`) because the endpoint
+   * hostname does not match the bucket. AWS S3 supports
+   * virtual-hosted-style by default. Defaults to `true` so the bundled
+   * SeaweedFS works out of the box.
    */
   forcePathStyle?: boolean;
 }
