@@ -28,7 +28,6 @@ describe("taskToAcceptance", () => {
       url: "https://example.com",
       retryCount: 0,
       captureFormats: { png: true, jpeg: false, html: false, links: false },
-      dismissBanners: false,
       correlationId: "EXT-1",
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
@@ -46,7 +45,6 @@ describe("taskToAcceptance", () => {
       url: "https://example.com",
       retryCount: 0,
       captureFormats: { png: true, jpeg: false, html: false, links: false },
-      dismissBanners: false,
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
     expect(taskToAcceptance(task)).toEqual({
@@ -137,8 +135,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
           url: "https://example.com",
           retryCount: 1,
           captureFormats: { png: true, jpeg: false, html: false, links: false },
-          dismissBanners: false,
-          correlationId: "EXT-9",
+              correlationId: "EXT-9",
           enqueuedAt: "2024-01-01T00:00:00.000Z",
         },
       },
@@ -213,8 +210,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
               url: "https://example.com/slow",
               retryCount: 0,
               captureFormats: { png: true, jpeg: false, html: false, links: false },
-              dismissBanners: false,
-              enqueuedAt: "2024-01-01T00:00:00.000Z",
+                      enqueuedAt: "2024-01-01T00:00:00.000Z",
             },
           },
         },
@@ -243,7 +239,6 @@ describe("currentTaskToWire", () => {
     url: "https://example.com",
     retryCount: 0,
     captureFormats: { png: true, jpeg: false, html: false, links: false },
-    dismissBanners: false,
     enqueuedAt: "2024-01-01T00:00:00.000Z",
   };
 
@@ -269,7 +264,6 @@ describe("taskToPending", () => {
     url: "https://example.com/p",
     retryCount: 2,
     captureFormats: { png: true, jpeg: false, html: false, links: false },
-    dismissBanners: false,
     enqueuedAt,
   };
 
@@ -313,7 +307,6 @@ describe("taskToProcessing", () => {
       url: "https://example.com/p",
       retryCount: 0,
       captureFormats: { png: true, jpeg: false, html: false, links: false },
-      dismissBanners: false,
       enqueuedAt,
     },
   };
@@ -377,8 +370,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
           url: "https://example.com/queued",
           retryCount: 0,
           captureFormats: { png: true, jpeg: false, html: false, links: false },
-          dismissBanners: false,
-          enqueuedAt,
+              enqueuedAt,
         },
       ],
       processingTasks: [],
@@ -423,8 +415,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
             url: "https://example.com/running",
             retryCount: 1,
             captureFormats: { png: true, jpeg: false, html: false, links: false },
-            dismissBanners: false,
-            enqueuedAt,
+                  enqueuedAt,
           },
         },
       ],

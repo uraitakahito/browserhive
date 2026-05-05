@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 import type { Page } from "puppeteer";
 import {
+  CUSTOM_FRAMEWORK_LABEL,
   runDismissalInDocument,
   dismissBanners,
+  resolveDismissSpec,
   EMPTY_DISMISS_REPORT,
   KNOWN_CMP_ENTRIES,
   DEFAULT_DISMISS_OPTIONS,
@@ -296,7 +298,7 @@ describe("runDismissalInDocument — pass 2 (heuristic overlays)", () => {
     // Custom threshold (0.2 coverage, 100 z-index) → matches.
     const lenient: DismissOptions = {
       knownCmpEntries: [],
-      heuristic: { minViewportCoverageRatio: 0.2, minZIndex: 100 },
+      heuristic: { enabled: true, minViewportCoverageRatio: 0.2, minZIndex: 100 },
     };
 
     const reportStrict = runDismissalInDocument(
@@ -330,6 +332,120 @@ describe("runDismissalInDocument — combined passes", () => {
     expect(report.removedOverlayCount).toBe(1);
     // First match wins for the framework label.
     expect(report.framework).toBe("OneTrust");
+  });
+});
+
+describe("runDismissalInDocument — per-selector resilience", () => {
+  it("skips an invalid selector and continues with the rest", () => {
+    const { doc, win } = buildDom(`
+      <body>
+        <div id="onetrust-banner-sdk">consent</div>
+      </body>
+    `);
+    const opts: DismissOptions = {
+      knownCmpEntries: [
+        // querySelector throws SyntaxError on this — must be swallowed.
+        { framework: "custom", selector: "[" },
+        { framework: "OneTrust", selector: "#onetrust-banner-sdk" },
+      ],
+      heuristic: { ...DEFAULT_HEURISTIC_THRESHOLDS, enabled: false },
+    };
+
+    const report = runDismissalInDocument(doc, win, opts);
+
+    expect(report.removedSelectors).toEqual(["#onetrust-banner-sdk"]);
+    expect(report.framework).toBe("OneTrust");
+  });
+});
+
+describe("runDismissalInDocument — heuristic.enabled", () => {
+  it("skips pass 2 entirely when heuristic.enabled is false", () => {
+    const { doc, win } = buildDom(`
+      <body>
+        <div class="rogue-overlay" style="position: fixed; z-index: 9999;"></div>
+      </body>
+    `);
+    stubRect(doc.querySelector(".rogue-overlay")!, {
+      width: win.innerWidth,
+      height: win.innerHeight,
+    });
+
+    const opts: DismissOptions = {
+      knownCmpEntries: [],
+      heuristic: { enabled: false, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+    };
+
+    const report = runDismissalInDocument(doc, win, opts);
+
+    expect(report.removedOverlayCount).toBe(0);
+    expect(doc.querySelector(".rogue-overlay")).not.toBeNull();
+    expect(report.framework).toBeNull();
+  });
+});
+
+describe("resolveDismissSpec", () => {
+  it("returns undefined for undefined / false (no dismissal pass)", () => {
+    expect(resolveDismissSpec(undefined)).toBeUndefined();
+    expect(resolveDismissSpec(false)).toBeUndefined();
+  });
+
+  it("returns DEFAULT_DISMISS_OPTIONS for true", () => {
+    expect(resolveDismissSpec(true)).toBe(DEFAULT_DISMISS_OPTIONS);
+  });
+
+  it("returns the curated list when given an empty spec object", () => {
+    const opts = resolveDismissSpec({});
+    expect(opts).toBeDefined();
+    expect(opts?.knownCmpEntries).toEqual(KNOWN_CMP_ENTRIES);
+    expect(opts?.heuristic).toEqual(DEFAULT_HEURISTIC_THRESHOLDS);
+  });
+
+  it("appends extraSelectors as custom-framework entries", () => {
+    const opts = resolveDismissSpec({
+      extraSelectors: ["#paywall", ".takeover"],
+    });
+    expect(opts?.knownCmpEntries.length).toBe(KNOWN_CMP_ENTRIES.length + 2);
+    expect(opts?.knownCmpEntries.slice(-2)).toEqual([
+      { framework: CUSTOM_FRAMEWORK_LABEL, selector: "#paywall" },
+      { framework: CUSTOM_FRAMEWORK_LABEL, selector: ".takeover" },
+    ]);
+  });
+
+  it("filters out frameworks listed in excludeFrameworks", () => {
+    const opts = resolveDismissSpec({
+      excludeFrameworks: ["OneTrust", "TrustArc"],
+    });
+    const frameworks = new Set(opts?.knownCmpEntries.map((e) => e.framework));
+    expect(frameworks.has("OneTrust")).toBe(false);
+    expect(frameworks.has("TrustArc")).toBe(false);
+    expect(frameworks.has("Cookiebot")).toBe(true);
+  });
+
+  it("drops the curated list entirely when useDefaults is false", () => {
+    const opts = resolveDismissSpec({
+      useDefaults: false,
+      extraSelectors: ["#only"],
+    });
+    expect(opts?.knownCmpEntries).toEqual([
+      { framework: CUSTOM_FRAMEWORK_LABEL, selector: "#only" },
+    ]);
+  });
+
+  it("merges heuristic fields field-by-field with defaults", () => {
+    const opts = resolveDismissSpec({
+      heuristic: { minZIndex: 50 },
+    });
+    expect(opts?.heuristic).toEqual({
+      enabled: true,
+      minViewportCoverageRatio: 0.3,
+      minZIndex: 50,
+    });
+  });
+
+  it("propagates heuristic.enabled: false", () => {
+    const opts = resolveDismissSpec({ heuristic: { enabled: false } });
+    expect(opts?.heuristic.enabled).toBe(false);
+    expect(opts?.heuristic.minViewportCoverageRatio).toBe(0.3);
   });
 });
 

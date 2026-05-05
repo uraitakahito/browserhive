@@ -1,12 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { captureRequestToTask } from "../../src/http/request-mapper.js";
 import type { CaptureRequest } from "../../src/http/generated/index.js";
+import {
+  CUSTOM_FRAMEWORK_LABEL,
+  DEFAULT_DISMISS_OPTIONS,
+  KNOWN_CMP_ENTRIES,
+} from "../../src/capture/banner-dismisser.js";
 
 const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest => ({
   url: "https://example.com",
   labels: [],
   captureFormats: { png: true, jpeg: false, html: false, links: false },
-  dismissBanners: false,
   ...overrides,
 });
 
@@ -48,7 +52,7 @@ describe("captureRequestToTask", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
     expect(result.value.retryCount).toBe(0);
-    expect(result.value.dismissBanners).toBe(false);
+    expect(result.value.dismissOptions).toBeUndefined();
   });
 
   it("stamps enqueuedAt with a current ISO 8601 timestamp", () => {
@@ -106,5 +110,106 @@ describe("captureRequestToTask", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.acceptLanguage).toBeUndefined();
+  });
+
+  describe("dismissBanners → dismissOptions", () => {
+    it("leaves dismissOptions undefined when omitted", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.dismissOptions).toBeUndefined();
+    });
+
+    it("leaves dismissOptions undefined when false", () => {
+      const result = captureRequestToTask(baseRequest({ dismissBanners: false }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.dismissOptions).toBeUndefined();
+    });
+
+    it("resolves true to DEFAULT_DISMISS_OPTIONS", () => {
+      const result = captureRequestToTask(baseRequest({ dismissBanners: true }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.dismissOptions).toBe(DEFAULT_DISMISS_OPTIONS);
+    });
+
+    it("merges extraSelectors as custom-framework entries on top of defaults", () => {
+      const result = captureRequestToTask(
+        baseRequest({
+          dismissBanners: { extraSelectors: ["#paywall", ".takeover"] },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const opts = result.value.dismissOptions;
+      expect(opts).toBeDefined();
+      // Defaults preserved...
+      expect(opts?.knownCmpEntries.length).toBe(KNOWN_CMP_ENTRIES.length + 2);
+      // ...and the two custom selectors appear at the tail tagged "custom".
+      const tail = opts?.knownCmpEntries.slice(-2) ?? [];
+      expect(tail).toEqual([
+        { framework: CUSTOM_FRAMEWORK_LABEL, selector: "#paywall" },
+        { framework: CUSTOM_FRAMEWORK_LABEL, selector: ".takeover" },
+      ]);
+    });
+
+    it("excludeFrameworks removes a curated framework while keeping the rest", () => {
+      const result = captureRequestToTask(
+        baseRequest({ dismissBanners: { excludeFrameworks: ["TrustArc"] } }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const opts = result.value.dismissOptions;
+      expect(opts).toBeDefined();
+      expect(
+        opts?.knownCmpEntries.some((e) => e.framework === "TrustArc"),
+      ).toBe(false);
+      expect(
+        opts?.knownCmpEntries.some((e) => e.framework === "OneTrust"),
+      ).toBe(true);
+    });
+
+    it("useDefaults: false drops the curated list, keeping only extraSelectors", () => {
+      const result = captureRequestToTask(
+        baseRequest({
+          dismissBanners: { useDefaults: false, extraSelectors: ["#only"] },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const opts = result.value.dismissOptions;
+      expect(opts?.knownCmpEntries).toEqual([
+        { framework: CUSTOM_FRAMEWORK_LABEL, selector: "#only" },
+      ]);
+    });
+
+    it("heuristic.enabled: false propagates while leaving thresholds at defaults", () => {
+      const result = captureRequestToTask(
+        baseRequest({ dismissBanners: { heuristic: { enabled: false } } }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const heuristic = result.value.dismissOptions?.heuristic;
+      expect(heuristic?.enabled).toBe(false);
+      expect(heuristic?.minViewportCoverageRatio).toBe(0.3);
+      expect(heuristic?.minZIndex).toBe(1000);
+    });
+
+    it("heuristic numeric overrides flow through field-by-field", () => {
+      const result = captureRequestToTask(
+        baseRequest({
+          dismissBanners: {
+            heuristic: { minViewportCoverageRatio: 0.1, minZIndex: 50 },
+          },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const heuristic = result.value.dismissOptions?.heuristic;
+      expect(heuristic?.enabled).toBe(true);
+      expect(heuristic?.minViewportCoverageRatio).toBe(0.1);
+      expect(heuristic?.minZIndex).toBe(50);
+    });
   });
 });

@@ -68,14 +68,17 @@ export type {
   CmpEntry,
   DismissOptions,
   DismissReport,
+  DismissSpec,
   HeuristicThresholds,
 } from "./banner-dismisser.js";
 export {
+  CUSTOM_FRAMEWORK_LABEL,
   DEFAULT_DISMISS_OPTIONS,
   DEFAULT_HEURISTIC_THRESHOLDS,
   EMPTY_DISMISS_REPORT,
   KNOWN_CMP_ENTRIES,
   dismissBanners,
+  resolveDismissSpec,
   runDismissalInDocument,
 } from "./banner-dismisser.js";
 

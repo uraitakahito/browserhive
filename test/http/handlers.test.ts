@@ -41,7 +41,6 @@ const validBody = {
   url: "https://example.com",
   labels: ["my-label"],
   captureFormats: { png: true, jpeg: false, html: false, links: false },
-  dismissBanners: false,
 };
 
 describe("submitCapture handler", () => {
@@ -229,8 +228,7 @@ describe("getStatus handler", () => {
                 url: "https://example.com/slow",
                 retryCount: 0,
                 captureFormats: { png: true, jpeg: false, html: false, links: false },
-                dismissBanners: false,
-                enqueuedAt: "2024-01-01T00:00:00.000Z",
+                              enqueuedAt: "2024-01-01T00:00:00.000Z",
               },
             },
           },
@@ -273,8 +271,7 @@ describe("getStatus handler", () => {
               url: "https://example.com/running",
               retryCount: 0,
               captureFormats: { png: true, jpeg: false, html: false, links: false },
-              dismissBanners: false,
-              enqueuedAt,
+                          enqueuedAt,
             },
           },
         ],

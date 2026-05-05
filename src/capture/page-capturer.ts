@@ -575,8 +575,8 @@ export class PageCapturer {
       );
 
       let dismissReport: DismissReport | undefined;
-      if (task.dismissBanners) {
-        dismissReport = await dismissBanners(page);
+      if (task.dismissOptions) {
+        dismissReport = await dismissBanners(page, task.dismissOptions);
       }
 
       let pngPath: string | undefined;

@@ -86,6 +86,8 @@ export const KNOWN_CMP_ENTRIES: readonly CmpEntry[] = [
 ];
 
 export interface HeuristicThresholds {
+  /** When false, pass 2 (the size/z-index heuristic) is skipped entirely. */
+  enabled: boolean;
   /** Minimum fraction of the viewport an overlay must cover to be removed. */
   minViewportCoverageRatio: number;
   /** Minimum computed `z-index` for an element to qualify as an overlay. */
@@ -93,6 +95,7 @@ export interface HeuristicThresholds {
 }
 
 export const DEFAULT_HEURISTIC_THRESHOLDS: HeuristicThresholds = {
+  enabled: true,
   minViewportCoverageRatio: 0.3,
   minZIndex: 1000,
 };
@@ -105,6 +108,75 @@ export interface DismissOptions {
 export const DEFAULT_DISMISS_OPTIONS: DismissOptions = {
   knownCmpEntries: KNOWN_CMP_ENTRIES,
   heuristic: DEFAULT_HEURISTIC_THRESHOLDS,
+};
+
+/**
+ * Inline-spec shape received from the HTTP layer. Mirrors the OpenAPI
+ * `DismissSpec` schema. All fields are optional; the resolver fills in
+ * server-side defaults below.
+ *
+ * Kept structurally identical to the generated `DismissSpec` type so
+ * `request-mapper.ts` can pass the request body in directly.
+ */
+export interface DismissSpec {
+  useDefaults?: boolean;
+  extraSelectors?: string[];
+  excludeFrameworks?: string[];
+  heuristic?: {
+    enabled?: boolean;
+    minViewportCoverageRatio?: number;
+    minZIndex?: number;
+  };
+}
+
+/** Internal label attributed to `extraSelectors` matches in the report. */
+export const CUSTOM_FRAMEWORK_LABEL = "custom";
+
+/**
+ * Translate the request-side `dismissBanners` field into a fully-resolved
+ * `DismissOptions` (or `undefined` when dismissal should be skipped).
+ *
+ * Semantics:
+ *   - `undefined` / `false`           → `undefined` (no dismissal pass at all)
+ *   - `true`                          → `DEFAULT_DISMISS_OPTIONS` (curated CMP list + default heuristic)
+ *   - `{}` / `DismissSpec` object     → defaults filled in field-by-field
+ *
+ * Merge rules for the spec object:
+ *   - `useDefaults` defaults to `true`. When `true`, `KNOWN_CMP_ENTRIES`
+ *     minus any framework named in `excludeFrameworks` is included.
+ *   - `extraSelectors` is concatenated as `{ framework: "custom", selector }`
+ *     entries — visible in `dismissReport.removedSelectors` and tagged so
+ *     callers can distinguish a custom hit from a default-CMP hit.
+ *   - `heuristic` fields fall back to `DEFAULT_HEURISTIC_THRESHOLDS` per-field.
+ */
+export const resolveDismissSpec = (
+  input: boolean | DismissSpec | undefined,
+): DismissOptions | undefined => {
+  if (input === undefined || input === false) return undefined;
+  if (input === true) return DEFAULT_DISMISS_OPTIONS;
+
+  const useDefaults = input.useDefaults ?? true;
+  const excluded = new Set(input.excludeFrameworks ?? []);
+  const baseEntries: readonly CmpEntry[] = useDefaults
+    ? KNOWN_CMP_ENTRIES.filter((e) => !excluded.has(e.framework))
+    : [];
+  const customEntries: CmpEntry[] = (input.extraSelectors ?? []).map(
+    (selector) => ({ framework: CUSTOM_FRAMEWORK_LABEL, selector }),
+  );
+
+  const h = input.heuristic ?? {};
+  const heuristic: HeuristicThresholds = {
+    enabled: h.enabled ?? DEFAULT_HEURISTIC_THRESHOLDS.enabled,
+    minViewportCoverageRatio:
+      h.minViewportCoverageRatio ??
+      DEFAULT_HEURISTIC_THRESHOLDS.minViewportCoverageRatio,
+    minZIndex: h.minZIndex ?? DEFAULT_HEURISTIC_THRESHOLDS.minZIndex,
+  };
+
+  return {
+    knownCmpEntries: [...baseEntries, ...customEntries],
+    heuristic,
+  };
 };
 
 export interface DismissReport {
@@ -138,9 +210,18 @@ export const runDismissalInDocument = (
   let framework: string | null = null;
   const removedSelectors: string[] = [];
 
-  // Pass 1: known CMP roots
+  // Pass 1: known CMP roots.
+  // Each selector is tried in its own try-catch so that one invalid entry
+  // (typo in `extraSelectors`, or a CMP whose selector syntax has drifted)
+  // cannot block the rest. `querySelector` throws SyntaxError on a malformed
+  // selector — we treat that as "this entry didn't match" and continue.
   for (const entry of opts.knownCmpEntries) {
-    const el = doc.querySelector(entry.selector);
+    let el: Element | null;
+    try {
+      el = doc.querySelector(entry.selector);
+    } catch {
+      continue;
+    }
     if (el?.parentNode) {
       el.parentNode.removeChild(el);
       removedSelectors.push(entry.selector);
@@ -153,32 +234,35 @@ export const runDismissalInDocument = (
   doc.body.style.removeProperty("overflow");
   doc.documentElement.style.removeProperty("overflow");
 
-  // Pass 2: heuristic overlay removal
+  // Pass 2: heuristic overlay removal. Skipped entirely when the caller
+  // disables the pass — most often when the curated CMP list is enough and
+  // the heuristic is producing false positives on a specific page.
   let removedOverlayCount = 0;
-  const viewportArea = win.innerWidth * win.innerHeight;
+  if (opts.heuristic.enabled) {
+    const viewportArea = win.innerWidth * win.innerHeight;
+    if (viewportArea > 0) {
+      const all = Array.from(doc.body.querySelectorAll<HTMLElement>("*"));
+      for (const el of all) {
+        if (!doc.body.contains(el)) continue;
 
-  if (viewportArea > 0) {
-    const all = Array.from(doc.body.querySelectorAll<HTMLElement>("*"));
-    for (const el of all) {
-      if (!doc.body.contains(el)) continue;
+        // Skip semantic landmarks and anything inside one — real chrome.
+        if (el.closest("header, footer, nav, main, aside")) continue;
 
-      // Skip semantic landmarks and anything inside one — real chrome.
-      if (el.closest("header, footer, nav, main, aside")) continue;
+        const style = win.getComputedStyle(el);
+        const position = style.position;
+        if (position !== "fixed" && position !== "sticky") continue;
 
-      const style = win.getComputedStyle(el);
-      const position = style.position;
-      if (position !== "fixed" && position !== "sticky") continue;
+        const zIndex = parseInt(style.zIndex, 10);
+        if (Number.isNaN(zIndex) || zIndex < opts.heuristic.minZIndex) continue;
 
-      const zIndex = parseInt(style.zIndex, 10);
-      if (Number.isNaN(zIndex) || zIndex < opts.heuristic.minZIndex) continue;
+        const rect = el.getBoundingClientRect();
+        const area = rect.width * rect.height;
+        if (area / viewportArea < opts.heuristic.minViewportCoverageRatio) continue;
 
-      const rect = el.getBoundingClientRect();
-      const area = rect.width * rect.height;
-      if (area / viewportArea < opts.heuristic.minViewportCoverageRatio) continue;
-
-      el.parentNode?.removeChild(el);
-      removedOverlayCount += 1;
-      framework ??= "heuristic";
+        el.parentNode?.removeChild(el);
+        removedOverlayCount += 1;
+        framework ??= "heuristic";
+      }
     }
   }
 
