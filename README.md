@@ -87,111 +87,11 @@ Run the setup script:
 
 ### Development Environment
 
-`compose.dev.yaml` brings up everything the server needs in one shot —
-two Chromium servers, a self-hosted SeaweedFS (S3-compatible artifact
-store), a one-shot `weed shell` init container that creates the
-`browserhive` bucket, and the BrowserHive container itself. All
-`BROWSERHIVE_*` env vars are already injected, so the in-container start
-command takes no CLI flags:
-
-```sh
-GH_TOKEN=$(gh auth token) docker compose -f compose.dev.yaml up -d
-docker exec -it browserhive-container /bin/zsh
-```
-
-`GH_TOKEN` is intentionally **not** stored in `.env`. The token is fetched from the host's `gh` CLI (macOS Keychain-backed) at launch time and exists only in the running container's environment. If you forget the prefix, the container will still start but Claude Code / `gh` inside it will be unauthenticated.
-
-```sh
-# inside the container, first time only:
-sudo chown -R $(id -u):$(id -g) /zsh-volume
-
-npm ci
-npm run build
-npm run server | pino-pretty
-```
-
-Override individual settings ad hoc by either setting another env var or by passing the equivalent CLI flag (CLI > env > default). See [Environment variables](#environment-variables) for the full list.
-
-Stop with:
-
-```sh
-docker compose -f compose.dev.yaml down
-```
-
-#### Inspecting Chromium via noVNC
-
-The dev compose stack runs the development image for both chromium servers, which embeds Xvfb + x11vnc + noVNC. Open these URLs from the host browser to watch the running Chromium:
-
-| Server | noVNC (browser) | Raw VNC |
-|--------|-----------------|---------|
-| chromium-server-1 | http://localhost:6080/ | `localhost:5901` |
-| chromium-server-2 | http://localhost:6081/ | `localhost:5902` |
-
-#### Browsing captured artifacts in SeaweedFS
-
-The bundled SeaweedFS exposes its **Filer UI** at
-<http://localhost:8888/buckets/browserhive/> — open it in a browser to
-list and download every artifact. Default credentials are `browserhive`
-/ `browserhive`, overridable via the `BROWSERHIVE_S3_ACCESS_KEY_ID` /
-`BROWSERHIVE_S3_SECRET_ACCESS_KEY` env vars on `docker compose up`
-(both the bundled SeaweedFS and the BrowserHive container read from the
-same pair, so they always agree by construction).
-
-Captured artifacts land at `s3://browserhive/<filename>`. From inside
-the SeaweedFS container, you can also list them via:
-
-```sh
-docker exec browserhive-seaweedfs sh -c \
-  'echo "fs.ls /buckets/browserhive" | weed shell -master=127.0.0.1:9333'
-```
+See [docs/development-environment.md](docs/development-environment.md).
 
 ### Production Environment
 
-`compose.prod.yaml` mirrors the dev stack — two Chromium servers, a
-self-hosted SeaweedFS + bucket-init container, and the BrowserHive
-production image — and supplies all required configuration via
-`BROWSERHIVE_*` environment variables; no `command:` overrides are
-needed. The bundled SeaweedFS is **not** published to host ports (only
-`expose:`d on the internal network). Override `BROWSERHIVE_S3_ENDPOINT`
-and the credential env vars to point at an external S3 (AWS, Cloudflare
-R2, managed MinIO-compatible service) instead.
-
-```sh
-docker compose -f compose.prod.yaml up -d --build
-docker compose -f compose.prod.yaml logs -f browserhive
-
-# verify
-curl http://localhost:8080/v1/status
-```
-
-Stop with:
-
-```sh
-docker compose -f compose.prod.yaml down
-```
-
-> **Note:** The SeaweedFS data volume (`browserhive-seaweedfs-prod-data`)
-> holds every captured artifact. Plan its backup / lifecycle separately —
-> `docker compose down -v` will wipe it. For external S3 deployments,
-> the volume is unused.
-
-To build the production image standalone (e.g. to push to a registry):
-
-```sh
-docker build -f Dockerfile.prod -t browserhive:<version> .
-```
-
-Standalone run, pointing at an external S3-compatible store:
-
-```sh
-docker run --rm -p 8080:8080 \
-  -e BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222 \
-  -e BROWSERHIVE_S3_ENDPOINT=https://s3.example.com \
-  -e BROWSERHIVE_S3_BUCKET=browserhive \
-  -e BROWSERHIVE_S3_ACCESS_KEY_ID=... \
-  -e BROWSERHIVE_S3_SECRET_ACCESS_KEY=... \
-  browserhive:<version>
-```
+See [docs/production-environment.md](docs/production-environment.md).
 
 ## Usage
 
