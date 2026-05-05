@@ -2,7 +2,8 @@
 set -e
 
 # Configuration
-BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/1.2.7"
+HELLO_JAVASCRIPT_VERSION="1.2.7"
+BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/${HELLO_JAVASCRIPT_VERSION}"
 
 echo "Starting BrowserHive setup..."
 
