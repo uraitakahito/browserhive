@@ -205,7 +205,7 @@ export const createProgram = (): Command => {
     )
     .option(
       "--s3-force-path-style",
-      "Use path-style addressing (env: BROWSERHIVE_S3_FORCE_PATH_STYLE). MinIO requires this; default true.",
+      "Use path-style addressing (env: BROWSERHIVE_S3_FORCE_PATH_STYLE). SeaweedFS / most self-hosted S3 require this; default true.",
       true,
     )
     .addOption(

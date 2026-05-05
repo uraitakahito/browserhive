@@ -1,9 +1,11 @@
 /**
  * S3-compatible artifact store.
  *
- * Targets MinIO and AWS S3 via the same `@aws-sdk/client-s3` SDK. The
- * caller injects the resolved `StorageConfig`; this class is unaware of
- * CLI / env handling.
+ * Targets self-hosted SeaweedFS (the bundled default) and any other
+ * S3-compatible store (AWS S3, Cloudflare R2, MinIO-compatible managed
+ * services) via the same `@aws-sdk/client-s3` SDK. The caller injects
+ * the resolved `StorageConfig`; this class is unaware of CLI / env
+ * handling.
  *
  * `initialize()` runs `HeadBucket` once at startup so misconfigured
  * deployments fail fast — without it, the operator would only learn
@@ -41,10 +43,12 @@ export class S3ArtifactStore implements ArtifactStore {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
-      // MinIO requires path-style addressing because its endpoint
-      // hostname does not match the bucket — the SDK's default
-      // virtual-hosted-style would route to `bucket.minio:9000` which
-      // does not resolve.
+      // SeaweedFS (and most S3-compatible self-hosted stores) require
+      // path-style addressing because the endpoint hostname does not
+      // match the bucket — the SDK's default virtual-hosted-style would
+      // route to `bucket.seaweedfs:8333` which does not resolve. AWS S3
+      // accepts either; flip via `--no-s3-force-path-style` if you need
+      // virtual-hosted-style.
       forcePathStyle: config.forcePathStyle ?? true,
     });
     this.bucket = config.bucket;
