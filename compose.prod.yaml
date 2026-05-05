@@ -9,18 +9,21 @@ services:
     init: true
     ports:
       - "8080:8080"
-    volumes:
-      - ./output:/app/output
-      # Mount TLS material as read-only when enabling --tls-cert / --tls-key
-      # - ./certs:/app/certs:ro
+    # Uncomment the volumes block to mount TLS material when enabling
+    # --tls-cert / --tls-key:
+    # volumes:
+    #   - ./certs:/app/certs:ro
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222,http://chromium-server-2:9222
-      # BROWSERHIVE_STORAGE selects the artifact backend. Defaults to `local`
-      # for the prod compose; switch to `s3` and supply BROWSERHIVE_S3_*
-      # env vars to push artifacts to MinIO / AWS S3 instead.
-      - BROWSERHIVE_STORAGE=local
-      - BROWSERHIVE_OUTPUT_DIR=/app/output
+      # Override BROWSERHIVE_S3_ENDPOINT (and credentials) to point at an
+      # external S3 — AWS, Cloudflare R2, managed MinIO. The bundled `minio`
+      # service below stays running but is harmless when not used.
+      - BROWSERHIVE_S3_ENDPOINT=http://minio:9000
+      - BROWSERHIVE_S3_REGION=${BROWSERHIVE_S3_REGION:-us-east-1}
+      - BROWSERHIVE_S3_BUCKET=${BROWSERHIVE_S3_BUCKET:-browserhive}
+      - BROWSERHIVE_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
+      - BROWSERHIVE_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
     networks:
       - chromium-network
     depends_on:
@@ -28,6 +31,8 @@ services:
         condition: service_healthy
       chromium-server-2:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8080/v1/status').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 30s
@@ -77,6 +82,62 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+
+  # MinIO — S3-compatible artifact store, self-hosted alongside the
+  # capture server. For external S3 (AWS / R2 / managed MinIO), override
+  # `BROWSERHIVE_S3_ENDPOINT` on the browserhive service above; this
+  # service stays running (idle) and can be removed via a compose
+  # override if not needed. By default, MinIO ports are NOT published
+  # to the host — exposed within the chromium-network only. Add a port
+  # mapping in a local override file if console access is required.
+  minio:
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    container_name: browserhive-minio-prod
+    init: true
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - chromium-network
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "mc ready local || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    restart: unless-stopped
+
+  # One-shot init: create the `browserhive` bucket. `mc mb -p` is
+  # idempotent (succeeds if the bucket already exists) so this also
+  # safely runs on every compose up.
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-03T17-07-56Z
+    container_name: browserhive-minio-init-prod
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - chromium-network
+    entrypoint:
+      - "sh"
+      - "-c"
+      - |
+        set -eu
+        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin}
+        mc mb -p local/${BROWSERHIVE_S3_BUCKET:-browserhive}
+        echo "Bucket ${BROWSERHIVE_S3_BUCKET:-browserhive} ready."
+
+volumes:
+  minio-data:
+    name: browserhive-minio-prod-data
 
 networks:
   chromium-network:
