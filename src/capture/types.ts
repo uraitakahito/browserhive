@@ -7,7 +7,7 @@ import type { WorkerHealth } from "./capture-worker.js";
 import type { CaptureFormats } from "./capture-formats.js";
 import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
-import type { DismissReport } from "./banner-dismisser.js";
+import type { DismissOptions, DismissReport } from "./banner-dismisser.js";
 
 /** Capture task representing a single URL to capture */
 export interface CaptureTask {
@@ -26,8 +26,15 @@ export interface CaptureTask {
    * means "let Chromium use its built-in default".
    */
   acceptLanguage?: string;
-  /** Whether to run banner / modal dismissal before capturing */
-  dismissBanners: boolean;
+  /**
+   * Resolved banner / modal dismissal options. Presence indicates the
+   * dismissal pass should run with these options; absence means skip.
+   * The HTTP layer's `dismissBanners` field (boolean | DismissSpec) is
+   * normalized into this shape by `resolveDismissSpec` at the
+   * `request-mapper` boundary, so the capture layer only ever sees a
+   * fully-resolved `DismissOptions` (or `undefined` for "no dismissal").
+   */
+  dismissOptions?: DismissOptions;
   /**
    * ISO 8601 wall-clock time of the original enqueue. Preserved across
    * retries (`TaskQueue.requeue`) so a long-stuck task's true age stays

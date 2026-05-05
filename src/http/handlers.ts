@@ -74,7 +74,7 @@ export const createCaptureHandlers = (
         taskId: task.taskId,
         ...(task.correlationId && { correlationId: task.correlationId }),
         captureFormats: task.captureFormats,
-        dismissBanners: task.dismissBanners,
+        dismissBanners: task.dismissOptions !== undefined,
         ...(task.acceptLanguage && { acceptLanguage: task.acceptLanguage }),
         url: task.url,
       },

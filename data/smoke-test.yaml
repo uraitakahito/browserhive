@@ -1,4 +1,4 @@
-# data/urls.yaml — smoke-test fixture
+# data/smoke-test.yaml — smoke-test fixture
 #
 # Major global brands (Apple, Microsoft, Amazon, NVIDIA, ...) — fast,
 # predictable HTTP 200 pages used as a sanity check that the capture

@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 import type { Page } from "puppeteer";
 import {
+  CUSTOM_FRAMEWORK_LABEL,
   runDismissalInDocument,
   dismissBanners,
+  resolveDismissSpec,
   EMPTY_DISMISS_REPORT,
   KNOWN_CMP_ENTRIES,
   DEFAULT_DISMISS_OPTIONS,
@@ -162,6 +164,7 @@ describe("runDismissalInDocument — pass 2 (heuristic overlays)", () => {
   const heuristicOnly: DismissOptions = {
     knownCmpEntries: [],
     heuristic: DEFAULT_HEURISTIC_THRESHOLDS,
+    failOnError: false,
   };
 
   it("removes a fixed overlay covering most of the viewport", () => {
@@ -296,7 +299,8 @@ describe("runDismissalInDocument — pass 2 (heuristic overlays)", () => {
     // Custom threshold (0.2 coverage, 100 z-index) → matches.
     const lenient: DismissOptions = {
       knownCmpEntries: [],
-      heuristic: { minViewportCoverageRatio: 0.2, minZIndex: 100 },
+      heuristic: { enabled: true, minViewportCoverageRatio: 0.2, minZIndex: 100 },
+      failOnError: false,
     };
 
     const reportStrict = runDismissalInDocument(
@@ -333,6 +337,159 @@ describe("runDismissalInDocument — combined passes", () => {
   });
 });
 
+describe("runDismissalInDocument — per-selector resilience", () => {
+  it("skips an invalid selector and continues with the rest", () => {
+    const { doc, win } = buildDom(`
+      <body>
+        <div id="onetrust-banner-sdk">consent</div>
+      </body>
+    `);
+    const opts: DismissOptions = {
+      knownCmpEntries: [
+        // querySelector throws SyntaxError on this — must be swallowed.
+        { framework: "custom", selector: "[" },
+        { framework: "OneTrust", selector: "#onetrust-banner-sdk" },
+      ],
+      heuristic: { ...DEFAULT_HEURISTIC_THRESHOLDS, enabled: false },
+      failOnError: false,
+    };
+
+    const report = runDismissalInDocument(doc, win, opts);
+
+    expect(report.removedSelectors).toEqual(["#onetrust-banner-sdk"]);
+    expect(report.framework).toBe("OneTrust");
+  });
+});
+
+describe("runDismissalInDocument — heuristic.enabled", () => {
+  it("skips pass 2 entirely when heuristic.enabled is false", () => {
+    const { doc, win } = buildDom(`
+      <body>
+        <div class="rogue-overlay" style="position: fixed; z-index: 9999;"></div>
+      </body>
+    `);
+    stubRect(doc.querySelector(".rogue-overlay")!, {
+      width: win.innerWidth,
+      height: win.innerHeight,
+    });
+
+    const opts: DismissOptions = {
+      knownCmpEntries: [],
+      heuristic: { enabled: false, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+      failOnError: false,
+    };
+
+    const report = runDismissalInDocument(doc, win, opts);
+
+    expect(report.removedOverlayCount).toBe(0);
+    expect(doc.querySelector(".rogue-overlay")).not.toBeNull();
+    expect(report.framework).toBeNull();
+  });
+});
+
+describe("resolveDismissSpec", () => {
+  it("returns undefined for undefined / false (no dismissal pass)", () => {
+    expect(resolveDismissSpec(undefined)).toBeUndefined();
+    expect(resolveDismissSpec(false)).toBeUndefined();
+  });
+
+  it("returns DEFAULT_DISMISS_OPTIONS for true", () => {
+    expect(resolveDismissSpec(true)).toBe(DEFAULT_DISMISS_OPTIONS);
+  });
+
+  it("returns the curated list when given an empty spec object", () => {
+    const opts = resolveDismissSpec({});
+    expect(opts).toBeDefined();
+    expect(opts?.knownCmpEntries).toEqual(KNOWN_CMP_ENTRIES);
+    expect(opts?.heuristic).toEqual(DEFAULT_HEURISTIC_THRESHOLDS);
+  });
+
+  it("appends extraSelectors as custom-framework entries", () => {
+    const opts = resolveDismissSpec({
+      extraSelectors: ["#paywall", ".takeover"],
+    });
+    expect(opts?.knownCmpEntries.length).toBe(KNOWN_CMP_ENTRIES.length + 2);
+    expect(opts?.knownCmpEntries.slice(-2)).toEqual([
+      { framework: CUSTOM_FRAMEWORK_LABEL, selector: "#paywall" },
+      { framework: CUSTOM_FRAMEWORK_LABEL, selector: ".takeover" },
+    ]);
+  });
+
+  it("filters out frameworks listed in excludeFrameworks", () => {
+    const opts = resolveDismissSpec({
+      excludeFrameworks: ["OneTrust", "TrustArc"],
+    });
+    const frameworks = new Set(opts?.knownCmpEntries.map((e) => e.framework));
+    expect(frameworks.has("OneTrust")).toBe(false);
+    expect(frameworks.has("TrustArc")).toBe(false);
+    expect(frameworks.has("Cookiebot")).toBe(true);
+  });
+
+  it("drops the curated list entirely when useDefaults is false", () => {
+    const opts = resolveDismissSpec({
+      useDefaults: false,
+      extraSelectors: ["#only"],
+    });
+    expect(opts?.knownCmpEntries).toEqual([
+      { framework: CUSTOM_FRAMEWORK_LABEL, selector: "#only" },
+    ]);
+  });
+
+  it("merges heuristic fields field-by-field with defaults", () => {
+    const opts = resolveDismissSpec({
+      heuristic: { minZIndex: 50 },
+    });
+    expect(opts?.heuristic).toEqual({
+      enabled: true,
+      minViewportCoverageRatio: 0.3,
+      minZIndex: 50,
+    });
+  });
+
+  it("propagates heuristic.enabled: false", () => {
+    const opts = resolveDismissSpec({ heuristic: { enabled: false } });
+    expect(opts?.heuristic.enabled).toBe(false);
+    expect(opts?.heuristic.minViewportCoverageRatio).toBe(0.3);
+  });
+
+  describe("failOnError", () => {
+    it("defaults to false on an empty spec", () => {
+      expect(resolveDismissSpec({})?.failOnError).toBe(false);
+    });
+
+    it("propagates true through the spec object", () => {
+      expect(resolveDismissSpec({ failOnError: true })?.failOnError).toBe(true);
+    });
+
+    it("boolean short form (true) is best-effort — failOnError stays false", () => {
+      expect(resolveDismissSpec(true)?.failOnError).toBe(false);
+    });
+  });
+});
+
+describe("runDismissalInDocument — failOnError (strict)", () => {
+  it("rethrows the per-selector SyntaxError when failOnError is true", () => {
+    const { doc, win } = buildDom(`
+      <body>
+        <div id="onetrust-banner-sdk">consent</div>
+      </body>
+    `);
+    const opts: DismissOptions = {
+      knownCmpEntries: [
+        { framework: "custom", selector: "[" }, // invalid CSS
+        { framework: "OneTrust", selector: "#onetrust-banner-sdk" },
+      ],
+      heuristic: { ...DEFAULT_HEURISTIC_THRESHOLDS, enabled: false },
+      failOnError: true,
+    };
+
+    // The bad selector is the first entry — it should throw before the
+    // OneTrust entry runs. The OneTrust div therefore stays in the DOM.
+    expect(() => runDismissalInDocument(doc, win, opts)).toThrow();
+    expect(doc.querySelector("#onetrust-banner-sdk")).not.toBeNull();
+  });
+});
+
 describe("dismissBanners — Layer A timeout", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -363,5 +520,74 @@ describe("dismissBanners — Layer A timeout", () => {
     const onErrorArg: unknown = onError.mock.calls[0]?.[0];
     expect(onErrorArg).toBeInstanceOf(Error);
     expect((onErrorArg as Error).message).toContain("Banner dismissal evaluate");
+  });
+});
+
+describe("dismissBanners — failOnError (strict)", () => {
+  it("rethrows the timeout error when failOnError is true", async () => {
+    vi.useFakeTimers();
+    try {
+      const onError = vi.fn();
+      const mockPage = {
+        evaluate: vi.fn().mockReturnValue(
+          new Promise<never>(() => {
+            /* never resolves — simulates page mid-navigation */
+          }),
+        ),
+      } as unknown as Page;
+
+      const reportPromise = dismissBanners(
+        mockPage,
+        { ...DEFAULT_DISMISS_OPTIONS, failOnError: true },
+        onError,
+      );
+
+      // Attach an explicit catch so the (eventual) rejection during
+      // `advanceTimersByTimeAsync` is not flagged as an unhandled
+      // rejection by vitest before the assertion runs.
+      const settled = reportPromise.catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(5_001);
+      const error = await settled;
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("Banner dismissal evaluate");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rethrows a page.evaluate rejection verbatim when failOnError is true", async () => {
+    const onError = vi.fn();
+    const boom = new Error("evaluate boom");
+    const mockPage = {
+      evaluate: vi.fn().mockRejectedValue(boom),
+    } as unknown as Page;
+
+    await expect(
+      dismissBanners(
+        mockPage,
+        { ...DEFAULT_DISMISS_OPTIONS, failOnError: true },
+        onError,
+      ),
+    ).rejects.toBe(boom);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(boom);
+  });
+
+  it("still swallows the same rejection when failOnError is false", async () => {
+    const onError = vi.fn();
+    const boom = new Error("evaluate boom");
+    const mockPage = {
+      evaluate: vi.fn().mockRejectedValue(boom),
+    } as unknown as Page;
+
+    const report = await dismissBanners(
+      mockPage,
+      DEFAULT_DISMISS_OPTIONS,
+      onError,
+    );
+    expect(report).toEqual(EMPTY_DISMISS_REPORT);
+    expect(onError).toHaveBeenCalledWith(boom);
   });
 });

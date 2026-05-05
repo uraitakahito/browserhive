@@ -14,6 +14,7 @@
  */
 import { randomUUID } from "node:crypto";
 import {
+  resolveDismissSpec,
   validateCaptureFormats,
   validateFilename,
   validateLabels,
@@ -58,6 +59,11 @@ export const captureRequestToTask = (
   // additional domain validation is needed here.
   const acceptLanguage = request.acceptLanguage?.trim();
 
+  // `dismissBanners` is `boolean | DismissSpec | undefined` on the wire.
+  // Resolve it once at this boundary so the capture layer only ever sees a
+  // fully-merged `DismissOptions` (or `undefined` for "no dismissal pass").
+  const dismissOptions = resolveDismissSpec(request.dismissBanners);
+
   const taskId = randomUUID();
   const task: CaptureTask = {
     taskId,
@@ -65,7 +71,6 @@ export const captureRequestToTask = (
     url,
     retryCount: 0,
     captureFormats,
-    dismissBanners: request.dismissBanners ?? false,
     enqueuedAt: new Date().toISOString(),
     ...(request.correlationId !== undefined &&
       request.correlationId !== "" && {
@@ -73,6 +78,7 @@ export const captureRequestToTask = (
       }),
     ...(acceptLanguage !== undefined &&
       acceptLanguage !== "" && { acceptLanguage }),
+    ...(dismissOptions !== undefined && { dismissOptions }),
   };
 
   return ok(task);

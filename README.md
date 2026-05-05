@@ -7,7 +7,7 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 - **Multiple output formats**: PNG, JPEG screenshots and HTML capture
 - **Link extraction**: Optional `<a href>` extraction written as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
-- **Banner / modal dismissal**: Optional per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing — best-effort, never fails the capture
+- **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
 - **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
 
 ## Architecture
@@ -74,82 +74,13 @@ flowchart TB
 
 ## State Machines
 
-The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model.
-
-### Coordinator Lifecycle
-
-`running` and `degraded` are substates of a compound `active` state. The
-`watchWorkerHealth` invoke and the `SHUTDOWN` transition live on `active`,
-so they are unaffected by `running ↔ degraded` oscillations.
-
-Init failures are non-fatal: partial or total connect failures land in
-`active.degraded` instead of `terminated`. While in `active.degraded`, the
-coordinator periodically retries failed workers (1s → 2s → 4s → … capped at
-60s) and lifts back to `active.running` once every worker is healthy.
-`submitCapture` is accepted while in any `active.*` substate as long as at
-least one worker is operational.
-
-```mermaid
-stateDiagram-v2
-    [*] --> created
-    created --> initializing : INITIALIZE
-    initializing --> active.running : allHealthy
-    initializing --> active.degraded : some failed
-
-    state active {
-        [*] --> running
-        running --> degraded : WORKER_DEGRADED
-        degraded --> running : ALL_WORKERS_HEALTHY
-    }
-
-    active --> shuttingDown : SHUTDOWN
-    shuttingDown --> terminated : shutdownWorkers ok
-    shuttingDown --> terminated : shutdownWorkers err (timeout)
-    terminated --> [*]
-```
-
-### Capture Worker
-
-Each capture worker actor uses compound states. The `operational` state invokes a `fromCallback` worker loop that polls the task queue and processes captures. The `connecting` and `disconnecting` states invoke `fromPromise` actors that return `Result<void, ErrorDetails>` instead of throwing — the machine branches in `onDone` on `event.output.ok`. Disconnect failures still transition to `disconnected` (best-effort) but log the underlying error. From `error`, the coordinator's retry actor (running while in the `degraded` lifecycle) sends `CONNECT` to bring the worker back through `connecting`.
-
-```mermaid
-stateDiagram-v2
-    [*] --> disconnected
-    disconnected --> connecting : CONNECT
-
-    connecting --> operational : success
-    connecting --> error : failure
-
-    state operational {
-        [*] --> idle
-        idle --> processing : TASK_STARTED
-        processing --> idle : TASK_DONE
-        processing --> idle : TASK_FAILED
-    }
-
-    operational --> error : CONNECTION_LOST
-    operational --> disconnecting : DISCONNECT
-
-    error --> connecting : CONNECT (retry)
-    error --> disconnecting : DISCONNECT
-
-    disconnecting --> disconnected : done
-```
-
-| State | Tags | Description |
-|-------|------|-------------|
-| `disconnected` | | Not connected to remote browser (initial or after disconnect) |
-| `connecting` | | Connecting to remote browser (invoke) |
-| `operational.idle` | `healthy`, `canProcess` | Ready to accept tasks |
-| `operational.processing` | `healthy` | Processing a capture task |
-| `error` | | Connection lost or connect failure |
-| `disconnecting` | | Disconnecting browser (invoke) |
+The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. See [docs/state-machines.md](docs/state-machines.md) for the lifecycle diagrams (`coordinatorMachine`, `captureWorkerMachine`) and the worker health-state table.
 
 ## Setup
 
 ### Prerequisites
 
-`chromium-server-docker/` is a git submodule pinned at tag `0.2.0`. The setup script initializes it; alternatively pass `--recurse-submodules` to your initial `git clone`.
+`chromium-server-docker/` is a git submodule. The setup script initializes it; alternatively pass `--recurse-submodules` to your initial `git clone`.
 
 Run the setup script:
 
@@ -304,7 +235,7 @@ Build first (the example is shipped only as TypeScript source):
 ```sh
 npm run build
 node dist/examples/data-client.js \
-  --data data/urls.yaml --jpeg --html --links --limit 30 \
+  --data data/smoke-test.yaml --jpeg --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
@@ -340,7 +271,7 @@ For Node-based clients (including `examples/data-client.ts`), set `NODE_EXTRA_CA
 ```sh
 NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
   node dist/examples/data-client.js \
-    --data data/urls.yaml \
+    --data data/smoke-test.yaml \
     --server https://localhost:8080 \
     --jpeg --html --limit 50 \
     --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \

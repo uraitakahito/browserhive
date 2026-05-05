@@ -7,10 +7,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Page } from "puppeteer";
 import type { CaptureTask } from "../../src/capture/types.js";
-import type { DismissReport } from "../../src/capture/banner-dismisser.js";
+import type {
+  DismissOptions,
+  DismissReport,
+} from "../../src/capture/banner-dismisser.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
 
-const dismissBannersMock = vi.fn<(page: Page) => Promise<DismissReport>>();
+const dismissBannersMock =
+  vi.fn<(page: Page, opts: DismissOptions) => Promise<DismissReport>>();
 
 vi.mock("../../src/capture/banner-dismisser.js", async () => {
   const actual = await vi.importActual<
@@ -18,12 +22,27 @@ vi.mock("../../src/capture/banner-dismisser.js", async () => {
   >("../../src/capture/banner-dismisser.js");
   return {
     ...actual,
-    dismissBanners: (page: Page) => dismissBannersMock(page),
+    dismissBanners: (page: Page, opts: DismissOptions) =>
+      dismissBannersMock(page, opts),
   };
 });
 
 // Import after mocking.
 import { PageCapturer } from "../../src/capture/page-capturer.js";
+
+/**
+ * Equivalent in shape to `DEFAULT_DISMISS_OPTIONS` from production. We
+ * build it inline rather than importing the constant — bringing the value
+ * in via `import` would force banner-dismisser to load through a path
+ * that isn't this file's `vi.mock` target, which (in this test setup)
+ * pins page-capturer's `dismissBanners` binding to the real export
+ * instead of the wrapper.
+ */
+const TEST_DEFAULT_DISMISS_OPTIONS: DismissOptions = {
+  knownCmpEntries: [{ framework: "OneTrust", selector: "#onetrust-banner-sdk" }],
+  heuristic: { enabled: true, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+  failOnError: false,
+};
 
 interface MockPage {
   setViewport: ReturnType<typeof vi.fn>;
@@ -68,7 +87,6 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   url: "https://example.com",
   retryCount: 0,
   captureFormats: { png: false, jpeg: false, html: true, links: false },
-  dismissBanners: false,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
@@ -88,15 +106,19 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     });
   });
 
-  it("calls dismissBanners and attaches the report when task.dismissBanners is true", async () => {
+  it("calls dismissBanners and attaches the report when task.dismissOptions is set", async () => {
     const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
     const capturer = new PageCapturer(config);
     const page = buildMockPage();
 
-    const result = await capturer.capture(asPage(page), buildTask({ dismissBanners: true }), 0);
+    const result = await capturer.capture(
+      asPage(page),
+      buildTask({ dismissOptions: TEST_DEFAULT_DISMISS_OPTIONS }),
+      0,
+    );
 
     expect(dismissBannersMock).toHaveBeenCalledTimes(1);
-    expect(dismissBannersMock).toHaveBeenCalledWith(page);
+    expect(dismissBannersMock).toHaveBeenCalledWith(page, TEST_DEFAULT_DISMISS_OPTIONS);
     expect(result.dismissReport).toEqual({
       framework: "OneTrust",
       removedSelectors: ["#onetrust-banner-sdk"],
@@ -104,15 +126,35 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     });
   });
 
-  it("does not call dismissBanners when task.dismissBanners is false", async () => {
+  it("does not call dismissBanners when task.dismissOptions is undefined", async () => {
     const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
     const capturer = new PageCapturer(config);
     const page = buildMockPage();
 
-    const result = await capturer.capture(asPage(page), buildTask({ dismissBanners: false }), 0);
+    const result = await capturer.capture(asPage(page), buildTask(), 0);
 
     expect(dismissBannersMock).not.toHaveBeenCalled();
     expect(result.dismissReport).toBeUndefined();
+  });
+
+  it("forwards inline custom DismissOptions verbatim to dismissBanners", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+
+    const customOpts: DismissOptions = {
+      knownCmpEntries: [
+        { framework: "custom", selector: "#site-paywall" },
+        { framework: "custom", selector: ".newsletter-takeover" },
+      ],
+      heuristic: { enabled: false, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+      failOnError: false,
+    };
+
+    await capturer.capture(asPage(page), buildTask({ dismissOptions: customOpts }), 0);
+
+    expect(dismissBannersMock).toHaveBeenCalledTimes(1);
+    expect(dismissBannersMock).toHaveBeenCalledWith(page, customOpts);
   });
 
   it("does not call dismissBanners when the page returned an HTTP error", async () => {
@@ -124,9 +166,43 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
       statusText: () => "Not Found",
     });
 
-    const result = await capturer.capture(asPage(page), buildTask({ dismissBanners: true }), 0);
+    const result = await capturer.capture(
+      asPage(page),
+      buildTask({ dismissOptions: TEST_DEFAULT_DISMISS_OPTIONS }),
+      0,
+    );
 
     expect(dismissBannersMock).not.toHaveBeenCalled();
     expect(result.status).toBe("httpError");
   });
+
+  it("propagates a strict-mode dismissal rejection as a failed CaptureResult", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    const cdpSession = buildMockCDPSession();
+    page.createCDPSession.mockResolvedValue(cdpSession);
+    dismissBannersMock.mockRejectedValueOnce(new Error("dismissal boom"));
+
+    const strictOpts: DismissOptions = {
+      ...TEST_DEFAULT_DISMISS_OPTIONS,
+      failOnError: true,
+    };
+    const result = await capturer.capture(
+      asPage(page),
+      buildTask({ dismissOptions: strictOpts }),
+      0,
+    );
+
+    // The strict throw bubbles into PageCapturer.capture's outer catch,
+    // which classifies the error and produces a failed CaptureResult.
+    expect(result.status).toBe("failed");
+    expect(result.dismissReport).toBeUndefined();
+    expect(result.errorDetails?.message).toContain("dismissal boom");
+    // resetPageState in the finally block must still run — that's the
+    // safety net that keeps the persistent tab clean for the next task.
+    expect(page.goto).toHaveBeenCalledWith("about:blank");
+    expect(cdpSession.send).toHaveBeenCalledWith("Network.clearBrowserCookies");
+  });
+
 });
