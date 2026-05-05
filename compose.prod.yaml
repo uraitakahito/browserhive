@@ -120,24 +120,24 @@ services:
       start_period: 5s
     restart: unless-stopped
 
-  # One-shot init: create the `browserhive` bucket via `weed shell`.
-  # Idempotent — re-running `s3.bucket.create` against an existing
-  # bucket is a no-op.
+  # One-shot init: create the configured bucket. The retry / verify
+  # logic lives in etc/seaweedfs/init-bucket.sh (see that file for
+  # rationale). The bucket name is interpolated by docker compose at
+  # parse time so the script does not need to read env at runtime.
   seaweedfs-init:
     image: chrislusf/seaweedfs:4.23
     container_name: browserhive-seaweedfs-init-prod
     depends_on:
       seaweedfs:
         condition: service_healthy
+    volumes:
+      - ./etc/seaweedfs:/etc/seaweedfs:ro
     networks:
       - chromium-network
     entrypoint:
-      - "sh"
-      - "-c"
-      - |
-        set -eu
-        echo "s3.bucket.create -name ${BROWSERHIVE_S3_BUCKET:-browserhive}" | weed shell -master=seaweedfs:9333
-        echo "Bucket ${BROWSERHIVE_S3_BUCKET:-browserhive} ready."
+      - "/etc/seaweedfs/init-bucket.sh"
+      - "${BROWSERHIVE_S3_BUCKET:-browserhive}"
+      - "seaweedfs:9333"
 
 volumes:
   seaweedfs-data:
