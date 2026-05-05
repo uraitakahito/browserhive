@@ -17,8 +17,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222,http://chromium-server-2:9222
       # Override BROWSERHIVE_S3_ENDPOINT (and credentials) to point at an
-      # external S3 — AWS, Cloudflare R2, managed MinIO, managed
-      # SeaweedFS. The bundled `seaweedfs` service below stays running
+      # external S3 — AWS, Cloudflare R2, MinIO-compatible managed
+      # services. The bundled `seaweedfs` service below stays running
       # but is harmless when not used.
       - BROWSERHIVE_S3_ENDPOINT=http://seaweedfs:8333
       - BROWSERHIVE_S3_REGION=${BROWSERHIVE_S3_REGION:-us-east-1}
@@ -85,14 +85,14 @@ services:
     restart: unless-stopped
 
   # SeaweedFS — S3-compatible artifact store (Apache 2.0, actively
-  # maintained), self-hosted alongside the capture server. Replaces the
-  # bundled MinIO. For external S3 (AWS / R2 / managed MinIO / managed
-  # SeaweedFS), override `BROWSERHIVE_S3_ENDPOINT` on the browserhive
-  # service above; this service stays running (idle) and can be removed
-  # via a compose override if not needed. By default, SeaweedFS ports
-  # are NOT published to the host — exposed within the chromium-network
-  # only. Add a port mapping in a local override file if Filer UI
-  # access is required for ad-hoc inspection.
+  # maintained), self-hosted alongside the capture server. For external
+  # S3 (AWS / R2 / MinIO-compatible managed services), override
+  # `BROWSERHIVE_S3_ENDPOINT` on the browserhive service above; this
+  # service stays running (idle) and can be removed via a compose
+  # override if not needed. By default, SeaweedFS ports are NOT
+  # published to the host — exposed within the chromium-network only.
+  # Add a port mapping in a local override file if Filer UI access is
+  # required for ad-hoc inspection.
   seaweedfs:
     image: chrislusf/seaweedfs:4.23
     container_name: browserhive-seaweedfs-prod

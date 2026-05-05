@@ -17,7 +17,7 @@ import { S3ArtifactStore } from "../../src/storage/s3-store.js";
 import type { StorageConfig } from "../../src/config/index.js";
 
 const baseConfig = (overrides: Partial<StorageConfig> = {}): StorageConfig => ({
-  endpoint: "http://minio:9000",
+  endpoint: "http://seaweedfs:8333",
   region: "us-east-1",
   bucket: "browserhive-test",
   accessKeyId: "AKIATESTACCESSKEYID",

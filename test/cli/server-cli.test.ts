@@ -16,7 +16,7 @@ import { vi } from "vitest";
  */
 const s3Args = [
   "--s3-endpoint",
-  "http://minio:9000",
+  "http://seaweedfs:8333",
   "--s3-bucket",
   "browserhive",
   "--s3-access-key-id",
@@ -26,7 +26,7 @@ const s3Args = [
 ];
 
 const stubS3Env = (): void => {
-  vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://minio:9000");
+  vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://seaweedfs:8333");
   vi.stubEnv("BROWSERHIVE_S3_BUCKET", "browserhive");
   vi.stubEnv("BROWSERHIVE_S3_ACCESS_KEY_ID", "AKIATESTACCESSKEYID");
   vi.stubEnv("BROWSERHIVE_S3_SECRET_ACCESS_KEY", "test-secret-access-key-value");
@@ -51,7 +51,7 @@ describe("server-cli parseCliOptions", () => {
         "http://b2:9222",
       ]);
       expect(config.coordinator.storage).toEqual({
-        endpoint: "http://minio:9000",
+        endpoint: "http://seaweedfs:8333",
         region: "us-east-1",
         bucket: "browserhive",
         accessKeyId: "AKIATESTACCESSKEYID",
@@ -95,7 +95,7 @@ describe("server-cli parseCliOptions", () => {
         "http://b2:9222",
       ]);
       expect(config.coordinator.storage).toMatchObject({
-        endpoint: "http://minio:9000",
+        endpoint: "http://seaweedfs:8333",
         bucket: "browserhive",
         region: "ap-northeast-1",
         keyPrefix: "captures",
@@ -254,7 +254,7 @@ describe("server-cli parseCliOptions", () => {
 
     it("--s3-bucket が CLI/env のどちらにもなければ exit する", () => {
       vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
-      vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://minio:9000");
+      vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://seaweedfs:8333");
       vi.stubEnv("BROWSERHIVE_S3_ACCESS_KEY_ID", "AKIATESTACCESSKEYID");
       vi.stubEnv("BROWSERHIVE_S3_SECRET_ACCESS_KEY", "secret");
 
@@ -263,7 +263,7 @@ describe("server-cli parseCliOptions", () => {
 
     it("--s3-access-key-id が CLI/env のどちらにもなければ exit する", () => {
       vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
-      vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://minio:9000");
+      vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://seaweedfs:8333");
       vi.stubEnv("BROWSERHIVE_S3_BUCKET", "browserhive");
       vi.stubEnv("BROWSERHIVE_S3_SECRET_ACCESS_KEY", "secret");
 
@@ -272,7 +272,7 @@ describe("server-cli parseCliOptions", () => {
 
     it("--s3-secret-access-key が CLI/env のどちらにもなければ exit する", () => {
       vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
-      vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://minio:9000");
+      vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://seaweedfs:8333");
       vi.stubEnv("BROWSERHIVE_S3_BUCKET", "browserhive");
       vi.stubEnv("BROWSERHIVE_S3_ACCESS_KEY_ID", "AKIATESTACCESSKEYID");
 
