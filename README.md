@@ -87,13 +87,7 @@ Run the setup script:
 
 ### Development Environment
 
-`compose.dev.yaml` brings up the full dev stack — two Chromium servers,
-a self-hosted SeaweedFS (S3-compatible artifact store) with bucket
-auto-init, and the BrowserHive container itself. See
-[docs/development-environment.md](docs/development-environment.md) for
-launch commands, in-container build/run instructions, noVNC access for
-inspecting Chromium, and how to browse captured artifacts via the
-SeaweedFS Filer UI.
+See [docs/development-environment.md](docs/development-environment.md).
 
 ### Production Environment
 
