@@ -22,11 +22,11 @@ services:
       - GH_TOKEN=${GH_TOKEN}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222,http://chromium-server-2:9222
-      - BROWSERHIVE_S3_ENDPOINT=http://minio:9000
+      - BROWSERHIVE_S3_ENDPOINT=http://seaweedfs:8333
       - BROWSERHIVE_S3_REGION=us-east-1
       - BROWSERHIVE_S3_BUCKET=browserhive
-      - BROWSERHIVE_S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
-      - BROWSERHIVE_S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - BROWSERHIVE_S3_ACCESS_KEY_ID=${BROWSERHIVE_S3_ACCESS_KEY_ID:-browserhive}
+      - BROWSERHIVE_S3_SECRET_ACCESS_KEY=${BROWSERHIVE_S3_SECRET_ACCESS_KEY:-browserhive}
     networks:
       - chromium-network
     depends_on:
@@ -34,7 +34,7 @@ services:
         condition: service_healthy
       chromium-server-2:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     tty: true
     stdin_open: true
@@ -85,42 +85,52 @@ services:
       retries: 3
       start_period: 10s
 
-  # MinIO — S3-compatible artifact store. Captures land at
-  # s3://browserhive/<filename>. Console at http://localhost:9001
-  # (root credentials below — overrideable via MINIO_ROOT_USER /
-  # MINIO_ROOT_PASSWORD env on `docker compose up`).
-  minio:
-    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
-    container_name: browserhive-minio
+  # SeaweedFS — S3-compatible artifact store (Apache 2.0, actively
+  # maintained). Replaces the bundled MinIO. `weed server` starts master,
+  # volume, filer, and s3 in one process via etc/seaweedfs/entrypoint.sh,
+  # which renders the s3 identity config from BROWSERHIVE_S3_ACCESS_KEY_ID
+  # / BROWSERHIVE_S3_SECRET_ACCESS_KEY at startup.
+  #
+  # Ports:
+  #   - 8333  S3 API (BROWSERHIVE_S3_ENDPOINT points here)
+  #   - 8888  Filer UI — open http://localhost:8888/buckets/browserhive/
+  #           in a browser to inspect captured artifacts.
+  #   - 9333  Master HTTP (cluster status, debug)
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.23
+    container_name: browserhive-seaweedfs
     init: true
-    command: server /data --console-address ":9001"
+    entrypoint: ["/etc/seaweedfs/entrypoint.sh"]
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - BROWSERHIVE_S3_ACCESS_KEY_ID=${BROWSERHIVE_S3_ACCESS_KEY_ID:-browserhive}
+      - BROWSERHIVE_S3_SECRET_ACCESS_KEY=${BROWSERHIVE_S3_SECRET_ACCESS_KEY:-browserhive}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "8333:8333"
+      - "8888:8888"
+      - "9333:9333"
     volumes:
-      - minio-data:/data
+      - ./etc/seaweedfs:/etc/seaweedfs:ro
+      - seaweedfs-data:/data
     networks:
       - chromium-network
     healthcheck:
-      test:
-        - "CMD-SHELL"
-        - "mc ready local || exit 1"
+      # SeaweedFS binds to IPv4 only; `localhost` resolves to `::1` first
+      # in the container and fails with "connection refused", so probe
+      # 127.0.0.1 explicitly.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:9333/cluster/status"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 5s
 
-  # One-shot init: create the `browserhive` bucket. `mc mb -p` is
-  # idempotent (succeeds if the bucket already exists) so this also
-  # safely runs on every compose up.
-  minio-init:
-    image: minio/mc:RELEASE.2025-04-03T17-07-56Z
-    container_name: browserhive-minio-init
+  # One-shot init: create the `browserhive` bucket via `weed shell`.
+  # Idempotent — re-running `s3.bucket.create` against an existing bucket
+  # is a no-op.
+  seaweedfs-init:
+    image: chrislusf/seaweedfs:4.23
+    container_name: browserhive-seaweedfs-init
     depends_on:
-      minio:
+      seaweedfs:
         condition: service_healthy
     networks:
       - chromium-network
@@ -129,15 +139,14 @@ services:
       - "-c"
       - |
         set -eu
-        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin}
-        mc mb -p local/browserhive
+        echo "s3.bucket.create -name browserhive" | weed shell -master=seaweedfs:9333
         echo "Bucket browserhive ready."
 
 volumes:
   zsh-history:
     name: browserhive-zsh-history
-  minio-data:
-    name: browserhive-minio-data
+  seaweedfs-data:
+    name: browserhive-seaweedfs-data
 
 networks:
   chromium-network:
