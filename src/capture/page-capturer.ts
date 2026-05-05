@@ -6,11 +6,10 @@
  * a single persistent tab per worker) — `capture` only navigates,
  * configures, reads, and resets it; it does not create or close tabs.
  */
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { Page } from "puppeteer";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
+import type { ArtifactStore } from "../storage/index.js";
 import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
 import { captureStatus } from "./capture-status.js";
 import {
@@ -470,9 +469,11 @@ export const isSuccessHttpStatus = (statusCode: number): boolean => {
 
 export class PageCapturer {
   private config: CaptureConfig;
+  private store: ArtifactStore;
 
-  constructor(config: CaptureConfig) {
+  constructor(config: CaptureConfig, store: ArtifactStore) {
     this.config = config;
+    this.store = store;
   }
 
   /**
@@ -580,30 +581,30 @@ export class PageCapturer {
         dismissReport = await dismissBanners(page, task.dismissOptions);
       }
 
-      let pngPath: string | undefined;
-      let jpegPath: string | undefined;
-      let htmlPath: string | undefined;
-      let linksPath: string | undefined;
-      let pdfPath: string | undefined;
+      let pngLocation: string | undefined;
+      let jpegLocation: string | undefined;
+      let htmlLocation: string | undefined;
+      let linksLocation: string | undefined;
+      let pdfLocation: string | undefined;
 
       if (task.captureFormats.png) {
-        pngPath = await this.captureScreenshot(page, task, "png");
+        pngLocation = await this.captureScreenshot(page, task, "png");
       }
 
       if (task.captureFormats.jpeg) {
-        jpegPath = await this.captureScreenshot(page, task, "jpeg");
+        jpegLocation = await this.captureScreenshot(page, task, "jpeg");
       }
 
       if (task.captureFormats.html) {
-        htmlPath = await this.captureHtml(page, task);
+        htmlLocation = await this.captureHtml(page, task);
       }
 
       if (task.captureFormats.links) {
-        linksPath = await this.captureLinks(page, task);
+        linksLocation = await this.captureLinks(page, task);
       }
 
       if (task.captureFormats.pdf) {
-        pdfPath = await this.capturePdf(page, task);
+        pdfLocation = await this.capturePdf(page, task);
       }
 
       const captureProcessingTimeMs = Date.now() - startTime;
@@ -615,11 +616,11 @@ export class PageCapturer {
         captureProcessingTimeMs,
         timestamp: new Date().toISOString(),
         workerIndex,
-        ...(pngPath !== undefined && { pngPath }),
-        ...(jpegPath !== undefined && { jpegPath }),
-        ...(htmlPath !== undefined && { htmlPath }),
-        ...(linksPath !== undefined && { linksPath }),
-        ...(pdfPath !== undefined && { pdfPath }),
+        ...(pngLocation !== undefined && { pngLocation }),
+        ...(jpegLocation !== undefined && { jpegLocation }),
+        ...(htmlLocation !== undefined && { htmlLocation }),
+        ...(linksLocation !== undefined && { linksLocation }),
+        ...(pdfLocation !== undefined && { pdfLocation }),
         ...(dismissReport !== undefined && { dismissReport }),
       };
     } catch (error) {
@@ -651,7 +652,6 @@ export class PageCapturer {
     type: "png" | "jpeg"
   ): Promise<string> {
     const filename = generateFilename(task, type);
-    const filePath = join(this.config.outputDir, filename);
 
     const options = {
       fullPage: this.config.screenshot.fullPage,
@@ -674,14 +674,15 @@ export class PageCapturer {
       this.config.timeouts.capture,
     );
 
-    await writeFile(filePath, screenshotBuffer);
-
-    return filePath;
+    return this.store.put(
+      filename,
+      Buffer.from(screenshotBuffer),
+      type === "png" ? "image/png" : "image/jpeg",
+    );
   }
 
   private async captureHtml(page: Page, task: CaptureTask): Promise<string> {
     const filename = generateFilename(task, "html");
-    const filePath = join(this.config.outputDir, filename);
 
     // JS-redirect-aware. `page.content` serialises the document, which
     // requires a live execution context; same redirect hazard as the
@@ -695,9 +696,7 @@ export class PageCapturer {
       this.config.timeouts.capture,
     );
 
-    await writeFile(filePath, html, "utf-8");
-
-    return filePath;
+    return this.store.put(filename, html, "text/html");
   }
 
   /**
@@ -713,7 +712,6 @@ export class PageCapturer {
    */
   private async captureLinks(page: Page, task: CaptureTask): Promise<string> {
     const filename = generateFilename(task, "links.json");
-    const filePath = join(this.config.outputDir, filename);
 
     const raw = await runOnStableContext(
       page,
@@ -756,9 +754,11 @@ export class PageCapturer {
       links,
     };
 
-    await writeFile(filePath, JSON.stringify(file, null, 2), "utf-8");
-
-    return filePath;
+    return this.store.put(
+      filename,
+      JSON.stringify(file, null, 2),
+      "application/json",
+    );
   }
 
   /**
@@ -774,7 +774,6 @@ export class PageCapturer {
    */
   private async capturePdf(page: Page, task: CaptureTask): Promise<string> {
     const filename = generateFilename(task, "pdf");
-    const filePath = join(this.config.outputDir, filename);
 
     const pdfBuffer = await runOnStableContext(
       page,
@@ -783,8 +782,6 @@ export class PageCapturer {
       this.config.timeouts.capture,
     );
 
-    await writeFile(filePath, pdfBuffer);
-
-    return filePath;
+    return this.store.put(filename, Buffer.from(pdfBuffer), "application/pdf");
   }
 }

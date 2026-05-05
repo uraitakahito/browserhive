@@ -2,6 +2,8 @@
 
 A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker). The `BrowserHive` component in the Architecture diagram below represents this application's responsibility.
 
+Used by [waggle](https://github.com/uraitakahito/waggle).
+
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
 - **Multiple output formats**: PNG, JPEG screenshots, HTML capture, and PDF rendering (Chromium print pipeline, A4)
@@ -195,7 +197,15 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 |---|---|---|
 | `--port <port>` | `BROWSERHIVE_PORT` | integer (1–65535) |
 | `--browser-url <urls...>` | `BROWSERHIVE_BROWSER_URLS` | comma-separated list (required) |
-| `--output <dir>` | `BROWSERHIVE_OUTPUT_DIR` | path (required) |
+| `--storage <kind>` | `BROWSERHIVE_STORAGE` | `local` or `s3` (required — see [Storage backends](#storage-backends)) |
+| `--output-dir <dir>` | `BROWSERHIVE_OUTPUT_DIR` | path (required when `--storage=local`) |
+| `--s3-endpoint <url>` | `BROWSERHIVE_S3_ENDPOINT` | URL (required when `--storage=s3`) |
+| `--s3-region <region>` | `BROWSERHIVE_S3_REGION` | string (default `us-east-1`) |
+| `--s3-bucket <name>` | `BROWSERHIVE_S3_BUCKET` | string (required when `--storage=s3`) |
+| `--s3-access-key-id <id>` | `BROWSERHIVE_S3_ACCESS_KEY_ID` | string (required when `--storage=s3`; prefer env to avoid `ps` leak) |
+| `--s3-secret-access-key <secret>` | `BROWSERHIVE_S3_SECRET_ACCESS_KEY` | string (required when `--storage=s3`; prefer env to avoid `ps` leak) |
+| `--s3-key-prefix <prefix>` | `BROWSERHIVE_S3_KEY_PREFIX` | string (no trailing slash; default empty) |
+| `--no-s3-force-path-style` | — | flip path-style addressing off (AWS S3 only; MinIO requires path-style) |
 | `--page-load-timeout <ms>` | `BROWSERHIVE_PAGE_LOAD_TIMEOUT_MS` | positive integer |
 | `--capture-timeout <ms>` | `BROWSERHIVE_CAPTURE_TIMEOUT_MS` | positive integer |
 | `--task-timeout <ms>` | `BROWSERHIVE_TASK_TIMEOUT_MS` | positive integer (Layer B per-task safety net) |
@@ -238,6 +248,96 @@ node dist/examples/data-client.js \
 
 `data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
 
+## Storage backends
+
+Captured artifacts (PNG / JPEG / HTML / links JSON / PDF) are written
+through an `ArtifactStore` abstraction and can target one of two
+mutually-exclusive backends per server process. The choice is selected
+by `--storage <kind>` (or `BROWSERHIVE_STORAGE`):
+
+- **`local`** — write to the host filesystem under `--output-dir`.
+  `CaptureResult.{pngLocation,…}` and the worker's "Task completed"
+  log line carry an absolute file path.
+- **`s3`** — write to any S3-compatible object store (MinIO, AWS S3,
+  Cloudflare R2, …) via `@aws-sdk/client-s3`. Locations are returned
+  as `s3://<bucket>/<key>` URIs so downstream consumers (e.g. waggle)
+  can fetch them with the SDK of their choice.
+
+Either side requires every flag of its own and rejects any flag from
+the other side at startup. The `--s3-region`, `--s3-key-prefix`, and
+`--s3-force-path-style` flags have defaults and are accepted on either
+side (silently ignored on `local`).
+
+### Local example
+
+```sh
+LOG_LEVEL=info npm run server -- \
+  --browser-url http://chromium-server-1:9222 \
+  --storage local --output-dir ./output/capture \
+  | pino-pretty
+```
+
+This is what `compose.dev.yaml` and `compose.prod.yaml` set up by
+default — no extra flags needed.
+
+### S3 / MinIO example
+
+```sh
+LOG_LEVEL=info npm run server -- \
+  --browser-url http://chromium-server-1:9222 \
+  --storage s3 \
+  --s3-endpoint http://minio:9000 \
+  --s3-bucket browserhive \
+  --s3-access-key-id "$S3_KEY_ID" \
+  --s3-secret-access-key "$S3_SECRET" \
+  | pino-pretty
+```
+
+The `s3-access-key-id` and `s3-secret-access-key` values are accepted
+on the command line for completeness, but prefer the
+`BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY`
+env vars so the secret does not appear in `ps`.
+
+The bucket must already exist — BrowserHive does not create it.
+Server startup runs `HeadBucket` once as a fail-fast preflight; a
+missing bucket or wrong credentials abort startup before any worker
+spawns. Object keys are `[<keyPrefix>/]<filename>` where `<filename>`
+follows the same `{taskId}_..._{labels}.{ext}` pattern as the local
+backend.
+
+### Dev compose with MinIO
+
+`compose.dev.s3.yaml` is an overlay that adds a MinIO container plus a
+one-shot `mc mb` init container, and flips the BrowserHive container's
+env to `--storage s3`:
+
+```sh
+GH_TOKEN=$(gh auth token) \
+  docker compose -f compose.dev.yaml -f compose.dev.s3.yaml up -d --build
+
+# MinIO console: http://localhost:9001  (minioadmin / minioadmin)
+docker compose -f compose.dev.yaml -f compose.dev.s3.yaml down
+```
+
+When BrowserHive is up, captures land at `s3://browserhive/<filename>`
+and you can list them via the MinIO console or `mc ls local/browserhive`.
+
+### Production
+
+`compose.prod.yaml` ships with `BROWSERHIVE_STORAGE=local`. To use an
+external MinIO / AWS S3, switch the env in compose (or pass via
+`docker run -e ...`) — the prod image bundles the AWS SDK so no
+rebuild is required:
+
+```yaml
+environment:
+  - BROWSERHIVE_STORAGE=s3
+  - BROWSERHIVE_S3_ENDPOINT=https://minio.example.com
+  - BROWSERHIVE_S3_BUCKET=browserhive-prod
+  - BROWSERHIVE_S3_ACCESS_KEY_ID=...
+  - BROWSERHIVE_S3_SECRET_ACCESS_KEY=...
+```
+
 ## TLS (Transport Layer Security)
 
 The server supports TLS for secure communication. See [docs/tls-certificates.md](docs/tls-certificates.md) for certificate generation instructions.
@@ -247,7 +347,7 @@ The server supports TLS for secure communication. See [docs/tls-certificates.md]
 To start the server using the pre-prepared sample certificates and private keys:
 
 ```sh
-LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --output ./output/capture --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" | pino-pretty
+LOG_LEVEL=info npm run server -- --browser-url http://chromium-server-1:9222 --browser-url http://chromium-server-2:9222 --storage local --output-dir ./output/capture --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" | pino-pretty
 ```
 
 ### Calling the server

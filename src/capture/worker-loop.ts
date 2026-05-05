@@ -67,8 +67,8 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
                 taskId: task.taskId,
                 ...(task.correlationId && { correlationId: task.correlationId }),
                 url: task.url,
-                ...(result.linksPath && { linksPath: result.linksPath }),
-                ...(result.pdfPath && { pdfPath: result.pdfPath }),
+                ...(result.linksLocation && { linksLocation: result.linksLocation }),
+                ...(result.pdfLocation && { pdfLocation: result.pdfLocation }),
                 ...(result.dismissReport && { dismissReport: result.dismissReport }),
               },
               "Task completed"

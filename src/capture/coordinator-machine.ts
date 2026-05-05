@@ -31,6 +31,7 @@ import {
   setup,
 } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
+import type { ArtifactStore } from "../storage/index.js";
 import { logger } from "../logger.js";
 import {
   initializeWorkers,
@@ -44,12 +45,14 @@ import { CaptureWorker, captureWorkerMachine } from "./capture-worker.js";
 
 export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
+  store: ArtifactStore;
   taskQueue: TaskQueue;
   workers: CaptureWorker[];
 }
 
 export interface CoordinatorMachineInput {
   config: CoordinatorConfig;
+  store: ArtifactStore;
 }
 
 export const coordinatorMachine = setup({
@@ -74,6 +77,7 @@ export const coordinatorMachine = setup({
   initial: "created",
   context: ({ input }): CoordinatorMachineContext => ({
     config: input.config,
+    store: input.store,
     taskQueue: new TaskQueue(),
     workers: [],
   }),
@@ -85,7 +89,7 @@ export const coordinatorMachine = setup({
       entry: assign({
         workers: ({ context, spawn }): CaptureWorker[] =>
           context.config.browserProfiles.map((profile, index) => {
-            const client = new BrowserClient(index, profile);
+            const client = new BrowserClient(index, profile, context.store);
             const ref = spawn("captureWorker", {
               id: `worker-${String(index)}`,
               input: {

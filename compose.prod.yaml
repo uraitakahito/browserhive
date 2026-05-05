@@ -16,6 +16,10 @@ services:
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222,http://chromium-server-2:9222
+      # BROWSERHIVE_STORAGE selects the artifact backend. Defaults to `local`
+      # for the prod compose; switch to `s3` and supply BROWSERHIVE_S3_*
+      # env vars to push artifacts to MinIO / AWS S3 instead.
+      - BROWSERHIVE_STORAGE=local
       - BROWSERHIVE_OUTPUT_DIR=/app/output
     networks:
       - chromium-network
