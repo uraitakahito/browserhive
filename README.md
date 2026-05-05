@@ -149,7 +149,7 @@ stateDiagram-v2
 
 ### Prerequisites
 
-`chromium-server-docker/` is a git submodule pinned at tag `0.2.0`. The setup script initializes it; alternatively pass `--recurse-submodules` to your initial `git clone`.
+`chromium-server-docker/` is a git submodule. The setup script initializes it; alternatively pass `--recurse-submodules` to your initial `git clone`.
 
 Run the setup script:
 
