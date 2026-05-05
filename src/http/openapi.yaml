@@ -63,6 +63,7 @@ paths:
                     jpeg: false
                     html: false
                     links: false
+                    pdf: false
                   dismissBanners: true
               acceptLanguageJa:
                 summary: Capture the Japanese variant of a multilingual site
@@ -79,6 +80,7 @@ paths:
                     jpeg: false
                     html: true
                     links: false
+                    pdf: false
                   acceptLanguage: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7
               linksOnly:
                 summary: Extract links without taking a screenshot
@@ -94,6 +96,24 @@ paths:
                     jpeg: false
                     html: false
                     links: true
+                    pdf: false
+              pdfOnly:
+                summary: Render the page to PDF only
+                description: |
+                  Skips raster screenshot / HTML / link extraction and
+                  writes only the PDF rendering as
+                  `{taskId}_..._labels.pdf`. Uses Chromium's print
+                  pipeline (`print` media type, A4, `printBackground:
+                  true`).
+                value:
+                  url: https://www.example.com/
+                  labels: [example]
+                  captureFormats:
+                    png: false
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: true
               dismissBannersInline:
                 summary: Page-specific dismissal selectors (inline)
                 description: |
@@ -110,6 +130,7 @@ paths:
                     jpeg: false
                     html: false
                     links: false
+                    pdf: false
                   dismissBanners:
                     useDefaults: true
                     extraSelectors:
@@ -138,6 +159,7 @@ paths:
                     jpeg: false
                     html: false
                     links: false
+                    pdf: false
                   dismissBanners:
                     useDefaults: true
                     extraSelectors:
@@ -207,7 +229,7 @@ components:
     CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
-      required: [png, jpeg, html, links]
+      required: [png, jpeg, html, links, pdf]
       additionalProperties: false
       properties:
         png:
@@ -223,6 +245,16 @@ components:
             list as `{taskId}_..._labels.links.json` in the output
             directory (same naming pattern as the other capture formats).
             Useful as the discovery side of an external crawl driver.
+        pdf:
+          type: boolean
+          description: |
+            Render the page to PDF and write it as
+            `{taskId}_..._labels.pdf` in the output directory (same naming
+            pattern as the other capture formats). Uses Chromium's print
+            pipeline with the `print` CSS media type and `printBackground:
+            true`; the page format is fixed to A4. Distinct from the PNG /
+            JPEG screenshot path — PDF is intended for archival /
+            print-oriented use cases.
     CaptureRequest:
       type: object
       required: [url, captureFormats]

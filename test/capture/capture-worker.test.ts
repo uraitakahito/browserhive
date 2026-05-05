@@ -150,7 +150,7 @@ describe("capture-worker", () => {
 
       it("should transition idle → processing on TASK_STARTED and capture currentTask", async () => {
         const { actor } = await createOperationalActor();
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         const before = Date.now();
         actor.send({ type: "TASK_STARTED", task });
         const after = Date.now();
@@ -166,7 +166,7 @@ describe("capture-worker", () => {
 
       it("should transition processing → idle on TASK_DONE, increment processedCount, and clear currentTask", async () => {
         const { actor } = await createOperationalActor();
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         const result = { task, status: "success" as const, captureProcessingTimeMs: 100, timestamp: new Date().toISOString(), workerIndex: 0 };
 
         actor.send({ type: "TASK_STARTED", task });
@@ -180,7 +180,7 @@ describe("capture-worker", () => {
       it("should requeue task on TASK_FAILED when retries remain (canRetry guard)", async () => {
         const taskQueue = new TaskQueue();
         const { actor } = await createOperationalActor({ runtime: { taskQueue } });
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         const result = {
           task,
           status: "failed" as const,
@@ -208,7 +208,7 @@ describe("capture-worker", () => {
       it("should mark task complete on TASK_FAILED when retries exhausted", async () => {
         const taskQueue = new TaskQueue();
         const { actor } = await createOperationalActor({ runtime: { taskQueue } });
-        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         // Simulate dequeue to put task in processing set
         taskQueue.enqueue(task);
         taskQueue.dequeue();
@@ -238,7 +238,7 @@ describe("capture-worker", () => {
 
       it("should transition to error on CONNECTION_LOST and clear currentTask", async () => {
         const { actor } = await createOperationalActor();
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         actor.send({ type: "TASK_STARTED", task });
         expect(actor.getSnapshot().context.currentTask).not.toBeNull();
         actor.send({ type: "CONNECTION_LOST", task, message: "Browser disconnected" });
@@ -252,7 +252,7 @@ describe("capture-worker", () => {
       it("should requeue task on CONNECTION_LOST when retries remain (canRetry guard)", async () => {
         const taskQueue = new TaskQueue();
         const { actor } = await createOperationalActor({ runtime: { taskQueue } });
-        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         actor.send({ type: "TASK_STARTED", task });
         actor.send({ type: "CONNECTION_LOST", task, message: "Connection closed" });
 
@@ -274,7 +274,7 @@ describe("capture-worker", () => {
       it("should mark task complete on CONNECTION_LOST when retries exhausted", async () => {
         const taskQueue = new TaskQueue();
         const { actor } = await createOperationalActor({ runtime: { taskQueue } });
-        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
         // Simulate dequeue to put task in processing set so markComplete
         // has something to remove.
         taskQueue.enqueue(task);
@@ -366,7 +366,7 @@ describe("capture-worker", () => {
 
         // Generate 12 final failures (retryCount >= maxRetryCount to bypass canRetry guard)
         for (let i = 0; i < 12; i++) {
-          const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+          const task = { taskId: `t${String(i)}`, labels: [], url: "https://example.com", retryCount: 2, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
           const result = {
             task,
             status: "failed" as const,
@@ -408,7 +408,7 @@ describe("capture-worker", () => {
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
       });
-      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
       actor.send({ type: "TASK_STARTED", task });
       expect(toWorkerHealth(actor.getSnapshot())).toBe("busy");
     });
@@ -468,7 +468,7 @@ describe("capture-worker", () => {
       await vi.waitFor(() => {
         expect(actor.getSnapshot().value).toEqual({ operational: "idle" });
       });
-      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+      const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 0, captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
       actor.send({ type: "TASK_STARTED", task });
       expect(actor.getSnapshot().value).toEqual({ operational: "processing" });
       expect(isWorkerSettled(actor.getSnapshot())).toBe(true);
@@ -725,7 +725,7 @@ describe("CaptureWorker class", () => {
         labels: ["a"],
         url: "https://example.com",
         retryCount: 1,
-        captureFormats: { png: true, jpeg: false, html: false, links: false },
+        captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
         correlationId: "EXT-7",
         enqueuedAt: "2024-01-01T00:00:00.000Z",
       };

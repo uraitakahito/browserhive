@@ -71,7 +71,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["test"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: false, jpeg: false, html: false, links: true },
+  captureFormats: { png: false, jpeg: false, html: false, links: true, pdf: false },
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
@@ -222,7 +222,7 @@ describe("PageCapturer.capture — link extraction", () => {
     const result = await capturer.capture(
       asPage(page),
       buildTask({
-        captureFormats: { png: false, jpeg: false, html: true, links: false },
+        captureFormats: { png: false, jpeg: false, html: true, links: false, pdf: false },
       }),
       0,
     );

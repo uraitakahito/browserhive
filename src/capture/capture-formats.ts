@@ -13,13 +13,14 @@ export interface CaptureFormats {
   jpeg: boolean;
   html: boolean;
   links: boolean;
+  pdf: boolean;
 }
 
 export const validateCaptureFormats = (
   formats: CaptureFormats,
 ): Result<void, string> => {
-  if (!formats.png && !formats.jpeg && !formats.html && !formats.links) {
-    return err("At least one capture format must be enabled (png, jpeg, html, or links)");
+  if (!formats.png && !formats.jpeg && !formats.html && !formats.links && !formats.pdf) {
+    return err("At least one capture format must be enabled (png, jpeg, html, links, or pdf)");
   }
   return ok();
 };

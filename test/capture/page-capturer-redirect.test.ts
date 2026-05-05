@@ -36,7 +36,7 @@ const createTask = (): CaptureTask => ({
   labels: ["3099", "IsetanMitsukoshi"],
   url: "https://www.imhds.co.jp/",
   retryCount: 0,
-  captureFormats: { png: false, jpeg: true, html: true, links: false },
+  captureFormats: { png: false, jpeg: true, html: true, links: false, pdf: false },
   enqueuedAt: "2024-01-01T00:00:00.000Z",
 });
 

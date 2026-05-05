@@ -4,7 +4,7 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
-- **Multiple output formats**: PNG, JPEG screenshots and HTML capture
+- **Multiple output formats**: PNG, JPEG screenshots, HTML capture, and PDF rendering (Chromium print pipeline, A4)
 - **Link extraction**: Optional `<a href>` extraction written as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
@@ -72,15 +72,9 @@ flowchart TB
     Worker3 --> Files
 ```
 
-## State Machines
-
-The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. See [docs/state-machines.md](docs/state-machines.md) for the lifecycle diagrams (`coordinatorMachine`, `captureWorkerMachine`) and the worker health-state table.
-
 ## Setup
 
 ### Prerequisites
-
-`chromium-server-docker/` is a git submodule. The setup script initializes it; alternatively pass `--recurse-submodules` to your initial `git clone`.
 
 Run the setup script:
 
@@ -216,7 +210,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--limit`, `--dismiss-banners`, `--accept-language`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--links`, `--pdf`, `--limit`, `--dismiss-banners`, `--accept-language`) intentionally have no env equivalents.
 
 #### Calling the HTTP API
 
@@ -240,7 +234,7 @@ node dist/examples/data-client.js \
   | pino-pretty
 ```
 
-`--png` / `--jpeg` / `--html` / `--links` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。
+`--png` / `--jpeg` / `--html` / `--links` / `--pdf` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。
 
 `data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
 
@@ -277,3 +271,7 @@ NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
     --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
+
+## State Machines
+
+The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. See [docs/state-machines.md](docs/state-machines.md) for the lifecycle diagrams (`coordinatorMachine`, `captureWorkerMachine`) and the worker health-state table.

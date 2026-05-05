@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { vi } from "vitest";
-import { parseClientOptions } from "../../src/cli/client-cli.js";
+import { getCaptureFormats, parseClientOptions } from "../../src/cli/client-cli.js";
 import {
   CLIENT_ENV_VARS,
   setupCliTestEnv,
@@ -78,5 +78,23 @@ describe("client-cli parseClientOptions", () => {
     const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml"));
     // exactOptionalPropertyTypes 下では「キーが無い」と「undefined」を区別する。
     expect("acceptLanguage" in opts).toBe(false);
+  });
+
+  it("--pdf を渡すと captureFormats.pdf が true になる", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--pdf"));
+    expect(opts.pdf).toBe(true);
+    expect(getCaptureFormats(opts)).toEqual({
+      png: false,
+      jpeg: false,
+      html: false,
+      links: false,
+      pdf: true,
+    });
+  });
+
+  it("--pdf 未指定なら getCaptureFormats が pdf:false を返す", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--png"));
+    expect(opts.pdf).toBeUndefined();
+    expect(getCaptureFormats(opts).pdf).toBe(false);
   });
 });
