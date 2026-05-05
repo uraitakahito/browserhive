@@ -76,8 +76,6 @@ flowchart TB
 
 ### Prerequisites
 
-`chromium-server-docker/` is a git submodule. The setup script initializes it; alternatively pass `--recurse-submodules` to your initial `git clone`.
-
 Run the setup script:
 
 ```sh
