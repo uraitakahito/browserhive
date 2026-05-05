@@ -137,7 +137,7 @@ curl --cacert ./certs/ca.crt https://localhost:8080/v1/status
 For Node-based clients (e.g. `examples/data-client.ts`), use `NODE_EXTRA_CA_CERTS` so the global `fetch` picks up the additional trust anchor:
 
 ```bash
-NODE_EXTRA_CA_CERTS=./certs/ca.crt node dist/examples/data-client.js --server https://localhost:8080 --data data/urls.yaml --png --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7"
+NODE_EXTRA_CA_CERTS=./certs/ca.crt node dist/examples/data-client.js --server https://localhost:8080 --data data/smoke-test.yaml --png --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7"
 ```
 
 ## Security Notes

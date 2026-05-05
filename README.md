@@ -304,7 +304,7 @@ Build first (the example is shipped only as TypeScript source):
 ```sh
 npm run build
 node dist/examples/data-client.js \
-  --data data/urls.yaml --jpeg --html --links --limit 30 \
+  --data data/smoke-test.yaml --jpeg --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
@@ -340,7 +340,7 @@ For Node-based clients (including `examples/data-client.ts`), set `NODE_EXTRA_CA
 ```sh
 NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
   node dist/examples/data-client.js \
-    --data data/urls.yaml \
+    --data data/smoke-test.yaml \
     --server https://localhost:8080 \
     --jpeg --html --limit 50 \
     --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
