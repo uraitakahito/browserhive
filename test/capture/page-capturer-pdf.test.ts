@@ -96,7 +96,7 @@ describe("PageCapturer.capture — PDF rendering", () => {
   });
 
   it("writes a .pdf file when captureFormats.pdf is true", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, buildStore("/tmp/out"));
     const page = buildMockPage();
 
@@ -114,7 +114,7 @@ describe("PageCapturer.capture — PDF rendering", () => {
   });
 
   it("does not call page.pdf when captureFormats.pdf is false", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, buildStore("/tmp/out"));
     const page = buildMockPage();
 
@@ -131,7 +131,7 @@ describe("PageCapturer.capture — PDF rendering", () => {
   });
 
   it("retries page.pdf once when the first attempt hits a destroyed-context", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, buildStore("/tmp/out"));
     const page = buildMockPage();
 

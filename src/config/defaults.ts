@@ -1,4 +1,9 @@
-import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig } from "./types.js";
+import type {
+  CaptureConfig,
+  CoordinatorConfig,
+  BrowserHiveConfig,
+  StorageConfig,
+} from "./types.js";
 
 /**
  * Default slowMo value for browser connections.
@@ -19,10 +24,17 @@ export const DEFAULT_BROWSER_SLOW_MO_MS = 0;
  */
 export const DEFAULT_DYNAMIC_CONTENT_WAIT_MS = 3000;
 
-export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
-  // outputDir is a required CLI option, so it's initialized as empty string here
-  // The actual value is passed from the CLI
+/**
+ * Default storage backend. The `kind: "local"` arm is the historical
+ * behaviour; `outputDir` is empty here because it is always supplied
+ * by the CLI / env layer (`buildServerConfig` in `server-cli.ts`).
+ */
+export const DEFAULT_STORAGE_CONFIG: StorageConfig = {
+  kind: "local",
   outputDir: "",
+};
+
+export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   timeouts: {
     pageLoad: 30000,
     capture: 10000,
@@ -54,6 +66,7 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
 
 export const DEFAULT_COORDINATOR_CONFIG: CoordinatorConfig = {
   browserProfiles: [],
+  storage: DEFAULT_STORAGE_CONFIG,
   maxRetryCount: 2,
   queuePollIntervalMs: 50,
   rejectDuplicateUrls: false,

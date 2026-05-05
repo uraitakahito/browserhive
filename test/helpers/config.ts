@@ -61,6 +61,8 @@ export const createTestCoordinatorConfig = (
   overrides: DeepPartial<CoordinatorConfig> = {}
 ): CoordinatorConfig => ({
   browserProfiles: overrides.browserProfiles ?? DEFAULT_COORDINATOR_CONFIG.browserProfiles,
+  storage: (overrides.storage as CoordinatorConfig["storage"] | undefined) ??
+    DEFAULT_COORDINATOR_CONFIG.storage,
   maxRetryCount: overrides.maxRetryCount ?? DEFAULT_COORDINATOR_CONFIG.maxRetryCount,
   queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs,
   rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls,

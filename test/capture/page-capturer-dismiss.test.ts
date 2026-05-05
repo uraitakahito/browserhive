@@ -108,7 +108,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
   });
 
   it("calls dismissBanners and attaches the report when task.dismissOptions is set", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
 
@@ -128,7 +128,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
   });
 
   it("does not call dismissBanners when task.dismissOptions is undefined", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
 
@@ -139,7 +139,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
   });
 
   it("forwards inline custom DismissOptions verbatim to dismissBanners", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
 
@@ -159,7 +159,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
   });
 
   it("does not call dismissBanners when the page returned an HTTP error", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.goto.mockResolvedValue({
@@ -178,7 +178,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
   });
 
   it("propagates a strict-mode dismissal rejection as a failed CaptureResult", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     const cdpSession = buildMockCDPSession();

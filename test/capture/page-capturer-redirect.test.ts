@@ -116,7 +116,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
 
   it("recovers when page.evaluate (dynamic-content wait) destroys context once", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+      createTestCaptureConfig(),
       new LocalArtifactStore("/tmp/redirect-test-out"),
     );
     const page = buildPage({ evaluateDestroysOnce: true });
@@ -132,7 +132,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
 
   it("recovers when page.screenshot destroys context once", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+      createTestCaptureConfig(),
       new LocalArtifactStore("/tmp/redirect-test-out"),
     );
     const page = buildPage({ screenshotDestroysOnce: true });
@@ -147,7 +147,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
 
   it("recovers when page.content (HTML) destroys context once", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+      createTestCaptureConfig(),
       new LocalArtifactStore("/tmp/redirect-test-out"),
     );
     const page = buildPage({ contentDestroysOnce: true });

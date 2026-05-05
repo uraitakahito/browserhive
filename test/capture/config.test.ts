@@ -3,6 +3,7 @@ import {
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
   DEFAULT_BROWSERHIVE_CONFIG,
+  DEFAULT_STORAGE_CONFIG,
 } from "../../src/config/index.js";
 import {
   createTestCaptureConfig,
@@ -12,8 +13,6 @@ import {
 
 describe("DEFAULT_CAPTURE_CONFIG", () => {
   it("should have correct default values", () => {
-    // outputDir is empty because it's a required CLI option
-    expect(DEFAULT_CAPTURE_CONFIG.outputDir).toBe("");
     expect(DEFAULT_CAPTURE_CONFIG.timeouts.pageLoad).toBe(30000);
     expect(DEFAULT_CAPTURE_CONFIG.timeouts.capture).toBe(10000);
     expect(DEFAULT_CAPTURE_CONFIG.viewport.width).toBe(1280);
@@ -23,9 +22,19 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
   });
 });
 
+describe("DEFAULT_STORAGE_CONFIG", () => {
+  it("defaults to local with an empty outputDir (filled by CLI/env)", () => {
+    expect(DEFAULT_STORAGE_CONFIG).toEqual({ kind: "local", outputDir: "" });
+  });
+});
+
 describe("DEFAULT_COORDINATOR_CONFIG", () => {
   it("should have empty browserProfiles by default", () => {
     expect(DEFAULT_COORDINATOR_CONFIG.browserProfiles).toEqual([]);
+  });
+
+  it("should default to local storage", () => {
+    expect(DEFAULT_COORDINATOR_CONFIG.storage).toEqual(DEFAULT_STORAGE_CONFIG);
   });
 
   it("should have correct default values for pool settings", () => {
@@ -51,12 +60,12 @@ describe("createTestCaptureConfig", () => {
     expect(config).toEqual(DEFAULT_CAPTURE_CONFIG);
   });
 
-  it("should override top-level properties", () => {
+  it("should override userAgent", () => {
     const config = createTestCaptureConfig({
-      outputDir: "/custom/output",
+      userAgent: "X",
     });
 
-    expect(config.outputDir).toBe("/custom/output");
+    expect(config.userAgent).toBe("X");
     expect(config.timeouts).toEqual(DEFAULT_CAPTURE_CONFIG.timeouts);
   });
 

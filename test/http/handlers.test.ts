@@ -210,7 +210,6 @@ describe("getStatus handler", () => {
             browserProfile: {
               browserURL: "http://chromium-1:9222",
               capture: {
-                outputDir: "/tmp",
                 timeouts: { pageLoad: 30000, capture: 10000, taskTotal: 90000 },
                 viewport: { width: 1280, height: 800 },
                 screenshot: { fullPage: false },

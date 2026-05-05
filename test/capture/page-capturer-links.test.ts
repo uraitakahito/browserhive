@@ -109,7 +109,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("writes a .links.json file with the extracted links", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate
@@ -137,7 +137,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("filters out non-http(s) schemes (mailto:, javascript:, tel:)", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate
@@ -160,7 +160,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("dedupes by href, keeping the first occurrence", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate
@@ -181,7 +181,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("drops malformed URLs that the URL constructor rejects", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate
@@ -201,7 +201,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("writes an empty links array when the page has no anchors", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate
@@ -215,7 +215,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("does not extract links when captureFormats.links is false", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate.mockResolvedValueOnce(undefined); // dynamic-content wait only
@@ -238,7 +238,7 @@ describe("PageCapturer.capture — link extraction", () => {
   });
 
   it("includes correlationId in the file payload when present on the task", async () => {
-    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const config = createTestCaptureConfig();
     const capturer = new PageCapturer(config, new LocalArtifactStore("/tmp/out"));
     const page = buildMockPage();
     page.evaluate

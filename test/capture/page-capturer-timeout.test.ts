@@ -88,7 +88,7 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
 
   it("times out when page.evaluate (dynamic-content sleep) never resolves", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+      createTestCaptureConfig(),
       new LocalArtifactStore("/tmp/bh-test-out"),
     );
     const page = buildMockPage({ evaluateHangs: true });
@@ -106,7 +106,7 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
 
   it("times out when page.addStyleTag (hideScrollbars) never resolves", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+      createTestCaptureConfig(),
       new LocalArtifactStore("/tmp/bh-test-out"),
     );
     const page = buildMockPage({ addStyleTagHangs: true });

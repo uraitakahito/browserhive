@@ -13,10 +13,48 @@ export interface ScreenshotConfig {
   quality?: number;
 }
 
+/**
+ * Discriminated union of artifact storage backends.
+ *
+ * `local` writes to the host filesystem (the legacy behaviour).
+ * `s3` writes to any S3-compatible object store (MinIO, AWS S3, etc.).
+ *
+ * The two backends are mutually exclusive — exactly one is selected per
+ * server process via `--storage <local|s3>`.
+ */
+export type StorageConfig =
+  | LocalStorageConfig
+  | S3StorageConfig;
+
+export interface LocalStorageConfig {
+  kind: "local";
+  /** Filesystem directory where artifacts are written. */
+  outputDir: string;
+}
+
+export interface S3StorageConfig {
+  kind: "s3";
+  /** Endpoint URL (e.g. `http://minio:9000` for MinIO, `https://s3.amazonaws.com` for AWS). */
+  endpoint: string;
+  /** Region label sent on every request. MinIO ignores it; AWS does not. */
+  region: string;
+  /** Target bucket. Must exist before the server starts. */
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Optional prefix prepended to every object key (no trailing slash needed). */
+  keyPrefix?: string;
+  /**
+   * MinIO requires path-style addressing (`endpoint/bucket/key`) because
+   * its endpoint hostname does not match the bucket. AWS S3 supports
+   * virtual-hosted-style by default. Defaults to `true` so MinIO works
+   * out of the box.
+   */
+  forcePathStyle?: boolean;
+}
+
 /** Capture configuration */
 export interface CaptureConfig {
-  /** Output directory for captured files */
-  outputDir: string;
   /** Timeout settings */
   timeouts: {
     /** Page load timeout in milliseconds */
@@ -47,6 +85,8 @@ export interface CaptureConfig {
 export interface CoordinatorConfig {
   /** List of browser profile configurations */
   browserProfiles: BrowserProfile[];
+  /** Where captured artifacts are written. Server-wide, not per-profile. */
+  storage: StorageConfig;
   /** Maximum retry count for failed capture tasks */
   maxRetryCount: number;
   /** Queue poll interval in milliseconds when queue is empty */

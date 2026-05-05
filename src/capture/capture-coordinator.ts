@@ -54,19 +54,23 @@ export interface GetStatusOptions {
 
 /**
  * Build the `ArtifactStore` instance that backs every capture this
- * coordinator will run. Phase 1 only knows about the local filesystem;
- * later phases extend this factory to dispatch on a discriminated union
- * (local | s3) carried by `CoordinatorConfig`.
+ * coordinator will run. Dispatches on `CoordinatorConfig.storage.kind`.
  *
- * The first browser profile's `capture.outputDir` is used as the store's
- * root because every profile shares the same value today (the CLI builds
- * one `CaptureConfig` and replicates it). When `CaptureConfig.storage`
- * lands in Phase 2 this fallback is replaced with a direct read of the
- * coordinator-level storage config.
+ * The `s3` arm currently throws — it is wired in by the next phase. The
+ * stub lives here so the type-level switch is exhaustive and the CLI
+ * layer's flag set is meaningful end-to-end before the implementation
+ * lands.
  */
 const buildArtifactStore = (config: CoordinatorConfig): ArtifactStore => {
-  const outputDir = config.browserProfiles[0]?.capture.outputDir ?? "";
-  return new LocalArtifactStore(outputDir);
+  const storage = config.storage;
+  switch (storage.kind) {
+    case "local":
+      return new LocalArtifactStore(storage.outputDir);
+    case "s3":
+      throw new Error(
+        "S3 storage backend is not yet implemented (use --storage local for now)",
+      );
+  }
 };
 
 export class CaptureCoordinator {
