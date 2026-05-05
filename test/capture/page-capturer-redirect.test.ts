@@ -19,6 +19,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { HTTPResponse, Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
+import { LocalArtifactStore } from "../../src/storage/index.js";
 import type { CaptureTask } from "../../src/capture/types.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
 
@@ -116,6 +117,7 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
   it("recovers when page.evaluate (dynamic-content wait) destroys context once", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+      new LocalArtifactStore("/tmp/redirect-test-out"),
     );
     const page = buildPage({ evaluateDestroysOnce: true });
 
@@ -124,13 +126,14 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
     const result = await promise;
 
     expect(result.status).toBe("success");
-    expect(result.jpegPath).toBeDefined();
-    expect(result.htmlPath).toBeDefined();
+    expect(result.jpegLocation).toBeDefined();
+    expect(result.htmlLocation).toBeDefined();
   });
 
   it("recovers when page.screenshot destroys context once", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+      new LocalArtifactStore("/tmp/redirect-test-out"),
     );
     const page = buildPage({ screenshotDestroysOnce: true });
 
@@ -139,12 +142,13 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
     const result = await promise;
 
     expect(result.status).toBe("success");
-    expect(result.jpegPath).toBeDefined();
+    expect(result.jpegLocation).toBeDefined();
   });
 
   it("recovers when page.content (HTML) destroys context once", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig({ outputDir: "/tmp/redirect-test-out" }),
+      new LocalArtifactStore("/tmp/redirect-test-out"),
     );
     const page = buildPage({ contentDestroysOnce: true });
 
@@ -153,6 +157,6 @@ describe("PageCapturer.capture — redirect-induced destroyed-context recovery",
     const result = await promise;
 
     expect(result.status).toBe("success");
-    expect(result.htmlPath).toBeDefined();
+    expect(result.htmlLocation).toBeDefined();
   });
 });

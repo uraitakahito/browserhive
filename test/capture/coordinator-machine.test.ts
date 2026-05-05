@@ -24,12 +24,19 @@ import type {
 } from "../../src/capture/coordinator-errors.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 import { ok, err, type Result } from "../../src/result.js";
-import { createTestCoordinatorConfig } from "../helpers/config.js";
+import {
+  createTestArtifactStore,
+  createTestCoordinatorConfig,
+} from "../helpers/config.js";
 
-const createTestInput = () => ({ config: createTestCoordinatorConfig() });
+const createTestInput = () => ({
+  config: createTestCoordinatorConfig(),
+  store: createTestArtifactStore(),
+});
 
 const createTestContext = () => ({
   config: createTestCoordinatorConfig(),
+  store: createTestArtifactStore(),
   taskQueue: new TaskQueue(),
   workers: [],
 });

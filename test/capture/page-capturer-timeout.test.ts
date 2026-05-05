@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { HTTPResponse, Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
+import { LocalArtifactStore } from "../../src/storage/index.js";
 import type { CaptureTask } from "../../src/capture/types.js";
 import { createTestCaptureConfig } from "../helpers/config.js";
 
@@ -87,7 +88,8 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
 
   it("times out when page.evaluate (dynamic-content sleep) never resolves", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" })
+      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+      new LocalArtifactStore("/tmp/bh-test-out"),
     );
     const page = buildMockPage({ evaluateHangs: true });
 
@@ -104,7 +106,8 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
 
   it("times out when page.addStyleTag (hideScrollbars) never resolves", async () => {
     const capturer = new PageCapturer(
-      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" })
+      createTestCaptureConfig({ outputDir: "/tmp/bh-test-out" }),
+      new LocalArtifactStore("/tmp/bh-test-out"),
     );
     const page = buildMockPage({ addStyleTagHangs: true });
 

@@ -3,12 +3,17 @@
  *
  * Helper functions for creating test configurations.
  */
+import { join } from "node:path";
 import type { CaptureConfig, CoordinatorConfig, BrowserHiveConfig, BrowserProfile } from "../../src/config/index.js";
 import {
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
   DEFAULT_BROWSERHIVE_CONFIG,
 } from "../../src/config/index.js";
+import type {
+  ArtifactContentType,
+  ArtifactStore,
+} from "../../src/storage/index.js";
 
 /** Deep partial type for nested object overrides */
 type DeepPartial<T> = {
@@ -71,3 +76,47 @@ export const createTestBrowserHiveConfig = (
   ...(overrides.tls && { tls: overrides.tls }),
   coordinator: createTestCoordinatorConfig(overrides.coordinator),
 });
+
+/**
+ * In-memory ArtifactStore for tests. Records every `put()` call and
+ * returns a `path-shaped` location so assertions on
+ * `CaptureResult.{pngLocation,…}` keep working without touching disk.
+ *
+ * `outputDir` is purely for the returned location string — no I/O is
+ * performed here. Tests that assert on the underlying `writeFile` call
+ * site continue to use `new LocalArtifactStore(...)` against a
+ * `vi.mock("node:fs/promises", ...)` factory.
+ */
+export interface FakeArtifactPut {
+  filename: string;
+  body: Buffer | string;
+  contentType: ArtifactContentType;
+}
+
+export interface FakeArtifactStore extends ArtifactStore {
+  readonly puts: FakeArtifactPut[];
+  readonly initializeCalls: number;
+}
+
+export const createTestArtifactStore = (
+  outputDir = "/tmp/bh-test-out",
+): FakeArtifactStore => {
+  const puts: FakeArtifactPut[] = [];
+  let initializeCalls = 0;
+  return {
+    get puts() {
+      return puts;
+    },
+    get initializeCalls() {
+      return initializeCalls;
+    },
+    initialize(): Promise<void> {
+      initializeCalls += 1;
+      return Promise.resolve();
+    },
+    put(filename, body, contentType): Promise<string> {
+      puts.push({ filename, body, contentType });
+      return Promise.resolve(join(outputDir, filename));
+    },
+  };
+};

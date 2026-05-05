@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vite
 import type { BrowserProfile } from "../../src/config/index.js";
 import type { CaptureTask, CaptureResult } from "../../src/capture/types.js";
 import type { Browser, Page } from "puppeteer";
-import { createTestCaptureConfig } from "../helpers/config.js";
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+} from "../helpers/config.js";
 import { captureStatus } from "../../src/capture/capture-status.js";
 
 // Store mock capture function reference
@@ -97,7 +100,7 @@ describe("BrowserClient", () => {
     // Setup connectBrowser mock
     vi.mocked(connectBrowser).mockResolvedValue(mockBrowser as Browser);
 
-    client = new BrowserClient(0, createBrowserProfile());
+    client = new BrowserClient(0, createBrowserProfile(), createTestArtifactStore());
   });
 
   describe("connect", () => {
@@ -270,8 +273,8 @@ describe("BrowserClient", () => {
       const expectedResult: CaptureResult = {
         task,
         status: captureStatus.success,
-        pngPath: "/path/to/screenshot.png",
-        htmlPath: "/path/to/page.html",
+        pngLocation: "/path/to/screenshot.png",
+        htmlLocation: "/path/to/page.html",
         captureProcessingTimeMs: 1000,
         timestamp: new Date().toISOString(),
         workerIndex: 0,
@@ -357,6 +360,7 @@ describe("BrowserClient", () => {
               },
             },
           },
+          createTestArtifactStore(),
         );
         // connectBrowser is mocked at module scope; await connect to set
         // the internal browser reference on this fresh client too.
@@ -403,7 +407,7 @@ describe("BrowserClient", () => {
 
   describe("properties", () => {
     it("should expose index", () => {
-      const w = new BrowserClient(3, createBrowserProfile());
+      const w = new BrowserClient(3, createBrowserProfile(), createTestArtifactStore());
       expect(w.index).toBe(3);
     });
 

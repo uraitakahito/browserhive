@@ -58,13 +58,18 @@ export interface CaptureResult {
   status: CaptureStatus;
   /** HTTP response status code (e.g., 200, 403, 404, 500) */
   httpStatusCode?: number;
-  pngPath?: string;
-  jpegPath?: string;
-  htmlPath?: string;
-  /** Path to the extracted links JSON (only set when `task.captureFormats.links` is true) */
-  linksPath?: string;
-  /** Path to the rendered PDF (only set when `task.captureFormats.pdf` is true) */
-  pdfPath?: string;
+  /**
+   * External location reference for the captured artifact, returned by
+   * the configured `ArtifactStore`. Local storage returns an absolute
+   * file path; S3-compatible storage returns an `s3://bucket/key` URI.
+   */
+  pngLocation?: string;
+  jpegLocation?: string;
+  htmlLocation?: string;
+  /** Location of the extracted links JSON (only set when `task.captureFormats.links` is true) */
+  linksLocation?: string;
+  /** Location of the rendered PDF (only set when `task.captureFormats.pdf` is true) */
+  pdfLocation?: string;
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;

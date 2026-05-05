@@ -22,6 +22,7 @@
 import type { Browser, Page } from "puppeteer";
 import connectBrowser, { puppeteerExtra } from "../browser.js";
 import type { BrowserProfile } from "../config/index.js";
+import type { ArtifactStore } from "../storage/index.js";
 import { captureStatus } from "./capture-status.js";
 import { PageCapturer, withTimeout } from "./page-capturer.js";
 import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
@@ -45,10 +46,10 @@ export class BrowserClient {
   public readonly index: number;
   public readonly profile: BrowserProfile;
 
-  constructor(index: number, profile: BrowserProfile) {
+  constructor(index: number, profile: BrowserProfile, store: ArtifactStore) {
     this.index = index;
     this.profile = profile;
-    this.pageCapturer = new PageCapturer(profile.capture);
+    this.pageCapturer = new PageCapturer(profile.capture, store);
     this.logger = createChildLogger({ workerIndex: index, browserURL: profile.browserURL });
   }
 

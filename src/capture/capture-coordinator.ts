@@ -7,6 +7,7 @@
  */
 import { createActor, type SnapshotFrom } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
+import { LocalArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
@@ -51,12 +52,31 @@ export interface GetStatusOptions {
   pendingLimit?: number;
 }
 
+/**
+ * Build the `ArtifactStore` instance that backs every capture this
+ * coordinator will run. Phase 1 only knows about the local filesystem;
+ * later phases extend this factory to dispatch on a discriminated union
+ * (local | s3) carried by `CoordinatorConfig`.
+ *
+ * The first browser profile's `capture.outputDir` is used as the store's
+ * root because every profile shares the same value today (the CLI builds
+ * one `CaptureConfig` and replicates it). When `CaptureConfig.storage`
+ * lands in Phase 2 this fallback is replaced with a direct read of the
+ * coordinator-level storage config.
+ */
+const buildArtifactStore = (config: CoordinatorConfig): ArtifactStore => {
+  const outputDir = config.browserProfiles[0]?.capture.outputDir ?? "";
+  return new LocalArtifactStore(outputDir);
+};
+
 export class CaptureCoordinator {
   private lifecycleActor;
+  private store: ArtifactStore;
 
   constructor(config: CoordinatorConfig) {
+    this.store = buildArtifactStore(config);
     this.lifecycleActor = createActor(coordinatorMachine, {
-      input: { config },
+      input: { config, store: this.store },
     });
     this.lifecycleActor.start();
   }
@@ -80,6 +100,11 @@ export class CaptureCoordinator {
    * (some/all failed).
    */
   async initialize(): Promise<void> {
+    // fail-fast on storage misconfiguration (e.g. missing S3 bucket /
+    // unwritable output directory) BEFORE spawning workers, so the
+    // operator sees the cause directly instead of a cascade of capture
+    // failures inside `errorHistory`.
+    await this.store.initialize();
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("active");
   }
