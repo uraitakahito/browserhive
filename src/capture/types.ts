@@ -63,6 +63,8 @@ export interface CaptureResult {
   htmlPath?: string;
   /** Path to the extracted links JSON (only set when `task.captureFormats.links` is true) */
   linksPath?: string;
+  /** Path to the rendered PDF (only set when `task.captureFormats.pdf` is true) */
+  pdfPath?: string;
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;

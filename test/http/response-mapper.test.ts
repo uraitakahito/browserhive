@@ -27,7 +27,7 @@ describe("taskToAcceptance", () => {
       labels: [],
       url: "https://example.com",
       retryCount: 0,
-      captureFormats: { png: true, jpeg: false, html: false, links: false },
+      captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
       correlationId: "EXT-1",
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
@@ -44,7 +44,7 @@ describe("taskToAcceptance", () => {
       labels: [],
       url: "https://example.com",
       retryCount: 0,
-      captureFormats: { png: true, jpeg: false, html: false, links: false },
+      captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
     expect(taskToAcceptance(task)).toEqual({
@@ -134,7 +134,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
           labels: ["a"],
           url: "https://example.com",
           retryCount: 1,
-          captureFormats: { png: true, jpeg: false, html: false, links: false },
+          captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
               correlationId: "EXT-9",
           enqueuedAt: "2024-01-01T00:00:00.000Z",
         },
@@ -209,7 +209,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
               labels: [],
               url: "https://example.com/slow",
               retryCount: 0,
-              captureFormats: { png: true, jpeg: false, html: false, links: false },
+              captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
                       enqueuedAt: "2024-01-01T00:00:00.000Z",
             },
           },
@@ -238,7 +238,7 @@ describe("currentTaskToWire", () => {
     labels: ["a"],
     url: "https://example.com",
     retryCount: 0,
-    captureFormats: { png: true, jpeg: false, html: false, links: false },
+    captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
     enqueuedAt: "2024-01-01T00:00:00.000Z",
   };
 
@@ -263,7 +263,7 @@ describe("taskToPending", () => {
     labels: ["x"],
     url: "https://example.com/p",
     retryCount: 2,
-    captureFormats: { png: true, jpeg: false, html: false, links: false },
+    captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
     enqueuedAt,
   };
 
@@ -306,7 +306,7 @@ describe("taskToProcessing", () => {
       labels: ["L"],
       url: "https://example.com/p",
       retryCount: 0,
-      captureFormats: { png: true, jpeg: false, html: false, links: false },
+      captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
       enqueuedAt,
     },
   };
@@ -369,7 +369,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
           labels: [],
           url: "https://example.com/queued",
           retryCount: 0,
-          captureFormats: { png: true, jpeg: false, html: false, links: false },
+          captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
               enqueuedAt,
         },
       ],
@@ -414,7 +414,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
             labels: ["x"],
             url: "https://example.com/running",
             retryCount: 1,
-            captureFormats: { png: true, jpeg: false, html: false, links: false },
+            captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
                   enqueuedAt,
           },
         },

@@ -33,7 +33,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["TestTask"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: true, jpeg: false, html: false, links: false },
+  captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });

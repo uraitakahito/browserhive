@@ -40,7 +40,7 @@ const buildApp = (stub: CoordinatorStub): FastifyInstance => {
 const validBody = {
   url: "https://example.com",
   labels: ["my-label"],
-  captureFormats: { png: true, jpeg: false, html: false, links: false },
+  captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
 };
 
 describe("submitCapture handler", () => {
@@ -83,7 +83,7 @@ describe("submitCapture handler", () => {
       url: "/v1/captures",
       payload: {
         ...validBody,
-        captureFormats: { png: false, jpeg: false, html: false, links: false },
+        captureFormats: { png: false, jpeg: false, html: false, links: false, pdf: false },
       },
     });
     expect(response.statusCode).toBe(400);
@@ -227,7 +227,7 @@ describe("getStatus handler", () => {
                 labels: ["x"],
                 url: "https://example.com/slow",
                 retryCount: 0,
-                captureFormats: { png: true, jpeg: false, html: false, links: false },
+                captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
                               enqueuedAt: "2024-01-01T00:00:00.000Z",
               },
             },
@@ -270,7 +270,7 @@ describe("getStatus handler", () => {
               labels: [],
               url: "https://example.com/running",
               retryCount: 0,
-              captureFormats: { png: true, jpeg: false, html: false, links: false },
+              captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
                           enqueuedAt,
             },
           },

@@ -225,6 +225,7 @@ const STABLE_CONTEXT_MAX_RETRIES = 2;
  *   * hideScrollbars       : (5s + 3s) * 3 = 24s
  *   * screenshot           : (10s + 3s) * 3 = 39s   (per format)
  *   * content (HTML)       : (10s + 3s) * 3 = 39s
+ *   * pdf                  : (10s + 3s) * 3 = 39s
  *
  * Layer B (`taskTotal=100s`) covers the realistic case where at most one or
  * two operations actually hit a retry; if production traffic ever drives the
@@ -583,6 +584,7 @@ export class PageCapturer {
       let jpegPath: string | undefined;
       let htmlPath: string | undefined;
       let linksPath: string | undefined;
+      let pdfPath: string | undefined;
 
       if (task.captureFormats.png) {
         pngPath = await this.captureScreenshot(page, task, "png");
@@ -600,6 +602,10 @@ export class PageCapturer {
         linksPath = await this.captureLinks(page, task);
       }
 
+      if (task.captureFormats.pdf) {
+        pdfPath = await this.capturePdf(page, task);
+      }
+
       const captureProcessingTimeMs = Date.now() - startTime;
 
       return {
@@ -613,6 +619,7 @@ export class PageCapturer {
         ...(jpegPath !== undefined && { jpegPath }),
         ...(htmlPath !== undefined && { htmlPath }),
         ...(linksPath !== undefined && { linksPath }),
+        ...(pdfPath !== undefined && { pdfPath }),
         ...(dismissReport !== undefined && { dismissReport }),
       };
     } catch (error) {
@@ -750,6 +757,33 @@ export class PageCapturer {
     };
 
     await writeFile(filePath, JSON.stringify(file, null, 2), "utf-8");
+
+    return filePath;
+  }
+
+  /**
+   * Render the page to PDF via Chromium's print pipeline. Same redirect
+   * hazard as the screenshot/content paths — `page.pdf` walks the layout
+   * tree under the live execution context, so destroyed-context rejections
+   * during a follow-up navigation are recovered by `runOnStableContext`.
+   *
+   * Print-oriented defaults: A4 with `printBackground: true`, leaving the
+   * media type at the default `print`. Distinct from the PNG/JPEG path,
+   * which captures the `screen` rendering — PDF is positioned as the
+   * archival / print artifact.
+   */
+  private async capturePdf(page: Page, task: CaptureTask): Promise<string> {
+    const filename = generateFilename(task, "pdf");
+    const filePath = join(this.config.outputDir, filename);
+
+    const pdfBuffer = await runOnStableContext(
+      page,
+      () => page.pdf({ format: "A4", printBackground: true }),
+      `PDF capture of ${task.url}`,
+      this.config.timeouts.capture,
+    );
+
+    await writeFile(filePath, pdfBuffer);
 
     return filePath;
   }
