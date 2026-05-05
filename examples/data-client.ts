@@ -61,6 +61,8 @@ const submitRequest = async (
   captureFormats: CaptureFormats,
   dismissBanners: boolean,
   acceptLanguage: string | undefined,
+  viewport: { width: number; height: number } | undefined,
+  fullPage: boolean | undefined,
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
   const body: CaptureRequest = {
@@ -70,6 +72,8 @@ const submitRequest = async (
     captureFormats,
     dismissBanners,
     ...(acceptLanguage !== undefined && { acceptLanguage }),
+    ...(viewport !== undefined && { viewport }),
+    ...(fullPage !== undefined && { fullPage }),
   };
 
   try {
@@ -109,6 +113,8 @@ const submitAll = async (
   captureFormats: CaptureFormats,
   dismissBanners: boolean,
   acceptLanguage: string | undefined,
+  viewport: { width: number; height: number } | undefined,
+  fullPage: boolean | undefined,
 ): Promise<SubmitResult[]> => {
   const total = entries.length;
   let completed = 0;
@@ -119,6 +125,8 @@ const submitAll = async (
       captureFormats,
       dismissBanners,
       acceptLanguage,
+      viewport,
+      fullPage,
     );
     completed++;
 
@@ -182,11 +190,17 @@ const runClient = async (options: ClientOptions): Promise<void> => {
   }
 
   const captureFormats = getCaptureFormats(options);
+  const viewport =
+    options.viewportWidth !== undefined && options.viewportHeight !== undefined
+      ? { width: options.viewportWidth, height: options.viewportHeight }
+      : undefined;
   const results = await submitAll(
     entries,
     captureFormats,
     options.dismissBanners ?? false,
     options.acceptLanguage,
+    viewport,
+    options.fullPage,
   );
 
   const totalDuration = Date.now() - startTime;

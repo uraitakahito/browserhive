@@ -79,6 +79,10 @@ export const captureRequestToTask = (
     ...(acceptLanguage !== undefined &&
       acceptLanguage !== "" && { acceptLanguage }),
     ...(dismissOptions !== undefined && { dismissOptions }),
+    // Range checks (1–7680 × 1–4320) are enforced by Ajv at the OpenAPI
+    // schema boundary, so the value can be passed through unchanged.
+    ...(request.viewport !== undefined && { viewport: request.viewport }),
+    ...(request.fullPage !== undefined && { fullPage: request.fullPage }),
   };
 
   return ok(task);

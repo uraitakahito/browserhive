@@ -97,4 +97,53 @@ describe("client-cli parseClientOptions", () => {
     expect(opts.pdf).toBeUndefined();
     expect(getCaptureFormats(opts).pdf).toBe(false);
   });
+
+  it("--viewport-width / --viewport-height をペアで渡すと両方反映される", () => {
+    const opts = parseClientOptions(
+      argv(
+        "--data",
+        "data/smoke-test.yaml",
+        "--viewport-width",
+        "1920",
+        "--viewport-height",
+        "1080",
+      ),
+    );
+    expect(opts.viewportWidth).toBe(1920);
+    expect(opts.viewportHeight).toBe(1080);
+  });
+
+  it("--viewport-width だけだと exit する(ペア必須)", () => {
+    expect(() =>
+      parseClientOptions(
+        argv("--data", "data/smoke-test.yaml", "--viewport-width", "1920"),
+      ),
+    ).toThrow(ProcessExitError);
+  });
+
+  it("--viewport-height だけだと exit する(ペア必須)", () => {
+    expect(() =>
+      parseClientOptions(
+        argv("--data", "data/smoke-test.yaml", "--viewport-height", "1080"),
+      ),
+    ).toThrow(ProcessExitError);
+  });
+
+  it("--viewport-* 未指定なら ClientOptions にキー自体が乗らない", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml"));
+    expect("viewportWidth" in opts).toBe(false);
+    expect("viewportHeight" in opts).toBe(false);
+  });
+
+  it("--full-page を渡すと fullPage が true になる", () => {
+    const opts = parseClientOptions(
+      argv("--data", "data/smoke-test.yaml", "--full-page"),
+    );
+    expect(opts.fullPage).toBe(true);
+  });
+
+  it("--full-page 未指定なら ClientOptions にキー自体が乗らない", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml"));
+    expect("fullPage" in opts).toBe(false);
+  });
 });
