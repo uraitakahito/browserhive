@@ -164,6 +164,7 @@ describe("runDismissalInDocument — pass 2 (heuristic overlays)", () => {
   const heuristicOnly: DismissOptions = {
     knownCmpEntries: [],
     heuristic: DEFAULT_HEURISTIC_THRESHOLDS,
+    failOnError: false,
   };
 
   it("removes a fixed overlay covering most of the viewport", () => {
@@ -299,6 +300,7 @@ describe("runDismissalInDocument — pass 2 (heuristic overlays)", () => {
     const lenient: DismissOptions = {
       knownCmpEntries: [],
       heuristic: { enabled: true, minViewportCoverageRatio: 0.2, minZIndex: 100 },
+      failOnError: false,
     };
 
     const reportStrict = runDismissalInDocument(
@@ -349,6 +351,7 @@ describe("runDismissalInDocument — per-selector resilience", () => {
         { framework: "OneTrust", selector: "#onetrust-banner-sdk" },
       ],
       heuristic: { ...DEFAULT_HEURISTIC_THRESHOLDS, enabled: false },
+      failOnError: false,
     };
 
     const report = runDismissalInDocument(doc, win, opts);
@@ -373,6 +376,7 @@ describe("runDismissalInDocument — heuristic.enabled", () => {
     const opts: DismissOptions = {
       knownCmpEntries: [],
       heuristic: { enabled: false, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+      failOnError: false,
     };
 
     const report = runDismissalInDocument(doc, win, opts);
@@ -447,6 +451,43 @@ describe("resolveDismissSpec", () => {
     expect(opts?.heuristic.enabled).toBe(false);
     expect(opts?.heuristic.minViewportCoverageRatio).toBe(0.3);
   });
+
+  describe("failOnError", () => {
+    it("defaults to false on an empty spec", () => {
+      expect(resolveDismissSpec({})?.failOnError).toBe(false);
+    });
+
+    it("propagates true through the spec object", () => {
+      expect(resolveDismissSpec({ failOnError: true })?.failOnError).toBe(true);
+    });
+
+    it("boolean short form (true) is best-effort — failOnError stays false", () => {
+      expect(resolveDismissSpec(true)?.failOnError).toBe(false);
+    });
+  });
+});
+
+describe("runDismissalInDocument — failOnError (strict)", () => {
+  it("rethrows the per-selector SyntaxError when failOnError is true", () => {
+    const { doc, win } = buildDom(`
+      <body>
+        <div id="onetrust-banner-sdk">consent</div>
+      </body>
+    `);
+    const opts: DismissOptions = {
+      knownCmpEntries: [
+        { framework: "custom", selector: "[" }, // invalid CSS
+        { framework: "OneTrust", selector: "#onetrust-banner-sdk" },
+      ],
+      heuristic: { ...DEFAULT_HEURISTIC_THRESHOLDS, enabled: false },
+      failOnError: true,
+    };
+
+    // The bad selector is the first entry — it should throw before the
+    // OneTrust entry runs. The OneTrust div therefore stays in the DOM.
+    expect(() => runDismissalInDocument(doc, win, opts)).toThrow();
+    expect(doc.querySelector("#onetrust-banner-sdk")).not.toBeNull();
+  });
 });
 
 describe("dismissBanners — Layer A timeout", () => {
@@ -479,5 +520,74 @@ describe("dismissBanners — Layer A timeout", () => {
     const onErrorArg: unknown = onError.mock.calls[0]?.[0];
     expect(onErrorArg).toBeInstanceOf(Error);
     expect((onErrorArg as Error).message).toContain("Banner dismissal evaluate");
+  });
+});
+
+describe("dismissBanners — failOnError (strict)", () => {
+  it("rethrows the timeout error when failOnError is true", async () => {
+    vi.useFakeTimers();
+    try {
+      const onError = vi.fn();
+      const mockPage = {
+        evaluate: vi.fn().mockReturnValue(
+          new Promise<never>(() => {
+            /* never resolves — simulates page mid-navigation */
+          }),
+        ),
+      } as unknown as Page;
+
+      const reportPromise = dismissBanners(
+        mockPage,
+        { ...DEFAULT_DISMISS_OPTIONS, failOnError: true },
+        onError,
+      );
+
+      // Attach an explicit catch so the (eventual) rejection during
+      // `advanceTimersByTimeAsync` is not flagged as an unhandled
+      // rejection by vitest before the assertion runs.
+      const settled = reportPromise.catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(5_001);
+      const error = await settled;
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("Banner dismissal evaluate");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rethrows a page.evaluate rejection verbatim when failOnError is true", async () => {
+    const onError = vi.fn();
+    const boom = new Error("evaluate boom");
+    const mockPage = {
+      evaluate: vi.fn().mockRejectedValue(boom),
+    } as unknown as Page;
+
+    await expect(
+      dismissBanners(
+        mockPage,
+        { ...DEFAULT_DISMISS_OPTIONS, failOnError: true },
+        onError,
+      ),
+    ).rejects.toBe(boom);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(boom);
+  });
+
+  it("still swallows the same rejection when failOnError is false", async () => {
+    const onError = vi.fn();
+    const boom = new Error("evaluate boom");
+    const mockPage = {
+      evaluate: vi.fn().mockRejectedValue(boom),
+    } as unknown as Page;
+
+    const report = await dismissBanners(
+      mockPage,
+      DEFAULT_DISMISS_OPTIONS,
+      onError,
+    );
+    expect(report).toEqual(EMPTY_DISMISS_REPORT);
+    expect(onError).toHaveBeenCalledWith(boom);
   });
 });

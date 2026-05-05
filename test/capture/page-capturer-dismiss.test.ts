@@ -41,6 +41,7 @@ import { PageCapturer } from "../../src/capture/page-capturer.js";
 const TEST_DEFAULT_DISMISS_OPTIONS: DismissOptions = {
   knownCmpEntries: [{ framework: "OneTrust", selector: "#onetrust-banner-sdk" }],
   heuristic: { enabled: true, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+  failOnError: false,
 };
 
 interface MockPage {
@@ -147,6 +148,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
         { framework: "custom", selector: ".newsletter-takeover" },
       ],
       heuristic: { enabled: false, minViewportCoverageRatio: 0.3, minZIndex: 1000 },
+      failOnError: false,
     };
 
     await capturer.capture(asPage(page), buildTask({ dismissOptions: customOpts }), 0);
@@ -173,4 +175,34 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     expect(dismissBannersMock).not.toHaveBeenCalled();
     expect(result.status).toBe("httpError");
   });
+
+  it("propagates a strict-mode dismissal rejection as a failed CaptureResult", async () => {
+    const config = createTestCaptureConfig({ outputDir: "/tmp/out" });
+    const capturer = new PageCapturer(config);
+    const page = buildMockPage();
+    const cdpSession = buildMockCDPSession();
+    page.createCDPSession.mockResolvedValue(cdpSession);
+    dismissBannersMock.mockRejectedValueOnce(new Error("dismissal boom"));
+
+    const strictOpts: DismissOptions = {
+      ...TEST_DEFAULT_DISMISS_OPTIONS,
+      failOnError: true,
+    };
+    const result = await capturer.capture(
+      asPage(page),
+      buildTask({ dismissOptions: strictOpts }),
+      0,
+    );
+
+    // The strict throw bubbles into PageCapturer.capture's outer catch,
+    // which classifies the error and produces a failed CaptureResult.
+    expect(result.status).toBe("failed");
+    expect(result.dismissReport).toBeUndefined();
+    expect(result.errorDetails?.message).toContain("dismissal boom");
+    // resetPageState in the finally block must still run — that's the
+    // safety net that keeps the persistent tab clean for the next task.
+    expect(page.goto).toHaveBeenCalledWith("about:blank");
+    expect(cdpSession.send).toHaveBeenCalledWith("Network.clearBrowserCookies");
+  });
+
 });

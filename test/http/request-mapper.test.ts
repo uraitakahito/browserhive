@@ -211,5 +211,28 @@ describe("captureRequestToTask", () => {
       expect(heuristic?.minViewportCoverageRatio).toBe(0.1);
       expect(heuristic?.minZIndex).toBe(50);
     });
+
+    it("failOnError defaults to false on an empty / boolean spec", () => {
+      const empty = captureRequestToTask(baseRequest({ dismissBanners: {} }));
+      expect(empty.ok).toBe(true);
+      if (!empty.ok) return;
+      expect(empty.value.dismissOptions?.failOnError).toBe(false);
+
+      const boolTrue = captureRequestToTask(
+        baseRequest({ dismissBanners: true }),
+      );
+      expect(boolTrue.ok).toBe(true);
+      if (!boolTrue.ok) return;
+      expect(boolTrue.value.dismissOptions?.failOnError).toBe(false);
+    });
+
+    it("failOnError: true propagates into the resolved DismissOptions", () => {
+      const result = captureRequestToTask(
+        baseRequest({ dismissBanners: { failOnError: true } }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.dismissOptions?.failOnError).toBe(true);
+    });
   });
 });

@@ -119,6 +119,30 @@ paths:
                     heuristic:
                       enabled: true
                       minZIndex: 100
+              dismissBannersStrict:
+                summary: Strict mode (fail capture if dismissal fails)
+                description: |
+                  Opts out of the default best-effort behaviour with
+                  `failOnError: true`. If banner dismissal hits the 5s
+                  in-page timeout, if `page.evaluate` rejects, or if any
+                  `extraSelectors` entry is invalid CSS, the capture
+                  fails (`status: "failed"` / `"timeout"`) and consumes
+                  one slot of the retry budget. Use this when a missing
+                  banner-dismiss invalidates the captured artifact for
+                  your downstream pipeline.
+                value:
+                  url: https://example.com/article
+                  labels: [example, strict]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                    links: false
+                  dismissBanners:
+                    useDefaults: true
+                    extraSelectors:
+                      - "#known-paywall"
+                    failOnError: true
       responses:
         "202":
           description: Request accepted for processing
@@ -285,10 +309,18 @@ components:
               covering ≥`minViewportCoverageRatio` of the viewport,
               excluding semantic landmarks).
 
-            Best-effort: dismissal failures (including thrown errors inside
-            the page, or invalid CSS selectors in `extraSelectors`) are
+            By default best-effort: dismissal failures (in-page evaluate
+            timeout, the `page.evaluate` promise rejecting, or an invalid
+            CSS selector in `extraSelectors` raising `SyntaxError`) are
             swallowed and the offending entry is skipped, so a malformed
             page or a typo cannot fail the capture.
+
+            Set `dismissBanners.failOnError: true` to opt out — failures
+            then fail the entire capture (`status: "failed"` or
+            `"timeout"` in the worker log) and `dismissReport` is **not**
+            present on the result; inspect `errorDetails` instead. The
+            failure is treated like any other capture failure for retry
+            accounting (consumes one slot of `--max-retry-count`).
     DismissHeuristicSpec:
       type: object
       additionalProperties: false
@@ -329,9 +361,10 @@ components:
         server-side defaults equivalent to `dismissBanners: true`.
 
         `extraSelectors` matches are reported in `dismissReport` as
-        `framework: "custom"`. Selectors that fail to parse (`querySelector`
-        SyntaxError) are skipped silently, so a typo in one entry cannot
-        block the rest.
+        `framework: "custom"`. By default, selectors that fail to parse
+        (`querySelector` SyntaxError) are skipped silently so a typo in
+        one entry cannot block the rest — set `failOnError: true` to opt
+        into strict propagation.
       properties:
         useDefaults:
           type: boolean
@@ -370,6 +403,21 @@ components:
             an entry in `KNOWN_CMP_ENTRIES`.
         heuristic:
           $ref: "#/components/schemas/DismissHeuristicSpec"
+        failOnError:
+          type: boolean
+          description: |
+            When `true`, a dismissal failure (in-page evaluate timeout,
+            the `page.evaluate` promise rejecting, or a `querySelector`
+            SyntaxError raised by an entry in `extraSelectors`) fails
+            the entire capture (`status: "failed"` or `"timeout"`)
+            instead of being swallowed into an empty `dismissReport`.
+
+            Default `false` — preserves the long-standing best-effort
+            contract where a malformed page or a typo in a custom
+            selector cannot fail the capture. Strict mode failures are
+            classified by the existing error pipeline (timeout vs
+            internal vs connection) and consume one slot of the worker's
+            retry budget like any other capture failure.
     CaptureAcceptance:
       type: object
       required: [accepted, taskId]

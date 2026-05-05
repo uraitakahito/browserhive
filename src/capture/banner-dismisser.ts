@@ -103,11 +103,25 @@ export const DEFAULT_HEURISTIC_THRESHOLDS: HeuristicThresholds = {
 export interface DismissOptions {
   knownCmpEntries: readonly CmpEntry[];
   heuristic: HeuristicThresholds;
+  /**
+   * When `true`, dismissal failures (in-page evaluate timeout, the
+   * `page.evaluate` promise rejecting, or a per-selector `querySelector`
+   * SyntaxError) propagate as exceptions instead of being swallowed into
+   * an empty report. Default `false` preserves the long-standing
+   * best-effort contract.
+   *
+   * The inner `runDismissalInDocument` reads this on the per-selector
+   * skip path, and the outer `dismissBanners` reads it on the main catch
+   * — together they cover both the "page hung the evaluate" and the
+   * "user typo'd a selector" cases with a single flag.
+   */
+  failOnError: boolean;
 }
 
 export const DEFAULT_DISMISS_OPTIONS: DismissOptions = {
   knownCmpEntries: KNOWN_CMP_ENTRIES,
   heuristic: DEFAULT_HEURISTIC_THRESHOLDS,
+  failOnError: false,
 };
 
 /**
@@ -127,6 +141,7 @@ export interface DismissSpec {
     minViewportCoverageRatio?: number;
     minZIndex?: number;
   };
+  failOnError?: boolean;
 }
 
 /** Internal label attributed to `extraSelectors` matches in the report. */
@@ -148,6 +163,9 @@ export const CUSTOM_FRAMEWORK_LABEL = "custom";
  *     entries — visible in `dismissReport.removedSelectors` and tagged so
  *     callers can distinguish a custom hit from a default-CMP hit.
  *   - `heuristic` fields fall back to `DEFAULT_HEURISTIC_THRESHOLDS` per-field.
+ *   - `failOnError` defaults to `false` (best-effort). The boolean
+ *     short form (`true`) intentionally maps to `failOnError: false` —
+ *     strict mode requires the inline object form.
  */
 export const resolveDismissSpec = (
   input: boolean | DismissSpec | undefined,
@@ -176,6 +194,7 @@ export const resolveDismissSpec = (
   return {
     knownCmpEntries: [...baseEntries, ...customEntries],
     heuristic,
+    failOnError: input.failOnError ?? false,
   };
 };
 
@@ -215,11 +234,15 @@ export const runDismissalInDocument = (
   // (typo in `extraSelectors`, or a CMP whose selector syntax has drifted)
   // cannot block the rest. `querySelector` throws SyntaxError on a malformed
   // selector — we treat that as "this entry didn't match" and continue.
+  // When the caller opts into strict mode (`failOnError: true`) we re-throw
+  // instead, so a typo in a custom selector becomes a hard capture failure
+  // via the page.evaluate reject path back to the outer `dismissBanners`.
   for (const entry of opts.knownCmpEntries) {
     let el: Element | null;
     try {
       el = doc.querySelector(entry.selector);
-    } catch {
+    } catch (error) {
+      if (opts.failOnError) throw error;
       continue;
     }
     if (el?.parentNode) {
@@ -274,16 +297,24 @@ export const runDismissalInDocument = (
  * it inside the page context, passing `document` and `window` from that
  * context plus serialized options.
  *
- * Banner dismissal is best-effort: any thrown error is swallowed and an
- * empty report is returned, so a malformed page cannot fail the capture.
- * Callers are responsible for surfacing the report (or the swallowed
- * error, via the optional `onError` hook) into their own logs.
+ * Default (`opts.failOnError === false`): best-effort. Any thrown error
+ * is swallowed and an empty report is returned, so a malformed page or a
+ * typo in `extraSelectors` cannot fail the capture. Callers are
+ * responsible for surfacing the report (or the swallowed error via the
+ * optional `onError` hook) into their own logs.
+ *
+ * Strict (`opts.failOnError === true`): the same errors are re-thrown
+ * after `onError` is invoked, so the calling capture pipeline classifies
+ * the failure (timeout / internal / connection) and the worker reports
+ * the task as failed. Use this when a missing banner-dismiss invalidates
+ * the captured artifact for the downstream pipeline.
  *
  * Intentionally NOT routed through `page-capturer.ts:runOnStableContext`:
  * spending up to 24s retrying CMP detection on a JS-redirecting page that
  * has no banner anyway is the wrong trade-off. A destroyed-context throw
- * here simply collapses to an empty `DismissReport`, which is the same
- * outcome as "no CMP matched" and is fine for the capture.
+ * here simply collapses to an empty `DismissReport` (or propagates in
+ * strict mode), which is the same outcome as "no CMP matched" for the
+ * default best-effort path.
  */
 export const dismissBanners = async (
   page: Page,
@@ -294,8 +325,8 @@ export const dismissBanners = async (
     const source = `(${runDismissalInDocument.toString()})(document, window, ${JSON.stringify(opts)})`;
     // Bounded by DISMISS_EVALUATE_TIMEOUT_MS — a hung evaluate (page
     // mid-navigation, no fresh execution context) is swallowed by the
-    // catch below and surfaces as EMPTY_DISMISS_REPORT, preserving the
-    // best-effort contract.
+    // catch below and surfaces as EMPTY_DISMISS_REPORT in best-effort
+    // mode, or rethrown as a TimeoutError in strict mode.
     const result: unknown = await withTimeout(
       page.evaluate(source),
       DISMISS_EVALUATE_TIMEOUT_MS,
@@ -304,6 +335,7 @@ export const dismissBanners = async (
     return result as DismissReport;
   } catch (error) {
     onError?.(error);
+    if (opts.failOnError) throw error;
     return { ...EMPTY_DISMISS_REPORT };
   }
 };
