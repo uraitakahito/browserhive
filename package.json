@@ -52,6 +52,7 @@
     "yaml": "YAML 1.2 parser used by examples/data-client.ts to read data/*.yaml fixtures (replaces the previous CSV format so entries can carry inline comments)."
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1041.0",
     "ajv": "^8.17.1",
     "commander": "^14.0.2",
     "fastify": "^5.2.0",
@@ -100,6 +101,7 @@
     "@types/json-schema": "^7.0.15",
     "@types/node": "^25.5.2",
     "@types/yauzl": "^2.10.3",
+    "aws-sdk-client-mock": "^4.1.0",
     "eslint": "^10.2.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",

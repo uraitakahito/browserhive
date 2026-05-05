@@ -7,7 +7,11 @@
  */
 import { createActor, type SnapshotFrom } from "xstate";
 import type { CoordinatorConfig } from "../config/index.js";
-import { LocalArtifactStore, type ArtifactStore } from "../storage/index.js";
+import {
+  LocalArtifactStore,
+  S3ArtifactStore,
+  type ArtifactStore,
+} from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
@@ -55,11 +59,6 @@ export interface GetStatusOptions {
 /**
  * Build the `ArtifactStore` instance that backs every capture this
  * coordinator will run. Dispatches on `CoordinatorConfig.storage.kind`.
- *
- * The `s3` arm currently throws — it is wired in by the next phase. The
- * stub lives here so the type-level switch is exhaustive and the CLI
- * layer's flag set is meaningful end-to-end before the implementation
- * lands.
  */
 const buildArtifactStore = (config: CoordinatorConfig): ArtifactStore => {
   const storage = config.storage;
@@ -67,9 +66,7 @@ const buildArtifactStore = (config: CoordinatorConfig): ArtifactStore => {
     case "local":
       return new LocalArtifactStore(storage.outputDir);
     case "s3":
-      throw new Error(
-        "S3 storage backend is not yet implemented (use --storage local for now)",
-      );
+      return new S3ArtifactStore(storage);
   }
 };
 
