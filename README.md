@@ -72,10 +72,6 @@ flowchart TB
     Worker3 --> Files
 ```
 
-## State Machines
-
-The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. See [docs/state-machines.md](docs/state-machines.md) for the lifecycle diagrams (`coordinatorMachine`, `captureWorkerMachine`) and the worker health-state table.
-
 ## Setup
 
 ### Prerequisites
@@ -277,3 +273,7 @@ NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
     --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
+
+## State Machines
+
+The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. See [docs/state-machines.md](docs/state-machines.md) for the lifecycle diagrams (`coordinatorMachine`, `captureWorkerMachine`) and the worker health-state table.
