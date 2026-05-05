@@ -2,6 +2,8 @@
 
 A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker). The `BrowserHive` component in the Architecture diagram below represents this application's responsibility.
 
+Used by [waggle](https://github.com/uraitakahito/waggle).
+
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
 - **Multiple output formats**: PNG, JPEG screenshots, HTML capture, and PDF rendering (Chromium print pipeline, A4)
