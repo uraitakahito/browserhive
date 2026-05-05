@@ -144,16 +144,16 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--task-timeout <ms>` | `BROWSERHIVE_TASK_TIMEOUT_MS` | positive integer (Layer B per-task safety net) |
 | `--max-retry-count <n>` | `BROWSERHIVE_MAX_RETRY_COUNT` | non-negative integer |
 | `--queue-poll-interval-ms <ms>` | `BROWSERHIVE_QUEUE_POLL_INTERVAL_MS` | positive integer |
-| `--viewport-width <px>` | `BROWSERHIVE_VIEWPORT_WIDTH` | positive integer |
-| `--viewport-height <px>` | `BROWSERHIVE_VIEWPORT_HEIGHT` | positive integer |
-| `--screenshot-full-page` | `BROWSERHIVE_SCREENSHOT_FULL_PAGE` | `"true"`/`"1"` or `"false"`/`"0"` |
+| `--viewport-width <px>` | `BROWSERHIVE_VIEWPORT_WIDTH` | positive integer (server-wide default; per-request `viewport.width` overrides) |
+| `--viewport-height <px>` | `BROWSERHIVE_VIEWPORT_HEIGHT` | positive integer (server-wide default; per-request `viewport.height` overrides) |
+| `--screenshot-full-page` | `BROWSERHIVE_SCREENSHOT_FULL_PAGE` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default; per-request `fullPage` overrides) |
 | `--screenshot-quality <n>` | `BROWSERHIVE_SCREENSHOT_QUALITY` | integer (1–100) |
 | `--reject-duplicate-urls` | `BROWSERHIVE_REJECT_DUPLICATE_URLS` | `"true"`/`"1"` or `"false"`/`"0"` |
 | `--user-agent <string>` | `BROWSERHIVE_USER_AGENT` | string |
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--links`, `--pdf`, `--limit`, `--dismiss-banners`, `--accept-language`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--links`, `--pdf`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`) intentionally have no env equivalents.
 
 #### Calling the HTTP API
 

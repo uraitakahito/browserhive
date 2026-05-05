@@ -141,6 +141,42 @@ paths:
                     heuristic:
                       enabled: true
                       minZIndex: 100
+              customViewport:
+                summary: Capture at a specific viewport
+                description: |
+                  Overrides the server-side default viewport for this
+                  request only — renders at Full HD (`1920 × 1080`)
+                  before taking the screenshot. Useful for forcing the
+                  desktop variant of a responsive site.
+                value:
+                  url: https://www.example.com/
+                  labels: [example, fhd]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: false
+                  viewport:
+                    width: 1920
+                    height: 1080
+              fullPageScreenshot:
+                summary: Capture the full document height
+                description: |
+                  Overrides the server-side default to capture the
+                  entire scrollable height of the page (Chromium scrolls
+                  and stitches). The viewport stays at the configured
+                  default; only the screenshot extent grows.
+                value:
+                  url: https://www.example.com/
+                  labels: [example, full]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: false
+                  fullPage: true
               dismissBannersStrict:
                 summary: Strict mode (fail capture if dismissal fails)
                 description: |
@@ -354,6 +390,50 @@ components:
             present on the result; inspect `errorDetails` instead. The
             failure is treated like any other capture failure for retry
             accounting (consumes one slot of `--max-retry-count`).
+        viewport:
+          type: object
+          required: [width, height]
+          additionalProperties: false
+          properties:
+            width:
+              type: integer
+              minimum: 1
+              maximum: 7680
+            height:
+              type: integer
+              minimum: 1
+              maximum: 4320
+          description: |
+            Per-request browser viewport in CSS pixels. When provided,
+            `page.setViewport` is called with these dimensions before
+            navigating to the target URL — useful for sites whose layout
+            varies by viewport size (responsive top pages, mobile-only
+            content) or for capturing at a specific resolution.
+
+            When omitted, the server-side default applies (configured via
+            `--viewport-width` / `--viewport-height` /
+            `BROWSERHIVE_VIEWPORT_*`; the built-in default is
+            `1280 × 800`).
+
+            Bounds (`1–7680 × 1–4320`) cover up to 8K rendering and exist
+            only as a sanity guard against runaway memory use in
+            Chromium — typical values are `1280 × 800` (desktop default),
+            `1920 × 1080` (Full HD), or `375 × 667` (iPhone SE).
+        fullPage:
+          type: boolean
+          description: |
+            When `true`, the PNG / JPEG screenshot extends below the
+            viewport to capture the full document height (Chromium scrolls
+            and stitches the result). When `false` or omitted, only the
+            viewport-sized region is captured.
+
+            When omitted, the server-side default applies (configured via
+            `--screenshot-full-page` / `BROWSERHIVE_SCREENSHOT_FULL_PAGE`;
+            the built-in default is `false`).
+
+            Has no effect on the `html` / `links` / `pdf` formats — PDF
+            rendering uses Chromium's print pipeline (A4) and is unaffected
+            by this flag.
     DismissHeuristicSpec:
       type: object
       additionalProperties: false

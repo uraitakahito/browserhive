@@ -36,6 +36,22 @@ export interface CaptureTask {
    */
   dismissOptions?: DismissOptions;
   /**
+   * Per-request viewport override. When set, `PageCapturer` calls
+   * `page.setViewport` with these dimensions instead of the worker's
+   * `CaptureConfig.viewport` default. Bounds (1–7680 × 1–4320) are
+   * enforced by the OpenAPI schema; no additional validation needed here.
+   */
+  viewport?: {
+    width: number;
+    height: number;
+  };
+  /**
+   * Per-request override for `screenshot.fullPage`. When defined, takes
+   * precedence over `CaptureConfig.screenshot.fullPage` for this task only.
+   * Has no effect on HTML / links / PDF formats.
+   */
+  fullPage?: boolean;
+  /**
    * ISO 8601 wall-clock time of the original enqueue. Preserved across
    * retries (`TaskQueue.requeue`) so a long-stuck task's true age stays
    * visible in `/v1/status`.

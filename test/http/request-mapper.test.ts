@@ -235,4 +235,43 @@ describe("captureRequestToTask", () => {
       expect(result.value.dismissOptions?.failOnError).toBe(true);
     });
   });
+
+  describe("viewport / fullPage", () => {
+    it("propagates viewport to the CaptureTask when provided", () => {
+      const result = captureRequestToTask(
+        baseRequest({ viewport: { width: 1920, height: 1080 } }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.viewport).toEqual({ width: 1920, height: 1080 });
+    });
+
+    it("omits viewport when not provided", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.viewport).toBeUndefined();
+    });
+
+    it("propagates fullPage: true to the CaptureTask", () => {
+      const result = captureRequestToTask(baseRequest({ fullPage: true }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.fullPage).toBe(true);
+    });
+
+    it("propagates fullPage: false to the CaptureTask", () => {
+      const result = captureRequestToTask(baseRequest({ fullPage: false }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.fullPage).toBe(false);
+    });
+
+    it("omits fullPage when not provided", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.fullPage).toBeUndefined();
+    });
+  });
 });

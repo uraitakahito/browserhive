@@ -355,10 +355,13 @@ export const generateFilename = (
   return `${parts.join("_")}.${extension}`;
 };
 
-const configureViewport = async (page: Page, config: CaptureConfig): Promise<void> => {
+const configureViewport = async (
+  page: Page,
+  viewport: CaptureConfig["viewport"],
+): Promise<void> => {
   await page.setViewport({
-    width: config.viewport.width,
-    height: config.viewport.height,
+    width: viewport.width,
+    height: viewport.height,
   });
 };
 
@@ -523,7 +526,7 @@ export class PageCapturer {
     const startTime = Date.now();
 
     try {
-      await configureViewport(page, this.config);
+      await configureViewport(page, task.viewport ?? this.config.viewport);
       await setUserAgent(page, this.config.userAgent);
       await setAcceptLanguage(page, task.acceptLanguage);
 
@@ -654,7 +657,7 @@ export class PageCapturer {
     const filename = generateFilename(task, type);
 
     const options = {
-      fullPage: this.config.screenshot.fullPage,
+      fullPage: task.fullPage ?? this.config.screenshot.fullPage,
       type,
       ...(type === "jpeg" &&
         this.config.screenshot.quality !== undefined && {

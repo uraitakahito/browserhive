@@ -28,6 +28,20 @@ export interface ClientOptions {
   tlsCaCert?: string;
   dismissBanners?: boolean;
   acceptLanguage?: string;
+  /**
+   * When set together with `viewportHeight`, sent as the request's
+   * `viewport` field so the server overrides its own default for this
+   * request only. Both must be provided to take effect — a single
+   * dimension is not meaningful and is rejected at parse time.
+   */
+  viewportWidth?: number;
+  viewportHeight?: number;
+  /**
+   * When `true`, sent as the request's `fullPage: true` to extend
+   * PNG / JPEG screenshots beyond the viewport. Omitted when the flag
+   * is absent so the server-side default applies.
+   */
+  fullPage?: boolean;
 }
 
 const parsePositiveInt = (value: string): number => {
@@ -83,6 +97,22 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
+        "--viewport-width <px>",
+        "Per-request viewport width (must be paired with --viewport-height; overrides the server default)",
+      ).argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--viewport-height <px>",
+        "Per-request viewport height (must be paired with --viewport-width; overrides the server default)",
+      ).argParser(parsePositiveInt),
+    )
+    .option(
+      "--full-page",
+      "Capture the full document height (overrides the server default for PNG / JPEG)",
+    )
+    .addOption(
+      new Option(
         "--tls-ca-cert <path>",
         "CA certificate file path for TLS (enables TLS when specified)",
       ).env("BROWSERHIVE_TLS_CA_CERT"),
@@ -110,7 +140,16 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     tlsCaCert?: string;
     dismissBanners?: boolean;
     acceptLanguage?: string;
+    viewportWidth?: number;
+    viewportHeight?: number;
+    fullPage?: boolean;
   }>();
+
+  if ((opts.viewportWidth === undefined) !== (opts.viewportHeight === undefined)) {
+    program.error(
+      "--viewport-width and --viewport-height must be specified together",
+    );
+  }
 
   return {
     data: opts.data,
@@ -124,6 +163,9 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.tlsCaCert !== undefined && { tlsCaCert: opts.tlsCaCert }),
     ...(opts.dismissBanners !== undefined && { dismissBanners: opts.dismissBanners }),
     ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
+    ...(opts.viewportWidth !== undefined && { viewportWidth: opts.viewportWidth }),
+    ...(opts.viewportHeight !== undefined && { viewportHeight: opts.viewportHeight }),
+    ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
   };
 };
 
@@ -138,6 +180,10 @@ export const getCaptureFormats = (options: ClientOptions): CaptureFormats => {
 };
 
 export const logClientConfig = (options: ClientOptions): void => {
+  const viewport =
+    options.viewportWidth !== undefined && options.viewportHeight !== undefined
+      ? { width: options.viewportWidth, height: options.viewportHeight }
+      : null;
   logger.info(
     {
       server: options.server ?? "(SDK default)",
@@ -148,6 +194,8 @@ export const logClientConfig = (options: ClientOptions): void => {
       captureFormats: getCaptureFormats(options),
       dismissBanners: options.dismissBanners ?? false,
       acceptLanguage: options.acceptLanguage ?? null,
+      viewport,
+      fullPage: options.fullPage ?? null,
       limit: options.limit ?? null,
     },
     "Client configuration",
