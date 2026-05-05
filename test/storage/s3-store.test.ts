@@ -14,10 +14,9 @@ import {
 } from "@aws-sdk/client-s3";
 import { mockClient, type AwsClientStub } from "aws-sdk-client-mock";
 import { S3ArtifactStore } from "../../src/storage/s3-store.js";
-import type { S3StorageConfig } from "../../src/config/index.js";
+import type { StorageConfig } from "../../src/config/index.js";
 
-const baseConfig = (overrides: Partial<S3StorageConfig> = {}): S3StorageConfig => ({
-  kind: "s3",
+const baseConfig = (overrides: Partial<StorageConfig> = {}): StorageConfig => ({
   endpoint: "http://minio:9000",
   region: "us-east-1",
   bucket: "browserhive-test",

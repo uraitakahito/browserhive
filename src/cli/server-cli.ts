@@ -20,13 +20,6 @@ import type {
 import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { logger } from "../logger.js";
 
-/** Allowed values for the `--storage` flag / `BROWSERHIVE_STORAGE` env. */
-const STORAGE_KINDS = ["local", "s3"] as const;
-type StorageKind = (typeof STORAGE_KINDS)[number];
-
-const isStorageKind = (value: string): value is StorageKind =>
-  (STORAGE_KINDS as readonly string[]).includes(value);
-
 /** Mask AWS-style access key ids in logs (`AKIA…ABCD` → `AKIA****ABCD`). */
 const maskAccessKeyId = (id: string): string => {
   if (id.length <= 8) return "***";
@@ -81,8 +74,6 @@ const parseEnvBool = (value: string, varName: string): boolean => {
 interface ParsedOptions {
   port: number;
   browserUrl?: string[];
-  storage?: string;
-  outputDir?: string;
   s3Endpoint?: string;
   s3Region: string;
   s3Bucket?: string;
@@ -106,7 +97,7 @@ interface ParsedOptions {
 }
 
 /** Same as ParsedOptions but with all post-resolution fields required. */
-interface ResolvedOptions extends Omit<ParsedOptions, "browserUrl" | "storage"> {
+interface ResolvedOptions extends Omit<ParsedOptions, "browserUrl"> {
   browserUrl: string[];
   storage: StorageConfig;
 }
@@ -179,22 +170,8 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
-        "--storage <kind>",
-        "Storage backend for captured artifacts. Required.",
-      )
-        .choices([...STORAGE_KINDS])
-        .env("BROWSERHIVE_STORAGE"),
-    )
-    .addOption(
-      new Option(
-        "--output-dir <dir>",
-        "Output directory for captured files (storage=local). Required when --storage=local.",
-      ).env("BROWSERHIVE_OUTPUT_DIR"),
-    )
-    .addOption(
-      new Option(
         "--s3-endpoint <url>",
-        "S3-compatible endpoint URL (storage=s3). Required when --storage=s3.",
+        "S3-compatible endpoint URL. Required.",
       ).env("BROWSERHIVE_S3_ENDPOINT"),
     )
     .addOption(
@@ -205,19 +182,19 @@ export const createProgram = (): Command => {
     .addOption(
       new Option(
         "--s3-bucket <name>",
-        "S3 bucket name (storage=s3). Required when --storage=s3.",
+        "S3 bucket name. Required.",
       ).env("BROWSERHIVE_S3_BUCKET"),
     )
     .addOption(
       new Option(
         "--s3-access-key-id <id>",
-        "S3 access key ID (storage=s3). Prefer the env var to avoid leaking the value via `ps`.",
+        "S3 access key ID. Required. Prefer the env var to avoid leaking the value via `ps`.",
       ).env("BROWSERHIVE_S3_ACCESS_KEY_ID"),
     )
     .addOption(
       new Option(
         "--s3-secret-access-key <secret>",
-        "S3 secret access key (storage=s3). Prefer the env var to avoid leaking the value via `ps`.",
+        "S3 secret access key. Required. Prefer the env var to avoid leaking the value via `ps`.",
       ).env("BROWSERHIVE_S3_SECRET_ACCESS_KEY"),
     )
     .addOption(
@@ -368,82 +345,37 @@ const resolveBoolWithEnv = (
 };
 
 /**
- * Pick the right `StorageConfig` arm based on `--storage` and validate
- * cross-field exclusivity:
- *
- *   - `local` requires `--output-dir` and forbids any `--s3-*` flag.
- *   - `s3`    requires endpoint / bucket / accessKeyId / secretAccessKey
- *             and forbids `--output-dir`.
- *
- * `--s3-region`, `--s3-key-prefix`, and `--s3-force-path-style` have
- * defaults, so they are treated as "always allowed regardless of kind"
- * — the noise of their presence on the local side is acceptable.
+ * Resolve the four mandatory `--s3-*` fields (endpoint / bucket / accessKeyId
+ * / secretAccessKey) into a fully-typed `StorageConfig`. `region`,
+ * `keyPrefix`, and `forcePathStyle` are filled in from defaults / optional
+ * overrides. Each missing or empty required field aborts via `program.error`
+ * so the caller can rely on every field being present once this returns.
  */
 const resolveStorageConfig = (
   opts: ParsedOptions,
   program: Command,
 ): StorageConfig => {
-  const rawKind = opts.storage;
-  if (rawKind === undefined) {
-    program.error(
-      "--storage is required (or set BROWSERHIVE_STORAGE to one of: local, s3)",
-    );
-  }
-  if (!isStorageKind(rawKind)) {
-    program.error(
-      `--storage must be one of: ${STORAGE_KINDS.join(", ")} (got "${rawKind}")`,
-    );
-  }
-
-  if (rawKind === "local") {
-    const conflicting: string[] = [];
-    if (opts.s3Endpoint !== undefined) conflicting.push("--s3-endpoint");
-    if (opts.s3Bucket !== undefined) conflicting.push("--s3-bucket");
-    if (opts.s3AccessKeyId !== undefined) conflicting.push("--s3-access-key-id");
-    if (opts.s3SecretAccessKey !== undefined) conflicting.push("--s3-secret-access-key");
-    if (opts.s3KeyPrefix !== undefined) conflicting.push("--s3-key-prefix");
-    if (conflicting.length > 0) {
-      program.error(
-        `--storage=local does not accept: ${conflicting.join(", ")}`,
-      );
-    }
-    if (opts.outputDir === undefined || opts.outputDir.trim() === "") {
-      program.error(
-        "--output-dir is required when --storage=local (or set BROWSERHIVE_OUTPUT_DIR)",
-      );
-    }
-    return { kind: "local", outputDir: opts.outputDir };
-  }
-
-  if (opts.outputDir !== undefined) {
-    program.error("--storage=s3 does not accept: --output-dir");
-  }
   // Per-field early `program.error` (typed `never`) so the rest of this
   // function sees non-undefined types — collecting into a `missing` array
   // would not narrow the individual fields.
   if (opts.s3Endpoint === undefined || opts.s3Endpoint.trim() === "") {
-    program.error(
-      "--storage=s3 requires --s3-endpoint (or BROWSERHIVE_S3_ENDPOINT)",
-    );
+    program.error("--s3-endpoint is required (or set BROWSERHIVE_S3_ENDPOINT)");
   }
   if (opts.s3Bucket === undefined || opts.s3Bucket.trim() === "") {
-    program.error(
-      "--storage=s3 requires --s3-bucket (or BROWSERHIVE_S3_BUCKET)",
-    );
+    program.error("--s3-bucket is required (or set BROWSERHIVE_S3_BUCKET)");
   }
   if (opts.s3AccessKeyId === undefined || opts.s3AccessKeyId === "") {
     program.error(
-      "--storage=s3 requires --s3-access-key-id (or BROWSERHIVE_S3_ACCESS_KEY_ID)",
+      "--s3-access-key-id is required (or set BROWSERHIVE_S3_ACCESS_KEY_ID)",
     );
   }
   if (opts.s3SecretAccessKey === undefined || opts.s3SecretAccessKey === "") {
     program.error(
-      "--storage=s3 requires --s3-secret-access-key (or BROWSERHIVE_S3_SECRET_ACCESS_KEY)",
+      "--s3-secret-access-key is required (or set BROWSERHIVE_S3_SECRET_ACCESS_KEY)",
     );
   }
 
   const config: StorageConfig = {
-    kind: "s3",
     endpoint: opts.s3Endpoint,
     region: opts.s3Region,
     bucket: opts.s3Bucket,
@@ -467,14 +399,8 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
 
   const storage = resolveStorageConfig(opts, program);
 
-  // Strip the raw string `storage` from the parsed options before merging —
-  // it is replaced by the resolved `StorageConfig` discriminated union
-  // below. The destructure-and-discard avoids the explicit-type-mismatch
-  // that a plain spread would produce.
-  const { storage: rawStorageDiscarded, ...rest } = opts;
-  void rawStorageDiscarded;
   const resolved: ResolvedOptions = {
-    ...rest,
+    ...opts,
     browserUrl: requireBrowserUrls(opts.browserUrl, program),
     storage,
     screenshotFullPage: resolveBoolWithEnv(
@@ -499,21 +425,15 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
  */
 const logSafeStorage = (
   storage: StorageConfig,
-): Record<string, unknown> => {
-  if (storage.kind === "local") {
-    return { kind: "local", outputDir: storage.outputDir };
-  }
-  return {
-    kind: "s3",
-    endpoint: storage.endpoint,
-    region: storage.region,
-    bucket: storage.bucket,
-    accessKeyId: maskAccessKeyId(storage.accessKeyId),
-    secretAccessKey: "***",
-    ...(storage.keyPrefix !== undefined && { keyPrefix: storage.keyPrefix }),
-    forcePathStyle: storage.forcePathStyle ?? true,
-  };
-};
+): Record<string, unknown> => ({
+  endpoint: storage.endpoint,
+  region: storage.region,
+  bucket: storage.bucket,
+  accessKeyId: maskAccessKeyId(storage.accessKeyId),
+  secretAccessKey: "***",
+  ...(storage.keyPrefix !== undefined && { keyPrefix: storage.keyPrefix }),
+  forcePathStyle: storage.forcePathStyle ?? true,
+});
 
 export const logServerConfig = (config: BrowserHiveConfig): void => {
   const coordinator = config.coordinator;

@@ -1,21 +1,21 @@
 /**
  * Artifact storage abstraction.
  *
- * Decouples `PageCapturer` from the concrete sink (local FS / S3-compatible
- * object store). The concrete implementations live alongside this file
- * under `src/storage/`.
+ * Currently has a single production implementation (`S3ArtifactStore`).
+ * The interface is preserved as a thin seam so test fixtures
+ * (`createTestArtifactStore` in `test/helpers/config.ts`) can substitute
+ * an in-memory recorder without spinning up the AWS SDK mock plumbing.
  *
  * Operations:
  *   - `initialize()` runs once at coordinator startup as a fail-fast
- *     health check (e.g. `mkdir -p` for local, `HeadBucket` for S3).
+ *     health check (e.g. `HeadBucket` against the target bucket).
  *   - `put()` writes one artifact and returns an external location
  *     reference. The capture pipeline embeds that string into
  *     `CaptureResult.{pngLocation,…}` so downstream consumers (logs,
  *     metrics, waggle) can fetch it without re-deriving the path.
  *
- * `put()` MUST set `Content-Type` correctly on object stores even though
- * the local store ignores it — direct browser fetches via
- * `s3://...` proxies depend on it.
+ * `put()` MUST set `Content-Type` correctly so direct fetches against
+ * `s3://...` URIs (or via signed URL / proxy) serve the right MIME type.
  */
 export type ArtifactContentType =
   | "image/png"
@@ -26,19 +26,16 @@ export type ArtifactContentType =
 
 export interface ArtifactStore {
   /**
-   * One-shot startup hook. Local: `mkdir -p outputDir`. S3: `HeadBucket`
-   * to verify bucket existence + credentials. Errors thrown here propagate
-   * out of `CaptureCoordinator.initialize` and prevent the server from
-   * accepting requests.
+   * One-shot startup hook. Production impl runs `HeadBucket` against the
+   * target bucket to verify existence + credentials. Errors thrown here
+   * propagate out of `CaptureCoordinator.initialize` and prevent the
+   * server from accepting requests.
    */
   initialize(): Promise<void>;
 
   /**
    * Persist `body` under the supplied filename and return an external
-   * location reference.
-   *
-   * Local: returns the absolute file path (`/app/output/<filename>`).
-   * S3:    returns an `s3://<bucket>/<key>` URI.
+   * location reference. The S3 impl returns an `s3://<bucket>/<key>` URI.
    */
   put(
     filename: string,

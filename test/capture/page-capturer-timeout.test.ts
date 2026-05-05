@@ -18,16 +18,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { HTTPResponse, Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
-import { LocalArtifactStore } from "../../src/storage/index.js";
 import type { CaptureTask } from "../../src/capture/types.js";
-import { createTestCaptureConfig } from "../helpers/config.js";
-
-// Stub fs writes so the success-path tests below can run without touching
-// disk. The hang/throw timeout cases above bail before reaching captureScreenshot,
-// but the new close-timeout tests do hit the screenshot/HTML write step.
-vi.mock("node:fs/promises", () => ({
-  writeFile: vi.fn().mockResolvedValue(undefined),
-}));
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+} from "../helpers/config.js";
 
 const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-uuid-1234",
@@ -89,7 +84,7 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
   it("times out when page.evaluate (dynamic-content sleep) never resolves", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig(),
-      new LocalArtifactStore("/tmp/bh-test-out"),
+      createTestArtifactStore(),
     );
     const page = buildMockPage({ evaluateHangs: true });
 
@@ -107,7 +102,7 @@ describe("PageCapturer.capture — Layer A timeouts", () => {
   it("times out when page.addStyleTag (hideScrollbars) never resolves", async () => {
     const capturer = new PageCapturer(
       createTestCaptureConfig(),
-      new LocalArtifactStore("/tmp/bh-test-out"),
+      createTestArtifactStore(),
     );
     const page = buildMockPage({ addStyleTagHangs: true });
 

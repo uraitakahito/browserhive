@@ -3,7 +3,6 @@ import {
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
   DEFAULT_BROWSERHIVE_CONFIG,
-  DEFAULT_STORAGE_CONFIG,
 } from "../../src/config/index.js";
 import {
   createTestCaptureConfig,
@@ -22,19 +21,13 @@ describe("DEFAULT_CAPTURE_CONFIG", () => {
   });
 });
 
-describe("DEFAULT_STORAGE_CONFIG", () => {
-  it("defaults to local with an empty outputDir (filled by CLI/env)", () => {
-    expect(DEFAULT_STORAGE_CONFIG).toEqual({ kind: "local", outputDir: "" });
-  });
-});
-
 describe("DEFAULT_COORDINATOR_CONFIG", () => {
   it("should have empty browserProfiles by default", () => {
     expect(DEFAULT_COORDINATOR_CONFIG.browserProfiles).toEqual([]);
   });
 
-  it("should default to local storage", () => {
-    expect(DEFAULT_COORDINATOR_CONFIG.storage).toEqual(DEFAULT_STORAGE_CONFIG);
+  it("does not include a default storage entry (CLI / env supply it)", () => {
+    expect(DEFAULT_COORDINATOR_CONFIG).not.toHaveProperty("storage");
   });
 
   it("should have correct default values for pool settings", () => {
