@@ -35,8 +35,7 @@ Open these URLs from the host browser to watch the running Chromium:
 The bundled SeaweedFS exposes its **Filer UI** at
 <http://localhost:8888/buckets/browserhive/>.
 
-Captured artifacts land at `s3://browserhive/<filename>`. From inside
-the SeaweedFS container, you can also list them via:
+From inside the SeaweedFS container, you can also list them via:
 
 ```sh
 docker exec browserhive-seaweedfs sh -c \
