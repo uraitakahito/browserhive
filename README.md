@@ -107,8 +107,6 @@ npm run build
 
 Start the HTTP server to accept capture requests via JSON over HTTP.
 
-The server uses a **fire-and-forget** pattern: requests are accepted immediately and processed asynchronously by the capture coordinator. Multiple browser URLs can be specified to enable parallel processing.
-
 When `BROWSERHIVE_BROWSER_URLS` and the `BROWSERHIVE_S3_*` group are set (the dev/prod compose files already do this), the start command is just:
 
 ```sh
