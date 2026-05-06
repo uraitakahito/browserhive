@@ -33,12 +33,7 @@ Open these URLs from the host browser to watch the running Chromium:
 ## Browsing captured artifacts in SeaweedFS
 
 The bundled SeaweedFS exposes its **Filer UI** at
-<http://localhost:8888/buckets/browserhive/> — open it in a browser to
-list and download every artifact. Default credentials are `browserhive`
-/ `browserhive`, overridable via the `BROWSERHIVE_S3_ACCESS_KEY_ID` /
-`BROWSERHIVE_S3_SECRET_ACCESS_KEY` env vars on `docker compose up`
-(both the bundled SeaweedFS and the BrowserHive container read from the
-same pair, so they always agree by construction).
+<http://localhost:8888/buckets/browserhive/>.
 
 Captured artifacts land at `s3://browserhive/<filename>`. From inside
 the SeaweedFS container, you can also list them via:
