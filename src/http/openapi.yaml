@@ -3,9 +3,10 @@ info:
   title: BrowserHive Capture API
   version: 1.0.0
   description: |
-    Web page capture API. Submits URLs to capture as PNG/JPEG screenshots
-    and/or HTML. Uses fire-and-forget pattern: requests are accepted
-    immediately and processed asynchronously by the capture coordinator.
+    Web page capture API. Submits URLs to capture as PNG/JPEG screenshots,
+    HTML, PDF, or MHTML (single-file archive). Uses fire-and-forget
+    pattern: requests are accepted immediately and processed asynchronously
+    by the capture coordinator.
   license:
     name: The Unlicense
     identifier: Unlicense
@@ -65,6 +66,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   dismissBanners: true
               acceptLanguageJa:
                 summary: Capture the Japanese variant of a multilingual site
@@ -82,6 +84,7 @@ paths:
                     html: true
                     links: false
                     pdf: false
+                    mhtml: false
                   acceptLanguage: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7
               linksOnly:
                 summary: Extract links without taking a screenshot
@@ -98,6 +101,7 @@ paths:
                     html: false
                     links: true
                     pdf: false
+                    mhtml: false
               pdfOnly:
                 summary: Render the page to PDF only
                 description: |
@@ -115,6 +119,31 @@ paths:
                     html: false
                     links: false
                     pdf: true
+                    mhtml: false
+              mhtmlOnly:
+                summary: Capture as MHTML single-file archive
+                description: |
+                  Skips raster screenshot / HTML / link extraction / PDF
+                  and writes only an MHTML archive as
+                  `{taskId}_..._labels.mhtml`. Uses Chromium's
+                  `Page.captureSnapshot` CDP method to embed every CSS /
+                  image / font / inline script into one MIME multipart
+                  file. Open the resulting `.mhtml` directly in Chrome
+                  or Edge for an offline-faithful render of the captured
+                  page (Firefox / Safari require an extension). Prefer
+                  this over the raw `html` format when the captured
+                  artifact must render correctly outside the original
+                  origin.
+                value:
+                  url: https://www.example.com/
+                  labels: [example]
+                  captureFormats:
+                    png: false
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: false
+                    mhtml: true
               dismissBannersInline:
                 summary: Page-specific dismissal selectors (inline)
                 description: |
@@ -132,6 +161,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   dismissBanners:
                     useDefaults: true
                     extraSelectors:
@@ -157,6 +187,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   viewport:
                     width: 1920
                     height: 1080
@@ -176,6 +207,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   fullPage: true
               dismissBannersStrict:
                 summary: Strict mode (fail capture if dismissal fails)
@@ -197,6 +229,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   dismissBanners:
                     useDefaults: true
                     extraSelectors:
@@ -221,6 +254,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   resetState:
                     cookies: false
               noResetAtAll:
@@ -242,6 +276,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   resetState: false
               cookiesOnlyReset:
                 summary: Wipe cookies only, keep DOM context
@@ -263,6 +298,7 @@ paths:
                     html: false
                     links: false
                     pdf: false
+                    mhtml: false
                   resetState:
                     cookies: true
                     pageContext: false
@@ -330,7 +366,7 @@ components:
     CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
-      required: [png, jpeg, html, links, pdf]
+      required: [png, jpeg, html, links, pdf, mhtml]
       additionalProperties: false
       properties:
         png:
@@ -356,6 +392,18 @@ components:
             `printBackground: true`; the page format is fixed to A4.
             Distinct from the PNG / JPEG screenshot path — PDF is intended
             for archival / print-oriented use cases.
+        mhtml:
+          type: boolean
+          description: |
+            Capture the rendered page as MHTML (MIME multipart archive)
+            via Chromium's CDP `Page.captureSnapshot` and upload it as
+            `{taskId}_..._labels.mhtml` to the configured S3 bucket (same
+            naming pattern as the other capture formats). All resources —
+            CSS, images, fonts, inline scripts — are embedded in a single
+            file, so the captured page renders identically when opened
+            offline (no broken relative URLs, unlike the raw `html`
+            format). Chrome / Edge open `.mhtml` files directly; Firefox /
+            Safari require an extension.
     CaptureRequest:
       type: object
       required: [url, captureFormats]

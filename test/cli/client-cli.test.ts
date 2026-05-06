@@ -89,6 +89,7 @@ describe("client-cli parseClientOptions", () => {
       html: false,
       links: false,
       pdf: true,
+      mhtml: false,
     });
   });
 
@@ -96,6 +97,25 @@ describe("client-cli parseClientOptions", () => {
     const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--png"));
     expect(opts.pdf).toBeUndefined();
     expect(getCaptureFormats(opts).pdf).toBe(false);
+  });
+
+  it("--mhtml を渡すと captureFormats.mhtml が true になる", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--mhtml"));
+    expect(opts.mhtml).toBe(true);
+    expect(getCaptureFormats(opts)).toEqual({
+      png: false,
+      jpeg: false,
+      html: false,
+      links: false,
+      pdf: false,
+      mhtml: true,
+    });
+  });
+
+  it("--mhtml 未指定なら getCaptureFormats が mhtml:false を返す", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--png"));
+    expect(opts.mhtml).toBeUndefined();
+    expect(getCaptureFormats(opts).mhtml).toBe(false);
   });
 
   it("--viewport-width / --viewport-height をペアで渡すと両方反映される", () => {

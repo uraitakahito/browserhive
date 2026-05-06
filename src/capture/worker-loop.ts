@@ -69,6 +69,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
                 url: task.url,
                 ...(result.linksLocation && { linksLocation: result.linksLocation }),
                 ...(result.pdfLocation && { pdfLocation: result.pdfLocation }),
+                ...(result.mhtmlLocation && { mhtmlLocation: result.mhtmlLocation }),
                 ...(result.dismissReport && { dismissReport: result.dismissReport }),
               },
               "Task completed"

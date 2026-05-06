@@ -22,7 +22,8 @@ export type ArtifactContentType =
   | "image/jpeg"
   | "text/html"
   | "application/json"
-  | "application/pdf";
+  | "application/pdf"
+  | "multipart/related";
 
 export interface ArtifactStore {
   /**

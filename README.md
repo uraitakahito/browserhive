@@ -6,8 +6,8 @@ Used by [waggle](https://github.com/uraitakahito/waggle).
 
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
-- **Multiple output formats**: PNG, JPEG screenshots, HTML capture, and PDF rendering (Chromium print pipeline, A4)
-- **S3-compatible artifact storage**: Every captured artifact is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`. Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted SeaweedFS; point at an external store via `BROWSERHIVE_S3_ENDPOINT`.
+- **Multiple output formats**: PNG / JPEG screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), and MHTML single-file archives (CDP `Page.captureSnapshot`) — the MHTML form embeds every CSS / image / font into one file so the captured page renders faithfully when opened offline (Chrome / Edge open `.mhtml` directly; Firefox / Safari require an extension)
+- **S3-compatible artifact storage**: Every captured artifact (PNG / JPEG / HTML / `.links.json` / PDF / MHTML) is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`. Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted SeaweedFS; point at an external store via `BROWSERHIVE_S3_ENDPOINT`.
 - **Link extraction**: Optional `<a href>` extraction uploaded as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
@@ -160,7 +160,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--links`, `--pdf`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--jpeg`, `--html`, `--links`, `--pdf`, `--mhtml`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`) intentionally have no env equivalents.
 
 #### Calling the HTTP API
 
@@ -184,13 +184,13 @@ node dist/examples/data-client.js \
   | pino-pretty
 ```
 
-`--png` / `--jpeg` / `--html` / `--links` / `--pdf` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。
+`--png` / `--jpeg` / `--html` / `--links` / `--pdf` / `--mhtml` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。`--mhtml` は CDP `Page.captureSnapshot` で `.mhtml` (multipart archive) を S3 に保存する — 関連リソースを単一ファイルに同梱するためオフラインでも見た目が再現される。
 
 `data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
 
 ## Storage
 
-Captured artifacts (PNG / JPEG / HTML / links JSON / PDF) are uploaded
+Captured artifacts (PNG / JPEG / HTML / links JSON / PDF / MHTML) are uploaded
 to an S3-compatible object store via `@aws-sdk/client-s3`. Anything that
 speaks the S3 API works — self-hosted SeaweedFS (the bundled default),
 AWS S3, Cloudflare R2, MinIO-compatible managed services.
