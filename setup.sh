@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Configuration
 HELLO_JAVASCRIPT_VERSION="1.2.9"
 BASE_URL="https://raw.githubusercontent.com/uraitakahito/hello-javascript/refs/tags/${HELLO_JAVASCRIPT_VERSION}"
 
