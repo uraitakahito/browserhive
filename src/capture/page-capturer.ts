@@ -607,7 +607,7 @@ export class PageCapturer {
       }
 
       let pngLocation: string | undefined;
-      let jpegLocation: string | undefined;
+      let webpLocation: string | undefined;
       let htmlLocation: string | undefined;
       let linksLocation: string | undefined;
       let pdfLocation: string | undefined;
@@ -617,8 +617,8 @@ export class PageCapturer {
         pngLocation = await this.captureScreenshot(page, task, "png");
       }
 
-      if (task.captureFormats.jpeg) {
-        jpegLocation = await this.captureScreenshot(page, task, "jpeg");
+      if (task.captureFormats.webp) {
+        webpLocation = await this.captureScreenshot(page, task, "webp");
       }
 
       if (task.captureFormats.html) {
@@ -647,7 +647,7 @@ export class PageCapturer {
         timestamp: new Date().toISOString(),
         workerIndex,
         ...(pngLocation !== undefined && { pngLocation }),
-        ...(jpegLocation !== undefined && { jpegLocation }),
+        ...(webpLocation !== undefined && { webpLocation }),
         ...(htmlLocation !== undefined && { htmlLocation }),
         ...(linksLocation !== undefined && { linksLocation }),
         ...(pdfLocation !== undefined && { pdfLocation }),
@@ -685,14 +685,14 @@ export class PageCapturer {
   private async captureScreenshot(
     page: Page,
     task: CaptureTask,
-    type: "png" | "jpeg"
+    type: "png" | "webp"
   ): Promise<string> {
     const filename = generateFilename(task, type);
 
     const options = {
       fullPage: task.fullPage ?? this.config.screenshot.fullPage,
       type,
-      ...(type === "jpeg" &&
+      ...(type === "webp" &&
         this.config.screenshot.quality !== undefined && {
           quality: this.config.screenshot.quality,
         }),
@@ -713,7 +713,7 @@ export class PageCapturer {
     return this.store.put(
       filename,
       Buffer.from(screenshotBuffer),
-      type === "png" ? "image/png" : "image/jpeg",
+      type === "png" ? "image/png" : "image/webp",
     );
   }
 
@@ -804,7 +804,7 @@ export class PageCapturer {
    * during a follow-up navigation are recovered by `runOnStableContext`.
    *
    * Print-oriented defaults: A4 with `printBackground: true`, leaving the
-   * media type at the default `print`. Distinct from the PNG/JPEG path,
+   * media type at the default `print`. Distinct from the PNG/WebP path,
    * which captures the `screen` rendering — PDF is positioned as the
    * archival / print artifact.
    */

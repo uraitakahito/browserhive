@@ -3,7 +3,7 @@
  *
  * CLI logic for the HTTP capture client. `--server` and `--tls-ca-cert`
  * fall back to `BROWSERHIVE_SERVER` / `BROWSERHIVE_TLS_CA_CERT` when not
- * given on the command line. Per-job flags (`--data`, `--png`, `--jpeg`,
+ * given on the command line. Per-job flags (`--data`, `--png`, `--webp`,
  * `--html`, `--limit`, `--dismiss-banners`) intentionally have no env
  * equivalents — they are caller-side intent, not deployment configuration.
  *
@@ -20,7 +20,7 @@ export interface ClientOptions {
   server?: string;
   data: string;
   png?: boolean;
-  jpeg?: boolean;
+  webp?: boolean;
   html?: boolean;
   links?: boolean;
   pdf?: boolean;
@@ -39,7 +39,7 @@ export interface ClientOptions {
   viewportHeight?: number;
   /**
    * When `true`, sent as the request's `fullPage: true` to extend
-   * PNG / JPEG screenshots beyond the viewport. Omitted when the flag
+   * PNG / WebP screenshots beyond the viewport. Omitted when the flag
    * is absent so the server-side default applies.
    */
   fullPage?: boolean;
@@ -78,7 +78,7 @@ export const createProgram = (): Command => {
       ).env("BROWSERHIVE_SERVER"),
     )
     .option("--png", "Capture PNG screenshot")
-    .option("--jpeg", "Capture JPEG screenshot")
+    .option("--webp", "Capture WebP screenshot")
     .option("--html", "Capture HTML")
     .option("--links", "Extract <a href> links to a .links.json file")
     .option("--pdf", "Render the page to PDF (Chromium print pipeline, A4)")
@@ -114,7 +114,7 @@ export const createProgram = (): Command => {
     )
     .option(
       "--full-page",
-      "Capture the full document height (overrides the server default for PNG / JPEG)",
+      "Capture the full document height (overrides the server default for PNG / WebP)",
     )
     .addOption(
       new Option(
@@ -137,7 +137,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     data: string;
     server?: string;
     png?: boolean;
-    jpeg?: boolean;
+    webp?: boolean;
     html?: boolean;
     links?: boolean;
     pdf?: boolean;
@@ -161,7 +161,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     data: opts.data,
     ...(opts.server !== undefined && { server: opts.server }),
     ...(opts.png !== undefined && { png: opts.png }),
-    ...(opts.jpeg !== undefined && { jpeg: opts.jpeg }),
+    ...(opts.webp !== undefined && { webp: opts.webp }),
     ...(opts.html !== undefined && { html: opts.html }),
     ...(opts.links !== undefined && { links: opts.links }),
     ...(opts.pdf !== undefined && { pdf: opts.pdf }),
@@ -179,7 +179,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
 export const getCaptureFormats = (options: ClientOptions): CaptureFormats => {
   return {
     png: options.png ?? false,
-    jpeg: options.jpeg ?? false,
+    webp: options.webp ?? false,
     html: options.html ?? false,
     links: options.links ?? false,
     pdf: options.pdf ?? false,

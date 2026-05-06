@@ -33,7 +33,7 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     //   + 4 × capture(10s) = 85s. (newPage / page.close are no longer in the
     //   sum: BrowserClient holds a single Chromium tab for the worker's whole
     //   lifetime and capture only navigates it. The 4 × capture term covers
-    //   PNG + JPEG + HTML + PDF in the all-formats-on case; link extraction
+    //   PNG + WebP + HTML + PDF in the all-formats-on case; link extraction
     //   shares the same per-call budget but is rarely combined with all four.)
     // 100s leaves a 15s buffer for un-wrapped CDP single calls (setViewport /
     // setUserAgent / setExtraHTTPHeaders) and for the redirect-aware retry in

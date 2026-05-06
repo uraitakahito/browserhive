@@ -9,7 +9,7 @@
 export interface ScreenshotConfig {
   /** Capture full page screenshot */
   fullPage: boolean;
-  /** Image quality (1-100, only for jpeg) */
+  /** Image quality (1-100, only for webp) */
   quality?: number;
 }
 

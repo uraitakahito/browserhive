@@ -16,7 +16,7 @@ import type { Result } from "../../src/result.js";
 const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest => ({
   url: "https://example.com",
   labels: [],
-  captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false, mhtml: false },
+  captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false },
   ...overrides,
 });
 
@@ -45,7 +45,7 @@ describe("captureRequestToTask", () => {
 
   it("requires at least one capture format", () => {
     const result = captureRequestToTask(
-      baseRequest({ captureFormats: { png: false, jpeg: false, html: false, links: false, pdf: false, mhtml: false } }),
+      baseRequest({ captureFormats: { png: false, webp: false, html: false, links: false, pdf: false, mhtml: false } }),
     );
     expect(result.ok).toBe(false);
   });

@@ -85,7 +85,7 @@ describe("client-cli parseClientOptions", () => {
     expect(opts.pdf).toBe(true);
     expect(getCaptureFormats(opts)).toEqual({
       png: false,
-      jpeg: false,
+      webp: false,
       html: false,
       links: false,
       pdf: true,
@@ -104,7 +104,7 @@ describe("client-cli parseClientOptions", () => {
     expect(opts.mhtml).toBe(true);
     expect(getCaptureFormats(opts)).toEqual({
       png: false,
-      jpeg: false,
+      webp: false,
       html: false,
       links: false,
       pdf: false,

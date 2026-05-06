@@ -19,7 +19,7 @@
  */
 export type ArtifactContentType =
   | "image/png"
-  | "image/jpeg"
+  | "image/webp"
   | "text/html"
   | "application/json"
   | "application/pdf"

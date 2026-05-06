@@ -69,7 +69,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["test"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false, mhtml: false },
+  captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
@@ -177,7 +177,7 @@ describe("PageCapturer.capture — fullPage override", () => {
     );
   });
 
-  it("propagates task.fullPage to JPEG screenshots too", async () => {
+  it("propagates task.fullPage to WebP screenshots too", async () => {
     const config = createTestCaptureConfig({
       screenshot: { fullPage: false },
     });
@@ -187,14 +187,14 @@ describe("PageCapturer.capture — fullPage override", () => {
     await capturer.capture(
       asPage(page),
       buildTask({
-        captureFormats: { png: false, jpeg: true, html: false, links: false, pdf: false, mhtml: false },
+        captureFormats: { png: false, webp: true, html: false, links: false, pdf: false, mhtml: false },
         fullPage: true,
       }),
       0,
     );
 
     expect(page.screenshot).toHaveBeenCalledWith(
-      expect.objectContaining({ fullPage: true, type: "jpeg" }),
+      expect.objectContaining({ fullPage: true, type: "webp" }),
     );
   });
 });

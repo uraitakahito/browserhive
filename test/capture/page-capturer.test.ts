@@ -21,7 +21,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["TestTask"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: true, jpeg: false, html: true, links: false, pdf: false, mhtml: false },
+  captureFormats: { png: true, webp: false, html: true, links: false, pdf: false, mhtml: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
@@ -222,7 +222,7 @@ describe("generateFilename", () => {
     const task = createTask({ taskId: "uuid", labels: ["Task"] });
 
     expect(generateFilename(task, "png")).toBe("uuid_Task.png");
-    expect(generateFilename(task, "jpeg")).toBe("uuid_Task.jpeg");
+    expect(generateFilename(task, "webp")).toBe("uuid_Task.webp");
     expect(generateFilename(task, "html")).toBe("uuid_Task.html");
   });
 
