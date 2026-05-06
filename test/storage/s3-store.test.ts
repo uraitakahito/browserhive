@@ -99,7 +99,7 @@ describe("S3ArtifactStore.put", () => {
 
     const store = new S3ArtifactStore(baseConfig());
     await store.put("a.png", Buffer.from(""), "image/png");
-    await store.put("a.jpeg", Buffer.from(""), "image/jpeg");
+    await store.put("a.webp", Buffer.from(""), "image/webp");
     await store.put("a.html", "", "text/html");
     await store.put("a.links.json", "{}", "application/json");
     await store.put("a.pdf", Buffer.from(""), "application/pdf");
@@ -109,7 +109,7 @@ describe("S3ArtifactStore.put", () => {
       .map((c) => c.args[0].input.ContentType);
     expect(types).toEqual([
       "image/png",
-      "image/jpeg",
+      "image/webp",
       "text/html",
       "application/json",
       "application/pdf",

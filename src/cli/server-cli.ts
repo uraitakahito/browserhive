@@ -278,7 +278,7 @@ export const createProgram = (): Command => {
       defaultCapture.screenshot.fullPage,
     )
     .addOption(
-      new Option("--screenshot-quality <n>", "JPEG quality (1-100)")
+      new Option("--screenshot-quality <n>", "WebP lossy quality (1-100)")
         .env("BROWSERHIVE_SCREENSHOT_QUALITY")
         .argParser(parseQuality),
     )

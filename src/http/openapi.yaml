@@ -3,7 +3,7 @@ info:
   title: BrowserHive Capture API
   version: 1.0.0
   description: |
-    Web page capture API. Submits URLs to capture as PNG/JPEG screenshots,
+    Web page capture API. Submits URLs to capture as PNG/WebP screenshots,
     HTML, PDF, or MHTML (single-file archive). Uses fire-and-forget
     pattern: requests are accepted immediately and processed asynchronously
     by the capture coordinator.
@@ -62,7 +62,7 @@ paths:
                   labels: [guardian]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -80,7 +80,7 @@ paths:
                   labels: [google, ja]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: true
                     links: false
                     pdf: false
@@ -89,7 +89,7 @@ paths:
               linksOnly:
                 summary: Extract links without taking a screenshot
                 description: |
-                  Skips PNG/JPEG/HTML capture and writes only the link list
+                  Skips PNG/WebP/HTML capture and writes only the link list
                   as `{taskId}_..._labels.links.json`. Useful for crawl-driver
                   use cases where only URL discovery is needed.
                 value:
@@ -97,7 +97,7 @@ paths:
                   labels: [example]
                   captureFormats:
                     png: false
-                    jpeg: false
+                    webp: false
                     html: false
                     links: true
                     pdf: false
@@ -115,7 +115,7 @@ paths:
                   labels: [example]
                   captureFormats:
                     png: false
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: true
@@ -139,7 +139,7 @@ paths:
                   labels: [example]
                   captureFormats:
                     png: false
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -157,7 +157,7 @@ paths:
                   labels: [example, paywall]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -183,7 +183,7 @@ paths:
                   labels: [example, fhd]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -203,7 +203,7 @@ paths:
                   labels: [example, full]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -225,7 +225,7 @@ paths:
                   labels: [example, strict]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -250,7 +250,7 @@ paths:
                   labels: [sso, dashboard]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -272,7 +272,7 @@ paths:
                   labels: [journey, step2]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -294,7 +294,7 @@ paths:
                   labels: [example]
                   captureFormats:
                     png: true
-                    jpeg: false
+                    webp: false
                     html: false
                     links: false
                     pdf: false
@@ -366,13 +366,20 @@ components:
     CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
-      required: [png, jpeg, html, links, pdf, mhtml]
+      required: [png, webp, html, links, pdf, mhtml]
       additionalProperties: false
       properties:
         png:
           type: boolean
-        jpeg:
+        webp:
           type: boolean
+          description: |
+            Capture a WebP screenshot via Chromium's
+            `Page.captureScreenshot { format: "webp" }`. Set
+            `--screenshot-quality` (or `BROWSERHIVE_SCREENSHOT_QUALITY`)
+            to control the lossy quality (1–100); when omitted,
+            Chromium's default is used. Uploaded as
+            `{taskId}_..._labels.webp`.
         html:
           type: boolean
         links:
@@ -390,7 +397,7 @@ components:
             naming pattern as the other capture formats). Uses Chromium's
             print pipeline with the `print` CSS media type and
             `printBackground: true`; the page format is fixed to A4.
-            Distinct from the PNG / JPEG screenshot path — PDF is intended
+            Distinct from the PNG / WebP screenshot path — PDF is intended
             for archival / print-oriented use cases.
         mhtml:
           type: boolean
@@ -534,7 +541,7 @@ components:
         fullPage:
           type: boolean
           description: |
-            When `true`, the PNG / JPEG screenshot extends below the
+            When `true`, the PNG / WebP screenshot extends below the
             viewport to capture the full document height (Chromium scrolls
             and stitches the result). When `false` or omitted, only the
             viewport-sized region is captured.

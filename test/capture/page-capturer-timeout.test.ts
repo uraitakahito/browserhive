@@ -30,7 +30,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["TestTask"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false, mhtml: false },
+  captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,

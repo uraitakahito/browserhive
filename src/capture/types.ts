@@ -88,7 +88,7 @@ export interface CaptureResult {
    * file path; S3-compatible storage returns an `s3://bucket/key` URI.
    */
   pngLocation?: string;
-  jpegLocation?: string;
+  webpLocation?: string;
   htmlLocation?: string;
   /** Location of the extracted links JSON (only set when `task.captureFormats.links` is true) */
   linksLocation?: string;

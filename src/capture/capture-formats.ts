@@ -10,7 +10,7 @@ import { err, ok, type Result } from "../result.js";
  */
 export interface CaptureFormats {
   png: boolean;
-  jpeg: boolean;
+  webp: boolean;
   html: boolean;
   links: boolean;
   pdf: boolean;
@@ -22,14 +22,14 @@ export const validateCaptureFormats = (
 ): Result<void, string> => {
   if (
     !formats.png &&
-    !formats.jpeg &&
+    !formats.webp &&
     !formats.html &&
     !formats.links &&
     !formats.pdf &&
     !formats.mhtml
   ) {
     return err(
-      "At least one capture format must be enabled (png, jpeg, html, links, pdf, or mhtml)",
+      "At least one capture format must be enabled (png, webp, html, links, pdf, or mhtml)",
     );
   }
   return ok();
