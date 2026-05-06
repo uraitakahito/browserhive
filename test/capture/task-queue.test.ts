@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { TaskQueue } from "../../src/capture/task-queue.js";
 import type { CaptureTask } from "../../src/capture/types.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 const createTask = (id: string, overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: id,
@@ -8,6 +9,7 @@ const createTask = (id: string, overrides: Partial<CaptureTask> = {}): CaptureTa
   url: `https://example.com/${id}`,
   retryCount: 0,
   captureFormats: { png: true, jpeg: false, html: true, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });

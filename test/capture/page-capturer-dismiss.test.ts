@@ -15,6 +15,7 @@ import {
   createTestArtifactStore,
   createTestCaptureConfig,
 } from "../helpers/config.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 const dismissBannersMock =
   vi.fn<(page: Page, opts: DismissOptions) => Promise<DismissReport>>();
@@ -90,6 +91,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   url: "https://example.com",
   retryCount: 0,
   captureFormats: { png: false, jpeg: false, html: true, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });

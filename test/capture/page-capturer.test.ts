@@ -13,6 +13,7 @@ import {
 } from "../../src/capture/page-capturer.js";
 import { TimeoutError } from "../../src/capture/error-details.js";
 import type { CaptureTask } from "../../src/capture/types.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 import type { Page } from "puppeteer";
 
 const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
@@ -21,6 +22,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   url: "https://example.com",
   retryCount: 0,
   captureFormats: { png: true, jpeg: false, html: true, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });

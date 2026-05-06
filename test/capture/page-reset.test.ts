@@ -21,7 +21,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Page } from "puppeteer";
 import { resetPageState } from "../../src/capture/page-capturer.js";
+import type { ResetStateOptions } from "../../src/capture/reset-state.js";
 import { logger } from "../../src/logger.js";
+
+const FULL_RESET: ResetStateOptions = { cookies: true, pageContext: true };
 
 interface MockSession {
   send: ReturnType<typeof vi.fn>;
@@ -57,7 +60,7 @@ describe("resetPageState", () => {
     const session = buildSession();
     const page = buildPage(session);
 
-    await resetPageState(page as unknown as Page, 0);
+    await resetPageState(page as unknown as Page, 0, FULL_RESET);
 
     expect(page.goto).toHaveBeenCalledWith("about:blank");
     expect(session.send).toHaveBeenCalledWith("Network.clearBrowserCookies");
@@ -70,7 +73,7 @@ describe("resetPageState", () => {
     const page = buildPage(session, { gotoFails: true });
 
     await expect(
-      resetPageState(page as unknown as Page, 7),
+      resetPageState(page as unknown as Page, 7, FULL_RESET),
     ).resolves.toBeUndefined();
 
     expect(warnSpy).toHaveBeenCalled();
@@ -87,7 +90,7 @@ describe("resetPageState", () => {
     const page = buildPage(session);
 
     await expect(
-      resetPageState(page as unknown as Page, 0),
+      resetPageState(page as unknown as Page, 0, FULL_RESET),
     ).resolves.toBeUndefined();
 
     expect(session.detach).toHaveBeenCalledTimes(1);
@@ -101,11 +104,58 @@ describe("resetPageState", () => {
     });
     const page = buildPage(session);
 
-    await resetPageState(page as unknown as Page, 0);
+    await resetPageState(page as unknown as Page, 0, FULL_RESET);
 
     // No catch-path failure (send resolved), but detach itself fails →
     // separate warn from the finally branch.
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy.mock.calls[0]?.[1]).toContain("detach failed");
+  });
+
+  describe("per-axis options gating", () => {
+    it("is a true no-op when both axes are false (no goto, no CDP session)", async () => {
+      const session = buildSession();
+      const page = buildPage(session);
+
+      await resetPageState(page as unknown as Page, 0, {
+        cookies: false,
+        pageContext: false,
+      });
+
+      expect(page.goto).not.toHaveBeenCalled();
+      expect(page.createCDPSession).not.toHaveBeenCalled();
+      expect(session.send).not.toHaveBeenCalled();
+      expect(session.detach).not.toHaveBeenCalled();
+    });
+
+    it("clears cookies but skips about:blank when cookies-only", async () => {
+      const session = buildSession();
+      const page = buildPage(session);
+
+      await resetPageState(page as unknown as Page, 0, {
+        cookies: true,
+        pageContext: false,
+      });
+
+      expect(page.goto).not.toHaveBeenCalled();
+      expect(session.send).toHaveBeenCalledWith("Network.clearBrowserCookies");
+      expect(session.detach).toHaveBeenCalledTimes(1);
+    });
+
+    it("navigates to about:blank but skips cookie clear when pageContext-only", async () => {
+      const session = buildSession();
+      const page = buildPage(session);
+
+      await resetPageState(page as unknown as Page, 0, {
+        cookies: false,
+        pageContext: true,
+      });
+
+      expect(page.goto).toHaveBeenCalledWith("about:blank");
+      // No CDP session opened when cookies-axis is disabled.
+      expect(page.createCDPSession).not.toHaveBeenCalled();
+      expect(session.send).not.toHaveBeenCalled();
+      expect(session.detach).not.toHaveBeenCalled();
+    });
   });
 });

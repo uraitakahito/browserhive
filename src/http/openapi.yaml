@@ -202,6 +202,70 @@ paths:
                     extraSelectors:
                       - "#known-paywall"
                     failOnError: true
+              keepCookiesAcrossCaptures:
+                summary: Preserve cookies between captures (SSO-walled site)
+                description: |
+                  Skips only the inter-task cookie wipe so the next capture
+                  on this worker's persistent tab inherits the cookies set
+                  by this one. The `about:blank` navigation still runs, so
+                  origin-scoped storage and the JS execution context are
+                  still discarded — only browser-scoped cookies survive.
+                  Useful for crawling pages behind an SSO login that was
+                  captured in a previous request.
+                value:
+                  url: https://internal.example.com/dashboard
+                  labels: [sso, dashboard]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: false
+                  resetState:
+                    cookies: false
+              noResetAtAll:
+                summary: Stateful crawl — keep everything between captures
+                description: |
+                  Disables both axes of the inter-task wipe. Cookies, DOM
+                  context, in-flight timers, and origin-scoped storage all
+                  carry over to the next task on this worker. The
+                  `boolean` short form `false` is equivalent to the object
+                  form `{ cookies: false, pageContext: false }`. Use this
+                  for multi-page journeys against a single origin where
+                  state continuity is the point of the capture.
+                value:
+                  url: https://example.com/step-2
+                  labels: [journey, step2]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: false
+                  resetState: false
+              cookiesOnlyReset:
+                summary: Wipe cookies only, keep DOM context
+                description: |
+                  Clears browser-scoped cookies between captures but skips
+                  the `about:blank` navigation, so DOM listeners / timers
+                  and origin-scoped storage carry over. Less commonly
+                  useful than the inverse (preserving cookies); included
+                  here mainly for symmetry. Note that with `pageContext:
+                  false`, the next task's `page.goto` is what eventually
+                  tears down the previous document — until then, the
+                  inter-task gap has the previous task's residue.
+                value:
+                  url: https://example.com/page
+                  labels: [example]
+                  captureFormats:
+                    png: true
+                    jpeg: false
+                    html: false
+                    links: false
+                    pdf: false
+                  resetState:
+                    cookies: true
+                    pageContext: false
       responses:
         "202":
           description: Request accepted for processing
@@ -434,6 +498,35 @@ components:
             Has no effect on the `html` / `links` / `pdf` formats — PDF
             rendering uses Chromium's print pipeline (A4) and is unaffected
             by this flag.
+        resetState:
+          oneOf:
+            - type: boolean
+            - $ref: "#/components/schemas/ResetStateSpec"
+          description: |
+            Per-request control of the inter-task wipe applied to the
+            worker's persistent Chromium tab AFTER this capture completes.
+            BrowserHive holds one tab per worker for its entire lifetime,
+            so without a wipe, cookies / DOM listeners / origin-scoped
+            storage from this capture would bleed into whatever task this
+            worker processes next.
+
+            Two shapes are accepted:
+
+            - `boolean` — `true` forces a full wipe (both axes), `false`
+              skips the wipe entirely (stateful carry-over). Both ignore
+              server-side defaults.
+            - `ResetStateSpec` — per-axis override; omitted fields fall
+              back to the server-side default
+              (`--no-reset-cookies` / `--no-reset-page-context` /
+              `BROWSERHIVE_RESET_COOKIES` / `BROWSERHIVE_RESET_PAGE_CONTEXT`).
+
+            When omitted, the server-side default applies (built-in
+            default: both axes wipe, matching the long-standing behaviour
+            of clearing state between captures).
+
+            See `ResetStateSpec` for the per-axis semantics and the
+            "two axes, not three" rationale (origin-scoped storage is
+            inseparable from `pageContext`).
     DismissHeuristicSpec:
       type: object
       additionalProperties: false
@@ -465,6 +558,40 @@ components:
           description: |
             Minimum computed `z-index` an element must have to qualify
             as an overlay candidate. Lower values are more aggressive.
+    ResetStateSpec:
+      type: object
+      additionalProperties: false
+      description: |
+        Per-axis control of the inter-task wipe. Each field omitted falls
+        back to the server-side default (`CaptureConfig.resetPageState`,
+        configurable via `--no-reset-cookies` / `--no-reset-page-context`
+        and the matching `BROWSERHIVE_RESET_*` env vars; the built-in
+        default is both axes true).
+
+        Two axes (not three): `localStorage` / `sessionStorage` /
+        `IndexedDB` are origin-scoped, so navigating to `about:blank`
+        already disposes them. Exposing a separate "storage" knob would
+        either duplicate `pageContext` or describe a state the API cannot
+        actually deliver, so the two are coupled under one knob.
+      properties:
+        cookies:
+          type: boolean
+          description: |
+            When `true`, browser-scoped cookies are cleared via CDP
+            `Network.clearBrowserCookies` after each capture. When
+            `false`, cookies set during this capture survive into the
+            next task on this worker — useful for keeping an SSO session
+            alive across multiple captures. Independent of `pageContext`
+            (cookies live on the browser, not the page).
+        pageContext:
+          type: boolean
+          description: |
+            When `true`, the worker navigates to `about:blank` after each
+            capture, which tears down the JS execution context (closures,
+            timers, listeners) and disposes origin-scoped storage
+            (`localStorage` / `sessionStorage` / `IndexedDB`) as a
+            side-effect. When `false`, all of those carry over until the
+            next `page.goto` supersedes the previous document.
     DismissSpec:
       type: object
       additionalProperties: false

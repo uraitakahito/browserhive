@@ -25,6 +25,7 @@ import {
   dismissBanners,
   type DismissReport,
 } from "./banner-dismisser.js";
+import type { ResetStateOptions } from "./reset-state.js";
 
 /**
  * CSS to hide scrollbars in Chromium
@@ -411,13 +412,27 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
  *
  * Strategy
  * --------
- *  1. `page.goto("about:blank")` — this navigates away from the captured
- *     URL, which discards the document, fires `unload`, tears down the JS
- *     execution context (with all closures, timers, listeners), and drops
+ * Two independently-toggleable axes (`options.cookies` / `options.pageContext`):
+ *
+ *  1. `pageContext`: `page.goto("about:blank")` — navigates away from the
+ *     captured URL, which discards the document, fires `unload`, tears down
+ *     the JS execution context (closures / timers / listeners), and drops
  *     `localStorage` / `sessionStorage` / IndexedDB references because they
- *     are origin-scoped and the new origin is `about:blank`.
- *  2. `Network.clearBrowserCookies` via CDP — cookies live on the browser,
- *     not the page, so the navigation alone doesn't drop them.
+ *     are origin-scoped and the new origin is `about:blank`. (Origin-scoped
+ *     storage is therefore inseparable from this step; that's why the API
+ *     exposes one knob, not three.)
+ *  2. `cookies`: `Network.clearBrowserCookies` via CDP — cookies live on
+ *     the browser, not the page, so the navigation alone doesn't drop them.
+ *
+ * Per-task control
+ * ----------------
+ * `options` is resolved at the request-mapper boundary (see
+ * `src/capture/reset-state.ts:resolveResetStateSpec`) against server-side
+ * defaults from `CaptureConfig.resetPageState`. Both fields false → the
+ * function is an immediate no-op (no CDP session opened) and per-task
+ * residue is intentionally carried over to the next task — useful for
+ * stateful crawls (post-login captures, multi-page journeys against a
+ * single origin).
  *
  * Best-effort
  * -----------
@@ -430,20 +445,27 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
 export const resetPageState = async (
   page: Page,
   workerIndex: number,
+  options: ResetStateOptions,
 ): Promise<void> => {
+  if (!options.cookies && !options.pageContext) return;
+
   let session: Awaited<ReturnType<Page["createCDPSession"]>> | null = null;
   try {
-    await withTimeout(
-      page.goto("about:blank"),
-      RESET_PAGE_STATE_TIMEOUT_MS,
-      "resetPageState (about:blank)",
-    );
-    session = await page.createCDPSession();
-    await withTimeout(
-      session.send("Network.clearBrowserCookies"),
-      RESET_PAGE_STATE_TIMEOUT_MS,
-      "resetPageState (clearBrowserCookies)",
-    );
+    if (options.pageContext) {
+      await withTimeout(
+        page.goto("about:blank"),
+        RESET_PAGE_STATE_TIMEOUT_MS,
+        "resetPageState (about:blank)",
+      );
+    }
+    if (options.cookies) {
+      session = await page.createCDPSession();
+      await withTimeout(
+        session.send("Network.clearBrowserCookies"),
+        RESET_PAGE_STATE_TIMEOUT_MS,
+        "resetPageState (clearBrowserCookies)",
+      );
+    }
   } catch (error) {
     logger.warn(
       { err: error, workerIndex },
@@ -640,12 +662,17 @@ export class PageCapturer {
         workerIndex,
       };
     } finally {
-      // Reset cookies / storage / DOM context BEFORE the next task arrives.
+      // Reset cookies / DOM context (and origin-scoped storage as a
+      // side-effect of `about:blank`) BEFORE the next task arrives.
       // Placement on the failure side too: a failed capture's residue
       // (cookies set during a partially-loaded page, in-flight timers) is
       // exactly what we don't want bleeding into the retry or the next
       // task's environment.
-      await resetPageState(page, workerIndex);
+      //
+      // `task.resetState` is fully merged at the request-mapper boundary
+      // against `CaptureConfig.resetPageState`, so this layer never has to
+      // branch on undefined or merge defaults itself.
+      await resetPageState(page, workerIndex, task.resetState);
     }
   }
 

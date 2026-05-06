@@ -19,6 +19,7 @@ import type {
   ProcessingTaskView,
 } from "../../src/capture/capture-coordinator.js";
 import { createTestBrowserProfile } from "../helpers/config.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 describe("taskToAcceptance", () => {
   it("includes correlationId when present", () => {
@@ -28,6 +29,7 @@ describe("taskToAcceptance", () => {
       url: "https://example.com",
       retryCount: 0,
       captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+      resetState: DEFAULT_RESET_STATE_OPTIONS,
       correlationId: "EXT-1",
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
@@ -45,6 +47,7 @@ describe("taskToAcceptance", () => {
       url: "https://example.com",
       retryCount: 0,
       captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+      resetState: DEFAULT_RESET_STATE_OPTIONS,
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
     expect(taskToAcceptance(task)).toEqual({
@@ -135,6 +138,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
           url: "https://example.com",
           retryCount: 1,
           captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+          resetState: DEFAULT_RESET_STATE_OPTIONS,
               correlationId: "EXT-9",
           enqueuedAt: "2024-01-01T00:00:00.000Z",
         },
@@ -210,6 +214,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
               url: "https://example.com/slow",
               retryCount: 0,
               captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+              resetState: DEFAULT_RESET_STATE_OPTIONS,
                       enqueuedAt: "2024-01-01T00:00:00.000Z",
             },
           },
@@ -239,6 +244,7 @@ describe("currentTaskToWire", () => {
     url: "https://example.com",
     retryCount: 0,
     captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+    resetState: DEFAULT_RESET_STATE_OPTIONS,
     enqueuedAt: "2024-01-01T00:00:00.000Z",
   };
 
@@ -264,6 +270,7 @@ describe("taskToPending", () => {
     url: "https://example.com/p",
     retryCount: 2,
     captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+    resetState: DEFAULT_RESET_STATE_OPTIONS,
     enqueuedAt,
   };
 
@@ -307,6 +314,7 @@ describe("taskToProcessing", () => {
       url: "https://example.com/p",
       retryCount: 0,
       captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+      resetState: DEFAULT_RESET_STATE_OPTIONS,
       enqueuedAt,
     },
   };
@@ -370,7 +378,8 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
           url: "https://example.com/queued",
           retryCount: 0,
           captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
-              enqueuedAt,
+          resetState: DEFAULT_RESET_STATE_OPTIONS,
+          enqueuedAt,
         },
       ],
       processingTasks: [],
@@ -415,7 +424,8 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
             url: "https://example.com/running",
             retryCount: 1,
             captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
-                  enqueuedAt,
+            resetState: DEFAULT_RESET_STATE_OPTIONS,
+            enqueuedAt,
           },
         },
       ],

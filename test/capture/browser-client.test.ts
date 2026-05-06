@@ -7,6 +7,7 @@ import {
   createTestCaptureConfig,
 } from "../helpers/config.js";
 import { captureStatus } from "../../src/capture/capture-status.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 // Store mock capture function reference
 let mockCapture: Mock;
@@ -54,6 +55,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   url: "https://example.com",
   retryCount: 0,
   captureFormats: { png: true, jpeg: false, html: true, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
