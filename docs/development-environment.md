@@ -1,12 +1,5 @@
 # Development Environment
 
-`compose.dev.yaml` brings up everything the server needs in one shot —
-two Chromium servers, a self-hosted SeaweedFS (S3-compatible artifact
-store), a one-shot `weed shell` init container that creates the
-`browserhive` bucket, and the BrowserHive container itself. All
-`BROWSERHIVE_*` env vars are already injected, so the in-container start
-command takes no CLI flags:
-
 ```sh
 GH_TOKEN=$(gh auth token) docker compose -f compose.dev.yaml up -d
 docker exec -it browserhive-container /bin/zsh
