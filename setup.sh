@@ -23,13 +23,9 @@ if ! curl -fL -O "${BASE_URL}/docker-entrypoint.sh"; then
 fi
 chmod 755 docker-entrypoint.sh
 
-# Initialize chromium-server-docker submodule (SHA pinned via .gitmodules / parent commit)
 echo "Initializing chromium-server-docker submodule..."
 git submodule update --init chromium-server-docker
 
-# Generate .env file (always regenerated to reflect current host state).
-# GH_TOKEN is intentionally NOT persisted here — it is injected from the
-# host's `gh` CLI at compose-time. See README "Development Environment".
 cat > .env << EOF
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
