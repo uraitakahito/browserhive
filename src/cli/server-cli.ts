@@ -91,6 +91,16 @@ interface ParsedOptions {
   screenshotFullPage: boolean;
   screenshotQuality?: number;
   rejectDuplicateUrls: boolean;
+  /**
+   * Commander auto-generates `--no-reset-cookies` for any boolean option;
+   * default `true` flips to `false` when the negation flag is present. Env
+   * (`BROWSERHIVE_RESET_COOKIES`) is merged post-parse via
+   * `resolveBoolWithEnvDefaultTrue` so an env override only kicks in when
+   * the CLI did not explicitly negate.
+   */
+  resetCookies: boolean;
+  /** See {@link ParsedOptions.resetCookies}; controls `about:blank` between tasks. */
+  resetPageContext: boolean;
   tlsCert?: string;
   tlsKey?: string;
   userAgent?: string;
@@ -131,6 +141,10 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       ...(opts.screenshotQuality !== undefined && { quality: opts.screenshotQuality }),
     },
     ...(opts.userAgent !== undefined && { userAgent: opts.userAgent }),
+    resetPageState: {
+      cookies: opts.resetCookies,
+      pageContext: opts.resetPageContext,
+    },
   };
 
   return {
@@ -273,6 +287,21 @@ export const createProgram = (): Command => {
       "Reject capture requests for URLs already in the queue (env: BROWSERHIVE_REJECT_DUPLICATE_URLS)",
       false,
     )
+    // Negation-only flags: commander generates `opts.resetCookies` from the
+    // `--no-` form, default `true`. Pairing with env (BROWSERHIVE_RESET_COOKIES /
+    // BROWSERHIVE_RESET_PAGE_CONTEXT) is done in parseCliOptions via
+    // `resolveBoolWithEnvDefaultTrue` — env can flip to false when CLI was not
+    // explicitly negated; CLI negation takes precedence over env=true.
+    .option(
+      "--no-reset-cookies",
+      "Skip the inter-task cookie wipe (CDP Network.clearBrowserCookies). Equivalent to BROWSERHIVE_RESET_COOKIES=false. Default: cookies are cleared between captures.",
+      true,
+    )
+    .option(
+      "--no-reset-page-context",
+      "Skip the inter-task `about:blank` navigation. Equivalent to BROWSERHIVE_RESET_PAGE_CONTEXT=false. Note: also keeps origin-scoped storage (localStorage/sessionStorage/IndexedDB) by default; see docs. Default: about:blank navigation runs between captures.",
+      true,
+    )
     .addOption(
       new Option(
         "--user-agent <string>",
@@ -335,6 +364,32 @@ const resolveBoolWithEnv = (
   if (cliValue) return true;
   const raw = process.env[envName];
   if (raw === undefined) return false;
+  try {
+    return parseEnvBool(raw, envName);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : `Invalid ${envName}: ${raw}`;
+    program.error(message);
+  }
+};
+
+/**
+ * Negation-style boolean flags whose default is `true` (e.g. `--no-reset-cookies`).
+ *
+ * `cliValue === false` means the user explicitly negated → final result is
+ * `false` and the env is ignored (CLI > env). `cliValue === true` means
+ * the user did NOT pass the negation flag, so we consult the env: an
+ * explicit `false` there flips to `false`; an explicit `true` (or unset)
+ * keeps the default `true`. Malformed env values exit via `program.error`.
+ */
+const resolveBoolWithEnvDefaultTrue = (
+  cliValue: boolean,
+  envName: string,
+  program: Command,
+): boolean => {
+  if (!cliValue) return false;
+  const raw = process.env[envName];
+  if (raw === undefined) return true;
   try {
     return parseEnvBool(raw, envName);
   } catch (error) {
@@ -413,6 +468,16 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
       "BROWSERHIVE_REJECT_DUPLICATE_URLS",
       program,
     ),
+    resetCookies: resolveBoolWithEnvDefaultTrue(
+      opts.resetCookies,
+      "BROWSERHIVE_RESET_COOKIES",
+      program,
+    ),
+    resetPageContext: resolveBoolWithEnvDefaultTrue(
+      opts.resetPageContext,
+      "BROWSERHIVE_RESET_PAGE_CONTEXT",
+      program,
+    ),
   };
 
   return buildServerConfig(resolved);
@@ -464,6 +529,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       },
       rejectDuplicateUrls: coordinator.rejectDuplicateUrls,
       userAgent: capture.userAgent ?? "(browser default)",
+      resetPageState: capture.resetPageState,
     },
     "Server configuration",
   );

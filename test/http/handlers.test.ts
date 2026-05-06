@@ -4,18 +4,27 @@ import { createCaptureHandlers } from "../../src/http/handlers.js";
 import type { CaptureCoordinator } from "../../src/capture/index.js";
 import type { CoordinatorStatusReport } from "../../src/capture/capture-coordinator.js";
 import { ok, err } from "../../src/result.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
+import { DEFAULT_CAPTURE_CONFIG } from "../../src/config/index.js";
+import type { CaptureConfig } from "../../src/config/index.js";
 
 interface CoordinatorStub {
   isActive: boolean;
   operationalWorkerCount: number;
   enqueueTask: ReturnType<typeof vi.fn>;
   getStatus: (opts?: { pendingLimit?: number }) => CoordinatorStatusReport;
+  captureDefaults: CaptureConfig;
 }
 
 const buildStub = (overrides: Partial<CoordinatorStub> = {}): CoordinatorStub => ({
   isActive: true,
   operationalWorkerCount: 1,
   enqueueTask: vi.fn().mockReturnValue(ok()),
+  // The handler reads `coordinator.captureDefaults` once at construction
+  // time and forwards `resetPageState` into the request mapper. Providing
+  // the built-in defaults here keeps these existing tests focused on
+  // status / 4xx / 5xx behaviour without dragging resetState into them.
+  captureDefaults: DEFAULT_CAPTURE_CONFIG,
   getStatus: (): CoordinatorStatusReport => ({
     taskCounts: { pending: 0, processing: 0, completed: 0 },
     operationalWorkers: 1,
@@ -125,6 +134,81 @@ describe("submitCapture handler", () => {
     });
     expect(response.statusCode).toBe(503);
   });
+
+  describe("resetState → forwarded to coordinator.enqueueTask", () => {
+    it("uses captureDefaults.resetPageState when the request omits resetState", async () => {
+      // Server-wide policy: cookies on, pageContext off.
+      stub.captureDefaults = {
+        ...DEFAULT_CAPTURE_CONFIG,
+        resetPageState: { cookies: true, pageContext: false },
+      };
+      // captureDefaults is read inside createCaptureHandlers → re-build app.
+      app = buildApp(stub);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/captures",
+        payload: validBody,
+      });
+
+      expect(response.statusCode).toBe(202);
+      const enqueued = stub.enqueueTask.mock.calls[0]?.[0] as
+        | { resetState?: { cookies?: boolean; pageContext?: boolean } }
+        | undefined;
+      expect(enqueued?.resetState).toEqual({
+        cookies: true,
+        pageContext: false,
+      });
+    });
+
+    it("per-request resetState: false overrides server defaults", async () => {
+      // Even with the strictest server policy (full wipe), a request can
+      // turn the wipe off entirely.
+      stub.captureDefaults = DEFAULT_CAPTURE_CONFIG;
+      app = buildApp(stub);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/captures",
+        payload: { ...validBody, resetState: false },
+      });
+
+      expect(response.statusCode).toBe(202);
+      const enqueued = stub.enqueueTask.mock.calls[0]?.[0] as
+        | { resetState?: { cookies?: boolean; pageContext?: boolean } }
+        | undefined;
+      expect(enqueued?.resetState).toEqual({
+        cookies: false,
+        pageContext: false,
+      });
+    });
+
+    it("per-request resetState object merges per-axis with server defaults", async () => {
+      // Server: keep cookies, wipe pageContext. Request: flip cookies off
+      // (no pageContext field) → result respects both: cookies=false from
+      // request, pageContext=true from server.
+      stub.captureDefaults = {
+        ...DEFAULT_CAPTURE_CONFIG,
+        resetPageState: { cookies: true, pageContext: true },
+      };
+      app = buildApp(stub);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/captures",
+        payload: { ...validBody, resetState: { cookies: false } },
+      });
+
+      expect(response.statusCode).toBe(202);
+      const enqueued = stub.enqueueTask.mock.calls[0]?.[0] as
+        | { resetState?: { cookies?: boolean; pageContext?: boolean } }
+        | undefined;
+      expect(enqueued?.resetState).toEqual({
+        cookies: false,
+        pageContext: true,
+      });
+    });
+  });
 });
 
 describe("getStatus handler", () => {
@@ -213,6 +297,7 @@ describe("getStatus handler", () => {
                 timeouts: { pageLoad: 30000, capture: 10000, taskTotal: 90000 },
                 viewport: { width: 1280, height: 800 },
                 screenshot: { fullPage: false },
+                resetPageState: { cookies: true, pageContext: true },
               },
             },
             health: "busy",
@@ -227,6 +312,7 @@ describe("getStatus handler", () => {
                 url: "https://example.com/slow",
                 retryCount: 0,
                 captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+                resetState: DEFAULT_RESET_STATE_OPTIONS,
                               enqueuedAt: "2024-01-01T00:00:00.000Z",
               },
             },
@@ -270,7 +356,8 @@ describe("getStatus handler", () => {
               url: "https://example.com/running",
               retryCount: 0,
               captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
-                          enqueuedAt,
+              resetState: DEFAULT_RESET_STATE_OPTIONS,
+              enqueuedAt,
             },
           },
         ],

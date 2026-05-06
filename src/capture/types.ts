@@ -8,6 +8,7 @@ import type { CaptureFormats } from "./capture-formats.js";
 import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
 import type { DismissOptions, DismissReport } from "./banner-dismisser.js";
+import type { ResetStateOptions } from "./reset-state.js";
 
 /** Capture task representing a single URL to capture */
 export interface CaptureTask {
@@ -51,6 +52,13 @@ export interface CaptureTask {
    * Has no effect on HTML / links / PDF formats.
    */
   fullPage?: boolean;
+  /**
+   * Fully-resolved inter-task wipe options. Always present after
+   * request-mapper resolution against `CaptureConfig.resetPageState`,
+   * so the capture layer never has to merge defaults itself. See
+   * `src/capture/reset-state.ts:resolveResetStateSpec`.
+   */
+  resetState: ResetStateOptions;
   /**
    * ISO 8601 wall-clock time of the original enqueue. Preserved across
    * retries (`TaskQueue.requeue`) so a long-stuck task's true age stays

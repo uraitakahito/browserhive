@@ -6,7 +6,8 @@
  * actor that spawns and orchestrates worker status actors itself.
  */
 import { createActor, type SnapshotFrom } from "xstate";
-import type { CoordinatorConfig } from "../config/index.js";
+import type { CaptureConfig, CoordinatorConfig } from "../config/index.js";
+import { DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import { S3ArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
@@ -131,6 +132,19 @@ export class CaptureCoordinator {
 
   get operationalWorkerCount(): number {
     return this.workers.filter((worker) => worker.isHealthy).length;
+  }
+
+  /**
+   * Server-wide capture defaults. The HTTP layer's request-mapper reads
+   * this to resolve per-request `resetState` (and any other future
+   * config-defaulted field) against the configured server policy. All
+   * browser profiles share the same `CaptureConfig` instance via
+   * `server-cli.ts:buildServerConfig`, so the first profile is
+   * authoritative; the fallback to `DEFAULT_CAPTURE_CONFIG` exists only
+   * for tests that wire a coordinator with zero profiles.
+   */
+  get captureDefaults(): CaptureConfig {
+    return this.config.browserProfiles[0]?.capture ?? DEFAULT_CAPTURE_CONFIG;
   }
 
   getStatus(opts: GetStatusOptions = {}): CoordinatorStatusReport {

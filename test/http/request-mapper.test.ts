@@ -1,11 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { captureRequestToTask } from "../../src/http/request-mapper.js";
+import {
+  captureRequestToTask as captureRequestToTaskRaw,
+  type RequestMapperDefaults,
+} from "../../src/http/request-mapper.js";
 import type { CaptureRequest } from "../../src/http/generated/index.js";
+import type { CaptureTask } from "../../src/capture/types.js";
 import {
   CUSTOM_FRAMEWORK_LABEL,
   DEFAULT_DISMISS_OPTIONS,
   KNOWN_CMP_ENTRIES,
 } from "../../src/capture/banner-dismisser.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
+import type { Result } from "../../src/result.js";
 
 const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest => ({
   url: "https://example.com",
@@ -13,6 +19,22 @@ const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest =>
   captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
   ...overrides,
 });
+
+/**
+ * Default server-side mapper defaults used by every test that does not
+ * specifically exercise resetState resolution. Exposed as a thin wrapper
+ * around `captureRequestToTaskRaw` so most tests do not have to repeat
+ * the second argument; tests that DO exercise resetState resolution call
+ * the raw function directly.
+ */
+const baseDefaults: RequestMapperDefaults = {
+  resetPageState: DEFAULT_RESET_STATE_OPTIONS,
+};
+
+const captureRequestToTask = (
+  request: CaptureRequest,
+  defaults: RequestMapperDefaults = baseDefaults,
+): Result<CaptureTask, string> => captureRequestToTaskRaw(request, defaults);
 
 describe("captureRequestToTask", () => {
   it("rejects an empty url", () => {
@@ -272,6 +294,80 @@ describe("captureRequestToTask", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value.fullPage).toBeUndefined();
+    });
+  });
+
+  describe("resetState → CaptureTask.resetState", () => {
+    /** Server defaults that flip pageContext off, used to assert per-axis fallback. */
+    const defaultsKeepContext: RequestMapperDefaults = {
+      resetPageState: { cookies: true, pageContext: false },
+    };
+
+    it("resolves to server defaults when the request omits resetState", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.resetState).toEqual(DEFAULT_RESET_STATE_OPTIONS);
+    });
+
+    it("forces both axes true on resetState: true (overriding server defaults)", () => {
+      const result = captureRequestToTask(
+        baseRequest({ resetState: true }),
+        // Server says "skip everything" — request `true` still wipes both.
+        { resetPageState: { cookies: false, pageContext: false } },
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.resetState).toEqual({ cookies: true, pageContext: true });
+    });
+
+    it("forces both axes false on resetState: false (overriding server defaults)", () => {
+      const result = captureRequestToTask(baseRequest({ resetState: false }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.resetState).toEqual({
+        cookies: false,
+        pageContext: false,
+      });
+    });
+
+    it("merges per-axis spec with server defaults (only specified field changes)", () => {
+      // Server keeps cookies on, pageContext off. Request flips cookies off
+      // but says nothing about pageContext → server's `false` carries through.
+      const result = captureRequestToTaskRaw(
+        baseRequest({ resetState: { cookies: false } }),
+        defaultsKeepContext,
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.resetState).toEqual({
+        cookies: false,
+        pageContext: false,
+      });
+    });
+
+    it("uses spec values verbatim when both fields are supplied", () => {
+      const result = captureRequestToTask(
+        baseRequest({
+          resetState: { cookies: true, pageContext: false },
+        }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.resetState).toEqual({
+        cookies: true,
+        pageContext: false,
+      });
+    });
+
+    it("treats an empty resetState object as 'use server defaults verbatim'", () => {
+      const result = captureRequestToTaskRaw(
+        baseRequest({ resetState: {} }),
+        defaultsKeepContext,
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.resetState).toEqual(defaultsKeepContext.resetPageState);
     });
   });
 });

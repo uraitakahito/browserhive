@@ -21,6 +21,7 @@ import {
   createTestCaptureConfig,
   type FakeArtifactStore,
 } from "../helpers/config.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 interface MockPage {
   setViewport: ReturnType<typeof vi.fn>;
@@ -69,6 +70,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   url: "https://example.com",
   retryCount: 0,
   captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });

@@ -350,4 +350,101 @@ describe("server-cli parseCliOptions", () => {
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
     });
   });
+
+  describe("resetPageState (CLI/env)", () => {
+    it("既定で両 axis が true（後方互換: 既存の wipe 挙動）", () => {
+      const config = parseCliOptions(
+        argv("--browser-url", "http://a:9222", ...s3Args),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState,
+      ).toEqual({ cookies: true, pageContext: true });
+    });
+
+    it("--no-reset-cookies で cookies のみ false にする", () => {
+      const config = parseCliOptions(
+        argv("--browser-url", "http://a:9222", ...s3Args, "--no-reset-cookies"),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState,
+      ).toEqual({ cookies: false, pageContext: true });
+    });
+
+    it("--no-reset-page-context で pageContext のみ false にする", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          ...s3Args,
+          "--no-reset-page-context",
+        ),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState,
+      ).toEqual({ cookies: true, pageContext: false });
+    });
+
+    it("両 CLI フラグで両 axis を false にする", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          ...s3Args,
+          "--no-reset-cookies",
+          "--no-reset-page-context",
+        ),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState,
+      ).toEqual({ cookies: false, pageContext: false });
+    });
+
+    it("BROWSERHIVE_RESET_COOKIES=false が cookies axis を反転する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_RESET_COOKIES", "false");
+
+      const config = parseCliOptions(argv());
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState,
+      ).toEqual({ cookies: false, pageContext: true });
+    });
+
+    it("BROWSERHIVE_RESET_PAGE_CONTEXT='0' が pageContext axis を反転する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_RESET_PAGE_CONTEXT", "0");
+
+      const config = parseCliOptions(argv());
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState,
+      ).toEqual({ cookies: true, pageContext: false });
+    });
+
+    it("CLI 否定 > env: --no-reset-cookies は env=true を上書きしない（CLI が勝つ）", () => {
+      // CLI で false を選ぶ → env=true は読まれず CLI が勝つ。
+      vi.stubEnv("BROWSERHIVE_RESET_COOKIES", "true");
+      const config = parseCliOptions(
+        argv("--browser-url", "http://a:9222", ...s3Args, "--no-reset-cookies"),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.resetPageState.cookies,
+      ).toBe(false);
+    });
+
+    it("不正な BROWSERHIVE_RESET_COOKIES で exit する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_RESET_COOKIES", "maybe");
+
+      expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
+    });
+  });
 });

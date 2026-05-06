@@ -15,16 +15,28 @@
 import { randomUUID } from "node:crypto";
 import {
   resolveDismissSpec,
+  resolveResetStateSpec,
   validateCaptureFormats,
   validateFilename,
   validateLabels,
 } from "../capture/index.js";
 import type { CaptureTask } from "../capture/index.js";
+import type { CaptureConfig } from "../config/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { CaptureRequest } from "./generated/index.js";
 
+/**
+ * Slice of `CaptureConfig` consumed by the request mapper. Avoids dragging
+ * the full server config (timeouts, viewport, ...) into a layer that only
+ * needs the policy defaults a request can override.
+ */
+export interface RequestMapperDefaults {
+  resetPageState: CaptureConfig["resetPageState"];
+}
+
 export const captureRequestToTask = (
   request: CaptureRequest,
+  defaults: RequestMapperDefaults,
 ): Result<CaptureTask, string> => {
   const url = request.url.trim();
   if (url === "") {
@@ -64,6 +76,17 @@ export const captureRequestToTask = (
   // fully-merged `DismissOptions` (or `undefined` for "no dismissal pass").
   const dismissOptions = resolveDismissSpec(request.dismissBanners);
 
+  // `resetState` is `boolean | ResetStateSpec | undefined` on the wire.
+  // Resolve against server-side defaults (passed in by the handler) so the
+  // capture layer always sees a fully-merged `ResetStateOptions`. Unlike
+  // `dismissOptions`, this is non-optional — the wipe always runs (possibly
+  // as a no-op when both axes are false), so resolution always produces a
+  // value.
+  const resetState = resolveResetStateSpec(
+    request.resetState,
+    defaults.resetPageState,
+  );
+
   const taskId = randomUUID();
   const task: CaptureTask = {
     taskId,
@@ -71,6 +94,7 @@ export const captureRequestToTask = (
     url,
     retryCount: 0,
     captureFormats,
+    resetState,
     enqueuedAt: new Date().toISOString(),
     ...(request.correlationId !== undefined &&
       request.correlationId !== "" && {

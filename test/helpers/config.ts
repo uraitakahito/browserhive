@@ -65,6 +65,10 @@ export const createTestCaptureConfig = (
     ...DEFAULT_CAPTURE_CONFIG.screenshot,
     ...overrides.screenshot,
   },
+  resetPageState: {
+    ...DEFAULT_CAPTURE_CONFIG.resetPageState,
+    ...overrides.resetPageState,
+  },
 });
 
 /**

@@ -23,6 +23,7 @@ import {
   createTestArtifactStore,
   createTestCaptureConfig,
 } from "../helpers/config.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-uuid-1234",
@@ -30,6 +31,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   url: "https://example.com",
   retryCount: 0,
   captureFormats: { png: true, jpeg: false, html: false, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });

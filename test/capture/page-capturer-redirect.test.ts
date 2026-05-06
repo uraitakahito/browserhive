@@ -24,6 +24,7 @@ import {
   createTestArtifactStore,
   createTestCaptureConfig,
 } from "../helpers/config.js";
+import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 const DESTROYED =
   "Execution context was destroyed, most likely because of a navigation.";
@@ -34,6 +35,7 @@ const createTask = (): CaptureTask => ({
   url: "https://www.imhds.co.jp/",
   retryCount: 0,
   captureFormats: { png: false, jpeg: true, html: true, links: false, pdf: false },
+  resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
 });
 

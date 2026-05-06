@@ -40,6 +40,22 @@ export interface StorageConfig {
   forcePathStyle?: boolean;
 }
 
+/**
+ * Server-wide default for the inter-task wipe performed by
+ * `page-capturer.ts:resetPageState`. The HTTP layer's `resetState` field
+ * is resolved against this at the request-mapper boundary, so the capture
+ * layer only ever sees a fully-merged value via `CaptureTask.resetState`.
+ *
+ * `cookies` controls CDP `Network.clearBrowserCookies`. `pageContext`
+ * controls the `page.goto("about:blank")` step (which also tears down
+ * origin-scoped storage as a side-effect — see `reset-state.ts` for the
+ * "two axes, not three" rationale).
+ */
+export interface ResetPageStateConfig {
+  cookies: boolean;
+  pageContext: boolean;
+}
+
 /** Capture configuration */
 export interface CaptureConfig {
   /** Timeout settings */
@@ -66,6 +82,8 @@ export interface CaptureConfig {
   screenshot: ScreenshotConfig;
   /** Custom User-Agent string (uses browser default if undefined) */
   userAgent?: string;
+  /** Server-wide default for inter-task wipe. Both axes default to true. */
+  resetPageState: ResetPageStateConfig;
 }
 
 /** Coordinator configuration */

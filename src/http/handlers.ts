@@ -46,13 +46,20 @@ export const createCaptureHandlers = (
   coordinator: CaptureCoordinator,
 ): CaptureHandlers => {
   const handlerLogger = createChildLogger({ handler: "submitCapture" });
+  // Snapshot the server-wide policy defaults at handler-creation time.
+  // Profiles are constructed once at startup in `server-cli.ts` and the
+  // coordinator's config is immutable thereafter, so a single read here
+  // is safe and avoids a per-request property access.
+  const captureDefaults = coordinator.captureDefaults;
 
   const submitCapture: RouteHandlerMethod = (
     request: FastifyRequest,
     reply: FastifyReply,
   ): FastifyReply => {
     const body = request.body as CaptureRequest;
-    const result = captureRequestToTask(body);
+    const result = captureRequestToTask(body, {
+      resetPageState: captureDefaults.resetPageState,
+    });
 
     if (!result.ok) {
       return sendProblem(reply, validationProblem(result.error));

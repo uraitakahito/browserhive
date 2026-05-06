@@ -82,6 +82,13 @@ export {
   runDismissalInDocument,
 } from "./banner-dismisser.js";
 
+// Reset-state spec
+export type { ResetStateOptions, ResetStateSpec } from "./reset-state.js";
+export {
+  DEFAULT_RESET_STATE_OPTIONS,
+  resolveResetStateSpec,
+} from "./reset-state.js";
+
 // Classes
 export { BrowserClient } from "./browser-client.js";
 export { CaptureCoordinator } from "./capture-coordinator.js";

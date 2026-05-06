@@ -51,6 +51,10 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   screenshot: {
     fullPage: false,
   },
+  resetPageState: {
+    cookies: true,
+    pageContext: true,
+  },
 };
 
 /**

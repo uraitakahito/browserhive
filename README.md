@@ -20,8 +20,13 @@ spawned `captureWorkerMachine` actor bundled with its `BrowserClient`.
 Each worker holds a single persistent Chromium tab (the one
 `chromium-server-docker` opens at startup) for its entire lifetime;
 capture tasks navigate that same tab rather than opening a new one per
-task. Per-task state (cookies / `localStorage` / DOM context) is wiped
-between tasks via `about:blank` + `Network.clearBrowserCookies`.
+task. By default, per-task state (cookies / `localStorage` / DOM
+context) is wiped between tasks via `about:blank` +
+`Network.clearBrowserCookies`. The wipe is configurable per-server
+(`--no-reset-cookies` / `--no-reset-page-context` and the matching
+`BROWSERHIVE_RESET_*` env vars) and per-request (the `resetState` field
+on `POST /v1/captures`) — useful for SSO-walled crawls or stateful
+multi-page journeys against a single origin.
 
 ```mermaid
 flowchart TB
@@ -149,6 +154,8 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--screenshot-full-page` | `BROWSERHIVE_SCREENSHOT_FULL_PAGE` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default; per-request `fullPage` overrides) |
 | `--screenshot-quality <n>` | `BROWSERHIVE_SCREENSHOT_QUALITY` | integer (1–100) |
 | `--reject-duplicate-urls` | `BROWSERHIVE_REJECT_DUPLICATE_URLS` | `"true"`/`"1"` or `"false"`/`"0"` |
+| `--no-reset-cookies` | `BROWSERHIVE_RESET_COOKIES` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default for the inter-task cookie wipe; per-request `resetState.cookies` overrides) |
+| `--no-reset-page-context` | `BROWSERHIVE_RESET_PAGE_CONTEXT` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default for the inter-task `about:blank` navigation; per-request `resetState.pageContext` overrides) |
 | `--user-agent <string>` | `BROWSERHIVE_USER_AGENT` | string |
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
