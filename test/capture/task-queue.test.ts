@@ -8,7 +8,7 @@ const createTask = (id: string, overrides: Partial<CaptureTask> = {}): CaptureTa
   labels: [`Task${id}`],
   url: `https://example.com/${id}`,
   retryCount: 0,
-  captureFormats: { png: true, jpeg: false, html: true, links: false, pdf: false },
+  captureFormats: { png: true, jpeg: false, html: true, links: false, pdf: false, mhtml: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,

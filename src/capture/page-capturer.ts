@@ -611,6 +611,7 @@ export class PageCapturer {
       let htmlLocation: string | undefined;
       let linksLocation: string | undefined;
       let pdfLocation: string | undefined;
+      let mhtmlLocation: string | undefined;
 
       if (task.captureFormats.png) {
         pngLocation = await this.captureScreenshot(page, task, "png");
@@ -632,6 +633,10 @@ export class PageCapturer {
         pdfLocation = await this.capturePdf(page, task);
       }
 
+      if (task.captureFormats.mhtml) {
+        mhtmlLocation = await this.captureMhtml(page, task);
+      }
+
       const captureProcessingTimeMs = Date.now() - startTime;
 
       return {
@@ -646,6 +651,7 @@ export class PageCapturer {
         ...(htmlLocation !== undefined && { htmlLocation }),
         ...(linksLocation !== undefined && { linksLocation }),
         ...(pdfLocation !== undefined && { pdfLocation }),
+        ...(mhtmlLocation !== undefined && { mhtmlLocation }),
         ...(dismissReport !== undefined && { dismissReport }),
       };
     } catch (error) {
@@ -813,5 +819,47 @@ export class PageCapturer {
     );
 
     return this.store.put(filename, Buffer.from(pdfBuffer), "application/pdf");
+  }
+
+  /**
+   * Capture the rendered page as an MHTML single-file archive via Chromium's
+   * CDP `Page.captureSnapshot`. The resulting `multipart/related` body
+   * embeds every CSS / image / font / inline script reachable from the
+   * document, so the saved file renders faithfully when opened offline —
+   * the raw `html` format alone breaks every relative URL.
+   *
+   * Same redirect hazard as the screenshot/content/pdf paths: the snapshot
+   * walks the live render tree, so a JS-redirect landing during the call
+   * rejects with destroyed-context. Routing through `runOnStableContext`
+   * recovers the same way.
+   *
+   * The CDP session is detached in `finally` rather than relying on
+   * worker-loop cleanup — every call site that opens a session in this
+   * module follows the same pattern (see `resetPageState`).
+   */
+  private async captureMhtml(page: Page, task: CaptureTask): Promise<string> {
+    const filename = generateFilename(task, "mhtml");
+    const session = await page.createCDPSession();
+    try {
+      const { data } = await runOnStableContext(
+        page,
+        () =>
+          session.send("Page.captureSnapshot", { format: "mhtml" }) as Promise<{
+            data: string;
+          }>,
+        `MHTML capture of ${task.url}`,
+        this.config.timeouts.capture,
+      );
+      return await this.store.put(filename, data, "multipart/related");
+    } finally {
+      try {
+        await session.detach();
+      } catch (error) {
+        logger.warn(
+          { err: error, taskId: task.taskId },
+          "captureMhtml CDP session detach failed",
+        );
+      }
+    }
   }
 }

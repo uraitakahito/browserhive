@@ -94,6 +94,8 @@ export interface CaptureResult {
   linksLocation?: string;
   /** Location of the rendered PDF (only set when `task.captureFormats.pdf` is true) */
   pdfLocation?: string;
+  /** Location of the rendered MHTML archive (only set when `task.captureFormats.mhtml` is true) */
+  mhtmlLocation?: string;
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;
