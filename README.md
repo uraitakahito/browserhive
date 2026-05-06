@@ -11,6 +11,7 @@ Used by [waggle](https://github.com/uraitakahito/waggle).
 - **Link extraction**: Optional `<a href>` extraction uploaded as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
+- **Per-task state isolation**: By default, per-task state (cookies / `localStorage` / DOM context) is wiped between tasks via `about:blank` + `Network.clearBrowserCookies`. The wipe is configurable per-server (`--no-reset-cookies` / `--no-reset-page-context` and the matching `BROWSERHIVE_RESET_*` env vars) and per-request (the `resetState` field on `POST /v1/captures`) — useful for SSO-walled crawls or stateful multi-page journeys against a single origin.
 - **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
 
 ## Architecture
@@ -20,13 +21,7 @@ spawned `captureWorkerMachine` actor bundled with its `BrowserClient`.
 Each worker holds a single persistent Chromium tab (the one
 `chromium-server-docker` opens at startup) for its entire lifetime;
 capture tasks navigate that same tab rather than opening a new one per
-task. By default, per-task state (cookies / `localStorage` / DOM
-context) is wiped between tasks via `about:blank` +
-`Network.clearBrowserCookies`. The wipe is configurable per-server
-(`--no-reset-cookies` / `--no-reset-page-context` and the matching
-`BROWSERHIVE_RESET_*` env vars) and per-request (the `resetState` field
-on `POST /v1/captures`) — useful for SSO-walled crawls or stateful
-multi-page journeys against a single origin.
+task.
 
 ```mermaid
 flowchart TB
