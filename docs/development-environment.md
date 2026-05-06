@@ -2,7 +2,6 @@
 
 ```sh
 GH_TOKEN=$(gh auth token) docker compose -f compose.dev.yaml up -d
-docker exec -it browserhive-container /bin/zsh
 ```
 
 `GH_TOKEN` is intentionally **not** stored in `.env`. The token is fetched from the host's `gh` CLI (macOS Keychain-backed) at launch time and exists only in the running container's environment. If you forget the prefix, the container will still start but Claude Code / `gh` inside it will be unauthenticated.
