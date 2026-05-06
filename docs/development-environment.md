@@ -44,15 +44,6 @@ docker exec browserhive-seaweedfs sh -c \
 
 ## Wiping captured artifacts
 
-When iterating, you often want a clean slate without rebuilding the
-whole stack. Three levels, each with a different blast radius:
-
-### One file at a time (Filer UI)
-
-Open <http://localhost:8888/buckets/browserhive/> and use the row-level
-checkbox / delete control. Fine for spot work; impractical past a
-handful of files.
-
 ### Wipe every artifact, keep the bucket (Filer HTTP API)
 
 ```sh
