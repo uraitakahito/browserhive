@@ -72,14 +72,24 @@ handful of files.
 ### Wipe every artifact, keep the bucket (Filer HTTP API)
 
 ```sh
-curl -X DELETE 'http://localhost:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true'
+curl -X DELETE 'http://localhost:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true' && \
+  curl -X PUT  'http://localhost:8888/buckets/browserhive/.keep' --data '' && \
+  curl -X DELETE 'http://localhost:8888/buckets/browserhive/.keep'
 ```
 
-Recursively deletes every file under the bucket directory in one
-request. The bucket itself stays, so the next `npm run server` works
-without an init step. `ignoreRecursiveError=true` keeps the walk
-going on per-file errors instead of aborting on the first one. The
-Filer serves this on the same port (`8888`) as the browse UI.
+Three-step round-trip: drop everything under the bucket dir, recreate
+the dir as empty, drop the placeholder. Why three calls — SeaweedFS
+Filer's `?recursive=true` deletes the directory entry itself along
+with its contents (no "empty this directory but keep it" flag), so
+the second `PUT` is what restores the empty bucket dir for the next
+`npm run server` to write into. The Filer auto-creates parent
+directories on `PUT`, which is what makes the restore work as a
+single HTTP call.
+
+If you only ran the first `DELETE` (e.g. you copied an older version
+of this doc) and your bucket dir is now missing, run the `PUT` +
+`DELETE` pair on its own to restore an empty bucket without
+restarting the stack.
 
 ### Reset the SeaweedFS state too (compose down -v)
 
