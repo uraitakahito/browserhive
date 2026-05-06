@@ -57,3 +57,39 @@ the SeaweedFS container, you can also list them via:
 docker exec browserhive-seaweedfs sh -c \
   'echo "fs.ls /buckets/browserhive" | weed shell -master=127.0.0.1:9333'
 ```
+
+## Wiping captured artifacts
+
+When iterating, you often want a clean slate without rebuilding the
+whole stack. Three levels, each with a different blast radius:
+
+### One file at a time (Filer UI)
+
+Open <http://localhost:8888/buckets/browserhive/> and use the row-level
+checkbox / delete control. Fine for spot work; impractical past a
+handful of files.
+
+### Wipe every artifact, keep the bucket (Filer HTTP API)
+
+```sh
+curl -X DELETE 'http://localhost:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true'
+```
+
+Recursively deletes every file under the bucket directory in one
+request. The bucket itself stays, so the next `npm run server` works
+without an init step. `ignoreRecursiveError=true` keeps the walk
+going on per-file errors instead of aborting on the first one. The
+Filer serves this on the same port (`8888`) as the browse UI.
+
+### Reset the SeaweedFS state too (compose down -v)
+
+```sh
+docker compose -f compose.dev.yaml down -v
+docker compose -f compose.dev.yaml up -d
+```
+
+Drops the `browserhive-seaweedfs-data` volume, taking the bucket and
+all SeaweedFS metadata with it. The `seaweedfs-init` container
+recreates the bucket on the next `up`. Reach for this when the
+SeaweedFS state itself looks wrong (corrupt metadata, mismatched
+credentials), not for routine artifact cleanup.
