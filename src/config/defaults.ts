@@ -120,6 +120,14 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
  */
 export const DEFAULT_COORDINATOR_CONFIG = {
   browserProfiles: [],
+  // Doubles as an implicit safety net for short transient external-dependency
+  // hiccups — most notably brief S3 put outages during artifact upload. Each
+  // retry is another full capture attempt, so a value of 2 lets a
+  // ~tens-of-seconds storage outage silently recover before exhausting the
+  // budget. The artifact store therefore intentionally has ONLY a startup
+  // HeadBucket fail-fast check (no runtime probe / circuit breaker); runtime
+  // put failures fall back on this implicit retry budget. Lowering this below
+  // 2 weakens that safety net.
   maxRetryCount: 2,
   queuePollIntervalMs: 50,
   rejectDuplicateUrls: false,
