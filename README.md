@@ -1,18 +1,17 @@
 ## Features
 
-A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker). The `BrowserHive` component in the Architecture diagram below represents this application's responsibility.
-
-Used by [waggle](https://github.com/uraitakahito/waggle).
+A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker).
 
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
-- **Multiple output formats**: PNG / WebP screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), MHTML single-file archives (CDP `Page.captureSnapshot`), and WACZ replayable archives (full network session, replay via [ReplayWeb.page](https://replayweb.page/)) — the MHTML form embeds every CSS / image / font into one file so the captured page renders faithfully when opened offline (Chrome / Edge open `.mhtml` directly; Firefox / Safari require an extension); the WACZ form additionally records every HTTP exchange (including resources fetched by future scroll-driven lazy loaders) for full interactive replay
-- **S3-compatible artifact storage**: Every captured artifact (PNG / WebP / HTML / `.links.json` / PDF / MHTML / WACZ) is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`. Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted SeaweedFS; point at an external store via `BROWSERHIVE_S3_ENDPOINT`.
+- **Multiple output formats**: PNG / WebP screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), MHTML single-file archives (CDP `Page.captureSnapshot`), and WACZ replayable archives (full network session, replay via [ReplayWeb.page](https://replayweb.page/))
+- **S3-compatible artifact storage**: Every captured artifact is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`.
 - **Link extraction**: Optional `<a href>` extraction uploaded as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
 - **Per-task state isolation**: By default, per-task state (cookies / `localStorage` / DOM context) is wiped between tasks via `about:blank` + `Network.clearBrowserCookies`. The wipe is configurable per-server (`--no-reset-cookies` / `--no-reset-page-context` and the matching `BROWSERHIVE_RESET_*` env vars) and per-request (the `resetState` field on `POST /v1/captures`) — useful for SSO-walled crawls or stateful multi-page journeys against a single origin.
 - **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
+- Used by [waggle](https://github.com/uraitakahito/waggle).
 
 ## Architecture
 
@@ -183,110 +182,13 @@ node dist/examples/data-client.js \
   | pino-pretty
 ```
 
-`--png` / `--webp` / `--html` / `--links` / `--pdf` / `--mhtml` / `--wacz` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。`--mhtml` は CDP `Page.captureSnapshot` で `.mhtml` (multipart archive) を S3 に保存する — 関連リソースを単一ファイルに同梱するためオフラインでも見た目が再現される。`--wacz` はキャプチャ中の全 HTTP セッション (将来のスクロール起因の遅延ロードリソースを含む) を WACZ アーカイブとして保存し、[ReplayWeb.page](https://replayweb.page/) で対話的にリプレイできる — 詳しくは [`docs/replay-quickstart.md`](docs/replay-quickstart.md) を参照。
-
-`data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
-
 ## Storage
 
-Captured artifacts (PNG / WebP / HTML / links JSON / PDF / MHTML / WACZ) are uploaded
-to an S3-compatible object store via `@aws-sdk/client-s3`. Anything that
-speaks the S3 API works — self-hosted SeaweedFS (the bundled default),
-AWS S3, Cloudflare R2, MinIO-compatible managed services.
-`CaptureResult.{pngLocation,…}` and the worker's "Task completed" log
-line carry an `s3://<bucket>/<key>` URI so downstream consumers (e.g.
-[waggle](https://github.com/uraitakahito/waggle)) can fetch them with
-the SDK of their choice.
-
-The bucket must already exist — BrowserHive does not create it. Server
-startup runs `HeadBucket` once as a fail-fast preflight; a missing
-bucket or wrong credentials abort startup before any worker spawns.
-Object keys are `[<keyPrefix>/]<filename>` where `<filename>` follows
-the `{taskId}_..._{labels}.{ext}` pattern.
-
-### Bundled SeaweedFS
-
-Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted
-SeaweedFS service (Apache 2.0, actively maintained) plus a one-shot
-`weed shell` init container that creates the `browserhive` bucket on
-first start. Default S3 identity is `browserhive` / `browserhive`,
-overridable via the `BROWSERHIVE_S3_ACCESS_KEY_ID` /
-`BROWSERHIVE_S3_SECRET_ACCESS_KEY` env vars on `docker compose up`
-(the bundled SeaweedFS and the BrowserHive container read from the
-same pair, so they always agree by construction).
-
-The dev compose publishes the SeaweedFS S3 API at `localhost:8333`
-and the Filer UI at `localhost:8888` (open
-<http://localhost:8888/buckets/browserhive/> to inspect captured
-artifacts). The prod compose `expose:`s them only to the internal
-network.
-
-### External S3
-
-To point at an external store (AWS / R2 / managed MinIO-compatible
-service) instead, set the `BROWSERHIVE_S3_*` env vars on the
-BrowserHive container:
-
-```yaml
-environment:
-  - BROWSERHIVE_S3_ENDPOINT=https://s3.example.com
-  - BROWSERHIVE_S3_BUCKET=browserhive-prod
-  - BROWSERHIVE_S3_REGION=us-east-1
-  - BROWSERHIVE_S3_ACCESS_KEY_ID=...
-  - BROWSERHIVE_S3_SECRET_ACCESS_KEY=...
-```
-
-For AWS S3 (virtual-hosted-style bucket addressing), pass
-`--no-s3-force-path-style`. SeaweedFS, MinIO-compatible managed
-services, and most other self-hosted S3 implementations require the
-default path-style.
-
-The `s3-access-key-id` and `s3-secret-access-key` values are accepted
-on the command line for completeness, but prefer the
-`BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY`
-env vars so the secret does not appear in `ps`.
+See [docs/storage.md](docs/storage.md).
 
 ## TLS (Transport Layer Security)
 
 The server supports TLS for secure communication. See [docs/tls-certificates.md](docs/tls-certificates.md) for certificate generation instructions.
-
-### Starting the server
-
-To start the server using the pre-prepared sample certificates and private keys:
-
-```sh
-LOG_LEVEL=info npm run server -- \
-  --browser-url http://chromium-server-1:9222 \
-  --browser-url http://chromium-server-2:9222 \
-  --s3-endpoint http://seaweedfs:8333 --s3-bucket browserhive \
-  --s3-access-key-id "$BROWSERHIVE_S3_ACCESS_KEY_ID" \
-  --s3-secret-access-key "$BROWSERHIVE_S3_SECRET_ACCESS_KEY" \
-  --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key \
-  --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" \
-  | pino-pretty
-```
-
-### Calling the server
-
-When TLS is enabled, point clients at the HTTPS URL and supply the CA bundle.
-
-For curl, use `--cacert`:
-
-```bash
-curl --cacert ./certs/sample-ca.crt https://localhost:8080/v1/status
-```
-
-For Node-based clients (including `examples/data-client.ts`), set `NODE_EXTRA_CA_CERTS=/path/to/ca.crt` before starting the process — Node's global `fetch` will pick the additional trust anchor up automatically:
-
-```sh
-NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
-  node dist/examples/data-client.js \
-    --data data/smoke-test.yaml \
-    --server https://localhost:8080 \
-    --webp --html --limit 50 \
-    --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
-  | pino-pretty
-```
 
 ## State Machines
 

@@ -8,6 +8,31 @@
  *
  * The data-file format and parser live in `examples/data-file.ts` so they
  * can be unit-tested independently of this script's `main()` IIFE.
+ *
+ * ## Capture format flags
+ *
+ * `--png` / `--webp` / `--html` / `--links` / `--pdf` / `--mhtml` /
+ * `--wacz` のうち少なくとも 1 つを指定する必要がある（サーバ側で
+ * `validateCaptureFormats` がチェック）。
+ *
+ * ## --mhtml
+ *
+ * CDP `Page.captureSnapshot` で `.mhtml` (multipart archive) を S3 に保存
+ * する — 関連リソースを単一ファイルに同梱するためオフラインでも見た目が
+ * 再現される。
+ *
+ * ## --wacz
+ *
+ * キャプチャ中の全 HTTP セッション (将来のスクロール起因の遅延ロード
+ * リソースを含む) を WACZ アーカイブとして保存し、ReplayWeb.page
+ * (https://replayweb.page/) で対話的にリプレイできる — 詳しくは
+ * `docs/replay-quickstart.md` を参照。
+ *
+ * ## data/accept-language.yaml
+ *
+ * Hand-curated subset of `data/nikkei225.yaml` whose top pages serve
+ * different content (or redirect to a different URL) for `ja` vs `en`.
+ * Useful as a regression / demo fixture for the `--accept-language` flag.
  */
 import { readFile } from "node:fs/promises";
 import {
