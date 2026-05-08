@@ -182,10 +182,6 @@ node dist/examples/data-client.js \
   | pino-pretty
 ```
 
-`--png` / `--webp` / `--html` / `--links` / `--pdf` / `--mhtml` / `--wacz` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。`--mhtml` は CDP `Page.captureSnapshot` で `.mhtml` (multipart archive) を S3 に保存する — 関連リソースを単一ファイルに同梱するためオフラインでも見た目が再現される。`--wacz` はキャプチャ中の全 HTTP セッション (将来のスクロール起因の遅延ロードリソースを含む) を WACZ アーカイブとして保存し、[ReplayWeb.page](https://replayweb.page/) で対話的にリプレイできる — 詳しくは [`docs/replay-quickstart.md`](docs/replay-quickstart.md) を参照。
-
-`data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
-
 ## Storage
 
 Captured artifacts (PNG / WebP / HTML / links JSON / PDF / MHTML / WACZ) are uploaded
