@@ -25,6 +25,8 @@ export interface ClientOptions {
   links?: boolean;
   pdf?: boolean;
   mhtml?: boolean;
+  /** Record the full HTTP session as a WACZ archive (replay via ReplayWeb.page). */
+  wacz?: boolean;
   limit?: number;
   tlsCaCert?: string;
   dismissBanners?: boolean;
@@ -86,6 +88,10 @@ export const createProgram = (): Command => {
       "--mhtml",
       "Capture as MHTML single-file archive (CDP Page.captureSnapshot)",
     )
+    .option(
+      "--wacz",
+      "Record the entire HTTP session as a WACZ archive (replay via ReplayWeb.page)",
+    )
     .addOption(
       new Option("--limit <n>", "Maximum number of entries to read from the data file")
         .argParser(parsePositiveInt),
@@ -142,6 +148,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     links?: boolean;
     pdf?: boolean;
     mhtml?: boolean;
+    wacz?: boolean;
     limit?: number;
     tlsCaCert?: string;
     dismissBanners?: boolean;
@@ -166,6 +173,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.links !== undefined && { links: opts.links }),
     ...(opts.pdf !== undefined && { pdf: opts.pdf }),
     ...(opts.mhtml !== undefined && { mhtml: opts.mhtml }),
+    ...(opts.wacz !== undefined && { wacz: opts.wacz }),
     ...(opts.limit !== undefined && { limit: opts.limit }),
     ...(opts.tlsCaCert !== undefined && { tlsCaCert: opts.tlsCaCert }),
     ...(opts.dismissBanners !== undefined && { dismissBanners: opts.dismissBanners }),
@@ -184,6 +192,7 @@ export const getCaptureFormats = (options: ClientOptions): CaptureFormats => {
     links: options.links ?? false,
     pdf: options.pdf ?? false,
     mhtml: options.mhtml ?? false,
+    wacz: options.wacz ?? false,
   };
 };
 

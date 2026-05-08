@@ -46,10 +46,13 @@ type DeepPartial<T> = {
 };
 
 /**
- * Create a test CaptureConfig with optional overrides
+ * Create a test CaptureConfig with optional overrides. The `wacz` field is
+ * NOT propagated through this helper — tests that exercise the WACZ
+ * pipeline pass a `WaczCaptureConfig` directly to `new PageCapturer(...)`
+ * (see `test/capture/page-capturer-wacz.test.ts`).
  */
 export const createTestCaptureConfig = (
-  overrides: DeepPartial<CaptureConfig> = {}
+  overrides: DeepPartial<Omit<CaptureConfig, "wacz">> = {}
 ): CaptureConfig => ({
   ...DEFAULT_CAPTURE_CONFIG,
   ...overrides,

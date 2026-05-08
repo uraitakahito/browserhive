@@ -49,7 +49,26 @@ export class BrowserClient {
   constructor(index: number, profile: BrowserProfile, store: ArtifactStore) {
     this.index = index;
     this.profile = profile;
-    this.pageCapturer = new PageCapturer(profile.capture, store);
+    // `WaczCaptureConfig` is the read-only sub-shape `PageCapturer` consumes.
+    // The WaczConfig on `CaptureConfig` is optional — when absent, captures
+    // requesting `wacz: true` fail with a clear `internal` error inside the
+    // capture pipeline.
+    const waczConfig = profile.capture.wacz
+      ? {
+          filters: {
+            blockUrlPatterns: profile.capture.wacz.blockUrlPatterns,
+            skipContentTypes: profile.capture.wacz.skipContentTypes,
+          },
+          limits: {
+            maxResponseBytes: profile.capture.wacz.maxResponseBytes,
+            maxTaskBytes: profile.capture.wacz.maxTaskBytes,
+            maxPendingRequests: profile.capture.wacz.maxPendingRequests,
+          },
+          software: profile.capture.wacz.software,
+          fuzzyParams: profile.capture.wacz.fuzzyParams,
+        }
+      : undefined;
+    this.pageCapturer = new PageCapturer(profile.capture, store, waczConfig);
     this.logger = createChildLogger({ workerIndex: index, browserURL: profile.browserURL });
   }
 

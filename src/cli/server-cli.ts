@@ -8,6 +8,9 @@
  * and the presence-only boolean flags use a manual post-parse env merge —
  * commander's `Option#env` covers the scalar cases natively.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { CaptureCoordinator } from "../capture/index.js";
 import { HttpServer } from "../http/server.js";
@@ -16,9 +19,35 @@ import type {
   CaptureConfig,
   StorageConfig,
   TlsConfig,
+  WaczConfig,
 } from "../config/index.js";
-import { DEFAULT_BROWSERHIVE_CONFIG, DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
+import {
+  DEFAULT_BROWSERHIVE_CONFIG,
+  DEFAULT_CAPTURE_CONFIG,
+  DEFAULT_WACZ_CONFIG,
+} from "../config/index.js";
 import { logger } from "../logger.js";
+
+/**
+ * Read the package version once at module load so the WARC `warcinfo`
+ * record carries the real BrowserHive version (e.g. `browserhive/1.0.0`)
+ * rather than the literal default. The path resolution mirrors how
+ * `http/server.ts` finds `dist/openapi.dereferenced.json` — walks two
+ * levels up from the compiled file location to reach the project root.
+ */
+const readPackageVersion = (): string => {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const projectRoot = join(here, "..", "..", "..");
+    const raw = readFileSync(join(projectRoot, "package.json"), "utf-8");
+    const pkg = JSON.parse(raw) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+};
+
+const SOFTWARE_IDENTIFIER = `browserhive/${readPackageVersion()}`;
 
 /** Mask AWS-style access key ids in logs (`AKIA…ABCD` → `AKIA****ABCD`). */
 const maskAccessKeyId = (id: string): string => {
@@ -101,15 +130,36 @@ interface ParsedOptions {
   resetCookies: boolean;
   /** See {@link ParsedOptions.resetCookies}; controls `about:blank` between tasks. */
   resetPageContext: boolean;
+  // WACZ filter / limit settings — every field has a CLI flag and a
+  // `BROWSERHIVE_WACZ_*` env equivalent.
+  waczMaxResponseBytes: number;
+  waczMaxTaskBytes: number;
+  waczMaxPendingRequests: number;
+  /** Variadic glob list. Merged with env via post-parse helper. */
+  waczBlockPattern?: string[];
+  /** Variadic MIME prefix list. Merged with env via post-parse helper. */
+  waczSkipContentTypes?: string[];
+  /** Variadic fuzzy query-param names. Merged with env via post-parse helper. */
+  waczFuzzyParam?: string[];
   tlsCert?: string;
   tlsKey?: string;
   userAgent?: string;
 }
 
 /** Same as ParsedOptions but with all post-resolution fields required. */
-interface ResolvedOptions extends Omit<ParsedOptions, "browserUrl"> {
+interface ResolvedOptions
+  extends Omit<
+    ParsedOptions,
+    | "browserUrl"
+    | "waczBlockPattern"
+    | "waczSkipContentTypes"
+    | "waczFuzzyParam"
+  > {
   browserUrl: string[];
   storage: StorageConfig;
+  waczBlockPattern: string[];
+  waczSkipContentTypes: string[];
+  waczFuzzyParam: string[];
 }
 
 const buildTlsConfig = (opts: ResolvedOptions): TlsConfig | undefined => {
@@ -125,6 +175,20 @@ const buildTlsConfig = (opts: ResolvedOptions): TlsConfig | undefined => {
 
 const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
   const tls = buildTlsConfig(opts);
+
+  // WACZ recorder policy. Each field traces back to a CLI flag (with an
+  // env equivalent) — defaults live in `DEFAULT_WACZ_CONFIG`. `software`
+  // is always derived from `package.json` so the WARC `warcinfo` carries
+  // the real BrowserHive version.
+  const wacz: WaczConfig = {
+    blockUrlPatterns: opts.waczBlockPattern,
+    skipContentTypes: opts.waczSkipContentTypes,
+    maxResponseBytes: opts.waczMaxResponseBytes,
+    maxTaskBytes: opts.waczMaxTaskBytes,
+    maxPendingRequests: opts.waczMaxPendingRequests,
+    software: SOFTWARE_IDENTIFIER,
+    fuzzyParams: opts.waczFuzzyParam,
+  };
 
   const capture: CaptureConfig = {
     timeouts: {
@@ -145,6 +209,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       cookies: opts.resetCookies,
       pageContext: opts.resetPageContext,
     },
+    wacz,
   };
 
   return {
@@ -302,6 +367,47 @@ export const createProgram = (): Command => {
       "Skip the inter-task `about:blank` navigation. Equivalent to BROWSERHIVE_RESET_PAGE_CONTEXT=false. Note: also keeps origin-scoped storage (localStorage/sessionStorage/IndexedDB) by default; see docs. Default: about:blank navigation runs between captures.",
       true,
     )
+    // WACZ recorder configuration. Every field is server-wide and applies
+    // to every capture that requests `wacz: true`.
+    .addOption(
+      new Option(
+        "--wacz-max-response-bytes <n>",
+        "WACZ: per-response body cap (bytes). Larger bodies become a metadata `truncated: too-large` record",
+      )
+        .env("BROWSERHIVE_WACZ_MAX_RESPONSE_BYTES")
+        .default(DEFAULT_WACZ_CONFIG.maxResponseBytes)
+        .argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--wacz-max-task-bytes <n>",
+        "WACZ: cumulative body cap per task (bytes). Subsequent bodies become metadata `truncated: task-cap` records",
+      )
+        .env("BROWSERHIVE_WACZ_MAX_TASK_BYTES")
+        .default(DEFAULT_WACZ_CONFIG.maxTaskBytes)
+        .argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--wacz-max-pending-requests <n>",
+        "WACZ: cap on the in-flight pending-request map (FIFO eviction when exceeded)",
+      )
+        .env("BROWSERHIVE_WACZ_MAX_PENDING_REQUESTS")
+        .default(DEFAULT_WACZ_CONFIG.maxPendingRequests)
+        .argParser(parsePositiveInt),
+    )
+    .option(
+      "--wacz-block-pattern <patterns...>",
+      "WACZ: glob patterns matched against full URL — matched URLs are dropped from the WARC. Use `--wacz-block-pattern \"\"` (empty value) to start with no defaults. Env: BROWSERHIVE_WACZ_BLOCK_PATTERNS (comma-separated)",
+    )
+    .option(
+      "--wacz-skip-content-types <prefixes...>",
+      "WACZ: MIME prefixes (e.g. video/, audio/). Matching responses have body omitted; request/response meta still recorded. Env: BROWSERHIVE_WACZ_SKIP_CONTENT_TYPES (comma-separated)",
+    )
+    .option(
+      "--wacz-fuzzy-param <names...>",
+      "WACZ: query parameter names treated as cache-busters (replay-time fuzzy match). Embedded in fuzzy.json. Env: BROWSERHIVE_WACZ_FUZZY_PARAMS (comma-separated)",
+    )
     .addOption(
       new Option(
         "--user-agent <string>",
@@ -349,6 +455,29 @@ const requireBrowserUrls = (
   program.error(
     "--browser-url is required (or set BROWSERHIVE_BROWSER_URLS as comma-separated list)",
   );
+};
+
+/**
+ * Variadic list flags (CLI > env > defaultIfBoth) merged into a final
+ * `string[]`. Used for `--wacz-block-pattern` / `--wacz-skip-content-types`
+ * — both of which accept multiple values and have `BROWSERHIVE_WACZ_*`
+ * comma-separated env equivalents. Passing an empty CLI string (`""`)
+ * yields `[]`, useful for opting out of the defaults entirely.
+ */
+const resolveCsvList = (
+  cliValue: string[] | undefined,
+  envName: string,
+  defaultValue: readonly string[],
+): string[] => {
+  if (cliValue !== undefined) {
+    // Empty string in CLI means "no entries" — preserve that intent.
+    return cliValue.flatMap(splitCsv);
+  }
+  const envRaw = process.env[envName];
+  if (envRaw !== undefined) {
+    return splitCsv(envRaw);
+  }
+  return [...defaultValue];
 };
 
 /**
@@ -478,6 +607,21 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
       "BROWSERHIVE_RESET_PAGE_CONTEXT",
       program,
     ),
+    waczBlockPattern: resolveCsvList(
+      opts.waczBlockPattern,
+      "BROWSERHIVE_WACZ_BLOCK_PATTERNS",
+      DEFAULT_WACZ_CONFIG.blockUrlPatterns,
+    ),
+    waczSkipContentTypes: resolveCsvList(
+      opts.waczSkipContentTypes,
+      "BROWSERHIVE_WACZ_SKIP_CONTENT_TYPES",
+      DEFAULT_WACZ_CONFIG.skipContentTypes,
+    ),
+    waczFuzzyParam: resolveCsvList(
+      opts.waczFuzzyParam,
+      "BROWSERHIVE_WACZ_FUZZY_PARAMS",
+      DEFAULT_WACZ_CONFIG.fuzzyParams,
+    ),
   };
 
   return buildServerConfig(resolved);
@@ -530,6 +674,16 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       rejectDuplicateUrls: coordinator.rejectDuplicateUrls,
       userAgent: capture.userAgent ?? "(browser default)",
       resetPageState: capture.resetPageState,
+      ...(capture.wacz && {
+        wacz: {
+          maxResponseBytes: capture.wacz.maxResponseBytes,
+          maxTaskBytes: capture.wacz.maxTaskBytes,
+          maxPendingRequests: capture.wacz.maxPendingRequests,
+          blockUrlPatternCount: capture.wacz.blockUrlPatterns.length,
+          skipContentTypes: capture.wacz.skipContentTypes,
+          software: capture.wacz.software,
+        },
+      }),
     },
     "Server configuration",
   );

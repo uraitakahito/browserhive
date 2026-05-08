@@ -6,10 +6,15 @@
  * a single persistent tab per worker) — `capture` only navigates,
  * configures, reads, and resets it; it does not create or close tabs.
  */
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import type { Page } from "puppeteer";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
+import { WaczPackager } from "../storage/wacz/index.js";
 import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
 import { captureStatus } from "./capture-status.js";
 import {
@@ -26,6 +31,12 @@ import {
   type DismissReport,
 } from "./banner-dismisser.js";
 import type { ResetStateOptions } from "./reset-state.js";
+import { NetworkRecorder } from "./network-recorder.js";
+import type {
+  RecordingFilters,
+  RecordingLimits,
+  RecordingStats,
+} from "./network-recorder-types.js";
 
 /**
  * CSS to hide scrollbars in Chromium
@@ -492,13 +503,33 @@ export const isSuccessHttpStatus = (statusCode: number): boolean => {
   return statusCode >= 200 && statusCode < 300;
 };
 
+/**
+ * Read-only resolved configuration for the WACZ capture format. Phase 5
+ * fills the filters / limits from CLI / env; Phase 6 adds `fuzzyParams`
+ * for replay-time cache-buster handling.
+ */
+export interface WaczCaptureConfig {
+  filters: RecordingFilters;
+  limits: RecordingLimits;
+  /** Software identifier embedded in the WARC `warcinfo` record + WACZ datapackage. */
+  software: string;
+  /** Query parameter names embedded as fuzzy-strip rules in `fuzzy.json`. */
+  fuzzyParams: readonly string[];
+}
+
 export class PageCapturer {
   private config: CaptureConfig;
   private store: ArtifactStore;
+  private waczConfig: WaczCaptureConfig | undefined;
 
-  constructor(config: CaptureConfig, store: ArtifactStore) {
+  constructor(
+    config: CaptureConfig,
+    store: ArtifactStore,
+    waczConfig?: WaczCaptureConfig,
+  ) {
     this.config = config;
     this.store = store;
+    this.waczConfig = waczConfig;
   }
 
   /**
@@ -546,6 +577,47 @@ export class PageCapturer {
     workerIndex: number
   ): Promise<CaptureResult> {
     const startTime = Date.now();
+    const capturedAt = new Date(startTime).toISOString();
+
+    // WACZ recording wraps the entire capture: NetworkRecorder must be
+    // attached BEFORE `page.goto` so the navigation request itself is in
+    // the WARC, and detached BEFORE `resetPageState` so `about:blank` is
+    // not. `tempDir` is reused for both the WARC and the WACZ output —
+    // both files are read back into memory for upload, then the dir is
+    // removed in `finally`.
+    let recorder: NetworkRecorder | null = null;
+    let waczTempDir: string | null = null;
+    if (task.captureFormats.wacz) {
+      if (this.waczConfig === undefined) {
+        // The HTTP layer guarantees this never happens for a request that
+        // sets `captureFormats.wacz = true` against a WACZ-enabled server,
+        // but we surface a real error rather than a silent no-op so a
+        // misconfigured deployment fails loudly.
+        return {
+          task,
+          status: captureStatus.failed,
+          errorDetails: {
+            type: errorType.internal,
+            message:
+              "wacz capture requested but server has no WaczCaptureConfig wired up",
+          },
+          captureProcessingTimeMs: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+          workerIndex,
+        };
+      }
+      waczTempDir = await mkdtemp(join(tmpdir(), "browserhive-wacz-"));
+      recorder = new NetworkRecorder({
+        taskId: task.taskId,
+        warcFilename: `${task.taskId}.warc.gz`,
+        warcPath: join(waczTempDir, `${task.taskId}.warc.gz`),
+        software: this.waczConfig.software,
+        filters: this.waczConfig.filters,
+        limits: this.waczConfig.limits,
+        description: `Capture of ${task.url}`,
+      });
+      await recorder.start(page);
+    }
 
     try {
       await configureViewport(page, task.viewport ?? this.config.viewport);
@@ -637,6 +709,39 @@ export class PageCapturer {
         mhtmlLocation = await this.captureMhtml(page, task);
       }
 
+      // WACZ packaging happens AFTER all other formats so the WARC includes
+      // everything those formats requested (e.g. screenshots can drive
+      // additional resource fetches via render layouts; rare but possible).
+      let waczLocation: string | undefined;
+      let waczStats: RecordingStats | undefined;
+      if (recorder !== null && waczTempDir !== null && this.waczConfig) {
+        const stopResult = await recorder.stop();
+        recorder = null;
+        waczStats = stopResult.stats;
+        const pageTitle = await page.title().catch(() => "");
+        const waczFilename = generateFilename(task, "wacz");
+        const localWaczPath = join(waczTempDir, waczFilename);
+        await WaczPackager.pack({
+          warcPath: stopResult.path,
+          waczPath: localWaczPath,
+          taskId: task.taskId,
+          pageUrl: task.url,
+          pageTitle,
+          // Anchored at capture START (the timestamp ReplayWeb.page uses to
+          // pin `Date.now()` in replay JS — Phase 6.1 contract).
+          capturedAt,
+          software: this.waczConfig.software,
+          responses: stopResult.responses,
+          fuzzyParams: this.waczConfig.fuzzyParams,
+        });
+        const bytes = readFileSync(localWaczPath);
+        waczLocation = await this.store.put(
+          waczFilename,
+          bytes,
+          "application/wacz+zip",
+        );
+      }
+
       const captureProcessingTimeMs = Date.now() - startTime;
 
       return {
@@ -652,6 +757,8 @@ export class PageCapturer {
         ...(linksLocation !== undefined && { linksLocation }),
         ...(pdfLocation !== undefined && { pdfLocation }),
         ...(mhtmlLocation !== undefined && { mhtmlLocation }),
+        ...(waczLocation !== undefined && { waczLocation }),
+        ...(waczStats !== undefined && { waczStats }),
         ...(dismissReport !== undefined && { dismissReport }),
       };
     } catch (error) {
@@ -668,12 +775,33 @@ export class PageCapturer {
         workerIndex,
       };
     } finally {
+      // Make sure the recorder is stopped on the failure path too — leaving
+      // it attached would leak the CDP session across tasks. Also wipe the
+      // temp dir whether or not the WACZ upload succeeded.
+      if (recorder !== null) {
+        try {
+          await recorder.stop();
+        } catch (err) {
+          logger.warn(
+            { err, taskId: task.taskId },
+            "NetworkRecorder.stop on failure path raised",
+          );
+        }
+      }
+      if (waczTempDir !== null) {
+        try {
+          await rm(waczTempDir, { recursive: true, force: true });
+        } catch (err) {
+          logger.warn(
+            { err, waczTempDir },
+            "Failed to remove WACZ temp dir",
+          );
+        }
+      }
       // Reset cookies / DOM context (and origin-scoped storage as a
-      // side-effect of `about:blank`) BEFORE the next task arrives.
-      // Placement on the failure side too: a failed capture's residue
-      // (cookies set during a partially-loaded page, in-flight timers) is
-      // exactly what we don't want bleeding into the retry or the next
-      // task's environment.
+      // side-effect of `about:blank`) BEFORE the next task arrives. The
+      // recorder is intentionally stopped first so `about:blank` is NOT
+      // recorded into the WARC.
       //
       // `task.resetState` is fully merged at the request-mapper boundary
       // against `CaptureConfig.resetPageState`, so this layer never has to

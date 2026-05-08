@@ -15,6 +15,8 @@ export interface CaptureFormats {
   links: boolean;
   pdf: boolean;
   mhtml: boolean;
+  /** Record the full HTTP session as a WACZ archive (replay via ReplayWeb.page). */
+  wacz: boolean;
 }
 
 export const validateCaptureFormats = (
@@ -26,10 +28,11 @@ export const validateCaptureFormats = (
     !formats.html &&
     !formats.links &&
     !formats.pdf &&
-    !formats.mhtml
+    !formats.mhtml &&
+    !formats.wacz
   ) {
     return err(
-      "At least one capture format must be enabled (png, webp, html, links, pdf, or mhtml)",
+      "At least one capture format must be enabled (png, webp, html, links, pdf, mhtml, or wacz)",
     );
   }
   return ok();
