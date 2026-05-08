@@ -284,8 +284,8 @@ export const createProgram = (): Command => {
     )
     .option(
       "--s3-force-path-style",
-      "Use path-style addressing (env: BROWSERHIVE_S3_FORCE_PATH_STYLE). SeaweedFS / most self-hosted S3 require this; default true.",
-      true,
+      "Use path-style addressing (env: BROWSERHIVE_S3_FORCE_PATH_STYLE). Required for SeaweedFS / MinIO / most self-hosted S3. Default false (virtual-hosted-style for AWS S3).",
+      false,
     )
     .addOption(
       new Option("--page-load-timeout <ms>", "Page load timeout in milliseconds")
@@ -565,7 +565,14 @@ const resolveStorageConfig = (
     bucket: opts.s3Bucket,
     accessKeyId: opts.s3AccessKeyId,
     secretAccessKey: opts.s3SecretAccessKey,
-    forcePathStyle: opts.s3ForcePathStyle,
+    // CLI presence-only flag (default false). Merge with env so an
+    // explicit `BROWSERHIVE_S3_FORCE_PATH_STYLE=true` flips into
+    // path-style addressing for SeaweedFS / MinIO / self-hosted S3.
+    forcePathStyle: resolveBoolWithEnv(
+      opts.s3ForcePathStyle,
+      "BROWSERHIVE_S3_FORCE_PATH_STYLE",
+      program,
+    ),
     ...(opts.s3KeyPrefix !== undefined && { keyPrefix: opts.s3KeyPrefix }),
   };
   return config;
@@ -641,7 +648,7 @@ const logSafeStorage = (
   accessKeyId: maskAccessKeyId(storage.accessKeyId),
   secretAccessKey: "***",
   ...(storage.keyPrefix !== undefined && { keyPrefix: storage.keyPrefix }),
-  forcePathStyle: storage.forcePathStyle ?? true,
+  forcePathStyle: storage.forcePathStyle ?? false,
 });
 
 export const logServerConfig = (config: BrowserHiveConfig): void => {

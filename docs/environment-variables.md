@@ -12,7 +12,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--s3-access-key-id <id>` | `BROWSERHIVE_S3_ACCESS_KEY_ID` | string (required; prefer env to avoid `ps` leak) |
 | `--s3-secret-access-key <secret>` | `BROWSERHIVE_S3_SECRET_ACCESS_KEY` | string (required; prefer env to avoid `ps` leak) |
 | `--s3-key-prefix <prefix>` | `BROWSERHIVE_S3_KEY_PREFIX` | string (no trailing slash; default empty) |
-| `--no-s3-force-path-style` | — | flip path-style addressing off (AWS S3 only; SeaweedFS / most self-hosted S3 require path-style) |
+| `--s3-force-path-style` | `BROWSERHIVE_S3_FORCE_PATH_STYLE` | `"true"`/`"1"` or `"false"`/`"0"` (default `false` — virtual-hosted-style for AWS S3; opt in for SeaweedFS / MinIO / most self-hosted S3) |
 | `--page-load-timeout <ms>` | `BROWSERHIVE_PAGE_LOAD_TIMEOUT_MS` | positive integer |
 | `--capture-timeout <ms>` | `BROWSERHIVE_CAPTURE_TIMEOUT_MS` | positive integer |
 | `--task-timeout <ms>` | `BROWSERHIVE_TASK_TIMEOUT_MS` | positive integer (Layer B per-task safety net) |

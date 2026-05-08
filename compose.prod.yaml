@@ -25,6 +25,13 @@ services:
       - BROWSERHIVE_S3_BUCKET=${BROWSERHIVE_S3_BUCKET:-browserhive}
       - BROWSERHIVE_S3_ACCESS_KEY_ID=${BROWSERHIVE_S3_ACCESS_KEY_ID:-browserhive}
       - BROWSERHIVE_S3_SECRET_ACCESS_KEY=${BROWSERHIVE_S3_SECRET_ACCESS_KEY:-browserhive}
+      # Bundled SeaweedFS does not have wildcard DNS for the bucket
+      # subdomain, so virtual-hosted-style addressing fails. Opt in to
+      # path-style here so the bundled stack works out of the box. The
+      # default for the BrowserHive image itself is virtual-hosted-style
+      # (AWS S3); override to "false" when pointing
+      # `BROWSERHIVE_S3_ENDPOINT` at AWS.
+      - BROWSERHIVE_S3_FORCE_PATH_STYLE=${BROWSERHIVE_S3_FORCE_PATH_STYLE:-true}
     networks:
       - chromium-network
     depends_on:

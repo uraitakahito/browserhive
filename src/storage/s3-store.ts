@@ -43,13 +43,14 @@ export class S3ArtifactStore implements ArtifactStore {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
-      // SeaweedFS (and most S3-compatible self-hosted stores) require
-      // path-style addressing because the endpoint hostname does not
-      // match the bucket — the SDK's default virtual-hosted-style would
-      // route to `bucket.seaweedfs:8333` which does not resolve. AWS S3
-      // accepts either; flip via `--no-s3-force-path-style` if you need
-      // virtual-hosted-style.
-      forcePathStyle: config.forcePathStyle ?? true,
+      // Defaults to virtual-hosted-style addressing (the AWS S3 form).
+      // SeaweedFS / MinIO / Ceph and most other self-hosted S3
+      // implementations require path-style because the endpoint hostname
+      // does not match the bucket — the SDK's virtual-hosted form would
+      // route to `bucket.seaweedfs:8333`, which does not resolve. Opt
+      // back into path-style via `--s3-force-path-style` (or
+      // `BROWSERHIVE_S3_FORCE_PATH_STYLE=true`) for those deployments.
+      forcePathStyle: config.forcePathStyle ?? false,
     });
     this.bucket = config.bucket;
     this.keyPrefix = config.keyPrefix ?? "";
