@@ -37,10 +37,13 @@ environment:
   - BROWSERHIVE_S3_SECRET_ACCESS_KEY=...
 ```
 
-For AWS S3 (virtual-hosted-style bucket addressing), pass
-`--no-s3-force-path-style`. SeaweedFS, MinIO-compatible managed
-services, and most other self-hosted S3 implementations require the
-default path-style.
+The default is virtual-hosted-style addressing — the form AWS S3
+expects. For SeaweedFS, MinIO-compatible managed services, and most
+other self-hosted S3 implementations (which do not have wildcard DNS
+for the bucket subdomain), pass `--s3-force-path-style` (or set
+`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). The bundled SeaweedFS in
+`compose.dev.yaml` / `compose.prod.yaml` opts in to path-style via
+this env var automatically.
 
 The `s3-access-key-id` and `s3-secret-access-key` values are accepted
 on the command line for completeness, but prefer the

@@ -56,7 +56,7 @@ describe("server-cli parseCliOptions", () => {
         bucket: "browserhive",
         accessKeyId: "AKIATESTACCESSKEYID",
         secretAccessKey: "test-secret-access-key-value",
-        forcePathStyle: true,
+        forcePathStyle: false,
       });
       expect(config.port).toBe(8080);
     });
@@ -209,6 +209,41 @@ describe("server-cli parseCliOptions", () => {
         config.coordinator.browserProfiles[0]?.capture.screenshot.fullPage,
       ).toBe(true);
     });
+
+    it("--s3-force-path-style で path-style に opt-in できる", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          ...s3Args,
+          "--s3-force-path-style",
+        ),
+      );
+
+      expect(config.coordinator.storage.forcePathStyle).toBe(true);
+    });
+
+    it("BROWSERHIVE_S3_FORCE_PATH_STYLE='true' で path-style になる", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_S3_FORCE_PATH_STYLE", "true");
+
+      const config = parseCliOptions(argv());
+
+      expect(config.coordinator.storage.forcePathStyle).toBe(true);
+    });
+
+    it("CLI フラグ --s3-force-path-style は env=false でも真にする", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_S3_FORCE_PATH_STYLE", "false");
+
+      const config = parseCliOptions(
+        argv("--browser-url", "http://a:9222", ...s3Args, "--s3-force-path-style"),
+      );
+
+      expect(config.coordinator.storage.forcePathStyle).toBe(true);
+    });
   });
 
   describe("TLS", () => {
@@ -298,6 +333,14 @@ describe("server-cli parseCliOptions", () => {
       vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
       stubS3Env();
       vi.stubEnv("BROWSERHIVE_SCREENSHOT_FULL_PAGE", "yes");
+
+      expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
+    });
+
+    it("不正な BROWSERHIVE_S3_FORCE_PATH_STYLE で exit する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_S3_FORCE_PATH_STYLE", "maybe");
 
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
     });
