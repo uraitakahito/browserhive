@@ -23,7 +23,8 @@ export type ArtifactContentType =
   | "text/html"
   | "application/json"
   | "application/pdf"
-  | "multipart/related";
+  | "multipart/related"
+  | "application/wacz+zip";
 
 export interface ArtifactStore {
   /**

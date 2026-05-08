@@ -56,6 +56,37 @@ export interface ResetPageStateConfig {
   pageContext: boolean;
 }
 
+/**
+ * Filter / limit policy for the WACZ capture format. Each field is also
+ * exposed as a CLI flag in `src/cli/server-cli.ts` (Phase 5); this struct
+ * is the resolved-once-at-startup form the capture pipeline reads.
+ */
+export interface WaczConfig {
+  /** Glob patterns matched against full URL — matched URLs are dropped before recording. */
+  blockUrlPatterns: string[];
+  /** MIME prefixes (`video/`, `audio/`, …) — body omitted, request/response meta still recorded. */
+  skipContentTypes: string[];
+  /** Per-response body cap. Larger bodies become `metadata { truncated: too-large }`. */
+  maxResponseBytes: number;
+  /** Cumulative body cap per task. Once cleared, subsequent bodies become `metadata { truncated: task-cap }`. */
+  maxTaskBytes: number;
+  /** Cap on the in-flight pending-request map (FIFO eviction when exceeded). */
+  maxPendingRequests: number;
+  /** Software identifier embedded in WARC `warcinfo` + WACZ `datapackage.json`. */
+  software: string;
+  /**
+   * Query parameter names treated as cache-busters for fuzzy matching at
+   * replay time. The packager emits a `fuzzy.json` file in the WACZ
+   * containing strip rules for these names so replay tooling that honours
+   * the file (or that BrowserHive's own viewer checks) can match a recorded
+   * response even when the live JS regenerates a new value (e.g.
+   * `?_=${Date.now()}`). Replay engines that don't read `fuzzy.json` (most
+   * of them today) fall back to their own built-in cache-buster heuristics
+   * — the file is a forward-looking artifact.
+   */
+  fuzzyParams: string[];
+}
+
 /** Capture configuration */
 export interface CaptureConfig {
   /** Timeout settings */
@@ -84,6 +115,12 @@ export interface CaptureConfig {
   userAgent?: string;
   /** Server-wide default for inter-task wipe. Both axes default to true. */
   resetPageState: ResetPageStateConfig;
+  /**
+   * WACZ recorder policy. Optional — when undefined, requests with
+   * `captureFormats.wacz: true` fail with an `internal` error. Populated by
+   * `server-cli.ts:buildServerConfig` from CLI flags + env vars.
+   */
+  wacz?: WaczConfig;
 }
 
 /** Coordinator configuration */

@@ -96,6 +96,24 @@ export interface CaptureResult {
   pdfLocation?: string;
   /** Location of the rendered MHTML archive (only set when `task.captureFormats.mhtml` is true) */
   mhtmlLocation?: string;
+  /** Location of the WACZ archive (only set when `task.captureFormats.wacz` is true) */
+  waczLocation?: string;
+  /**
+   * NetworkRecorder summary statistics for the WACZ recording. Present only
+   * when `task.captureFormats.wacz` is true and the recording finished.
+   * Surfaced in the worker-loop's "Task completed" log so operators can spot
+   * runaway block-list / size-cap conditions without re-reading the WARC.
+   */
+  waczStats?: {
+    totalRecorded: number;
+    totalBlocked: number;
+    totalSkippedContentType: number;
+    totalTruncatedTooLarge: number;
+    totalTruncatedTaskCap: number;
+    totalFailed: number;
+    totalIncomplete: number;
+    totalBodyBytes: number;
+  };
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;
   timestamp: string;

@@ -98,7 +98,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["test"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: false, webp: false, html: false, links: false, pdf: false, mhtml: true },
+  captureFormats: { png: false, webp: false, html: false, links: false, pdf: false, mhtml: true, wacz: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
@@ -156,7 +156,7 @@ describe("PageCapturer.capture — MHTML rendering", () => {
     const result = await capturer.capture(
       asPage(page),
       buildTask({
-        captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false },
+        captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false, wacz: false },
       }),
       0,
     );

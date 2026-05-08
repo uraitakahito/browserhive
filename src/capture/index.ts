@@ -56,6 +56,17 @@ export {
 export type { WorkerRuntime, WorkerLoopEvent } from "./worker-loop.js";
 export { workerLoopCallback } from "./worker-loop.js";
 
+// Network recorder (per-task CDP Network.* observer that produces a WARC.gz)
+export type {
+  NetworkRecorderOptions,
+  RecordedResponse,
+  RecordingFilters,
+  RecordingLimits,
+  RecordingStats,
+} from "./network-recorder-types.js";
+export { createEmptyRecordingStats } from "./network-recorder-types.js";
+export { NetworkRecorder } from "./network-recorder.js";
+
 // Coordinator Machine (lifecycle management)
 export type { CoordinatorLifecycle } from "./coordinator-machine.js";
 export {

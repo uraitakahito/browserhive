@@ -6,8 +6,8 @@ Used by [waggle](https://github.com/uraitakahito/waggle).
 
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
-- **Multiple output formats**: PNG / WebP screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), and MHTML single-file archives (CDP `Page.captureSnapshot`) — the MHTML form embeds every CSS / image / font into one file so the captured page renders faithfully when opened offline (Chrome / Edge open `.mhtml` directly; Firefox / Safari require an extension)
-- **S3-compatible artifact storage**: Every captured artifact (PNG / WebP / HTML / `.links.json` / PDF / MHTML) is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`. Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted SeaweedFS; point at an external store via `BROWSERHIVE_S3_ENDPOINT`.
+- **Multiple output formats**: PNG / WebP screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), MHTML single-file archives (CDP `Page.captureSnapshot`), and WACZ replayable archives (full network session, replay via [ReplayWeb.page](https://replayweb.page/)) — the MHTML form embeds every CSS / image / font into one file so the captured page renders faithfully when opened offline (Chrome / Edge open `.mhtml` directly; Firefox / Safari require an extension); the WACZ form additionally records every HTTP exchange (including resources fetched by future scroll-driven lazy loaders) for full interactive replay
+- **S3-compatible artifact storage**: Every captured artifact (PNG / WebP / HTML / `.links.json` / PDF / MHTML / WACZ) is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`. Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted SeaweedFS; point at an external store via `BROWSERHIVE_S3_ENDPOINT`.
 - **Link extraction**: Optional `<a href>` extraction uploaded as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
@@ -150,10 +150,16 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--no-reset-cookies` | `BROWSERHIVE_RESET_COOKIES` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default for the inter-task cookie wipe; per-request `resetState.cookies` overrides) |
 | `--no-reset-page-context` | `BROWSERHIVE_RESET_PAGE_CONTEXT` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default for the inter-task `about:blank` navigation; per-request `resetState.pageContext` overrides) |
 | `--user-agent <string>` | `BROWSERHIVE_USER_AGENT` | string |
+| `--wacz-max-response-bytes <n>` | `BROWSERHIVE_WACZ_MAX_RESPONSE_BYTES` | positive integer (per-response body cap; default 20 MB) |
+| `--wacz-max-task-bytes <n>` | `BROWSERHIVE_WACZ_MAX_TASK_BYTES` | positive integer (per-task cumulative body cap; default 200 MB) |
+| `--wacz-max-pending-requests <n>` | `BROWSERHIVE_WACZ_MAX_PENDING_REQUESTS` | positive integer (in-flight tracking cap; default 5000) |
+| `--wacz-block-pattern <patterns...>` | `BROWSERHIVE_WACZ_BLOCK_PATTERNS` | comma-separated globs (default bundled analytics list) |
+| `--wacz-skip-content-types <prefixes...>` | `BROWSERHIVE_WACZ_SKIP_CONTENT_TYPES` | comma-separated MIME prefixes (default empty) |
+| `--wacz-fuzzy-param <names...>` | `BROWSERHIVE_WACZ_FUZZY_PARAMS` | comma-separated query param names treated as cache-busters at replay time |
 | `--tls-cert <path>` | `BROWSERHIVE_TLS_CERT` | path |
 | `--tls-key <path>` | `BROWSERHIVE_TLS_KEY` | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--webp`, `--html`, `--links`, `--pdf`, `--mhtml`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--webp`, `--html`, `--links`, `--pdf`, `--mhtml`, `--wacz`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`) intentionally have no env equivalents.
 
 #### Calling the HTTP API
 
@@ -177,13 +183,13 @@ node dist/examples/data-client.js \
   | pino-pretty
 ```
 
-`--png` / `--webp` / `--html` / `--links` / `--pdf` / `--mhtml` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。`--mhtml` は CDP `Page.captureSnapshot` で `.mhtml` (multipart archive) を S3 に保存する — 関連リソースを単一ファイルに同梱するためオフラインでも見た目が再現される。
+`--png` / `--webp` / `--html` / `--links` / `--pdf` / `--mhtml` / `--wacz` のうち少なくとも 1 つを指定する必要がある（サーバ側で `validateCaptureFormats` がチェック）。`--mhtml` は CDP `Page.captureSnapshot` で `.mhtml` (multipart archive) を S3 に保存する — 関連リソースを単一ファイルに同梱するためオフラインでも見た目が再現される。`--wacz` はキャプチャ中の全 HTTP セッション (将来のスクロール起因の遅延ロードリソースを含む) を WACZ アーカイブとして保存し、[ReplayWeb.page](https://replayweb.page/) で対話的にリプレイできる — 詳しくは [`docs/replay-quickstart.md`](docs/replay-quickstart.md) を参照。
 
 `data/accept-language.yaml` is a hand-curated subset of `data/nikkei225.yaml` whose top pages serve different content (or redirect to a different URL) for `ja` vs `en`. Useful as a regression / demo fixture for the `--accept-language` flag.
 
 ## Storage
 
-Captured artifacts (PNG / WebP / HTML / links JSON / PDF / MHTML) are uploaded
+Captured artifacts (PNG / WebP / HTML / links JSON / PDF / MHTML / WACZ) are uploaded
 to an S3-compatible object store via `@aws-sdk/client-s3`. Anything that
 speaks the S3 API works — self-hosted SeaweedFS (the bundled default),
 AWS S3, Cloudflare R2, MinIO-compatible managed services.

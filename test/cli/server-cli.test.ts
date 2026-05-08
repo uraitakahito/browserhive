@@ -447,4 +447,128 @@ describe("server-cli parseCliOptions", () => {
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
     });
   });
+
+  describe("WACZ (CLI/env)", () => {
+    it("WACZ デフォルト値が CaptureConfig.wacz に反映される", () => {
+      const config = parseCliOptions(
+        argv("--browser-url", "http://a:9222", ...s3Args),
+      );
+
+      const wacz = config.coordinator.browserProfiles[0]?.capture.wacz;
+      expect(wacz).toBeDefined();
+      expect(wacz?.maxResponseBytes).toBe(20 * 1024 * 1024);
+      expect(wacz?.maxTaskBytes).toBe(200 * 1024 * 1024);
+      expect(wacz?.maxPendingRequests).toBe(5000);
+      // Default block-list should include the bundled analytics patterns.
+      expect(wacz?.blockUrlPatterns.some((p) => p.includes("google-analytics"))).toBe(true);
+      // No skip-content-types by default.
+      expect(wacz?.skipContentTypes).toEqual([]);
+      // Software identifier reads from package.json — version is non-empty.
+      expect(wacz?.software).toMatch(/^browserhive\/[^/]+$/);
+    });
+
+    it("--wacz-max-response-bytes / --wacz-max-task-bytes / --wacz-max-pending-requests を上書きできる", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          ...s3Args,
+          "--wacz-max-response-bytes",
+          "1048576",
+          "--wacz-max-task-bytes",
+          "10485760",
+          "--wacz-max-pending-requests",
+          "100",
+        ),
+      );
+
+      const wacz = config.coordinator.browserProfiles[0]?.capture.wacz;
+      expect(wacz?.maxResponseBytes).toBe(1048576);
+      expect(wacz?.maxTaskBytes).toBe(10485760);
+      expect(wacz?.maxPendingRequests).toBe(100);
+    });
+
+    it("--wacz-block-pattern (variadic) で CLI 値が defaults を完全に置き換える", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          ...s3Args,
+          "--wacz-block-pattern",
+          "*://only.example.com/*",
+          "*://other.example.com/*",
+        ),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.wacz?.blockUrlPatterns,
+      ).toEqual([
+        "*://only.example.com/*",
+        "*://other.example.com/*",
+      ]);
+    });
+
+    it("BROWSERHIVE_WACZ_BLOCK_PATTERNS をカンマ区切りで解釈する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv(
+        "BROWSERHIVE_WACZ_BLOCK_PATTERNS",
+        "*://x.example.com/*, *://y.example.com/*",
+      );
+
+      const config = parseCliOptions(argv());
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.wacz?.blockUrlPatterns,
+      ).toEqual([
+        "*://x.example.com/*",
+        "*://y.example.com/*",
+      ]);
+    });
+
+    it("CLI が env より優先される (block-pattern)", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_WACZ_BLOCK_PATTERNS", "*://env.example.com/*");
+
+      const config = parseCliOptions(
+        argv("--wacz-block-pattern", "*://cli.example.com/*"),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.wacz?.blockUrlPatterns,
+      ).toEqual(["*://cli.example.com/*"]);
+    });
+
+    it("--wacz-skip-content-types で MIME プレフィックスを設定できる", () => {
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          ...s3Args,
+          "--wacz-skip-content-types",
+          "video/",
+          "audio/",
+        ),
+      );
+
+      expect(
+        config.coordinator.browserProfiles[0]?.capture.wacz?.skipContentTypes,
+      ).toEqual(["video/", "audio/"]);
+    });
+
+    it("不正な --wacz-max-response-bytes (0) で exit する", () => {
+      expect(() =>
+        parseCliOptions(
+          argv(
+            "--browser-url",
+            "http://a:9222",
+            ...s3Args,
+            "--wacz-max-response-bytes",
+            "0",
+          ),
+        ),
+      ).toThrow();
+    });
+  });
 });

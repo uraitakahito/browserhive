@@ -90,6 +90,7 @@ describe("client-cli parseClientOptions", () => {
       links: false,
       pdf: true,
       mhtml: false,
+      wacz: false,
     });
   });
 
@@ -109,6 +110,7 @@ describe("client-cli parseClientOptions", () => {
       links: false,
       pdf: false,
       mhtml: true,
+      wacz: false,
     });
   });
 
@@ -116,6 +118,26 @@ describe("client-cli parseClientOptions", () => {
     const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--png"));
     expect(opts.mhtml).toBeUndefined();
     expect(getCaptureFormats(opts).mhtml).toBe(false);
+  });
+
+  it("--wacz を渡すと captureFormats.wacz が true になる", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--wacz"));
+    expect(opts.wacz).toBe(true);
+    expect(getCaptureFormats(opts)).toEqual({
+      png: false,
+      webp: false,
+      html: false,
+      links: false,
+      pdf: false,
+      mhtml: false,
+      wacz: true,
+    });
+  });
+
+  it("--wacz 未指定なら getCaptureFormats が wacz:false を返す", () => {
+    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--png"));
+    expect(opts.wacz).toBeUndefined();
+    expect(getCaptureFormats(opts).wacz).toBe(false);
   });
 
   it("--viewport-width / --viewport-height をペアで渡すと両方反映される", () => {

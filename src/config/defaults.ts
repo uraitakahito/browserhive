@@ -2,6 +2,7 @@ import type {
   CaptureConfig,
   CoordinatorConfig,
   BrowserHiveConfig,
+  WaczConfig,
 } from "./types.js";
 
 /**
@@ -22,6 +23,59 @@ export const DEFAULT_BROWSER_SLOW_MO_MS = 0;
  * @see https://pptr.dev/api/puppeteer.page.evaluate
  */
 export const DEFAULT_DYNAMIC_CONTENT_WAIT_MS = 3000;
+
+/**
+ * Default block-list for the WACZ recorder. Targets common
+ * analytics / advertising / behavioural-tracking origins so the WARC stays
+ * focused on the captured page's actual content. Phase 5 exposes
+ * `--wacz-block-pattern` to override; deployments can extend the list
+ * without code changes.
+ */
+export const DEFAULT_WACZ_BLOCK_PATTERNS: readonly string[] = [
+  "*://*.google-analytics.com/*",
+  "*://*.googletagmanager.com/*",
+  "*://*.doubleclick.net/*",
+  "*://*.facebook.com/tr*",
+  "*://*.scorecardresearch.com/*",
+  "*://*.hotjar.com/*",
+  "*://*.segment.io/*",
+  "*://*.amplitude.com/*",
+  "*://*.mixpanel.com/*",
+  "*://*.adsystem.com/*",
+];
+
+/**
+ * Default fuzzy-match query parameter names. Common cache-buster idioms
+ * across jQuery / Axios / hand-rolled fetch wrappers — stripped at replay
+ * time so a request like `/api/data?_=1700000000000` matches the recorded
+ * one regardless of the live `Date.now()` value.
+ */
+export const DEFAULT_WACZ_FUZZY_PARAMS: readonly string[] = [
+  "_",
+  "cb",
+  "nocache",
+  "t",
+  "nonce",
+  "timestamp",
+  "_t",
+  "_v",
+  "ts",
+];
+
+/** Default WACZ recording limits. Phase 5 exposes each via CLI / env. */
+export const DEFAULT_WACZ_CONFIG: WaczConfig = {
+  blockUrlPatterns: [...DEFAULT_WACZ_BLOCK_PATTERNS],
+  skipContentTypes: [],
+  maxResponseBytes: 20 * 1024 * 1024,
+  maxTaskBytes: 200 * 1024 * 1024,
+  maxPendingRequests: 5000,
+  // Replaced at startup by `server-cli.ts:buildServerConfig` with the value
+  // from `package.json` so the WARC `warcinfo` record carries the real
+  // package version. Falls back to the literal here for tests / fixtures
+  // that build a CaptureConfig without going through the CLI builder.
+  software: "browserhive/0.0.0",
+  fuzzyParams: [...DEFAULT_WACZ_FUZZY_PARAMS],
+};
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   timeouts: {
