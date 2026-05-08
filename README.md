@@ -2,8 +2,6 @@
 
 A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker).
 
-Used by [waggle](https://github.com/uraitakahito/waggle).
-
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
 - **Multiple output formats**: PNG / WebP screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), MHTML single-file archives (CDP `Page.captureSnapshot`), and WACZ replayable archives (full network session, replay via [ReplayWeb.page](https://replayweb.page/))
@@ -13,6 +11,7 @@ Used by [waggle](https://github.com/uraitakahito/waggle).
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
 - **Per-task state isolation**: By default, per-task state (cookies / `localStorage` / DOM context) is wiped between tasks via `about:blank` + `Network.clearBrowserCookies`. The wipe is configurable per-server (`--no-reset-cookies` / `--no-reset-page-context` and the matching `BROWSERHIVE_RESET_*` env vars) and per-request (the `resetState` field on `POST /v1/captures`) — useful for SSO-walled crawls or stateful multi-page journeys against a single origin.
 - **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
+- Used by [waggle](https://github.com/uraitakahito/waggle).
 
 ## Architecture
 
