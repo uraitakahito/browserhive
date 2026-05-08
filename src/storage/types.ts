@@ -1,7 +1,7 @@
 /**
  * Artifact storage abstraction.
  *
- * Currently has a single production implementation (`S3ArtifactStore`).
+ * Currently has a single production implementation (`S3CompatibleArtifactStore`).
  * The interface is preserved as a thin seam so test fixtures
  * (`createTestArtifactStore` in `test/helpers/config.ts`) can substitute
  * an in-memory recorder without spinning up the AWS SDK mock plumbing.

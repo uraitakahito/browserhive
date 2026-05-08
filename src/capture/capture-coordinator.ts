@@ -8,7 +8,7 @@
 import { createActor, type SnapshotFrom } from "xstate";
 import type { CaptureConfig, CoordinatorConfig } from "../config/index.js";
 import { DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
-import { S3ArtifactStore, type ArtifactStore } from "../storage/index.js";
+import { S3CompatibleArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
 import type { CaptureTask, WorkerInfo } from "./types.js";
@@ -58,7 +58,7 @@ export class CaptureCoordinator {
   private store: ArtifactStore;
 
   constructor(config: CoordinatorConfig) {
-    this.store = new S3ArtifactStore(config.storage);
+    this.store = new S3CompatibleArtifactStore(config.storage);
     this.lifecycleActor = createActor(coordinatorMachine, {
       input: { config, store: this.store },
     });
