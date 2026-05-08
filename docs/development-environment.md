@@ -1,18 +1,8 @@
 # Development Environment
 
-`compose.dev.yaml` brings up everything the server needs in one shot —
-two Chromium servers, a self-hosted SeaweedFS (S3-compatible artifact
-store), a one-shot `weed shell` init container that creates the
-`browserhive` bucket, and the BrowserHive container itself. All
-`BROWSERHIVE_*` env vars are already injected, so the in-container start
-command takes no CLI flags:
-
 ```sh
 GH_TOKEN=$(gh auth token) docker compose -f compose.dev.yaml up -d
-docker exec -it browserhive-container /bin/zsh
 ```
-
-`GH_TOKEN` is intentionally **not** stored in `.env`. The token is fetched from the host's `gh` CLI (macOS Keychain-backed) at launch time and exists only in the running container's environment. If you forget the prefix, the container will still start but Claude Code / `gh` inside it will be unauthenticated.
 
 ```sh
 # inside the container, first time only:
@@ -33,7 +23,7 @@ docker compose -f compose.dev.yaml down
 
 ## Inspecting Chromium via noVNC
 
-The dev compose stack runs the development image for both chromium servers, which embeds Xvfb + x11vnc + noVNC. Open these URLs from the host browser to watch the running Chromium:
+Open these URLs from the host browser to watch the running Chromium:
 
 | Server | noVNC (browser) | Raw VNC |
 |--------|-----------------|---------|
@@ -43,15 +33,9 @@ The dev compose stack runs the development image for both chromium servers, whic
 ## Browsing captured artifacts in SeaweedFS
 
 The bundled SeaweedFS exposes its **Filer UI** at
-<http://localhost:8888/buckets/browserhive/> — open it in a browser to
-list and download every artifact. Default credentials are `browserhive`
-/ `browserhive`, overridable via the `BROWSERHIVE_S3_ACCESS_KEY_ID` /
-`BROWSERHIVE_S3_SECRET_ACCESS_KEY` env vars on `docker compose up`
-(both the bundled SeaweedFS and the BrowserHive container read from the
-same pair, so they always agree by construction).
+<http://localhost:8888/buckets/browserhive/>.
 
-Captured artifacts land at `s3://browserhive/<filename>`. From inside
-the SeaweedFS container, you can also list them via:
+From inside the SeaweedFS container, you can also list them via:
 
 ```sh
 docker exec browserhive-seaweedfs sh -c \
@@ -59,15 +43,6 @@ docker exec browserhive-seaweedfs sh -c \
 ```
 
 ## Wiping captured artifacts
-
-When iterating, you often want a clean slate without rebuilding the
-whole stack. Three levels, each with a different blast radius:
-
-### One file at a time (Filer UI)
-
-Open <http://localhost:8888/buckets/browserhive/> and use the row-level
-checkbox / delete control. Fine for spot work; impractical past a
-handful of files.
 
 ### Wipe every artifact, keep the bucket (Filer HTTP API)
 
