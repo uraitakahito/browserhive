@@ -79,9 +79,7 @@ export class CaptureCoordinator {
 
   /**
    * Worker spawning and browser connection are driven by the lifecycle
-   * machine. Init failures do not abort startup — the coordinator
-   * lands in `active.running` (all healthy) or `active.degraded`
-   * (some/all failed).
+   * machine. Init failures do not abort startup.
    */
   async initialize(): Promise<void> {
     // fail-fast on storage misconfiguration (e.g. missing S3 bucket /
