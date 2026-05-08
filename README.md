@@ -1,6 +1,6 @@
 ## Features
 
-A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker). The `BrowserHive` component in the Architecture diagram below represents this application's responsibility.
+A server that captures web pages using [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker).
 
 Used by [waggle](https://github.com/uraitakahito/waggle).
 
