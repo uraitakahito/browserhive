@@ -24,7 +24,7 @@ import type {
 /**
  * Minimal valid `StorageConfig` for tests that only need a structurally
  * complete object (no S3 client is exercised — `CaptureCoordinator`
- * constructs an `S3ArtifactStore` lazily and tests that need real S3
+ * constructs an `S3CompatibleArtifactStore` lazily and tests that need real S3
  * behaviour mock the SDK directly).
  */
 export const TEST_STORAGE_CONFIG: StorageConfig = {
@@ -114,7 +114,7 @@ export const createTestBrowserHiveConfig = (
  *
  * `prefix` is purely for the returned location string — no I/O is
  * performed here. Tests that need to exercise actual S3 client behaviour
- * use `aws-sdk-client-mock` directly (see `test/storage/s3-store.test.ts`).
+ * use `aws-sdk-client-mock` directly (see `test/storage/s3-compatible-store.test.ts`).
  */
 export interface FakeArtifactPut {
   filename: string;

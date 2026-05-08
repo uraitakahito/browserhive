@@ -1,5 +1,5 @@
 /**
- * S3ArtifactStore unit tests.
+ * S3CompatibleArtifactStore unit tests.
  *
  * Uses `aws-sdk-client-mock` to capture commands sent to the S3 client
  * without touching the network. Covers: bucket-existence preflight,
@@ -13,7 +13,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { mockClient, type AwsClientStub } from "aws-sdk-client-mock";
-import { S3ArtifactStore } from "../../src/storage/s3-store.js";
+import { S3CompatibleArtifactStore } from "../../src/storage/s3-compatible-store.js";
 import type { StorageConfig } from "../../src/config/index.js";
 
 const baseConfig = (overrides: Partial<StorageConfig> = {}): StorageConfig => ({
@@ -32,11 +32,11 @@ beforeEach(() => {
   s3Mock = mockClient(S3Client);
 });
 
-describe("S3ArtifactStore.initialize", () => {
+describe("S3CompatibleArtifactStore.initialize", () => {
   it("issues HeadBucket against the configured bucket", async () => {
     s3Mock.on(HeadBucketCommand).resolves({});
 
-    const store = new S3ArtifactStore(baseConfig());
+    const store = new S3CompatibleArtifactStore(baseConfig());
     await store.initialize();
 
     const calls = s3Mock.commandCalls(HeadBucketCommand);
@@ -47,17 +47,17 @@ describe("S3ArtifactStore.initialize", () => {
   it("propagates HeadBucket errors so the server fails to start", async () => {
     s3Mock.on(HeadBucketCommand).rejects(new Error("NoSuchBucket"));
 
-    const store = new S3ArtifactStore(baseConfig());
+    const store = new S3CompatibleArtifactStore(baseConfig());
 
     await expect(store.initialize()).rejects.toThrow("NoSuchBucket");
   });
 });
 
-describe("S3ArtifactStore.put", () => {
+describe("S3CompatibleArtifactStore.put", () => {
   it("uploads with the supplied filename as the key (no prefix)", async () => {
     s3Mock.on(PutObjectCommand).resolves({});
 
-    const store = new S3ArtifactStore(baseConfig());
+    const store = new S3CompatibleArtifactStore(baseConfig());
     const location = await store.put(
       "task-id_label.png",
       Buffer.from("fake-png"),
@@ -78,7 +78,7 @@ describe("S3ArtifactStore.put", () => {
   it("prepends keyPrefix with a single `/` separator", async () => {
     s3Mock.on(PutObjectCommand).resolves({});
 
-    const store = new S3ArtifactStore(
+    const store = new S3CompatibleArtifactStore(
       baseConfig({ keyPrefix: "captures/2026-05-05" }),
     );
     const location = await store.put(
@@ -97,7 +97,7 @@ describe("S3ArtifactStore.put", () => {
   it("forwards Content-Type for each known artifact type", async () => {
     s3Mock.on(PutObjectCommand).resolves({});
 
-    const store = new S3ArtifactStore(baseConfig());
+    const store = new S3CompatibleArtifactStore(baseConfig());
     await store.put("a.png", Buffer.from(""), "image/png");
     await store.put("a.webp", Buffer.from(""), "image/webp");
     await store.put("a.html", "", "text/html");
@@ -119,7 +119,7 @@ describe("S3ArtifactStore.put", () => {
   it("propagates PutObject errors so the capture pipeline can classify them", async () => {
     s3Mock.on(PutObjectCommand).rejects(new Error("AccessDenied"));
 
-    const store = new S3ArtifactStore(baseConfig());
+    const store = new S3CompatibleArtifactStore(baseConfig());
 
     await expect(
       store.put("a.png", Buffer.from(""), "image/png"),
