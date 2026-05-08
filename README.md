@@ -189,12 +189,6 @@ to an S3-compatible object store via `@aws-sdk/client-s3`. Anything that
 speaks the S3 API works — self-hosted SeaweedFS (the bundled default),
 AWS S3, Cloudflare R2, MinIO-compatible managed services.
 
-The bucket must already exist — BrowserHive does not create it. Server
-startup runs `HeadBucket` once as a fail-fast preflight; a missing
-bucket or wrong credentials abort startup before any worker spawns.
-Object keys are `[<keyPrefix>/]<filename>` where `<filename>` follows
-the `{taskId}_..._{labels}.{ext}` pattern.
-
 ### Bundled SeaweedFS
 
 Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted
