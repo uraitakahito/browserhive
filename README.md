@@ -190,44 +190,6 @@ See [docs/storage.md](docs/storage.md).
 
 The server supports TLS for secure communication. See [docs/tls-certificates.md](docs/tls-certificates.md) for certificate generation instructions.
 
-### Starting the server
-
-To start the server using the pre-prepared sample certificates and private keys:
-
-```sh
-LOG_LEVEL=info npm run server -- \
-  --browser-url http://chromium-server-1:9222 \
-  --browser-url http://chromium-server-2:9222 \
-  --s3-endpoint http://seaweedfs:8333 --s3-bucket browserhive \
-  --s3-access-key-id "$BROWSERHIVE_S3_ACCESS_KEY_ID" \
-  --s3-secret-access-key "$BROWSERHIVE_S3_SECRET_ACCESS_KEY" \
-  --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key \
-  --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" \
-  | pino-pretty
-```
-
-### Calling the server
-
-When TLS is enabled, point clients at the HTTPS URL and supply the CA bundle.
-
-For curl, use `--cacert`:
-
-```bash
-curl --cacert ./certs/sample-ca.crt https://localhost:8080/v1/status
-```
-
-For Node-based clients (including `examples/data-client.ts`), set `NODE_EXTRA_CA_CERTS=/path/to/ca.crt` before starting the process — Node's global `fetch` will pick the additional trust anchor up automatically:
-
-```sh
-NODE_EXTRA_CA_CERTS=./certs/sample-ca.crt \
-  node dist/examples/data-client.js \
-    --data data/smoke-test.yaml \
-    --server https://localhost:8080 \
-    --webp --html --limit 50 \
-    --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
-  | pino-pretty
-```
-
 ## State Machines
 
 The system uses [XState v5](https://stately.ai/docs) state machines with a Parent-Child Actor Model. See [docs/state-machines.md](docs/state-machines.md) for the lifecycle diagrams (`coordinatorMachine`, `captureWorkerMachine`) and the worker health-state table.
