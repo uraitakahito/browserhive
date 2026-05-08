@@ -32,10 +32,22 @@ export interface StorageConfig {
   keyPrefix?: string;
   /**
    * SeaweedFS (and most S3-compatible self-hosted stores) require
-   * path-style addressing (`endpoint/bucket/key`) because the endpoint
-   * hostname does not match the bucket. AWS S3 supports
-   * virtual-hosted-style by default. Defaults to `true` so the bundled
-   * SeaweedFS works out of the box.
+   * path-style addressing because the endpoint hostname does not match
+   * the bucket. The two URL shapes, for `bucket=browserhive`,
+   * `key=foo.png`:
+   *
+   *   - Virtual-hosted-style (`forcePathStyle: false`):
+   *       `https://browserhive.s3.amazonaws.com/foo.png`
+   *     Bucket as a subdomain. Works on AWS via the
+   *     `*.s3.amazonaws.com` wildcard DNS; fails on self-hosted
+   *     because e.g. `browserhive.seaweedfs:8333` does not resolve.
+   *   - Path-style (`forcePathStyle: true`):
+   *       `http://seaweedfs:8333/browserhive/foo.png`
+   *     Bucket in the path, host stays as the configured endpoint.
+   *     Single-hostname services (SeaweedFS / MinIO / Ceph / …)
+   *     resolve correctly.
+   *
+   * Defaults to `true` so the bundled SeaweedFS works out of the box.
    */
   forcePathStyle?: boolean;
 }
