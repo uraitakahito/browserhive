@@ -60,9 +60,9 @@
     "yaml": "YAML 1.2 parser used by examples/data-client.ts to read data/*.yaml fixtures (replaces the previous CSV format so entries can carry inline comments)."
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1041.0",
+    "@aws-sdk/client-s3": "^3.1045.0",
     "ajv": "^8.17.1",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "commander": "^14.0.2",
     "fastify": "^5.2.0",
     "pino": "^10.1.0",
