@@ -21,7 +21,10 @@ jobs:
       - run: npm run openapi:gen-operations
       - uses: reviewdog/action-eslint@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Dependabot PR では GITHUB_TOKEN が read-only に降格 + Actions secrets が
+          # 隔離されるため、Dependabot/Actions の両 secret store に同名で登録した
+          # Fine-grained PAT (REVIEWDOG_PAT) を使う。両 trigger 経路で同じ参照式が解決される。
+          github_token: ${{ secrets.REVIEWDOG_PAT }}
           reporter: github-pr-review
           eslint_flags: '. --max-warnings 0'
           fail_level: warning
