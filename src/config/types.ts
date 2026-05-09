@@ -177,10 +177,7 @@ export interface ClientTlsConfig {
 
 /** BrowserHive configuration */
 export interface BrowserHiveConfig {
-  /** HTTP server port */
-  port: number;
-  /** TLS configuration (insecure if undefined) */
-  tls?: TlsConfig;
+  http: HttpServerConfig;
   coordinator: CoordinatorConfig;
 }
 

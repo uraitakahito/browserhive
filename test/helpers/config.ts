@@ -101,8 +101,10 @@ export const createTestCoordinatorConfig = (
 export const createTestBrowserHiveConfig = (
   overrides: DeepPartial<BrowserHiveConfig> = {}
 ): BrowserHiveConfig => ({
-  port: overrides.port ?? DEFAULT_BROWSERHIVE_CONFIG.port,
-  ...(overrides.tls && { tls: overrides.tls }),
+  http: {
+    port: overrides.http?.port ?? DEFAULT_BROWSERHIVE_CONFIG.http.port,
+    ...(overrides.http?.tls && { tls: overrides.http.tls }),
+  },
   coordinator: createTestCoordinatorConfig(overrides.coordinator),
 });
 

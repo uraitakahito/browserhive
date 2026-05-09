@@ -139,7 +139,7 @@ export const DEFAULT_COORDINATOR_CONFIG = {
  * exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
  */
 export const DEFAULT_BROWSERHIVE_CONFIG = {
-  port: 8080,
+  http: { port: 8080 },
   coordinator: DEFAULT_COORDINATOR_CONFIG,
 } satisfies Omit<BrowserHiveConfig, "coordinator"> & {
   coordinator: typeof DEFAULT_COORDINATOR_CONFIG;
