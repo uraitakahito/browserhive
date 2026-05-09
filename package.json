@@ -11,11 +11,7 @@
     "pre*/post* hooks": [
       "Scripts named `pre<name>` and `post<name>` are npm lifecycle hooks:",
       "when you run `npm run <name>`, npm automatically runs pre<name> first,",
-      "then <name>, then post<name>. The chain is wired by npm from the name",
-      "alone — there is no reference from build/test/lint:source to the pre*",
-      "scripts below. So `npm run build` actually runs prebuild → build,",
-      "`npm test` runs pretest → test, and `npm run lint:source` runs",
-      "prelint:source → lint:source.",
+      "then <name>, then post<name>.",
       "`npm run lint` itself is an orchestrator (lint:source && lint:openapi)",
       "and intentionally has no `prelint` hook — the codegen prerequisite is",
       "attached to `prelint:source` alone so it fires exactly once whether the",
