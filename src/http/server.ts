@@ -2,9 +2,7 @@
  * HTTP Server
  *
  * Fastify-based HTTP transport for the Capture API. Owns route
- * registration, validation wiring, and graceful shutdown; the
- * CaptureCoordinator is injected so the same coordinator instance can
- * be reused across server lifecycles in tests.
+ * registration, validation wiring, and graceful shutdown.
  *
  * Validation strategy:
  *   - openapi.yaml is the single source of truth.

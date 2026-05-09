@@ -7,14 +7,6 @@
  * the resolved `StorageConfig`; this class is unaware of CLI / env
  * handling.
  *
- * Naming: the `S3Compatible` prefix is intentional. `@aws-sdk/client-s3`
- * speaks the S3 wire protocol, but the protocol is implemented by many
- * vendors beyond AWS itself — naming the class `S3CompatibleArtifactStore`
- * keeps that fact load-bearing in the type so a future reader doesn't
- * mistake it for AWS-only. If a non-S3-API backend is ever added (GCS,
- * Azure Blob, …), it would land as a sibling implementation
- * (`ObjectStorageArtifactStore` etc.) rather than getting folded in here.
- *
  * `initialize()` runs `HeadBucket` once at startup so misconfigured
  * deployments fail fast — without it, the operator would only learn
  * about a missing bucket / wrong credentials when the first capture
