@@ -12,7 +12,7 @@ How BrowserHive turns a single Chromium capture into a
 ├── pages/
 │   └── pages.jsonl                      # page-list (single entry, this capture)
 ├── indexes/
-│   └── index.cdx.gz                     # CDXJ — surt-sorted, gzipped
+│   └── index.cdxj                       # CDXJ — surt-sorted, plain (see gotcha below)
 ├── fuzzy.json                           # cache-buster strip-rule list (Phase 6.4)
 └── datapackage.json                     # manifest — sha256 + bytes per file
 ```
