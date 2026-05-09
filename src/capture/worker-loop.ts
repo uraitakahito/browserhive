@@ -68,7 +68,6 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
                 ...(task.correlationId && { correlationId: task.correlationId }),
                 url: task.url,
                 ...(result.linksLocation && { linksLocation: result.linksLocation }),
-                ...(result.pdfLocation && { pdfLocation: result.pdfLocation }),
                 ...(result.mhtmlLocation && { mhtmlLocation: result.mhtmlLocation }),
                 ...(result.waczLocation && { waczLocation: result.waczLocation }),
                 ...(result.waczStats && { waczStats: result.waczStats }),

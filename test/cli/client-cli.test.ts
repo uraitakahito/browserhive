@@ -80,26 +80,6 @@ describe("client-cli parseClientOptions", () => {
     expect("acceptLanguage" in opts).toBe(false);
   });
 
-  it("--pdf を渡すと captureFormats.pdf が true になる", () => {
-    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--pdf"));
-    expect(opts.pdf).toBe(true);
-    expect(getCaptureFormats(opts)).toEqual({
-      png: false,
-      webp: false,
-      html: false,
-      links: false,
-      pdf: true,
-      mhtml: false,
-      wacz: false,
-    });
-  });
-
-  it("--pdf 未指定なら getCaptureFormats が pdf:false を返す", () => {
-    const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--png"));
-    expect(opts.pdf).toBeUndefined();
-    expect(getCaptureFormats(opts).pdf).toBe(false);
-  });
-
   it("--mhtml を渡すと captureFormats.mhtml が true になる", () => {
     const opts = parseClientOptions(argv("--data", "data/smoke-test.yaml", "--mhtml"));
     expect(opts.mhtml).toBe(true);
@@ -108,7 +88,6 @@ describe("client-cli parseClientOptions", () => {
       webp: false,
       html: false,
       links: false,
-      pdf: false,
       mhtml: true,
       wacz: false,
     });
@@ -128,7 +107,6 @@ describe("client-cli parseClientOptions", () => {
       webp: false,
       html: false,
       links: false,
-      pdf: false,
       mhtml: false,
       wacz: true,
     });

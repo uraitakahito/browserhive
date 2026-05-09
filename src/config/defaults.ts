@@ -84,15 +84,15 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     // Layer B outer task budget. Sized to be larger than the worst-case
     // sum of inner Layer A bounds in PageCapturer.capture:
     //   pageLoad(30s) + dynamic-wait(5s) + addStyleTag(5s) + dismissBanners(5s)
-    //   + 4 × capture(10s) = 85s. (newPage / page.close are no longer in the
+    //   + 3 × capture(10s) = 75s. (newPage / page.close are no longer in the
     //   sum: BrowserClient holds a single Chromium tab for the worker's whole
-    //   lifetime and capture only navigates it. The 4 × capture term covers
-    //   PNG + WebP + HTML + PDF in the all-formats-on case; link extraction
-    //   shares the same per-call budget but is rarely combined with all four.)
-    // 100s leaves a 15s buffer for un-wrapped CDP single calls (setViewport /
+    //   lifetime and capture only navigates it. The 3 × capture term covers
+    //   PNG + WebP + HTML in the all-formats-on case; link extraction
+    //   shares the same per-call budget but is rarely combined with all three.)
+    // 100s leaves a 25s buffer for un-wrapped CDP single calls (setViewport /
     // setUserAgent / setExtraHTTPHeaders) and for the redirect-aware retry in
     // runOnStableContext (see page-capturer.ts: a single helper call can burn
-    // up to ~39s on screenshot/content/pdf if every attempt hits destroyed-context).
+    // up to ~39s on screenshot/content if every attempt hits destroyed-context).
     // Layer B must always exceed the Layer A sum so that a hang in the
     // un-wrapped gap is the only thing this safety net catches — never a
     // steady-state success. Tune via --task-timeout / BROWSERHIVE_TASK_TIMEOUT_MS.
