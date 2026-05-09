@@ -22,7 +22,6 @@ export type ArtifactContentType =
   | "image/webp"
   | "text/html"
   | "application/json"
-  | "application/pdf"
   | "multipart/related"
   | "application/wacz+zip";
 

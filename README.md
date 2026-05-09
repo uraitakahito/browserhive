@@ -4,7 +4,7 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 
 - **Fire-and-forget pattern**: Requests are accepted immediately and processed asynchronously
 - **Capture coordinator**: Multiple workers process capture tasks concurrently
-- **Multiple output formats**: PNG / WebP screenshots, HTML capture, PDF rendering (Chromium print pipeline, A4), MHTML single-file archives (CDP `Page.captureSnapshot`), and WACZ replayable archives (full network session, replay via [ReplayWeb.page](https://replayweb.page/))
+- **Multiple output formats**: PNG / WebP screenshots, HTML capture, MHTML single-file archives (CDP `Page.captureSnapshot`), and WACZ replayable archives (full network session, replay via [ReplayWeb.page](https://replayweb.page/))
 - **S3-compatible artifact storage**: Every captured artifact is uploaded to a configured S3 bucket (SeaweedFS, AWS S3, Cloudflare R2, …) as `s3://<bucket>/[<keyPrefix>/]<filename>`.
 - **Link extraction**: Optional `<a href>` extraction uploaded as `{taskId}_..._labels.links.json` alongside the screenshots — designed for use as the discovery side of an external crawl driver
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF

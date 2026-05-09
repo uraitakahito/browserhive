@@ -20,7 +20,7 @@ curl -s -X POST http://localhost:8080/v1/captures \
     "labels": ["example"],
     "captureFormats": {
       "png": false, "webp": false, "html": false,
-      "links": false, "pdf": false, "mhtml": false,
+      "links": false, "mhtml": false,
       "wacz": true
     }
   }'

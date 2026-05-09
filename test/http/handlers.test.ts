@@ -49,7 +49,7 @@ const buildApp = (stub: CoordinatorStub): FastifyInstance => {
 const validBody = {
   url: "https://example.com",
   labels: ["my-label"],
-  captureFormats: { png: true, webp: false, html: false, links: false, pdf: false },
+  captureFormats: { png: true, webp: false, html: false, links: false },
 };
 
 describe("submitCapture handler", () => {
@@ -92,7 +92,7 @@ describe("submitCapture handler", () => {
       url: "/v1/captures",
       payload: {
         ...validBody,
-        captureFormats: { png: false, webp: false, html: false, links: false, pdf: false },
+        captureFormats: { png: false, webp: false, html: false, links: false },
       },
     });
     expect(response.statusCode).toBe(400);
@@ -311,7 +311,7 @@ describe("getStatus handler", () => {
                 labels: ["x"],
                 url: "https://example.com/slow",
                 retryCount: 0,
-                captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false, wacz: false },
+                captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
                 resetState: DEFAULT_RESET_STATE_OPTIONS,
                               enqueuedAt: "2024-01-01T00:00:00.000Z",
               },
@@ -355,7 +355,7 @@ describe("getStatus handler", () => {
               labels: [],
               url: "https://example.com/running",
               retryCount: 0,
-              captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false, wacz: false },
+              captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
               resetState: DEFAULT_RESET_STATE_OPTIONS,
               enqueuedAt,
             },

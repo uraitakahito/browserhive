@@ -102,7 +102,6 @@ describe("S3CompatibleArtifactStore.put", () => {
     await store.put("a.webp", Buffer.from(""), "image/webp");
     await store.put("a.html", "", "text/html");
     await store.put("a.links.json", "{}", "application/json");
-    await store.put("a.pdf", Buffer.from(""), "application/pdf");
 
     const types = s3Mock
       .commandCalls(PutObjectCommand)
@@ -112,7 +111,6 @@ describe("S3CompatibleArtifactStore.put", () => {
       "image/webp",
       "text/html",
       "application/json",
-      "application/pdf",
     ]);
   });
 

@@ -49,7 +49,7 @@ export interface CaptureTask {
   /**
    * Per-request override for `screenshot.fullPage`. When defined, takes
    * precedence over `CaptureConfig.screenshot.fullPage` for this task only.
-   * Has no effect on HTML / links / PDF formats.
+   * Has no effect on HTML / links formats.
    */
   fullPage?: boolean;
   /**
@@ -92,8 +92,6 @@ export interface CaptureResult {
   htmlLocation?: string;
   /** Location of the extracted links JSON (only set when `task.captureFormats.links` is true) */
   linksLocation?: string;
-  /** Location of the rendered PDF (only set when `task.captureFormats.pdf` is true) */
-  pdfLocation?: string;
   /** Location of the rendered MHTML archive (only set when `task.captureFormats.mhtml` is true) */
   mhtmlLocation?: string;
   /** Location of the WACZ archive (only set when `task.captureFormats.wacz` is true) */
