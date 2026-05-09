@@ -6,13 +6,13 @@ How BrowserHive turns a single Chromium capture into a
 ## File layout
 
 ```
-{taskId}_..._labels.wacz                 # zip archive uploaded to S3
+{taskId}_..._labels.wacz                 # zip archive
 ├── archive/
 │   └── data.warc.gz                     # WARC 1.1 — every HTTP exchange
 ├── pages/
 │   └── pages.jsonl                      # page-list (single entry, this capture)
 ├── indexes/
-│   └── index.cdx.gz                     # CDXJ — surt-sorted, gzipped
+│   └── index.cdxj                       # CDXJ — surt-sorted, plain (see gotcha below)
 ├── fuzzy.json                           # cache-buster strip-rule list (Phase 6.4)
 └── datapackage.json                     # manifest — sha256 + bytes per file
 ```
@@ -183,20 +183,3 @@ HTTP/1.1-shaped regardless of upstream transport.
   captures.
 - **Default block-list traffic** (`google-analytics.com` etc.) —
   recorded as nothing. Override with `--wacz-block-pattern`.
-
-## Source map
-
-| File | Role |
-|---|---|
-| `src/storage/warc/types.ts` | WARC record / HTTP byte input types |
-| `src/storage/warc/digest.ts` | sha256 base32 (WARC) + sha256 hex (WACZ) |
-| `src/storage/warc/writer.ts` | Gzipped per-record serializer + `WarcRecordWriteInfo` |
-| `src/storage/warc/builders.ts` | `warcinfo` / `request` / `response` / `metadata` constructors + HTTP byte builders |
-| `src/storage/wacz/cdxj.ts` | SURT URL transform + CDXJ line builder |
-| `src/storage/wacz/pages.ts` | `pages.jsonl` builder (header + entries) |
-| `src/storage/wacz/datapackage.ts` | `datapackage.json` builder (sha256:hex hashes) |
-| `src/storage/wacz/fuzzy.ts` | `fuzzy.json` strip-rule builder |
-| `src/storage/wacz/packager.ts` | End-to-end zip assembly |
-| `src/capture/network-recorder.ts` | CDP observer + write queue + per-task lifecycle |
-| `src/capture/network-recorder-types.ts` | `RecordingFilters` / `RecordingLimits` / `RecordingStats` / `RecordedResponse` |
-| `src/capture/page-capturer.ts` (`captureWacz` / `WaczCaptureConfig`) | Recorder lifecycle wrapping the existing capture flow |
