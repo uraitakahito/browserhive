@@ -21,7 +21,7 @@ flowchart TB
         CLI[Data Client / curl / hey-api SDK]
     end
 
-    subgraph BrowserHive["BrowserHive"]
+    subgraph BrowserHive["BrowserHive Server"]
         direction TB
         Server[HTTP Server<br/>Fastify]
         subgraph Handlers["Handlers"]
