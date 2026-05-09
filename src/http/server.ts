@@ -30,7 +30,7 @@ import Fastify, {
   type FastifyError,
 } from "fastify";
 import type { CaptureCoordinator } from "../capture/index.js";
-import type { TlsConfig } from "../config/index.js";
+import type { HttpServerConfig } from "../config/index.js";
 import { logger } from "../logger.js";
 import { INLINE_FORMATS } from "./ajv-formats-inline.js";
 import { createCaptureHandlers, type CaptureHandlers } from "./handlers.js";
@@ -165,11 +165,6 @@ const registerOperation = (
     handler: handlers[operationId],
   });
 };
-
-export interface HttpServerConfig {
-  port: number;
-  tls?: TlsConfig;
-}
 
 /**
  * Hard timeout for `fastify.close()`. If the server cannot drain

@@ -161,6 +161,12 @@ export interface TlsConfig {
   keyPath: string;
 }
 
+/** HTTP server configuration consumed by `HttpServer`. */
+export interface HttpServerConfig {
+  port: number;
+  tls?: TlsConfig;
+}
+
 /** Client TLS configuration */
 export interface ClientTlsConfig {
   /** Whether to enable TLS */
