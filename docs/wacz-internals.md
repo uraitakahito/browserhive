@@ -6,7 +6,7 @@ How BrowserHive turns a single Chromium capture into a
 ## File layout
 
 ```
-{taskId}_..._labels.wacz                 # zip archive uploaded to S3
+{taskId}_..._labels.wacz                 # zip archive
 ├── archive/
 │   └── data.warc.gz                     # WARC 1.1 — every HTTP exchange
 ├── pages/
