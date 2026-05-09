@@ -2,9 +2,7 @@
  * HTTP Server
  *
  * Fastify-based HTTP transport for the Capture API. Owns route
- * registration, validation wiring, and graceful shutdown; the
- * CaptureCoordinator is injected so the same coordinator instance can
- * be reused across server lifecycles in tests.
+ * registration, validation wiring, and graceful shutdown.
  *
  * Validation strategy:
  *   - openapi.yaml is the single source of truth.
@@ -32,7 +30,7 @@ import Fastify, {
   type FastifyError,
 } from "fastify";
 import type { CaptureCoordinator } from "../capture/index.js";
-import type { TlsConfig } from "../config/index.js";
+import type { HttpServerConfig } from "../config/index.js";
 import { logger } from "../logger.js";
 import { INLINE_FORMATS } from "./ajv-formats-inline.js";
 import { createCaptureHandlers, type CaptureHandlers } from "./handlers.js";
@@ -167,11 +165,6 @@ const registerOperation = (
     handler: handlers[operationId],
   });
 };
-
-export interface HttpServerConfig {
-  port: number;
-  tls?: TlsConfig;
-}
 
 /**
  * Hard timeout for `fastify.close()`. If the server cannot drain

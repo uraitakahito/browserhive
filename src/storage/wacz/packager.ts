@@ -22,7 +22,7 @@
 import { Buffer } from "node:buffer";
 import { createWriteStream, readFile } from "node:fs";
 import { stat } from "node:fs/promises";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import type { RecordedResponse } from "../../capture/network-recorder-types.js";
 import { buildCdxjIndex } from "./cdxj.js";
 import { buildPagesJsonl } from "./pages.js";
@@ -153,7 +153,7 @@ export const packWacz = async (
   // double-compressing would only inflate). Other entries default to DEFLATE.
   await new Promise<void>((resolve, reject) => {
     const output = createWriteStream(input.waczPath);
-    const zip = archiver("zip", { zlib: { level: 6 } });
+    const zip = new ZipArchive({ zlib: { level: 6 } });
 
     output.on("close", () => {
       resolve();
