@@ -236,7 +236,6 @@ const STABLE_CONTEXT_MAX_RETRIES = 2;
  *   * hideScrollbars       : (5s + 3s) * 3 = 24s
  *   * screenshot           : (10s + 3s) * 3 = 39s   (per format)
  *   * content (HTML)       : (10s + 3s) * 3 = 39s
- *   * pdf                  : (10s + 3s) * 3 = 39s
  *
  * Layer B (`taskTotal=100s`) covers the realistic case where at most one or
  * two operations actually hit a retry; if production traffic ever drives the
@@ -682,7 +681,6 @@ export class PageCapturer {
       let webpLocation: string | undefined;
       let htmlLocation: string | undefined;
       let linksLocation: string | undefined;
-      let pdfLocation: string | undefined;
       let mhtmlLocation: string | undefined;
 
       if (task.captureFormats.png) {
@@ -699,10 +697,6 @@ export class PageCapturer {
 
       if (task.captureFormats.links) {
         linksLocation = await this.captureLinks(page, task);
-      }
-
-      if (task.captureFormats.pdf) {
-        pdfLocation = await this.capturePdf(page, task);
       }
 
       if (task.captureFormats.mhtml) {
@@ -755,7 +749,6 @@ export class PageCapturer {
         ...(webpLocation !== undefined && { webpLocation }),
         ...(htmlLocation !== undefined && { htmlLocation }),
         ...(linksLocation !== undefined && { linksLocation }),
-        ...(pdfLocation !== undefined && { pdfLocation }),
         ...(mhtmlLocation !== undefined && { mhtmlLocation }),
         ...(waczLocation !== undefined && { waczLocation }),
         ...(waczStats !== undefined && { waczStats }),
@@ -926,37 +919,13 @@ export class PageCapturer {
   }
 
   /**
-   * Render the page to PDF via Chromium's print pipeline. Same redirect
-   * hazard as the screenshot/content paths — `page.pdf` walks the layout
-   * tree under the live execution context, so destroyed-context rejections
-   * during a follow-up navigation are recovered by `runOnStableContext`.
-   *
-   * Print-oriented defaults: A4 with `printBackground: true`, leaving the
-   * media type at the default `print`. Distinct from the PNG/WebP path,
-   * which captures the `screen` rendering — PDF is positioned as the
-   * archival / print artifact.
-   */
-  private async capturePdf(page: Page, task: CaptureTask): Promise<string> {
-    const filename = generateFilename(task, "pdf");
-
-    const pdfBuffer = await runOnStableContext(
-      page,
-      () => page.pdf({ format: "A4", printBackground: true }),
-      `PDF capture of ${task.url}`,
-      this.config.timeouts.capture,
-    );
-
-    return this.store.put(filename, Buffer.from(pdfBuffer), "application/pdf");
-  }
-
-  /**
    * Capture the rendered page as an MHTML single-file archive via Chromium's
    * CDP `Page.captureSnapshot`. The resulting `multipart/related` body
    * embeds every CSS / image / font / inline script reachable from the
    * document, so the saved file renders faithfully when opened offline —
    * the raw `html` format alone breaks every relative URL.
    *
-   * Same redirect hazard as the screenshot/content/pdf paths: the snapshot
+   * Same redirect hazard as the screenshot/content paths: the snapshot
    * walks the live render tree, so a JS-redirect landing during the call
    * rejects with destroyed-context. Routing through `runOnStableContext`
    * recovers the same way.

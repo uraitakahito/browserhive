@@ -10,7 +10,7 @@
  *     defined (including the explicit `false` case).
  *   - `task.fullPage` absent → `config.screenshot.fullPage` is used.
  *
- * Mirrors the mock-page approach used in `page-capturer-pdf.test.ts`.
+ * Uses a mock page that records each puppeteer-level call.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Page } from "puppeteer";
@@ -32,7 +32,6 @@ interface MockPage {
   addStyleTag: ReturnType<typeof vi.fn>;
   content: ReturnType<typeof vi.fn>;
   screenshot: ReturnType<typeof vi.fn>;
-  pdf: ReturnType<typeof vi.fn>;
   url: ReturnType<typeof vi.fn>;
   createCDPSession: ReturnType<typeof vi.fn>;
 }
@@ -57,7 +56,6 @@ const buildMockPage = (): MockPage => ({
   addStyleTag: vi.fn().mockResolvedValue(undefined),
   content: vi.fn().mockResolvedValue("<html></html>"),
   screenshot: vi.fn().mockResolvedValue(Buffer.from("scr")),
-  pdf: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.4 fake")),
   url: vi.fn().mockReturnValue("https://example.com/"),
   createCDPSession: vi.fn().mockResolvedValue(buildMockCDPSession()),
 });
@@ -69,7 +67,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["test"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false, wacz: false },
+  captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
@@ -187,7 +185,7 @@ describe("PageCapturer.capture — fullPage override", () => {
     await capturer.capture(
       asPage(page),
       buildTask({
-        captureFormats: { png: false, webp: true, html: false, links: false, pdf: false, mhtml: false, wacz: false },
+        captureFormats: { png: false, webp: true, html: false, links: false, mhtml: false, wacz: false },
         fullPage: true,
       }),
       0,

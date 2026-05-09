@@ -11,7 +11,7 @@
  *
  * ## Capture format flags
  *
- * `--png` / `--webp` / `--html` / `--links` / `--pdf` / `--mhtml` /
+ * `--png` / `--webp` / `--html` / `--links` / `--mhtml` /
  * `--wacz` のうち少なくとも 1 つを指定する必要がある（サーバ側で
  * `validateCaptureFormats` がチェック）。
  *

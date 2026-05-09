@@ -1,6 +1,6 @@
 # Storage
 
-Captured artifacts (PNG / WebP / HTML / links JSON / PDF / MHTML / WACZ) are uploaded
+Captured artifacts (PNG / WebP / HTML / links JSON / MHTML / WACZ) are uploaded
 to an S3-compatible object store via `@aws-sdk/client-s3`. Anything that
 speaks the S3 API works — self-hosted SeaweedFS (the bundled default),
 AWS S3, Cloudflare R2, MinIO-compatible managed services.

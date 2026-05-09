@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     Web page capture API. Submits URLs to capture as PNG/WebP screenshots,
-    HTML, PDF, or MHTML (single-file archive). Uses fire-and-forget
+    HTML, or MHTML (single-file archive). Uses fire-and-forget
     pattern: requests are accepted immediately and processed asynchronously
     by the capture coordinator.
   license:
@@ -74,7 +74,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   dismissBanners: true
@@ -93,7 +92,6 @@ paths:
                     webp: false
                     html: true
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   acceptLanguage: ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7
@@ -111,26 +109,6 @@ paths:
                     webp: false
                     html: false
                     links: true
-                    pdf: false
-                    mhtml: false
-                    wacz: false
-              pdfOnly:
-                summary: Render the page to PDF only
-                description: |
-                  Skips raster screenshot / HTML / link extraction and
-                  writes only the PDF rendering as
-                  `{taskId}_..._labels.pdf`. Uses Chromium's print
-                  pipeline (`print` media type, A4, `printBackground:
-                  true`).
-                value:
-                  url: https://www.example.com/
-                  labels: [example]
-                  captureFormats:
-                    png: false
-                    webp: false
-                    html: false
-                    links: false
-                    pdf: true
                     mhtml: false
                     wacz: false
               waczOnly:
@@ -156,13 +134,12 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: true
               mhtmlOnly:
                 summary: Capture as MHTML single-file archive
                 description: |
-                  Skips raster screenshot / HTML / link extraction / PDF
+                  Skips raster screenshot / HTML / link extraction
                   and writes only an MHTML archive as
                   `{taskId}_..._labels.mhtml`. Uses Chromium's
                   `Page.captureSnapshot` CDP method to embed every CSS /
@@ -181,7 +158,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: true
                     wacz: false
               dismissBannersInline:
@@ -200,7 +176,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   dismissBanners:
@@ -227,7 +202,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   viewport:
@@ -248,7 +222,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   fullPage: true
@@ -271,7 +244,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   dismissBanners:
@@ -297,7 +269,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   resetState:
@@ -320,7 +291,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   resetState: false
@@ -343,7 +313,6 @@ paths:
                     webp: false
                     html: false
                     links: false
-                    pdf: false
                     mhtml: false
                     wacz: false
                   resetState:
@@ -413,7 +382,7 @@ components:
     CaptureFormats:
       type: object
       description: Capture format flags. At least one must be true.
-      required: [png, webp, html, links, pdf, mhtml, wacz]
+      required: [png, webp, html, links, mhtml, wacz]
       additionalProperties: false
       properties:
         png:
@@ -436,16 +405,6 @@ components:
             list as `{taskId}_..._labels.links.json` to the configured
             S3 bucket (same naming pattern as the other capture formats).
             Useful as the discovery side of an external crawl driver.
-        pdf:
-          type: boolean
-          description: |
-            Render the page to PDF and upload it as
-            `{taskId}_..._labels.pdf` to the configured S3 bucket (same
-            naming pattern as the other capture formats). Uses Chromium's
-            print pipeline with the `print` CSS media type and
-            `printBackground: true`; the page format is fixed to A4.
-            Distinct from the PNG / WebP screenshot path — PDF is intended
-            for archival / print-oriented use cases.
         mhtml:
           type: boolean
           description: |
@@ -617,9 +576,7 @@ components:
             `--screenshot-full-page` / `BROWSERHIVE_SCREENSHOT_FULL_PAGE`;
             the built-in default is `false`).
 
-            Has no effect on the `html` / `links` / `pdf` formats — PDF
-            rendering uses Chromium's print pipeline (A4) and is unaffected
-            by this flag.
+            Has no effect on the `html` / `links` formats.
         resetState:
           oneOf:
             - type: boolean

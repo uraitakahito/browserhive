@@ -74,7 +74,6 @@ interface MockPage {
   addStyleTag: ReturnType<typeof vi.fn>;
   content: ReturnType<typeof vi.fn>;
   screenshot: ReturnType<typeof vi.fn>;
-  pdf: ReturnType<typeof vi.fn>;
   url: ReturnType<typeof vi.fn>;
   title: ReturnType<typeof vi.fn>;
   createCDPSession: ReturnType<typeof vi.fn>;
@@ -98,7 +97,6 @@ const buildMockPage = (
   addStyleTag: vi.fn().mockResolvedValue(undefined),
   content: vi.fn().mockResolvedValue("<html></html>"),
   screenshot: vi.fn().mockResolvedValue(Buffer.from("scr")),
-  pdf: vi.fn().mockResolvedValue(Buffer.from("pdf")),
   url: vi.fn().mockReturnValue("https://example.com/"),
   title: vi.fn().mockResolvedValue("Example"),
   createCDPSession: vi.fn().mockResolvedValue(cdpSession),
@@ -116,7 +114,6 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
     webp: false,
     html: false,
     links: false,
-    pdf: false,
     mhtml: false,
     wacz: true,
   },
@@ -220,7 +217,6 @@ describe("PageCapturer.capture — WACZ recording", () => {
         webp: false,
         html: false,
         links: false,
-        pdf: false,
         mhtml: false,
         wacz: false,
       },

@@ -1,12 +1,10 @@
 /**
  * PageCapturer integration test for MHTML rendering wiring.
  *
- * Mirrors `page-capturer-pdf.test.ts`. Uses `createTestArtifactStore()`
- * (in-memory FakeArtifactStore) to capture each `put()` call without
- * touching the network. The MHTML path differs from PDF in that it goes
- * through a CDP session rather than a high-level Puppeteer Page method,
- * so the mock CDP session's `send` is the assertion target instead of
- * `page.pdf`.
+ * Uses `createTestArtifactStore()` (in-memory FakeArtifactStore) to
+ * capture each `put()` call without touching the network. The MHTML path
+ * goes through a CDP session rather than a high-level Puppeteer Page
+ * method, so the mock CDP session's `send` is the assertion target.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Page } from "puppeteer";
@@ -33,7 +31,6 @@ interface MockPage {
   addStyleTag: ReturnType<typeof vi.fn>;
   content: ReturnType<typeof vi.fn>;
   screenshot: ReturnType<typeof vi.fn>;
-  pdf: ReturnType<typeof vi.fn>;
   url: ReturnType<typeof vi.fn>;
   createCDPSession: ReturnType<typeof vi.fn>;
   /** Set on demand by tests that exercise the destroyed-context retry path. */
@@ -86,7 +83,6 @@ const buildMockPage = (
   addStyleTag: vi.fn().mockResolvedValue(undefined),
   content: vi.fn().mockResolvedValue("<html></html>"),
   screenshot: vi.fn().mockResolvedValue(Buffer.from("scr")),
-  pdf: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.4 fake")),
   url: vi.fn().mockReturnValue("https://example.com/"),
   createCDPSession: vi.fn().mockResolvedValue(cdpSession),
 });
@@ -98,7 +94,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   labels: ["test"],
   url: "https://example.com",
   retryCount: 0,
-  captureFormats: { png: false, webp: false, html: false, links: false, pdf: false, mhtml: true, wacz: false },
+  captureFormats: { png: false, webp: false, html: false, links: false, mhtml: true, wacz: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
@@ -156,7 +152,7 @@ describe("PageCapturer.capture — MHTML rendering", () => {
     const result = await capturer.capture(
       asPage(page),
       buildTask({
-        captureFormats: { png: true, webp: false, html: false, links: false, pdf: false, mhtml: false, wacz: false },
+        captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
       }),
       0,
     );
