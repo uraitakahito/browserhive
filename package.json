@@ -104,7 +104,7 @@
     "@apidevtools/swagger-parser": "^10.1.0",
     "@eslint/js": "^10.0.1",
     "@hey-api/openapi-ts": "^0.97.0",
-    "@redocly/cli": "^2.30.3",
+    "@redocly/cli": "^2.30.4",
     "@types/archiver": "^7.0.0",
     "@types/estree": "^1.0.8",
     "@types/jsdom": "^28.0.1",
