@@ -213,8 +213,10 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
   };
 
   return {
-    port: opts.port,
-    ...(tls && { tls }),
+    http: {
+      port: opts.port,
+      ...(tls && { tls }),
+    },
     coordinator: {
       browserProfiles: opts.browserUrl.map((url) => ({ browserURL: url, capture })),
       storage: opts.storage,
@@ -238,7 +240,7 @@ export const createProgram = (): Command => {
     .addOption(
       new Option("--port <port>", "HTTP server port")
         .env("BROWSERHIVE_PORT")
-        .default(defaults.port)
+        .default(defaults.http.port)
         .argParser(parsePort),
     )
     .addOption(
@@ -657,9 +659,9 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
 
   logger.info(
     {
-      port: config.port,
-      tls: config.tls
-        ? { enabled: true, certPath: config.tls.certPath }
+      port: config.http.port,
+      tls: config.http.tls
+        ? { enabled: true, certPath: config.http.tls.certPath }
         : { enabled: false },
       browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL),
       storage: logSafeStorage(coordinator.storage),
@@ -705,10 +707,7 @@ export const startServer = async (
   config: BrowserHiveConfig,
 ): Promise<ServerControl> => {
   const coordinator = new CaptureCoordinator(config.coordinator);
-  const server = new HttpServer(coordinator, {
-    port: config.port,
-    ...(config.tls && { tls: config.tls }),
-  });
+  const server = new HttpServer(coordinator, config.http);
 
   await server.initialize();
   await server.start();

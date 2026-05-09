@@ -58,7 +58,7 @@ describe("server-cli parseCliOptions", () => {
         secretAccessKey: "test-secret-access-key-value",
         forcePathStyle: false,
       });
-      expect(config.port).toBe(8080);
+      expect(config.http.port).toBe(8080);
     });
 
     it("--s3-region と --s3-key-prefix の上書きが反映される", () => {
@@ -130,7 +130,7 @@ describe("server-cli parseCliOptions", () => {
 
       const config = parseCliOptions(argv());
 
-      expect(config.port).toBe(9090);
+      expect(config.http.port).toBe(9090);
       expect(config.coordinator.maxRetryCount).toBe(5);
       expect(config.coordinator.queuePollIntervalMs).toBe(200);
       const capture = config.coordinator.browserProfiles[0]?.capture;
@@ -161,7 +161,7 @@ describe("server-cli parseCliOptions", () => {
 
       const config = parseCliOptions(argv("--port", "8080"));
 
-      expect(config.port).toBe(8080);
+      expect(config.http.port).toBe(8080);
     });
   });
 
@@ -254,7 +254,7 @@ describe("server-cli parseCliOptions", () => {
 
       const config = parseCliOptions(argv("--tls-cert", "/etc/cert.pem"));
 
-      expect(config.tls).toEqual({
+      expect(config.http.tls).toEqual({
         enabled: true,
         certPath: "/etc/cert.pem",
         keyPath: "/etc/key.pem",

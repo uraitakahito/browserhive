@@ -7,6 +7,7 @@ export type {
   CoordinatorConfig,
   BrowserHiveConfig,
   BrowserProfile,
+  HttpServerConfig,
   ResetPageStateConfig,
   StorageConfig,
   TlsConfig,

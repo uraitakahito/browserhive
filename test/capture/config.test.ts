@@ -39,7 +39,7 @@ describe("DEFAULT_COORDINATOR_CONFIG", () => {
 
 describe("DEFAULT_BROWSERHIVE_CONFIG", () => {
   it("should have correct default port", () => {
-    expect(DEFAULT_BROWSERHIVE_CONFIG.port).toBe(8080);
+    expect(DEFAULT_BROWSERHIVE_CONFIG.http.port).toBe(8080);
   });
 
   it("should contain DEFAULT_COORDINATOR_CONFIG", () => {
@@ -143,12 +143,12 @@ describe("createTestCoordinatorConfig", () => {
 describe("createTestBrowserHiveConfig", () => {
   it("should return default config when no overrides", () => {
     const config = createTestBrowserHiveConfig();
-    expect(config.port).toBe(8080);
+    expect(config.http.port).toBe(8080);
   });
 
   it("should override port", () => {
-    const config = createTestBrowserHiveConfig({ port: 8080 });
-    expect(config.port).toBe(8080);
+    const config = createTestBrowserHiveConfig({ http: { port: 8080 } });
+    expect(config.http.port).toBe(8080);
   });
 
   it("should override nested coordinator config", () => {
