@@ -434,6 +434,24 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
  *  2. `cookies`: `Network.clearBrowserCookies` via CDP — cookies live on
  *     the browser, not the page, so the navigation alone doesn't drop them.
  *
+ * Upstream contract (load-bearing assumption)
+ * -------------------------------------------
+ * Step 1 only works as advertised when the upstream Chromium has bfcache
+ * (Back-Forward Cache) disabled. With bfcache enabled (the Chromium 86+
+ * default), `page.goto("about:blank")` does NOT destroy the previous
+ * document — it suspends it into the cache instead, leaving DOM listeners,
+ * in-flight timers, JS closures, and origin-scoped storage all alive
+ * across the task boundary. The "wipe" then becomes a silent no-op for
+ * everything except the URL bar, and per-task isolation is broken.
+ *
+ * `chromium-server-docker` disables bfcache via `--disable-back-forward-cache`
+ * in `chromium-{headless,headful}.conf` from version **0.3.0 onward**.
+ * Running BrowserHive against an older image (≤ 0.2.0) silently lets
+ * task-A state bleed into task B with no visible error — the reset
+ * appears to succeed, but the previous document is still resident.
+ * If you swap the upstream for a different image, ensure
+ * `--disable-back-forward-cache` is present in its launch flags.
+ *
  * Per-task control
  * ----------------
  * `options` is resolved at the request-mapper boundary (see
