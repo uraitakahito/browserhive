@@ -12,10 +12,6 @@
       "Scripts named `pre<name>` and `post<name>` are npm lifecycle hooks:",
       "when you run `npm run <name>`, npm automatically runs pre<name> first,",
       "then <name>, then post<name>.",
-      "`npm run lint` itself is an orchestrator (lint:source && lint:openapi)",
-      "and intentionally has no `prelint` hook — the codegen prerequisite is",
-      "attached to `prelint:source` alone so it fires exactly once whether the",
-      "user invokes `lint` or `lint:source` directly.",
       "Docs: https://docs.npmjs.com/cli/v10/using-npm/scripts#pre-and-post-scripts"
     ],
     "openapi:prep": "Composite of openapi:generate + openapi:gen-operations + openapi:bundle. Extracted so prebuild/pretest/prelint:source do not duplicate the chain. Redocly lint is intentionally NOT part of this chain — it is a contract-quality gate exposed as `lint:openapi`, not a code-generation prerequisite.",
