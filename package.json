@@ -66,11 +66,11 @@
     "commander": "^14.0.2",
     "fastify": "^5.2.0",
     "pino": "^10.1.0",
-    "puppeteer": "^24.33.0",
+    "puppeteer": "^24.43.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "xstate": "^5.30.0",
-    "yaml": "^2.8.3"
+    "xstate": "^5.31.1",
+    "yaml": "^2.9.0"
   },
   "//devDependencies": {
     "@apidevtools/swagger-parser": "Pre-dereferences openapi.yaml at build time (scripts/openapi-bundle.mjs). The output JSON is shipped instead of the YAML, so this is build-time only — not required at runtime.",
