@@ -55,9 +55,6 @@ services:
     build:
       context: ./chromium-server-docker
       dockerfile: docker/production/Dockerfile
-      args:
-        user_id: ${USER_ID}
-        group_id: ${GROUP_ID}
     container_name: chromium-server-1-prod
     init: true
     networks:
@@ -76,9 +73,6 @@ services:
     build:
       context: ./chromium-server-docker
       dockerfile: docker/production/Dockerfile
-      args:
-        user_id: ${USER_ID}
-        group_id: ${GROUP_ID}
     container_name: chromium-server-2-prod
     init: true
     networks:

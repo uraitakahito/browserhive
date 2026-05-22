@@ -1,78 +1,134 @@
 import { describe, it, expect } from "vitest";
-import { replaceWsUrlHost } from "../src/browser.js";
+import { applyIpToWsUrl, resolveWsUrlHost } from "../src/browser.js";
 
-describe("replaceWsUrlHost", () => {
-  it("should replace localhost with target host", () => {
-    const wsUrl = "ws://localhost/devtools/browser/abc123";
-    const targetHost = "chromium:9222";
+interface ApplyCase {
+  name: string;
+  wsUrl: string;
+  ip: string;
+  port: number | undefined;
+  family: 4 | 6;
+  expected: string;
+}
 
-    const result = replaceWsUrlHost(wsUrl, targetHost);
+const applyCases: ApplyCase[] = [
+  {
+    name: "IPv4 with explicit port",
+    wsUrl: "ws://localhost/devtools/browser/abc123",
+    ip: "192.168.117.4",
+    port: 9222,
+    family: 4,
+    expected: "ws://192.168.117.4:9222/devtools/browser/abc123",
+  },
+  {
+    name: "IPv4 without explicit port (preserves URL's existing port)",
+    wsUrl: "ws://localhost:9222/devtools/browser/abc123",
+    ip: "192.168.117.4",
+    port: undefined,
+    family: 4,
+    // URL.host = "192.168.117.4" keeps the original port.
+    expected: "ws://192.168.117.4:9222/devtools/browser/abc123",
+  },
+  {
+    name: "IPv6 wraps in brackets",
+    wsUrl: "ws://localhost/devtools/browser/abc123",
+    ip: "::1",
+    port: 9222,
+    family: 6,
+    expected: "ws://[::1]:9222/devtools/browser/abc123",
+  },
+  {
+    name: "IPv6 with full-form address",
+    wsUrl: "ws://localhost/path",
+    ip: "fd00:abcd::1",
+    port: 9222,
+    family: 6,
+    expected: "ws://[fd00:abcd::1]:9222/path",
+  },
+  {
+    name: "preserves multi-segment path",
+    wsUrl: "ws://localhost:9222/devtools/browser/aaaa-bbbb-cccc/extra/path",
+    ip: "10.0.0.1",
+    port: 9222,
+    family: 4,
+    expected: "ws://10.0.0.1:9222/devtools/browser/aaaa-bbbb-cccc/extra/path",
+  },
+  {
+    name: "preserves query string",
+    wsUrl: "ws://localhost:9222/devtools/browser/uuid-1234?param=value",
+    ip: "10.0.0.1",
+    port: 9222,
+    family: 4,
+    expected: "ws://10.0.0.1:9222/devtools/browser/uuid-1234?param=value",
+  },
+  {
+    name: "preserves wss scheme",
+    wsUrl: "wss://localhost:9222/devtools/browser/abc",
+    ip: "10.0.0.1",
+    port: 9222,
+    family: 4,
+    expected: "wss://10.0.0.1:9222/devtools/browser/abc",
+  },
+  {
+    name: "non-default port",
+    wsUrl: "ws://localhost:9222/path",
+    ip: "10.0.0.1",
+    port: 3000,
+    family: 4,
+    expected: "ws://10.0.0.1:3000/path",
+  },
+];
 
-    expect(result).toBe("ws://chromium:9222/devtools/browser/abc123");
+describe("applyIpToWsUrl", () => {
+  it.each(applyCases)("$name", ({ wsUrl, ip, port, family, expected }) => {
+    expect(applyIpToWsUrl(wsUrl, ip, port, family)).toBe(expected);
+  });
+});
+
+describe("resolveWsUrlHost", () => {
+  it("resolves localhost to a loopback IP literal", async () => {
+    // OS resolver-dependent: macOS / Linux Docker both resolve `localhost`
+    // to either 127.0.0.1 (family 4) or ::1 (family 6). Accept either.
+    const out = await resolveWsUrlHost(
+      "ws://localhost/devtools/browser/abc",
+      "localhost:9222",
+    );
+    expect(out).toMatch(
+      /^ws:\/\/(127\.0\.0\.1|\[::1\]):9222\/devtools\/browser\/abc$/,
+    );
   });
 
-  it("should replace localhost:port with target host", () => {
-    const wsUrl = "ws://localhost:9222/devtools/browser/abc123";
-    const targetHost = "puppeteer:9222";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    expect(result).toBe("ws://puppeteer:9222/devtools/browser/abc123");
+  it("resolves an IP literal back to the same IP literal", async () => {
+    // dns.lookup("192.168.1.1") returns { address: "192.168.1.1", family: 4 }.
+    // This guarantees no behaviour change for callers already passing IPs.
+    const out = await resolveWsUrlHost(
+      "ws://localhost/devtools/browser/abc",
+      "192.168.1.1:9222",
+    );
+    expect(out).toBe("ws://192.168.1.1:9222/devtools/browser/abc");
   });
 
-  it("should preserve path and query parameters", () => {
-    const wsUrl = "ws://localhost:9222/devtools/browser/uuid-1234?param=value";
-    const targetHost = "browser-host:9222";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    expect(result).toBe("ws://browser-host:9222/devtools/browser/uuid-1234?param=value");
+  it("preserves URL's existing port when targetHost has no port", async () => {
+    const out = await resolveWsUrlHost(
+      "ws://localhost:9222/devtools/browser/abc",
+      "localhost",
+    );
+    expect(out).toMatch(
+      /^ws:\/\/(127\.0\.0\.1|\[::1\]):9222\/devtools\/browser\/abc$/,
+    );
   });
 
-  it("should handle different port numbers", () => {
-    const wsUrl = "ws://localhost:9222/path";
-    const targetHost = "browser:3000";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    expect(result).toBe("ws://browser:3000/path");
+  it("propagates DNS resolution failures", async () => {
+    await expect(
+      resolveWsUrlHost(
+        "ws://localhost/devtools/browser/abc",
+        "this-host-definitely-does-not-exist-xyz123.invalid:9222",
+      ),
+    ).rejects.toThrow(/ENOTFOUND|EAI_AGAIN|getaddrinfo/);
   });
 
-  it("should handle IP address as target host", () => {
-    const wsUrl = "ws://localhost/devtools/browser/123";
-    const targetHost = "192.168.1.100:9222";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    expect(result).toBe("ws://192.168.1.100:9222/devtools/browser/123");
-  });
-
-  it("should handle wss protocol", () => {
-    const wsUrl = "wss://localhost:9222/devtools/browser/abc";
-    const targetHost = "secure-browser:9222";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    expect(result).toBe("wss://secure-browser:9222/devtools/browser/abc");
-  });
-
-  it("should handle target host without port (keeps original port)", () => {
-    // Note: When setting host without port, the URL API keeps the original port
-    const wsUrl = "ws://localhost:9222/devtools";
-    const targetHost = "browser-only-host";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    // The host property includes port, so setting just hostname keeps the port
-    expect(result).toBe("ws://browser-only-host:9222/devtools");
-  });
-
-  it("should handle complex paths", () => {
-    const wsUrl = "ws://localhost:9222/devtools/browser/aaaa-bbbb-cccc-dddd/extra/path";
-    const targetHost = "chromium-server:9222";
-
-    const result = replaceWsUrlHost(wsUrl, targetHost);
-
-    expect(result).toBe("ws://chromium-server:9222/devtools/browser/aaaa-bbbb-cccc-dddd/extra/path");
+  it("rejects empty hostname", async () => {
+    await expect(
+      resolveWsUrlHost("ws://localhost/devtools/browser/abc", ":9222"),
+    ).rejects.toThrow(/empty hostname/);
   });
 });
