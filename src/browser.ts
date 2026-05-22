@@ -49,6 +49,7 @@
  * @see https://bugs.chromium.org/p/chromium/issues/detail?id=813540
  */
 import http from "node:http";
+import dns from "node:dns/promises";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import type { Browser } from "puppeteer";
@@ -125,42 +126,101 @@ const httpGetJson = <T>(hostname: string, port: number, path: string): Promise<T
 };
 
 /**
- * Retrieve the WebSocket endpoint from browserURL
+ * Apply an IP host (already resolved) to a WebSocket URL.
  *
- * Reasons for making HTTP requests ourselves instead of using
- * Puppeteer's standard implementation (browserURL option):
+ * Pure / deterministic helper extracted so the host-rewriting logic is
+ * unit-testable in isolation (the DNS side-effect lives in
+ * `resolveWsUrlHost` instead).
  *
- * - Add Host: localhost header to pass Chromium's security check
- * - Replace the host part of the returned webSocketDebuggerUrl with the actual target
+ * IPv6 addresses are wrapped in `[...]` so the URL parser handles them
+ * correctly (otherwise the `:` characters in the address are mistaken
+ * for the port separator).
  *
- * @param browserURL - Remote browser URL (e.g., http://puppeteer:9222)
- * @returns Connectable WebSocket endpoint URL
+ * @param wsUrl  - Original ws/wss URL (e.g., ws://localhost/devtools/browser/xxx)
+ * @param ip     - IP literal (e.g., "192.168.117.4" or "::1")
+ * @param port   - Optional port. When omitted, the URL's existing port is preserved.
+ * @param family - 4 or 6, as returned by `dns.lookup`. Drives bracket wrapping.
+ * @returns ws/wss URL whose host part is an IP literal that Chromium's
+ *          DNS-Rebinding Host-header check will accept.
  */
-/**
- * Replace the host in a WebSocket URL with the actual target host
- *
- * @param wsUrl - Original WebSocket URL (e.g., ws://localhost/devtools/browser/xxx)
- * @param targetHost - Target host to use (e.g., puppeteer:9222)
- * @returns WebSocket URL with replaced host
- */
-export const replaceWsUrlHost = (wsUrl: string, targetHost: string): string => {
-  const wsUrlObj = new URL(wsUrl);
-  wsUrlObj.host = targetHost;
-  return wsUrlObj.toString();
+export const applyIpToWsUrl = (
+  wsUrl: string,
+  ip: string,
+  port: number | undefined,
+  family: 4 | 6,
+): string => {
+  const u = new URL(wsUrl);
+  const ipHost = family === 6 ? `[${ip}]` : ip;
+  u.host = port !== undefined ? `${ipHost}:${String(port)}` : ipHost;
+  return u.toString();
 };
 
+/**
+ * Replace the host in a WebSocket URL with the *resolved IP* of
+ * `targetHost`.
+ *
+ * Why IP and not the hostname (which is what puppeteer.connect()
+ * originally received): Chromium's DNS-Rebinding guard rejects HTTP
+ * "Upgrade: websocket" handshakes whose `Host` header is anything other
+ * than `localhost` or an IP literal. This guard has applied to the HTTP
+ * `/json/version` endpoint since Chrome 66; from Chrome 148 onward it
+ * also applies to the WebSocket upgrade endpoint.
+ *
+ * The HTTP path here cheats by sending `Host: localhost` via the
+ * low-level `node:http` module (`httpGetJson` above). The WebSocket
+ * path cannot do the same: puppeteer's underlying `ws` library derives
+ * the `Host` header from `URL.host` with no override hook. The only
+ * portable workaround is therefore to bake an IP literal *into the URL*
+ * before handing it to puppeteer.connect().
+ *
+ * `dns.lookup` uses the OS resolver (respecting /etc/hosts, Docker's
+ * embedded DNS, NSS modules) — the same semantics as ping or curl,
+ * which is exactly what we want for a hostname like `chromium-server-1`
+ * defined by a Docker network.
+ *
+ * @param wsUrl      - Original ws URL returned by /json/version
+ * @param targetHost - "host[:port]" string the caller originally passed
+ *                     in via `browserURL` (e.g., "chromium-server-1:9222").
+ */
+export const resolveWsUrlHost = async (
+  wsUrl: string,
+  targetHost: string,
+): Promise<string> => {
+  const [hostname, portPart] = targetHost.split(":");
+  if (hostname === undefined || hostname === "") {
+    throw new Error(`resolveWsUrlHost: empty hostname in targetHost "${targetHost}"`);
+  }
+  const { address, family } = await dns.lookup(hostname);
+  const port = portPart !== undefined ? parseInt(portPart, 10) : undefined;
+  return applyIpToWsUrl(wsUrl, address, port, family as 4 | 6);
+};
+
+/**
+ * Retrieve a Connect-ready WebSocket endpoint URL for the given
+ * browserURL.
+ *
+ * Two-step process:
+ *   1. HTTP GET /json/version with `Host: localhost` so Chromium's
+ *      DNS-Rebinding guard lets the request through. The response
+ *      includes a `webSocketDebuggerUrl` whose host part is always
+ *      `localhost` (Chromium has no idea what hostname the caller
+ *      reached it through).
+ *   2. Replace that `localhost` with the IP literal of the original
+ *      target host so the subsequent WebSocket upgrade also passes
+ *      the same guard (see `resolveWsUrlHost` for the WHY).
+ */
 const fetchWebSocketEndpoint = async (browserURL: string): Promise<string> => {
   const url = new URL(browserURL);
-  const targetHost = url.host; // e.g., "puppeteer:9222"
+  const targetHost = url.host; // e.g., "chromium-server-1:9222"
   const port = url.port ? parseInt(url.port, 10) : 9222;
 
   const data = await httpGetJson<VersionResponse>(url.hostname, port, "/json/version");
   const wsUrl = data.webSocketDebuggerUrl;
 
-  // Replace the host part of webSocketDebuggerUrl with the actual target host
+  // Replace the host with the resolved IP of targetHost.
   // Example: ws://localhost/devtools/browser/xxx
-  //        -> ws://puppeteer:9222/devtools/browser/xxx
-  return replaceWsUrlHost(wsUrl, targetHost);
+  //        -> ws://192.168.117.4:9222/devtools/browser/xxx
+  return resolveWsUrlHost(wsUrl, targetHost);
 };
 
 const connectBrowser = async (options: BrowserConnectOptions): Promise<Browser> => {
