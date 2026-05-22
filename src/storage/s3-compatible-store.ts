@@ -30,6 +30,35 @@ import {
 import type { StorageConfig } from "../config/index.js";
 import type { ArtifactContentType, ArtifactStore } from "./types.js";
 
+/**
+ * Maximum number of HeadBucket attempts during initialize().
+ * Five 1-second-spaced attempts cover the bucket-bootstrap race on the
+ * bundled SeaweedFS (the master gRPC plane creates the bucket via
+ * `etc/seaweedfs/init-bucket.sh` but the S3 listener takes a moment to
+ * refresh from filer). A genuine configuration error — wrong bucket
+ * name, bad credentials, unreachable endpoint past the SDK's own retry
+ * — still fails the full budget within ~5s, so fail-fast is preserved.
+ */
+const HEAD_BUCKET_MAX_ATTEMPTS = 5;
+const HEAD_BUCKET_RETRY_DELAY_MS = 1000;
+
+/**
+ * Whether the S3 SDK error carries HTTP 404. Only 404 is retried — any
+ * other status indicates a real misconfiguration (403 / 401 / 5xx) that
+ * retrying will not fix. Network-level errors (ECONNREFUSED, EAI_AGAIN)
+ * are already retried by the AWS SDK's default retry strategy, so they
+ * do not need a second layer here and arrive as plain `Error`s without
+ * `$metadata` once that budget is exhausted.
+ */
+const isBucketMissing = (err: unknown): boolean => {
+  const status = (err as { $metadata?: { httpStatusCode?: number } } | null)
+    ?.$metadata?.httpStatusCode;
+  return status === 404;
+};
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export class S3CompatibleArtifactStore implements ArtifactStore {
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -62,9 +91,42 @@ export class S3CompatibleArtifactStore implements ArtifactStore {
    * (DNS / TLS / SigV4 / IAM authorization). Network or auth errors
    * propagate to the caller (`CaptureCoordinator.initialize`), which
    * causes the server to fail to start.
+   *
+   * 404-only short retry:
+   *
+   * Self-hosted S3 implementations (notably the SeaweedFS bundled in
+   * `compose.{dev,prod}.yaml` and the downstream waggle stack) finalise
+   * bucket creation through their master / filer plane and *then*
+   * propagate the existence to the S3 listener. That propagation is
+   * normally instantaneous but can lag by hundreds of ms — long enough
+   * for browserhive's startup HeadBucket to land during the window and
+   * get a 404 even though the bucket is, in fact, being created right
+   * then by `etc/seaweedfs/init-bucket.sh`.
+   *
+   * Without retry, browserhive crashes (exit 1), the orchestrator
+   * (compose `--abort-on-container-exit` semantics, k8s liveness
+   * restart) tears it down and brings it back up. In waggle's
+   * `--profile run --exit-code-from waggle` flow, the restart loop
+   * trips `--abort-on-container-exit` before the waggle service can
+   * actually run, tearing down the whole stack.
+   *
+   * Retry policy: 5 attempts, 1 second apart, 404 only. Genuine config
+   * errors (403 / 401, network unreachable past the SDK's own retry)
+   * still fail-fast within that 5-second budget.
    */
   async initialize(): Promise<void> {
-    await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+    for (let attempt = 1; attempt <= HEAD_BUCKET_MAX_ATTEMPTS; attempt++) {
+      try {
+        await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+        return;
+      } catch (err) {
+        if (attempt === HEAD_BUCKET_MAX_ATTEMPTS || !isBucketMissing(err)) {
+          throw err;
+        }
+        // 404: bucket bootstrap race. Wait briefly and retry.
+        await sleep(HEAD_BUCKET_RETRY_DELAY_MS);
+      }
+    }
   }
 
   async put(
