@@ -32,8 +32,22 @@ beforeEach(() => {
   s3Mock = mockClient(S3Client);
 });
 
+/**
+ * Build a fake S3-SDK error that carries the given HTTP status code in
+ * `$metadata.httpStatusCode`, so the production code's `isBucketMissing`
+ * predicate can read it just like a real `@aws-sdk/client-s3` error.
+ */
+const makeS3Error = (status: number, name: string): Error => {
+  const err = new Error(name) as Error & {
+    $metadata?: { httpStatusCode: number };
+  };
+  err.name = name;
+  err.$metadata = { httpStatusCode: status };
+  return err;
+};
+
 describe("S3CompatibleArtifactStore.initialize", () => {
-  it("issues HeadBucket against the configured bucket", async () => {
+  it("issues HeadBucket against the configured bucket on success", async () => {
     s3Mock.on(HeadBucketCommand).resolves({});
 
     const store = new S3CompatibleArtifactStore(baseConfig());
@@ -44,12 +58,53 @@ describe("S3CompatibleArtifactStore.initialize", () => {
     expect(calls[0]!.args[0].input).toEqual({ Bucket: "browserhive-test" });
   });
 
-  it("propagates HeadBucket errors so the server fails to start", async () => {
-    s3Mock.on(HeadBucketCommand).rejects(new Error("NoSuchBucket"));
+  it("retries on 404 and succeeds when the bucket becomes visible", async () => {
+    s3Mock
+      .on(HeadBucketCommand)
+      .rejectsOnce(makeS3Error(404, "NotFound"))
+      .rejectsOnce(makeS3Error(404, "NotFound"))
+      .resolves({});
+
+    const store = new S3CompatibleArtifactStore(baseConfig());
+    const start = Date.now();
+    await store.initialize();
+    const elapsed = Date.now() - start;
+
+    expect(s3Mock.commandCalls(HeadBucketCommand)).toHaveLength(3);
+    // Two 1-second sleeps between three attempts.
+    expect(elapsed).toBeGreaterThanOrEqual(1900);
+    expect(elapsed).toBeLessThan(4000);
+  });
+
+  it("gives up after the max retry budget on persistent 404", async () => {
+    s3Mock.on(HeadBucketCommand).rejects(makeS3Error(404, "NotFound"));
 
     const store = new S3CompatibleArtifactStore(baseConfig());
 
-    await expect(store.initialize()).rejects.toThrow("NoSuchBucket");
+    await expect(store.initialize()).rejects.toMatchObject({
+      $metadata: { httpStatusCode: 404 },
+    });
+    expect(s3Mock.commandCalls(HeadBucketCommand)).toHaveLength(5);
+  });
+
+  it("does NOT retry on 403 — credentials are not a transient issue", async () => {
+    s3Mock.on(HeadBucketCommand).rejects(makeS3Error(403, "Forbidden"));
+
+    const store = new S3CompatibleArtifactStore(baseConfig());
+
+    await expect(store.initialize()).rejects.toMatchObject({
+      $metadata: { httpStatusCode: 403 },
+    });
+    expect(s3Mock.commandCalls(HeadBucketCommand)).toHaveLength(1);
+  });
+
+  it("does NOT retry on network errors (no $metadata) — SDK's own retry already covers these", async () => {
+    s3Mock.on(HeadBucketCommand).rejects(new Error("ECONNREFUSED"));
+
+    const store = new S3CompatibleArtifactStore(baseConfig());
+
+    await expect(store.initialize()).rejects.toThrow("ECONNREFUSED");
+    expect(s3Mock.commandCalls(HeadBucketCommand)).toHaveLength(1);
   });
 });
 
