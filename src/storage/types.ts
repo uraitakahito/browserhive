@@ -15,7 +15,7 @@
  *     metrics, waggle) can fetch it without re-deriving the path.
  *
  * `put()` MUST set `Content-Type` correctly so direct fetches against
- * `s3://...` URIs (or via signed URL / proxy) serve the right MIME type.
+ * `s3://...` URIs (or via signed URL / proxy) serve the right Media Type.
  */
 export type ArtifactContentType =
   | "image/png"

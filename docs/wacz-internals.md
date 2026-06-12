@@ -6,7 +6,7 @@ How BrowserHive turns a single Chromium capture into a
 ## File layout
 
 ```
-{taskId}_..._labels.wacz                 # zip archive
+{taskId}_..._labels.wacz                 # ZIP file
 ├── archive/
 │   └── data.warc.gz                     # WARC 1.1 — every HTTP exchange
 ├── pages/
@@ -17,9 +17,9 @@ How BrowserHive turns a single Chromium capture into a
 └── datapackage.json                     # manifest — sha256 + bytes per file
 ```
 
-The zip is built once per task in `src/storage/wacz/packager.ts`. Each
+The ZIP file is built once per task in `src/storage/wacz/packager.ts`. Each
 inner file is computed in memory (capture sizes are bounded by the
-per-task cap), hashed for `datapackage.json`, then appended to the zip.
+per-task cap), hashed for `datapackage.json`, then appended to the ZIP file.
 `archive/data.warc.gz` is stored without re-compression — it's already
 gzipped per WARC spec, and double-deflate would only inflate.
 
@@ -113,7 +113,7 @@ if (filename.endsWith(".cdx") || filename.endsWith(".cdxj")) { ... }
 
 A `.cdx.gz` / `.cdxj.gz` file lands in *no* branch and is silently skipped
 — every URL lookup then returns "Archived Page Not Found". BrowserHive
-emits **plain `indexes/index.cdxj`**; the outer zip's deflate covers size.
+emits **plain `indexes/index.cdxj`**; the outer ZIP file's deflate covers size.
 
 ### CDXJ `filename` is relative to `archive/`
 
