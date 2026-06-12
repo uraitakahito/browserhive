@@ -1,11 +1,11 @@
 /**
- * WaczPackager — assembles a ReplayWeb.page-compatible WACZ zip from a
+ * WaczPackager — assembles a ReplayWeb.page-compatible WACZ ZIP file from a
  * Phase-2 WARC.gz plus the per-response metadata `NetworkRecorder.stop()`
  * returns.
  *
  * Produced layout:
  *
- *   {output}.wacz (zip)
+ *   {output}.wacz (ZIP file)
  *   ├── archive/data.warc.gz       ← the WARC file produced by NetworkRecorder
  *   ├── pages/pages.jsonl          ← single-page header + 1 entry
  *   ├── indexes/index.cdxj         ← plain CDXJ (NOT gzipped — wabac.js doesn't recognise .cdx.gz)
@@ -17,7 +17,7 @@
  * `datapackage.json` can carry their hashes. For typical capture sizes
  * (tens of MB), in-memory packaging is fine; if we ever need streaming
  * for multi-GB captures, the resource hashes can be computed from the
- * source files on disk and the zip can stream from those file handles.
+ * source files on disk and the ZIP file can stream from those file handles.
  */
 import { Buffer } from "node:buffer";
 import { createWriteStream, readFile } from "node:fs";
@@ -32,7 +32,7 @@ import {
 } from "./datapackage.js";
 import { buildFuzzyJson } from "./fuzzy.js";
 
-/** WACZ zip entry path of the inlined WARC. */
+/** WACZ ZIP entry path of the inlined WARC. */
 const WARC_ENTRY_PATH = "archive/data.warc.gz";
 /**
  * `filename` value for CDXJ entries. Per WACZ spec / wacz-creator
@@ -51,7 +51,7 @@ const PAGES_ENTRY_PATH = "pages/pages.jsonl";
  * correctly. Source: https://github.com/webrecorder/wabac.js/blob/main/src/wacz/multiwacz.ts
  * (the `loadIndex` method's `endsWith(".cdx") || endsWith(".cdxj")`
  * branch). The index is small enough that dropping gzip is fine; the
- * surrounding zip's deflate compression covers the size concern.
+ * surrounding ZIP file's deflate compression covers the size concern.
  */
 const INDEX_ENTRY_PATH = "indexes/index.cdxj";
 const DATAPACKAGE_ENTRY_PATH = "datapackage.json";
@@ -90,7 +90,7 @@ export interface WaczPackageResult {
 /**
  * Read the WARC file once and return its bytes. Small enough for
  * production capture sizes (per-task cap ≤ 200 MB). If we ever need to
- * stream, the zip layer (`archiver`) can take a `ReadStream` directly —
+ * stream, the ZIP layer (`archiver`) can take a `ReadStream` directly —
  * we'd have to compute the file hash separately for the datapackage
  * before streaming.
  */
@@ -103,7 +103,7 @@ const readFileBytes = (path: string): Promise<Buffer> =>
   });
 
 /**
- * Build a WACZ zip from a finished WARC plus per-response metadata.
+ * Build a WACZ ZIP file from a finished WARC plus per-response metadata.
  * Returns the output path + total size on disk. Implemented as a free
  * function rather than a static-only class so the eslint
  * `no-extraneous-class` rule passes — the unit of code here is the
@@ -127,7 +127,7 @@ export const packWacz = async (
   );
   const cdxjText = buildCdxjIndex(WARC_FILENAME_FOR_CDX, input.responses);
   // Plain text — wabac.js doesn't recognise `.cdx.gz` / `.cdxj.gz`.
-  // The outer zip's deflate compression handles size.
+  // The outer ZIP file's deflate compression handles size.
   const indexBytes = Buffer.from(cdxjText, "utf-8");
   const fuzzyBytes = buildFuzzyJson({ params: input.fuzzyParams ?? [] });
 

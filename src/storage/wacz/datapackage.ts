@@ -10,7 +10,7 @@
 import { sha256Hex } from "../warc/digest.js";
 
 export interface WaczResourceInput {
-  /** zip entry path, e.g. `archive/data.warc.gz`. */
+  /** ZIP entry path, e.g. `archive/data.warc.gz`. */
   path: string;
   /** Raw bytes of the entry. */
   bytes: Buffer;

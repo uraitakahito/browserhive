@@ -422,7 +422,7 @@ components:
           description: |
             Record every HTTP exchange Chromium performs during the capture
             into a [WACZ](https://specs.webrecorder.net/wacz/1.0.0/) archive
-            and upload it as `{taskId}_..._labels.wacz` (a zip file) to the
+            and upload it as `{taskId}_..._labels.wacz` (a ZIP file) to the
             configured S3 bucket. Replay with
             [ReplayWeb.page](https://replayweb.page/) — drag-and-drop the
             file or load via the `<replay-web-page>` web component.
