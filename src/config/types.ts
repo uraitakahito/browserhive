@@ -109,6 +109,8 @@ export interface CaptureConfig {
     pageLoad: number;
     /** Capture operation timeout in milliseconds */
     capture: number;
+    /** Upper bound for the auto-scroll pass in milliseconds (Layer A bound). */
+    autoScroll: number;
     /**
      * Layer B safety net — upper bound for the entire `PageCapturer.capture`
      * invocation, applied in `BrowserClient.process`. Must be wider than the
@@ -122,6 +124,24 @@ export interface CaptureConfig {
   viewport: {
     width: number;
     height: number;
+  };
+  /**
+   * Auto-scroll behaviour. When enabled, `PageCapturer` scrolls the full
+   * document height during capture so scroll-triggered lazy loaders
+   * (`loading="lazy"`, IntersectionObserver, `data-src` libraries) fire and
+   * their resources are recorded into the WACZ/WARC.
+   */
+  autoScroll: {
+    /** Server-wide on/off default. Per-request `autoScroll` overrides it. */
+    enabled: boolean;
+    /** Pause after each viewport-sized scroll step, to let lazy loads start. */
+    stepDelayMs: number;
+    /** Hard cap on scroll steps — guards against infinite-scroll pages. */
+    maxSteps: number;
+    /** `page.waitForNetworkIdle` idle window after the scroll pass. */
+    idleTimeMs: number;
+    /** `page.waitForNetworkIdle` overall timeout. */
+    idleTimeoutMs: number;
   };
   /** Screenshot options */
   screenshot: ScreenshotConfig;

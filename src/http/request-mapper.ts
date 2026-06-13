@@ -107,6 +107,7 @@ export const captureRequestToTask = (
     // schema boundary, so the value can be passed through unchanged.
     ...(request.viewport !== undefined && { viewport: request.viewport }),
     ...(request.fullPage !== undefined && { fullPage: request.fullPage }),
+    ...(request.autoScroll !== undefined && { autoScroll: request.autoScroll }),
   };
 
   return ok(task);

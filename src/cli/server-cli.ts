@@ -121,6 +121,15 @@ interface ParsedOptions {
   screenshotQuality?: number;
   rejectDuplicateUrls: boolean;
   /**
+   * Auto-scroll the full page during capture so scroll-triggered lazy
+   * loaders fire and their resources are recorded. Negate with
+   * `--no-auto-scroll`; env `BROWSERHIVE_AUTO_SCROLL` resolved post-parse
+   * via `resolveBoolWithEnvDefaultTrue` (same contract as `resetCookies`).
+   */
+  autoScroll: boolean;
+  /** Upper bound for the auto-scroll pass (ms). Env BROWSERHIVE_AUTO_SCROLL_TIMEOUT_MS. */
+  autoScrollTimeout: number;
+  /**
    * Commander auto-generates `--no-reset-cookies` for any boolean option;
    * default `true` flips to `false` when the negation flag is present. Env
    * (`BROWSERHIVE_RESET_COOKIES`) is merged post-parse via
@@ -194,11 +203,21 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     timeouts: {
       pageLoad: opts.pageLoadTimeout,
       capture: opts.captureTimeout,
+      autoScroll: opts.autoScrollTimeout,
       taskTotal: opts.taskTimeout,
     },
     viewport: {
       width: opts.viewportWidth,
       height: opts.viewportHeight,
+    },
+    // enabled / timeout come from CLI+env; the loop tuning params are
+    // server-wide defaults (not currently exposed as individual flags).
+    autoScroll: {
+      enabled: opts.autoScroll,
+      stepDelayMs: DEFAULT_CAPTURE_CONFIG.autoScroll.stepDelayMs,
+      maxSteps: DEFAULT_CAPTURE_CONFIG.autoScroll.maxSteps,
+      idleTimeMs: DEFAULT_CAPTURE_CONFIG.autoScroll.idleTimeMs,
+      idleTimeoutMs: DEFAULT_CAPTURE_CONFIG.autoScroll.idleTimeoutMs,
     },
     screenshot: {
       fullPage: opts.screenshotFullPage,
@@ -353,6 +372,20 @@ export const createProgram = (): Command => {
       "--reject-duplicate-urls",
       "Reject capture requests for URLs already in the queue (env: BROWSERHIVE_REJECT_DUPLICATE_URLS)",
       false,
+    )
+    .option(
+      "--auto-scroll",
+      "Scroll the full page during capture so lazy-loaded resources are recorded (env: BROWSERHIVE_AUTO_SCROLL). Use --no-auto-scroll to disable. Default: on.",
+      defaultCapture.autoScroll.enabled,
+    )
+    .addOption(
+      new Option(
+        "--auto-scroll-timeout <ms>",
+        "Upper bound for the auto-scroll pass in milliseconds",
+      )
+        .env("BROWSERHIVE_AUTO_SCROLL_TIMEOUT_MS")
+        .default(defaultCapture.timeouts.autoScroll)
+        .argParser(parsePositiveInt),
     )
     // Negation-only flags: commander generates `opts.resetCookies` from the
     // `--no-` form, default `true`. Pairing with env (BROWSERHIVE_RESET_COOKIES /
@@ -606,6 +639,11 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
       "BROWSERHIVE_REJECT_DUPLICATE_URLS",
       program,
     ),
+    autoScroll: resolveBoolWithEnvDefaultTrue(
+      opts.autoScroll,
+      "BROWSERHIVE_AUTO_SCROLL",
+      program,
+    ),
     resetCookies: resolveBoolWithEnvDefaultTrue(
       opts.resetCookies,
       "BROWSERHIVE_RESET_COOKIES",
@@ -668,8 +706,10 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       timeouts: {
         pageLoad: capture.timeouts.pageLoad,
         capture: capture.timeouts.capture,
+        autoScroll: capture.timeouts.autoScroll,
         taskTotal: capture.timeouts.taskTotal,
       },
+      autoScroll: { enabled: capture.autoScroll.enabled, maxSteps: capture.autoScroll.maxSteps },
       maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,
       viewport: {
