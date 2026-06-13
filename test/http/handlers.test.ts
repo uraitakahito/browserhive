@@ -294,8 +294,15 @@ describe("getStatus handler", () => {
             browserProfile: {
               browserURL: "http://chromium-1:9222",
               capture: {
-                timeouts: { pageLoad: 30000, capture: 10000, taskTotal: 90000 },
+                timeouts: { pageLoad: 30000, capture: 10000, autoScroll: 20000, taskTotal: 90000 },
                 viewport: { width: 1280, height: 800 },
+                autoScroll: {
+                  enabled: true,
+                  stepDelayMs: 250,
+                  maxSteps: 40,
+                  idleTimeMs: 1000,
+                  idleTimeoutMs: 15000,
+                },
                 screenshot: { fullPage: false },
                 resetPageState: { cookies: true, pageContext: true },
               },

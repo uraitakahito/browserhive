@@ -53,6 +53,13 @@ export interface CaptureTask {
    */
   fullPage?: boolean;
   /**
+   * Per-request override for the server-wide `CaptureConfig.autoScroll.enabled`
+   * default. When `true`, `PageCapturer` scrolls the full document height
+   * during the capture so scroll-triggered lazy loaders fire and their
+   * resources are recorded. Undefined means "use the server default".
+   */
+  autoScroll?: boolean;
+  /**
    * Fully-resolved inter-task wipe options. Always present after
    * request-mapper resolution against `CaptureConfig.resetPageState`,
    * so the capture layer never has to merge defaults itself. See

@@ -297,6 +297,29 @@ describe("captureRequestToTask", () => {
     });
   });
 
+  describe("autoScroll → CaptureTask.autoScroll", () => {
+    it("propagates autoScroll: true to the CaptureTask", () => {
+      const result = captureRequestToTask(baseRequest({ autoScroll: true }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.autoScroll).toBe(true);
+    });
+
+    it("propagates autoScroll: false to the CaptureTask", () => {
+      const result = captureRequestToTask(baseRequest({ autoScroll: false }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.autoScroll).toBe(false);
+    });
+
+    it("omits autoScroll when not provided (server default applies)", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.autoScroll).toBeUndefined();
+    });
+  });
+
   describe("resetState → CaptureTask.resetState", () => {
     /** Server defaults that flip pageContext off, used to assert per-axis fallback. */
     const defaultsKeepContext: RequestMapperDefaults = {

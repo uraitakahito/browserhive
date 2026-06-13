@@ -407,6 +407,51 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
 };
 
 /**
+ * Scroll the full document height so scroll-triggered lazy loaders
+ * (`loading="lazy"`, IntersectionObserver, `data-src` libraries) fire and
+ * their resources are fetched while the NetworkRecorder is attached — without
+ * this, below-the-fold lazy images are never requested and never make it into
+ * the WACZ/WARC.
+ *
+ * Behaviour: scroll one viewport at a time, pausing `stepDelayMs` after each
+ * step so lazy loads can start; stop at the bottom (scrollY stops advancing)
+ * or after `maxSteps` (the infinite-scroll guard); return to the top so a
+ * follow-up screenshot is framed from the top; then `waitForNetworkIdle` so
+ * the freshly-started fetches land in the WARC before it is finalized.
+ *
+ * The whole pass is bounded by the caller's `withTimeout(timeouts.autoScroll)`.
+ * `waitForNetworkIdle` is best-effort (`.catch`) — a page that never idles
+ * must degrade to "captured what we have", not fail the capture.
+ */
+export const autoScroll = async (
+  page: Page,
+  opts: Pick<
+    CaptureConfig["autoScroll"],
+    "stepDelayMs" | "maxSteps" | "idleTimeMs" | "idleTimeoutMs"
+  >,
+): Promise<void> => {
+  await page.evaluate(
+    async ({ stepDelayMs, maxSteps }) => {
+      const sleep = (ms: number): Promise<void> =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+      let last = -1;
+      let steps = 0;
+      while (steps++ < maxSteps) {
+        window.scrollBy(0, window.innerHeight);
+        await sleep(stepDelayMs);
+        if (window.scrollY === last) break; // reached the bottom — stop
+        last = window.scrollY;
+      }
+      window.scrollTo(0, 0); // back to the top for the screenshot
+    },
+    { stepDelayMs: opts.stepDelayMs, maxSteps: opts.maxSteps },
+  );
+  await page
+    .waitForNetworkIdle({ idleTime: opts.idleTimeMs, timeout: opts.idleTimeoutMs })
+    .catch(() => undefined); // best-effort: a never-idle page must not fail the capture
+};
+
+/**
  * Wipe per-task state from the worker's persistent page so the next task
  * starts on a clean slate.
  *
@@ -693,6 +738,26 @@ export class PageCapturer {
       let dismissReport: DismissReport | undefined;
       if (task.dismissOptions) {
         dismissReport = await dismissBanners(page, task.dismissOptions);
+      }
+
+      // Auto-scroll AFTER banner dismissal (so sticky overlays are gone) and
+      // BEFORE any format capture (so lazy resources are in the WARC and the
+      // page is scrolled back to the top for screenshots). The NetworkRecorder
+      // is already attached, so scroll-triggered fetches are recorded as-is.
+      // Same redirect/SPA hazard as the other awaits — route through
+      // runOnStableContext, bounded by timeouts.autoScroll.
+      if (task.autoScroll ?? this.config.autoScroll.enabled) {
+        await runOnStableContext(
+          page,
+          () =>
+            withTimeout(
+              autoScroll(page, this.config.autoScroll),
+              this.config.timeouts.autoScroll,
+              `autoScroll for ${task.url}`,
+            ),
+          `autoScroll for ${task.url}`,
+          this.config.timeouts.autoScroll + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+        );
       }
 
       let pngLocation: string | undefined;

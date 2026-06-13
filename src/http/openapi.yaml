@@ -577,6 +577,23 @@ components:
             the built-in default is `false`).
 
             Has no effect on the `html` / `links` formats.
+        autoScroll:
+          type: boolean
+          description: |
+            When `true`, BrowserHive scrolls the full document height during
+            the capture so scroll-triggered lazy loaders (`loading="lazy"`,
+            IntersectionObserver, `data-src` libraries) fire and their
+            resources are recorded into the WACZ/WARC. The page is scrolled
+            back to the top before screenshots are taken.
+
+            When omitted, the server-side default applies (configured via
+            `--auto-scroll` / `BROWSERHIVE_AUTO_SCROLL`; the built-in default
+            is `true`). The pass is bounded by `--auto-scroll-timeout` and
+            `--auto-scroll-max-steps` so infinite-scroll pages cannot hang
+            the worker.
+
+            Most useful with `wacz` (records the lazy resources); also
+            improves `fullPage` screenshots of lazy pages.
         resetState:
           oneOf:
             - type: boolean

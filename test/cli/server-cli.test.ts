@@ -382,7 +382,7 @@ describe("server-cli parseCliOptions", () => {
 
       expect(
         config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
-      ).toBe(100000);
+      ).toBe(130000);
     });
 
     it("不正な BROWSERHIVE_TASK_TIMEOUT_MS で exit する", () => {

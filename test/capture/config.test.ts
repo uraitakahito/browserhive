@@ -48,9 +48,15 @@ describe("DEFAULT_BROWSERHIVE_CONFIG", () => {
 });
 
 describe("createTestCaptureConfig", () => {
-  it("should return default config when no overrides", () => {
+  it("matches the production default except autoScroll (disabled in tests for determinism)", () => {
     const config = createTestCaptureConfig();
-    expect(config).toEqual(DEFAULT_CAPTURE_CONFIG);
+    // The helper deliberately disables autoScroll so capture-integration tests
+    // don't run an extra scroll pass that would shift their CDP-call assertions.
+    // autoScroll() has its own unit test; tests opt in via overrides.
+    expect(config).toEqual({
+      ...DEFAULT_CAPTURE_CONFIG,
+      autoScroll: { ...DEFAULT_CAPTURE_CONFIG.autoScroll, enabled: false },
+    });
   });
 
   it("should override userAgent", () => {
