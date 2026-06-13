@@ -486,6 +486,66 @@ describe("NetworkRecorder failure paths", () => {
     expect(warc).toContain("errorText: net::ERR_NAME_NOT_RESOLVED");
   });
 
+  it("enriches the loadingFailed metadata with resourceType / blockedReason / status", async () => {
+    const path = join(tmpDir, "failed-rich.warc.gz");
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(path), session);
+
+    session.emit("Network.requestWillBeSent", {
+      requestId: "req-1",
+      type: "Image",
+      request: { url: "https://ads.example.com/x.png", method: "GET", headers: {} },
+    });
+    // A response arrived before the load failed → status should be captured.
+    session.emit("Network.responseReceived", {
+      requestId: "req-1",
+      response: {
+        url: "https://ads.example.com/x.png",
+        status: 206,
+        statusText: "Partial Content",
+        protocol: "http/1.1",
+        mimeType: "image/png",
+        headers: {},
+        encodedDataLength: 0,
+      },
+    });
+    session.emit("Network.loadingFailed", {
+      requestId: "req-1",
+      type: "Image",
+      blockedReason: "inspector",
+      errorText: "net::ERR_BLOCKED_BY_CLIENT",
+      canceled: false,
+    });
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await recorder.stop();
+
+    const warc = dumpWarc(path);
+    expect(warc).toContain("resourceType: Image");
+    expect(warc).toContain("blockedReason: inspector");
+    expect(warc).toContain("status: 206");
+  });
+
+  it("enriches the stop-while-pending metadata with resourceType", async () => {
+    const path = join(tmpDir, "incomplete-rich.warc.gz");
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(path), session);
+
+    session.emit("Network.requestWillBeSent", {
+      requestId: "req-1",
+      type: "Script",
+      request: { url: "https://slow.example.com/a.js", method: "GET", headers: {} },
+    });
+    // No response / loadingFinished — drained as stop-while-pending at stop().
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await recorder.stop();
+
+    const warc = dumpWarc(path);
+    expect(warc).toContain("reason: stop-while-pending");
+    expect(warc).toContain("resourceType: Script");
+  });
+
   it("records in-flight requests at stop() as incomplete metadata", async () => {
     const path = join(tmpDir, "incomplete.warc.gz");
     const session = makeFakeSession();

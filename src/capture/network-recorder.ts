@@ -114,6 +114,8 @@ interface PendingRequest {
   skipBodyReason?: "content-type" | "too-large" | "task-cap";
   /** Wall-clock ms when the entry was first created. Used for FIFO eviction when over `maxPendingRequests`. */
   enqueuedAt: number;
+  /** ResourceType (Image / Script / XHR / Fetch …) from `requestWillBeSent.type`. Emitted into metadata records. */
+  resourceType?: string;
 }
 
 interface ResponseSnapshot {
@@ -398,6 +400,7 @@ export class NetworkRecorder {
             reason: "stop-while-pending",
             requestId,
             method: p.method,
+            ...(p.resourceType && { resourceType: p.resourceType }),
           },
         }),
       );
@@ -485,6 +488,7 @@ export class NetworkRecorder {
         blocked: true,
         skipBody: true,
         enqueuedAt: Date.now(),
+        ...(event.type && { resourceType: event.type }),
       });
       return;
     }
@@ -538,6 +542,7 @@ export class NetworkRecorder {
       blocked: false,
       skipBody: false,
       enqueuedAt: Date.now(),
+      ...(event.type && { resourceType: event.type }),
     };
     // CDP exposes the same body via `postData` (deprecated string form) and
     // `postDataEntries` (preferred, base64). We accept the deprecated path
@@ -621,6 +626,7 @@ export class NetworkRecorder {
             incomplete: "true",
             reason: "loadingFinished-without-response",
             requestId: event.requestId,
+            ...(entry.resourceType && { resourceType: entry.resourceType }),
           },
         }),
       );
@@ -697,6 +703,9 @@ export class NetworkRecorder {
           errorText: event.errorText,
           canceled: String(event.canceled ?? false),
           method: entry.method,
+          resourceType: event.type, // loadingFailed always carries a ResourceType
+          ...(event.blockedReason && { blockedReason: event.blockedReason }),
+          ...(entry.response && { status: String(entry.response.status) }),
         },
       }),
     );
