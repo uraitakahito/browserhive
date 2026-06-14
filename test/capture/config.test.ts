@@ -12,8 +12,8 @@ import {
 
 describe("DEFAULT_CAPTURE_CONFIG", () => {
   it("should have correct default values", () => {
-    expect(DEFAULT_CAPTURE_CONFIG.timeouts.pageLoad).toBe(30000);
-    expect(DEFAULT_CAPTURE_CONFIG.timeouts.capture).toBe(10000);
+    expect(DEFAULT_CAPTURE_CONFIG.timeouts.pageLoadMs).toBe(30000);
+    expect(DEFAULT_CAPTURE_CONFIG.timeouts.captureMs).toBe(10000);
     expect(DEFAULT_CAPTURE_CONFIG.viewport.width).toBe(1280);
     expect(DEFAULT_CAPTURE_CONFIG.viewport.height).toBe(800);
     expect(DEFAULT_CAPTURE_CONFIG.screenshot.fullPage).toBe(false);
@@ -70,11 +70,11 @@ describe("createTestCaptureConfig", () => {
 
   it("should override nested timeouts", () => {
     const config = createTestCaptureConfig({
-      timeouts: { pageLoad: 60000, capture: 20000 },
+      timeouts: { pageLoadMs: 60000, captureMs: 20000 },
     });
 
-    expect(config.timeouts.pageLoad).toBe(60000);
-    expect(config.timeouts.capture).toBe(20000);
+    expect(config.timeouts.pageLoadMs).toBe(60000);
+    expect(config.timeouts.captureMs).toBe(20000);
   });
 
   it("should override nested viewport", () => {
@@ -104,13 +104,13 @@ describe("createTestCaptureConfig", () => {
   });
 
   it("should not modify default config", () => {
-    const originalTimeout = DEFAULT_CAPTURE_CONFIG.timeouts.pageLoad;
+    const originalTimeout = DEFAULT_CAPTURE_CONFIG.timeouts.pageLoadMs;
 
     createTestCaptureConfig({
-      timeouts: { pageLoad: 60000, capture: 20000 },
+      timeouts: { pageLoadMs: 60000, captureMs: 20000 },
     });
 
-    expect(DEFAULT_CAPTURE_CONFIG.timeouts.pageLoad).toBe(originalTimeout);
+    expect(DEFAULT_CAPTURE_CONFIG.timeouts.pageLoadMs).toBe(originalTimeout);
   });
 });
 

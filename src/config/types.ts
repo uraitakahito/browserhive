@@ -105,12 +105,12 @@ export interface WaczConfig {
 export interface CaptureConfig {
   /** Timeout settings */
   timeouts: {
-    /** Page load timeout in milliseconds */
-    pageLoad: number;
-    /** Capture operation timeout in milliseconds */
-    capture: number;
-    /** Upper bound for the auto-scroll pass in milliseconds (Layer A bound). */
-    autoScroll: number;
+    /** Page load timeout. */
+    pageLoadMs: number;
+    /** Capture operation timeout. */
+    captureMs: number;
+    /** Upper bound for the auto-scroll pass (Layer A bound). */
+    autoScrollMs: number;
     /**
      * Layer B safety net — upper bound for the entire `PageCapturer.capture`
      * invocation, applied in `BrowserClient.process`. Must be wider than the
@@ -118,7 +118,7 @@ export interface CaptureConfig {
      * wait + addStyleTag + dismissBanners + N × capture). Catches any
      * hang that escapes the per-call wraps inside `PageCapturer.capture`.
      */
-    taskTotal: number;
+    taskTotalMs: number;
   };
   /** Viewport dimensions */
   viewport: {

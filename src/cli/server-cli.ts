@@ -201,10 +201,10 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
 
   const capture: CaptureConfig = {
     timeouts: {
-      pageLoad: opts.pageLoadTimeout,
-      capture: opts.captureTimeout,
-      autoScroll: opts.autoScrollTimeout,
-      taskTotal: opts.taskTimeout,
+      pageLoadMs: opts.pageLoadTimeout,
+      captureMs: opts.captureTimeout,
+      autoScrollMs: opts.autoScrollTimeout,
+      taskTotalMs: opts.taskTimeout,
     },
     viewport: {
       width: opts.viewportWidth,
@@ -311,24 +311,24 @@ export const createProgram = (): Command => {
     .addOption(
       new Option("--page-load-timeout <ms>", "Page load timeout in milliseconds")
         .env("BROWSERHIVE_PAGE_LOAD_TIMEOUT_MS")
-        .default(defaultCapture.timeouts.pageLoad)
+        .default(defaultCapture.timeouts.pageLoadMs)
         .argParser(parsePositiveInt),
     )
     .addOption(
       new Option("--capture-timeout <ms>", "Capture timeout in milliseconds")
         .env("BROWSERHIVE_CAPTURE_TIMEOUT_MS")
-        .default(defaultCapture.timeouts.capture)
+        .default(defaultCapture.timeouts.captureMs)
         .argParser(parsePositiveInt),
     )
     .addOption(
       // Layer B per-task safety net. Sized larger than the sum of inner
-      // Layer A timeouts; see DEFAULT_CAPTURE_CONFIG.timeouts.taskTotal.
+      // Layer A timeouts; see DEFAULT_CAPTURE_CONFIG.timeouts.taskTotalMs.
       new Option(
         "--task-timeout <ms>",
         "Total task processing timeout in milliseconds (Layer B safety net)",
       )
         .env("BROWSERHIVE_TASK_TIMEOUT_MS")
-        .default(defaultCapture.timeouts.taskTotal)
+        .default(defaultCapture.timeouts.taskTotalMs)
         .argParser(parsePositiveInt),
     )
     .addOption(
@@ -384,7 +384,7 @@ export const createProgram = (): Command => {
         "Upper bound for the auto-scroll pass in milliseconds",
       )
         .env("BROWSERHIVE_AUTO_SCROLL_TIMEOUT_MS")
-        .default(defaultCapture.timeouts.autoScroll)
+        .default(defaultCapture.timeouts.autoScrollMs)
         .argParser(parsePositiveInt),
     )
     // Negation-only flags: commander generates `opts.resetCookies` from the
@@ -704,10 +704,10 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL),
       storage: logSafeStorage(coordinator.storage),
       timeouts: {
-        pageLoad: capture.timeouts.pageLoad,
-        capture: capture.timeouts.capture,
-        autoScroll: capture.timeouts.autoScroll,
-        taskTotal: capture.timeouts.taskTotal,
+        pageLoadMs: capture.timeouts.pageLoadMs,
+        captureMs: capture.timeouts.captureMs,
+        autoScrollMs: capture.timeouts.autoScrollMs,
+        taskTotalMs: capture.timeouts.taskTotalMs,
       },
       autoScroll: { enabled: capture.autoScroll.enabled, maxSteps: capture.autoScroll.maxSteps },
       maxRetryCount: coordinator.maxRetryCount,
