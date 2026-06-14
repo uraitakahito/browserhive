@@ -254,7 +254,7 @@ export class BrowserClient {
    * Process a capture task.
    *
    * Layer B safety net: the entire `pageCapturer.capture` invocation is
-   * bounded by `timeouts.taskTotal`. Layer A (per-call `withTimeout`s
+   * bounded by `timeouts.taskTotalMs`. Layer A (per-call `withTimeout`s
    * inside `PageCapturer.capture` and `dismissBanners`) catches the common
    * cases — `page.evaluate` / `page.addStyleTag` blocking on a redirected
    * page that never settles — and surfaces them with a precise error
@@ -300,7 +300,7 @@ export class BrowserClient {
     }
 
     const startTime = Date.now();
-    const taskTotalMs = this.profile.capture.timeouts.taskTotal;
+    const taskTotalMs = this.profile.capture.timeouts.taskTotalMs;
     try {
       return await withTimeout(
         this.pageCapturer.capture(page, task, this.index),

@@ -346,8 +346,8 @@ describe("server-cli parseCliOptions", () => {
     });
   });
 
-  describe("taskTotal (Layer B safety net)", () => {
-    it("--task-timeout が capture.timeouts.taskTotal に反映される", () => {
+  describe("taskTotalMs (Layer B safety net)", () => {
+    it("--task-timeout が capture.timeouts.taskTotalMs に反映される", () => {
       const config = parseCliOptions(
         argv(
           "--browser-url",
@@ -359,11 +359,11 @@ describe("server-cli parseCliOptions", () => {
       );
 
       expect(
-        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
+        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotalMs,
       ).toBe(60000);
     });
 
-    it("BROWSERHIVE_TASK_TIMEOUT_MS が capture.timeouts.taskTotal に反映される", () => {
+    it("BROWSERHIVE_TASK_TIMEOUT_MS が capture.timeouts.taskTotalMs に反映される", () => {
       vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
       stubS3Env();
       vi.stubEnv("BROWSERHIVE_TASK_TIMEOUT_MS", "45000");
@@ -371,7 +371,7 @@ describe("server-cli parseCliOptions", () => {
       const config = parseCliOptions(argv());
 
       expect(
-        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
+        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotalMs,
       ).toBe(45000);
     });
 
@@ -381,7 +381,7 @@ describe("server-cli parseCliOptions", () => {
       );
 
       expect(
-        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotal,
+        config.coordinator.browserProfiles[0]?.capture.timeouts.taskTotalMs,
       ).toBe(130000);
     });
 

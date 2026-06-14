@@ -294,7 +294,7 @@ describe("getStatus handler", () => {
             browserProfile: {
               browserURL: "http://chromium-1:9222",
               capture: {
-                timeouts: { pageLoad: 30000, capture: 10000, autoScroll: 20000, taskTotal: 90000 },
+                timeouts: { pageLoadMs: 30000, captureMs: 10000, autoScrollMs: 20000, taskTotalMs: 90000 },
                 viewport: { width: 1280, height: 800 },
                 autoScroll: {
                   enabled: true,

@@ -419,7 +419,7 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
  * follow-up screenshot is framed from the top; then `waitForNetworkIdle` so
  * the freshly-started fetches land in the WARC before it is finalized.
  *
- * The whole pass is bounded by the caller's `withTimeout(timeouts.autoScroll)`.
+ * The whole pass is bounded by the caller's `withTimeout(timeouts.autoScrollMs)`.
  * `waitForNetworkIdle` is best-effort (`.catch`) — a page that never idles
  * must degrade to "captured what we have", not fail the capture.
  */
@@ -689,9 +689,9 @@ export class PageCapturer {
       const response = await withTimeout(
         page.goto(task.url, {
           waitUntil: "domcontentloaded",
-          timeout: this.config.timeouts.pageLoad,
+          timeout: this.config.timeouts.pageLoadMs,
         }),
-        this.config.timeouts.pageLoad,
+        this.config.timeouts.pageLoadMs,
         `Navigation to ${task.url}`
       );
 
@@ -745,18 +745,18 @@ export class PageCapturer {
       // page is scrolled back to the top for screenshots). The NetworkRecorder
       // is already attached, so scroll-triggered fetches are recorded as-is.
       // Same redirect/SPA hazard as the other awaits — route through
-      // runOnStableContext, bounded by timeouts.autoScroll.
+      // runOnStableContext, bounded by timeouts.autoScrollMs.
       if (task.autoScroll ?? this.config.autoScroll.enabled) {
         await runOnStableContext(
           page,
           () =>
             withTimeout(
               autoScroll(page, this.config.autoScroll),
-              this.config.timeouts.autoScroll,
+              this.config.timeouts.autoScrollMs,
               `autoScroll for ${task.url}`,
             ),
           `autoScroll for ${task.url}`,
-          this.config.timeouts.autoScroll + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+          this.config.timeouts.autoScrollMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
         );
       }
 
@@ -911,7 +911,7 @@ export class PageCapturer {
       page,
       () => page.screenshot(options),
       `Screenshot (${type}) of ${task.url}`,
-      this.config.timeouts.capture,
+      this.config.timeouts.captureMs,
     );
 
     return this.store.put(
@@ -933,7 +933,7 @@ export class PageCapturer {
       page,
       () => page.content(),
       `HTML capture of ${task.url}`,
-      this.config.timeouts.capture,
+      this.config.timeouts.captureMs,
     );
 
     return this.store.put(filename, html, "text/html");
@@ -966,7 +966,7 @@ export class PageCapturer {
           })),
         ),
       `Link extraction of ${task.url}`,
-      this.config.timeouts.capture,
+      this.config.timeouts.captureMs,
     );
 
     const seen = new Set<string>();
@@ -1028,7 +1028,7 @@ export class PageCapturer {
             data: string;
           }>,
         `MHTML capture of ${task.url}`,
-        this.config.timeouts.capture,
+        this.config.timeouts.captureMs,
       );
       return await this.store.put(filename, data, "multipart/related");
     } finally {

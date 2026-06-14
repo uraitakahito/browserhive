@@ -358,7 +358,7 @@ describe("BrowserClient", () => {
               ...createBrowserProfile().capture,
               timeouts: {
                 ...createBrowserProfile().capture.timeouts,
-                taskTotal: shortTimeout,
+                taskTotalMs: shortTimeout,
               },
             },
           },

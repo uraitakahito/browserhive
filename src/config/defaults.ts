@@ -79,9 +79,9 @@ export const DEFAULT_WACZ_CONFIG: WaczConfig = {
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   timeouts: {
-    pageLoad: 30000,
-    capture: 10000,
-    autoScroll: 20000,
+    pageLoadMs: 30000,
+    captureMs: 10000,
+    autoScrollMs: 20000,
     // Layer B outer task budget. Sized to be larger than the worst-case
     // sum of inner Layer A bounds in PageCapturer.capture:
     //   pageLoad(30s) + dynamic-wait(5s) + addStyleTag(5s) + autoScroll(20s)
@@ -98,14 +98,14 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     // Layer B must always exceed the Layer A sum so that a hang in the
     // un-wrapped gap is the only thing this safety net catches — never a
     // steady-state success. Tune via --task-timeout / BROWSERHIVE_TASK_TIMEOUT_MS.
-    taskTotal: 130000,
+    taskTotalMs: 130000,
   },
   viewport: {
     width: 1280,
     height: 800,
   },
   // Auto-scroll defaults. Enabled so lazy-loaded resources are captured by
-  // default; bounded by maxSteps + timeouts.autoScroll so it cannot hang.
+  // default; bounded by maxSteps + timeouts.autoScrollMs so it cannot hang.
   autoScroll: {
     enabled: true,
     stepDelayMs: 250,
