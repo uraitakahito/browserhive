@@ -1,0 +1,20 @@
+---
+title: 用語集
+description: browserhive のコード内 @glossary タグから生成される用語集
+---
+
+import Glossary from "../../components/Glossary.astro";
+
+このページの**定義は手書きしない**。browserhive の TypeScript ソースに付けた
+`@glossary` タグ(と `@category`)から **ビルド時に抽出**して並べている。
+コード側のコメントを直せば、ここも次のビルドで自動的に追従する。
+
+各行の「場所」列は定義元の `ファイル:行` を指す。用語の意味を疑ったら、
+まずそのソースの TSDoc を読むのが最短になる。
+
+## コンポーネント
+
+取り込みパイプラインを構成する主要なクラス・アクターたち。外側(API ファサード)
+から内側(1 タブを占有する実行体)へ向かって読むと、責務の分かれ方が掴める。
+
+<Glossary category="コンポーネント" />

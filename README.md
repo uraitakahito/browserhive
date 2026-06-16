@@ -72,8 +72,8 @@ flowchart TB
 When talking about WACZ output, comments and docs use the canonical
 [WACZ 1.1.1 Terminology](https://specs.webrecorder.net/wacz/1.1.1/#terminology)
 (`ZIP file`, `Media Type`, `Page`, …) as a shared, ubiquitous language. See
-[docs/terminology.md](docs/terminology.md) for the term table and the
-capture-vs-packaging bounded-context rule.
+[docs-site/src/content/docs/wacz-vocabulary.md](docs-site/src/content/docs/wacz-vocabulary.md)
+for the term table and the capture-vs-packaging bounded-context rule.
 
 ## Setup
 

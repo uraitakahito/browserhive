@@ -31,6 +31,14 @@ import { errorType } from "./error-type.js";
 import { createChildLogger, type Logger } from "../logger.js";
 import { err, ok, type Result } from "../result.js";
 
+/**
+ * 1 つの Chromium タブを占有し、取り込みタスクを実行するワーカー本体。
+ * リモートブラウザへ `connect` し、`process` でページを取得・記録する。
+ * 状態は持たず、再試行や健全性の判断は親の状態機械に委ねる。
+ *
+ * @glossary BrowserClient
+ * @category コンポーネント
+ */
 export class BrowserClient {
   private browser: Browser | null = null;
   /**
@@ -302,11 +310,13 @@ export class BrowserClient {
     const startTime = Date.now();
     const taskTotalMs = this.profile.capture.timeouts.taskTotalMs;
     try {
+      // #region layer-b-timeout
       return await withTimeout(
         this.pageCapturer.capture(page, task, this.index),
         taskTotalMs,
         `Task processing for ${task.url}`,
       );
+      // #endregion
     } catch (error) {
       const errorDetails = errorDetailsFromException(error);
       return {

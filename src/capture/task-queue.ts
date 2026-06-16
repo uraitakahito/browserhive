@@ -9,6 +9,14 @@ export interface TaskCounts {
   completed: number;
 }
 
+/**
+ * 取り込みタスクの共有キュー。FIFO の待機列に加え、処理中 / 完了の集合を持ち、
+ * 全ワーカーが**同一インスタンス**を参照する(work-stealing)。`dequeue` で
+ * 取り出すと同時に `processing` へ移し、完了で `markComplete`・再試行で `requeue` する。
+ *
+ * @glossary TaskQueue
+ * @category コンポーネント
+ */
 export class TaskQueue {
   private queue: CaptureTask[] = [];
   private processing = new Set<string>();
@@ -23,6 +31,7 @@ export class TaskQueue {
     this.queue.push(...tasks);
   }
 
+  // #region dequeue
   dequeue(): CaptureTask | undefined {
     const task = this.queue.shift();
     if (task) {
@@ -31,7 +40,9 @@ export class TaskQueue {
     }
     return task;
   }
+  // #endregion
 
+  // #region requeue
   requeue(task: CaptureTask): void {
     this.processing.delete(task.taskId);
     this.processingUrls.delete(task.taskId);
@@ -43,6 +54,7 @@ export class TaskQueue {
     };
     this.queue.push(retriedTask);
   }
+  // #endregion
 
   /**
    * Return up to `limit` tasks from the head of the pending queue without
@@ -53,11 +65,13 @@ export class TaskQueue {
     return this.queue.slice(0, limit);
   }
 
+  // #region markComplete
   markComplete(taskId: string): void {
     this.processing.delete(taskId);
     this.processingUrls.delete(taskId);
     this.completed.add(taskId);
   }
+  // #endregion
 
   get remaining(): number {
     return this.queue.length;

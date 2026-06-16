@@ -1,0 +1,31 @@
+---
+// 指定 interface の型(名前・型・説明)をコードから展開して表にする。
+import { typeMembers } from "../lib/extract";
+
+interface Props {
+  name: string;
+}
+const { name } = Astro.props;
+const members = typeMembers(name);
+---
+
+<table>
+  <thead>
+    <tr><th>プロパティ</th><th>型</th><th>説明</th></tr>
+  </thead>
+  <tbody>
+    {
+      members.map((m) => (
+        <tr>
+          <td>
+            <code>{m.name}</code>
+          </td>
+          <td>
+            <code>{m.type}</code>
+          </td>
+          <td>{m.doc}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>

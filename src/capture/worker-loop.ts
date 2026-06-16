@@ -36,6 +36,40 @@ export interface WorkerLoopParentEvent { type: "STOP_LOOP" }
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Emit the structured "Task completed" log line. Extracted from the loop body
+ * so the loop reads as pure control flow; each optional artifact location is
+ * only logged when the capture actually produced it.
+ */
+const logTaskCompleted = (
+  client: BrowserClient,
+  task: CaptureTask,
+  result: CaptureResult,
+): void => {
+  client.logger.info(
+    {
+      taskLabels: task.labels,
+      taskId: task.taskId,
+      ...(task.correlationId && { correlationId: task.correlationId }),
+      url: task.url,
+      ...(result.linksLocation && { linksLocation: result.linksLocation }),
+      ...(result.mhtmlLocation && { mhtmlLocation: result.mhtmlLocation }),
+      ...(result.waczLocation && { waczLocation: result.waczLocation }),
+      ...(result.waczStats && { waczStats: result.waczStats }),
+      ...(result.dismissReport && { dismissReport: result.dismissReport }),
+    },
+    "Task completed",
+  );
+};
+
+/**
+ * ワーカーの処理ループ(`fromCallback` アクター)。`operational` の間だけ動き、
+ * 共有キューから `dequeue` → `BrowserClient.process` → 結果を親機械へ
+ * イベント(TASK_STARTED / TASK_DONE / TASK_FAILED / CONNECTION_LOST)で報告する。
+ *
+ * @glossary workerLoop
+ * @category コンポーネント
+ */
 // Callback actor (fromCallback) — receive: yes, send: yes, spawn: no, input: yes, output: no
 export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRuntime>(
   ({ sendBack, receive, input }) => {
@@ -46,6 +80,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
     // by CaptureCoordinator, so no duplicate task processing occurs.
     const { client, taskQueue, pollIntervalMs } = input;
 
+    // #region loop-body
     const loop = async (): Promise<void> => {
       while (running) {
         const task = taskQueue.dequeue();
@@ -61,20 +96,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
 
           if (isSuccessStatus(result.status)) {
             taskQueue.markComplete(task.taskId);
-            client.logger.info(
-              {
-                taskLabels: task.labels,
-                taskId: task.taskId,
-                ...(task.correlationId && { correlationId: task.correlationId }),
-                url: task.url,
-                ...(result.linksLocation && { linksLocation: result.linksLocation }),
-                ...(result.mhtmlLocation && { mhtmlLocation: result.mhtmlLocation }),
-                ...(result.waczLocation && { waczLocation: result.waczLocation }),
-                ...(result.waczStats && { waczStats: result.waczStats }),
-                ...(result.dismissReport && { dismissReport: result.dismissReport }),
-              },
-              "Task completed"
-            );
+            logTaskCompleted(client, task, result);
             sendBack({ type: "TASK_DONE", task, result });
           } else {
             // Report failure to parent machine, which decides retry vs final failure
@@ -108,7 +130,9 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
         }
       }
     };
+    // #endregion
 
+    // #region loop-lifecycle
     // Start the loop (fire-and-forget, errors are handled inside)
     void loop();
 
@@ -121,5 +145,6 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
     return () => {
       running = false;
     };
+    // #endregion
   }
 );

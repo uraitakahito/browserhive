@@ -55,6 +55,13 @@ export interface CoordinatorMachineInput {
   store: ArtifactStore;
 }
 
+/**
+ * 親の状態機械。`browserProfiles` ごとにワーカーを spawn し、全体の健全性
+ * (`active.running` / `active.degraded`)とシャットダウンを管理する。
+ *
+ * @glossary coordinatorMachine
+ * @category コンポーネント
+ */
 export const coordinatorMachine = setup({
   types: {
     context: {} as CoordinatorMachineContext,
@@ -86,6 +93,7 @@ export const coordinatorMachine = setup({
       on: { INITIALIZE: "initializing" },
     },
     initializing: {
+      // #region spawn-workers
       entry: assign({
         workers: ({ context, spawn }): CaptureWorker[] =>
           context.config.browserProfiles.map((profile, index) => {
@@ -104,6 +112,7 @@ export const coordinatorMachine = setup({
             return new CaptureWorker(ref, client);
           }),
       }),
+      // #endregion
       invoke: {
         src: "initializeWorkers",
         input: ({ context }): { workers: CaptureWorker[] } => ({ workers: context.workers }),

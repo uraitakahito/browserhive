@@ -16,3 +16,9 @@ src/http/generated/
 .vscode/launch.json
 .vscode/settings.json
 .vscode/tasks.json
+
+# OS / エディタ / ローカル副産物
+.DS_Store
+.idea/
+*.local
+*.log

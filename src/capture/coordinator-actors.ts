@@ -122,6 +122,7 @@ export const initializeWorkers = fromPromise<
   InitializeWorkersOutput,
   { workers: CaptureWorker[] }
 >(async ({ input }) => {
+  // #region connect-and-settle
   for (const worker of input.workers) {
     worker.connect();
   }
@@ -134,6 +135,7 @@ export const initializeWorkers = fromPromise<
       );
     },
   });
+  // #endregion
   const operationalCount = countOperational(input.workers);
   const allHealthy = operationalCount === input.workers.length;
   if (!allHealthy) {
