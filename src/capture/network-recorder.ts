@@ -282,6 +282,14 @@ const matchesAny = (subject: string, patterns: RegExp[]): boolean =>
 const matchesPrefixAny = (subject: string, prefixes: string[]): boolean =>
   prefixes.some((p) => subject.startsWith(p));
 
+/**
+ * CDP の `Network` ドメインを購読し、リクエスト/レスポンスを WARC として
+ * 1 本のキューで直列に書き出す記録器。ブロックや種別ごとの内訳
+ * (`byResourceType` / `byBlockedReason`)も集計する。
+ *
+ * @glossary NetworkRecorder
+ * @category コンポーネント
+ */
 export class NetworkRecorder {
   private readonly opts: NetworkRecorderOptions;
   private readonly blockPatterns: RegExp[];
@@ -695,6 +703,7 @@ export class NetworkRecorder {
     if (entry.blocked) return;
     this.stats.totalFailed += 1;
     this.enqueueRecord(
+      // #region metadata-loadingfailed
       buildMetadataRecord({
         targetUri: entry.url,
         fields: {
@@ -708,6 +717,7 @@ export class NetworkRecorder {
           ...(entry.response && { status: String(entry.response.status) }),
         },
       }),
+      // #endregion
     );
   };
 

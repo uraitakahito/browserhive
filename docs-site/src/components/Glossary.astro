@@ -1,0 +1,44 @@
+---
+// 用語集テーブルを @glossary 付きシンボルから「その場生成」する。
+// category を渡すとその分野のみ。手書きせず、コードがズレれば自動で反映。
+import { glossaryTerms } from "../lib/extract";
+
+interface Props {
+  category?: string;
+}
+const { category } = Astro.props;
+const rows = glossaryTerms().filter((t) => !category || t.category === category);
+
+// 定義は TSDoc のテキスト(簡単な Markdown)。**bold** / `code` / 改行だけ最小変換する。
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const renderInline = (s: string): string =>
+  escapeHtml(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, " ");
+---
+
+<table>
+  <thead>
+    <tr><th>用語</th><th>定義</th><th>場所</th></tr>
+  </thead>
+  <tbody>
+    {
+      rows.map((t) => (
+        <tr id={`g-${t.term}`}>
+          <td>
+            <code>{t.term}</code>
+          </td>
+          <td set:html={renderInline(t.def)} />
+          <td>
+            <code>
+              {t.file}:{t.line}
+            </code>
+          </td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>
+{rows.length === 0 && <p>(該当する @glossary なし)</p>}

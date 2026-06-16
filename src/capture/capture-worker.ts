@@ -83,6 +83,14 @@ const addErrorToHistory = (
   return updated;
 };
 
+/**
+ * 子の状態機械(browserURL ごとに 1 つ)。1 ワーカーの状態台帳で、
+ * `disconnected → connecting → operational{idle,processing} → error → disconnecting`
+ * を遷移する。`operational` の間だけ処理ループ(`workerLoop`)を invoke する。
+ *
+ * @glossary captureWorkerMachine
+ * @category コンポーネント
+ */
 export const captureWorkerMachine = setup({
   types: {
     context: {} as CaptureWorkerContext,
@@ -235,10 +243,12 @@ export const captureWorkerMachine = setup({
     operational: {
       tags: ["healthy"],
       initial: "idle",
+      // #region operational-invoke
       invoke: {
         src: "workerLoop",
         input: ({ context }) => context.runtime,
       },
+      // #endregion
       states: {
         idle: {
           tags: ["canProcess"],
@@ -249,6 +259,7 @@ export const captureWorkerMachine = setup({
             },
           },
         },
+        // #region processing-transitions
         processing: {
           on: {
             TASK_DONE: {
@@ -268,6 +279,7 @@ export const captureWorkerMachine = setup({
             ],
           },
         },
+        // #endregion
       },
       on: {
         // 2-branch mirroring TASK_FAILED so the in-flight task is always

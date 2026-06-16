@@ -257,6 +257,7 @@ export const runOnStableContext = async <T>(
   perAttemptMs: number,
   maxRetries: number = STABLE_CONTEXT_MAX_RETRIES,
 ): Promise<T> => {
+  // #region stable-context-retry
   for (let attempt = 0; ; attempt++) {
     try {
       return await withTimeout(operation(), perAttemptMs, description);
@@ -283,6 +284,7 @@ export const runOnStableContext = async <T>(
       }
     }
   }
+  // #endregion
 };
 
 export const INVALID_FILENAME_CHARS_LIST = ["<", ">", ":", '"', "/", "\\", "|", "?", "*", "_"] as const;

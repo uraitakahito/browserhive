@@ -1,0 +1,59 @@
+name: site
+
+# Sync guard for the developer handbook in docs-site/ (Astro/Starlight).
+# Builds the static site and runs scripts/check-doc-refs.mjs so a pull request
+# cannot merge documentation that points at renamed or deleted code:
+#
+#   - `astro build` injects @glossary terms / `// #region` snippets / type
+#     tables from src/ via ts-morph (docs-site/src/lib/extract.ts). A missing
+#     region or interface fails the build.
+#   - check-doc-refs.mjs catches the references the build cannot see: a
+#     `/terminology/#g-<Term>` link whose `@glossary` tag was removed, and a
+#     `src/….ts` path that was renamed.
+#
+# Security notes:
+#   - This is a read-only CHECK. It never deploys and references no secrets;
+#     permissions are contents:read only. Unlike docs.yml (which deploys the
+#     OpenAPI reference to Pages and therefore never builds fork code), running
+#     on pull_request is safe here — there is no publish step.
+#   - Only docs-site/ dependencies are installed (Astro + ts-morph). The root
+#     install is intentionally skipped: it pulls puppeteer/Chromium, which the
+#     docs build does not need.
+#   - All actions are pinned to major versions of the official actions/* org.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'docs-site/**'
+      - 'scripts/check-doc-refs.mjs'
+      - 'package.json'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'docs-site/**'
+      - 'scripts/check-doc-refs.mjs'
+      - 'package.json'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Docs sync guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+      - name: Install docs-site dependencies
+        run: npm ci --prefix docs-site
+      - name: Build site and verify doc references
+        run: npm run site:check

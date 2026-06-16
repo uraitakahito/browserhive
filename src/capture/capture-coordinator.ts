@@ -53,6 +53,13 @@ export interface GetStatusOptions {
   pendingLimit?: number;
 }
 
+/**
+ * 取り込みのオーケストレーションを束ねるファサード。XState のルートアクター
+ * (`coordinatorMachine`)を起動し、`enqueueTask` / `getStatus` を公開する。
+ *
+ * @glossary CaptureCoordinator
+ * @category コンポーネント
+ */
 export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
