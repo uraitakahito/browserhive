@@ -1,20 +1,22 @@
 name: docs
 
-# Build the Redoc reference HTML from src/http/openapi.yaml on every
-# push to main and publish it to GitHub Pages. The running BrowserHive
-# server intentionally does not serve `/docs` or `/openapi.yaml`; this
-# workflow is the canonical (and only) way to view the rendered docs.
+# Astro/Starlight サイト + Redoc API リファレンスを統合して
+# GitHub Pages に publish する。
+#
+# 出力構成:
+#   /browserhive/             → Starlight ランディングページ
+#   /browserhive/quickstart/  → クイックスタート
+#   /browserhive/architecture/ → アーキテクチャ解説
+#   /browserhive/api/         → Redoc API リファレンス (index.html をコピー)
 #
 # Security notes:
 #   - Triggered only by push to main and manual dispatch. Never on
 #     pull_request — that would build untrusted code from forks.
-#   - Permissions are split per job: build gets contents:read only;
+#   - Permissions are split per job: build jobs get contents:read only;
 #     deploy gets pages:write + id-token:write (required by the
 #     official actions/deploy-pages OIDC handshake).
 #   - No secrets are referenced. Pages deployment uses the implicit
 #     GITHUB_TOKEN scoped by the permissions above.
-#   - Only ./dist/docs (a single self-contained index.html) is uploaded
-#     as the Pages artifact — no other files in the workspace.
 #   - All actions are pinned to major versions of the official
 #     actions/* org. No third-party actions.
 
@@ -26,6 +28,7 @@ on:
       - 'redocly.yaml'
       - 'package.json'
       - 'package-lock.json'
+      - 'docs-site/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -36,8 +39,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build Redoc HTML
+  # ── ① Astro/Starlight ビルド ──────────────────────────────────────────────
+  build-site:
+    name: Build Astro/Starlight site
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+      - name: Install docs-site dependencies
+        run: npm ci --prefix docs-site
+      - name: Build Astro site
+        run: npm run site:build
+      - name: Upload Astro dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: astro-dist
+          path: docs-site/dist
+
+  # ── ② Redoc HTML ビルド ───────────────────────────────────────────────────
+  build-redoc:
+    name: Build Redoc API reference
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -49,16 +76,16 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run openapi:build-docs
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
+      - name: Upload Redoc HTML
+        uses: actions/upload-artifact@v4
         with:
-          # Strictly limit upload scope to the single rendered HTML
-          # directory. Do NOT widen this path.
-          path: ./dist/docs
+          name: redoc-html
+          path: dist/docs/index.html
 
+  # ── ③ マージ → Pages デプロイ ─────────────────────────────────────────────
   deploy:
-    name: Deploy to GitHub Pages
-    needs: build
+    name: Merge and deploy to GitHub Pages
+    needs: [build-site, build-redoc]
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -67,5 +94,23 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Download Astro dist
+        uses: actions/download-artifact@v4
+        with:
+          name: astro-dist
+          path: merged-dist
+      - name: Download Redoc HTML
+        uses: actions/download-artifact@v4
+        with:
+          name: redoc-html
+          path: redoc-tmp
+      - name: Inject Redoc into /api/
+        run: |
+          mkdir -p merged-dist/api
+          cp redoc-tmp/index.html merged-dist/api/index.html
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: merged-dist
       - id: deployment
         uses: actions/deploy-pages@v5
