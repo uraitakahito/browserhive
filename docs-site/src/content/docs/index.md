@@ -1,20 +1,48 @@
 ---
-title: BrowserHive ドキュメント
-description: コード(TSDoc)と同期するドキュメント
+title: BrowserHive
+description: URL を POST するだけで、スクリーンショット・HTML・WACZ アーカイブを S3 に保存する Web キャプチャサーバ
+template: splash
+hero:
+  tagline: URL を POST するだけ。スクリーンショット・HTML・WACZ アーカイブを S3 に非同期保存
+  actions:
+    - text: クイックスタート
+      link: /browserhive/quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: API リファレンス
+      link: /browserhive/api/
+      icon: external
+      variant: minimal
 ---
 
-ようこそ。このサイトの**事実**(用語の定義・コード片・型)は browserhive の
-TypeScript コードと **`@glossary` タグ / `// #region` から抽出して注入**される。
-物語や図は MDX に自由に書く。コード側を直せば、次のビルドでドキュメントも追従する。
+## BrowserHive とは
 
-## 読む順序
+BrowserHive は Fastify + Puppeteer で動く HTTP キャプチャサーバです。
+`POST /v1/captures` を呼ぶとリクエストをキューに積み、202 を即座に返します。
+Chromium ワーカーが非同期でページを取得し、結果を S3 互換ストレージに保存します。
 
-1. [アーキテクチャ解説](/architecture/) — 5 層構成・リクエストの一生・キャプチャ・プロデューサの**全体像**
-2. [ワーカーの生成とループ(詳説)](/worker-spawn-and-loop/) — spawn → 接続 → ループ → 停止を実コード片つきで分解
-3. [XState 入門 + BrowserHive で使う機能](/xstate-primer/) — 状態機械の前提知識(2・1 を読む前提)
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com","captureFormats":{"png":true,"webp":false,"html":false,"mhtml":false,"wacz":false,"links":false}}'
+# → 202 {"taskId":"550e8400-...","status":"accepted"}
+```
 
-## 用語リソース(3 種)
+## 取得できる形式
 
-- [用語集](/terminology/) — `src` の `@glossary` から**自動生成**される BrowserHive コンポーネント定義
-- [用語リファレンス](/glossary-reference/) — WACZ 形式 / XState API の用語(手書き)
-- [WACZ 用語の使い分け](/wacz-vocabulary/) — WACZ を語るときの語彙規律(「zip」ではなく「ZIP file」等)
+| 形式 | フラグ | 用途 |
+|------|--------|------|
+| PNG スクリーンショット | `png: true` | ページ全体の画像 |
+| WebP スクリーンショット | `webp: true` | 軽量な画像 |
+| DOM スナップショット | `html: true` | JavaScript 実行後の HTML |
+| 単一ファイルアーカイブ | `mhtml: true` | リソース埋め込み MHTML |
+| 再生可能アーカイブ | `wacz: true` | WARC + インデックス (ReplayWeb.page で再生可) |
+| リンク一覧 | `links: true` | ページ内リンクの JSON |
+
+複数フラグを同時に `true` にすると 1 リクエストで複数形式を取得できます。
+
+## さらに詳しく
+
+- [クイックスタート](/quickstart/) — Docker 起動から最初のキャプチャまで 5 ステップ
+- [アーキテクチャ解説](/architecture/) — XState ステートマシン・ワーカーモデルの詳細
+- [API リファレンス](/api/) — 全パラメータの型定義と使用例
