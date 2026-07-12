@@ -66,16 +66,18 @@ IP.1 = 127.0.0.1
 EOF
 ```
 
-#### Additional Examples for Docker Environment
+#### Additional Examples for Container Environments
 
-When using Docker Compose or container-to-container communication, add service names or container names:
+For container-to-container access, clients reach BrowserHive by its
+container IP (Apple Container assigns one per container), so include the
+IP — or a custom hostname if you configure DNS — in the SAN list:
 
 ```
 [alt_names]
 DNS.1 = localhost
-DNS.2 = browserhive          # Docker Compose service name
-DNS.3 = browserhive-server   # Custom hostname
+DNS.2 = browserhive-server   # Custom hostname (if DNS is configured)
 IP.1 = 127.0.0.1
+IP.2 = 192.168.64.10         # Container IP (changes across restarts)
 ```
 
 ### Step 5: Sign Server Certificate

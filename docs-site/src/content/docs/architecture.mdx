@@ -27,8 +27,8 @@ flowchart LR
   API -.->|"202 Accepted + taskId"| CL
   Q -->|"dequeue (work-stealing)"| W1["Worker 0<br>XState actor"]
   Q --> W2["Worker 1<br>XState actor"]
-  W1 -->|CDP| CR1["chromium-server-1<br>:9222"]
-  W2 -->|CDP| CR2["chromium-server-2<br>:9222"]
+  W1 -->|CDP| CR1["chromium-1<br>:9222"]
+  W2 -->|CDP| CR2["chromium-2<br>:9222"]
   W1 --> PC["PageCapturer.capture<br>navigate→scroll→capture"]
   PC --> WACZ["NetworkRecorder→WARC<br>→WACZ packager"]
   WACZ -->|"PutObject"| S3[("SeaweedFS S3<br>:8333")]
@@ -112,7 +112,7 @@ RFC 7807 `application/problem+json` に整形される。
 
 スレッド的な「ワーカープール」ではなく、**browserURL ごとに 1 つの XState ワーカーアクター**を
 持つ親子モデル。全ワーカーは**1 つの共有 [`TaskQueue`](/terminology/#g-TaskQueue)**から
-work-stealing で取り出す(2 chromium-server → 2 ワーカー)。
+work-stealing で取り出す(chromium worker 2 台 → 2 ワーカー)。
 
 ### 親:coordinatorMachine
 
@@ -308,9 +308,9 @@ BrowserHiveConfig
 ```
 
 ```bash
-# compose.prod.yaml — browserhive サービス env
-BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222,http://chromium-server-2:9222
-BROWSERHIVE_S3_ENDPOINT=http://seaweedfs:8333
+# bin/up.sh が browserhive コンテナに焼き込む env(IP は起動時に収集)
+BROWSERHIVE_BROWSER_URLS=http://192.168.64.x:9222,http://192.168.64.y:9222
+BROWSERHIVE_S3_ENDPOINT=http://192.168.64.z:8333
 BROWSERHIVE_S3_BUCKET=browserhive
 BROWSERHIVE_S3_FORCE_PATH_STYLE=true   # SeaweedFS は path-style 必須
 ```
@@ -322,23 +322,24 @@ BROWSERHIVE_S3_FORCE_PATH_STYLE=true   # SeaweedFS は path-style 必須
 
 ```mermaid
 flowchart TD
-  HOST["host :8080"] --> BH["browserhive-prod<br>Fastify :8080<br>node dist/bin/server.js"]
-  BH -->|"CDP :9222"| C1["chromium-server-1"]
-  BH -->|"CDP :9222"| C2["chromium-server-2"]
-  BH -->|"S3 PutObject :8333<br>path-style"| SW["seaweedfs<br>S3 :8333 / Filer :8888"]
-  INIT["seaweedfs-init<br>(bucket 作成して終了)"] -.->|completed| BH
-  SW -.->|healthy| INIT
-  C1 -.->|healthy| BH
-  C2 -.->|healthy| BH
+  HOST["host 127.0.0.1:8080"] --> BH["browserhive<br>Fastify :8080<br>node dist/bin/server.js"]
+  BH -->|"CDP :9222"| C1["chromium-1"]
+  BH -->|"CDP :9222"| C2["chromium-2"]
+  BH -->|"S3 PutObject :8333<br>path-style"| SW["browserhive-seaweedfs<br>S3 :8333 / Filer :8888"]
+  UP["bin/up.sh<br>(bucket 初期化 one-shot・<br>IP 収集 → env 焼き込み)"] -.->|orchestrates| BH
+  UP -.->|probe /cluster/status| SW
+  UP -.->|probe /json/version| C1
+  UP -.->|probe /json/version| C2
 ```
 
-*図5: 単一ブリッジネットワーク `chromium-network`。コンテナ名 DNS で接続。
-`depends_on … service_healthy / service_completed_successfully` で起動順を保証
-(Chromium `/json/version`、SeaweedFS `/cluster/status`)。*
+*図5: 全コンテナは Apple Container の VM(192.168.64.0/24 で相互 IP 直結)。
+compose のサービス名 DNS と `depends_on` は `bin/up.sh` の「逐次起動 + 外部プローブ
+(Chromium `/json/version`、SeaweedFS `/cluster/status`)+ IP 収集 → env 焼き込み」に
+置き換わった。ホストに公開されるのは browserhive の 8080 のみ。*
 
 :::note[S3 アドレッシング]
-バンドルされた SeaweedFS は仮想ホスト形式(`browserhive.seaweedfs:8333`)を解決できないため
-**path-style**(`seaweedfs:8333/browserhive/<key>`)を強制。`BROWSERHIVE_S3_ENDPOINT` を AWS/R2 に
+バンドルされた SeaweedFS は仮想ホスト形式(`browserhive.<endpoint>:8333`)を解決できないため
+**path-style**(`<endpoint>:8333/browserhive/<key>`)を強制。`BROWSERHIVE_S3_ENDPOINT` を AWS/R2 に
 向け force-path-style を false にすれば同一イメージで外部ストアも使える。
 :::
 
@@ -365,4 +366,4 @@ flowchart TD
 | S3 ストア | `src/storage/s3-compatible-store.ts` | `put`→`s3://bucket/key` |
 | 設定型 | `src/config/types.ts` | `CaptureConfig` ほか |
 | CLI/設定組立 | `src/cli/server-cli.ts` | `parseCliOptions` / `buildServerConfig` / `logServerConfig` |
-| デプロイ | `compose.prod.yaml` / `Dockerfile.prod` | 4 コンテナ構成 |
+| デプロイ | `bin/up.sh` / `Dockerfile.prod` | Apple Container 4 コンテナ構成(S3 + worker×N + 本体) |

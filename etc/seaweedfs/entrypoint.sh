@@ -4,11 +4,12 @@
 #
 # The S3 identity here is the SAME one BrowserHive uses on the client side
 # (BROWSERHIVE_S3_ACCESS_KEY_ID / BROWSERHIVE_S3_SECRET_ACCESS_KEY in the
-# browserhive container). Both pull from the same docker-compose env so the
-# bundled SeaweedFS and the client agree on credentials by construction.
+# browserhive container). bin/up.sh passes identical values to both
+# containers, so the bundled SeaweedFS and the client agree on credentials
+# by construction.
 #
-# `s3.json` is written to a tmpfs-friendly path (/tmp) because the mounted
-# /etc/seaweedfs directory is read-only in compose.
+# `s3.json` is written to a tmpfs-friendly path (/tmp) because
+# /etc/seaweedfs is bind-mounted read-only.
 set -eu
 
 : "${BROWSERHIVE_S3_ACCESS_KEY_ID:?BROWSERHIVE_S3_ACCESS_KEY_ID is required}"

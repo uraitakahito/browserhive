@@ -1,44 +1,52 @@
 # Production Environment
 
-`compose.prod.yaml` mirrors the dev stack — two Chromium servers, a
-self-hosted SeaweedFS + bucket-init container, and the BrowserHive
-production image — and supplies all required configuration via
-`BROWSERHIVE_*` environment variables; no `command:` overrides are
-needed. The bundled SeaweedFS is **not** published to host ports (only
-`expose:`d on the internal network). Override `BROWSERHIVE_S3_ENDPOINT`
-and the credential env vars to point at an external S3 (AWS, Cloudflare
-R2, managed MinIO-compatible service) instead.
+The stack runs on [Apple Container](https://github.com/apple/container)
+(macOS 26+, Apple silicon): a self-hosted SeaweedFS with one-shot bucket
+init, N headless chromium workers (built from the `chromium-server-docker`
+submodule at its pinned release), and the BrowserHive production image.
+`bin/up.sh` supplies all required `BROWSERHIVE_*` configuration — worker
+URLs and the S3 endpoint are collected as container IPs at startup and
+baked into the environment.
+
+Only BrowserHive publishes a port (`127.0.0.1:8080`). SeaweedFS and the
+workers are reachable solely on their per-container IPs
+(`192.168.64.0/24`, host-local).
 
 ```sh
-docker compose -f compose.prod.yaml up -d --build
-docker compose -f compose.prod.yaml logs -f browserhive
+./bin/up.sh 2                        # or 4, 8, ...
+container logs browserhive
 
 # verify
 curl http://localhost:8080/v1/status
+./bin/status.sh
 ```
 
 Stop with:
 
 ```sh
-docker compose -f compose.prod.yaml down
+./bin/down.sh
 ```
 
-> **Note:** The SeaweedFS data volume (`browserhive-seaweedfs-prod-data`)
-> holds every captured artifact. Plan its backup / lifecycle separately —
-> `docker compose down -v` will wipe it. For external S3 deployments,
-> the volume is unused.
+Restarting is always `./bin/down.sh && ./bin/up.sh N` — container IPs
+change across restarts, so partial restarts are unsupported by design.
+
+> **Note:** The SeaweedFS data volume (`seaweedfs-data`) holds every
+> captured artifact and survives `down.sh`/`up.sh`. Plan its backup /
+> lifecycle separately — `container volume rm seaweedfs-data` wipes it.
+> For external S3 deployments, the volume is unused.
 
 To build the production image standalone (e.g. to push to a registry):
 
 ```sh
-docker build -f Dockerfile.prod -t browserhive:<version> .
+container build -f Dockerfile.prod -t browserhive:<version> .
 ```
 
-Standalone run, pointing at an external S3-compatible store:
+Standalone run, pointing at an external S3-compatible store and existing
+workers:
 
 ```sh
-docker run --rm -p 8080:8080 \
-  -e BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222 \
+container run --rm -p 127.0.0.1:8080:8080 \
+  -e BROWSERHIVE_BROWSER_URLS=http://<worker-ip>:9222 \
   -e BROWSERHIVE_S3_ENDPOINT=https://s3.example.com \
   -e BROWSERHIVE_S3_BUCKET=browserhive \
   -e BROWSERHIVE_S3_ACCESS_KEY_ID=... \
