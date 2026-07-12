@@ -9,7 +9,10 @@ export default defineConfig(
   // Global ignores
   //
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'scripts/**', '.Trash-*/**', 'docs-site/**'],
+    // chromium-server-docker/ is a git submodule with its own lint setup and
+    // CI — since 0.5.0 it ships TypeScript (docs-site) that this repo's rules
+    // must not police.
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**'],
   },
 
   //

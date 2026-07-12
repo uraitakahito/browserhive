@@ -1,6 +1,6 @@
 ---
 title: クイックスタート
-description: Docker 起動から最初の WACZ キャプチャまで 5 ステップ
+description: Apple Container でスタックを起動し、最初の WACZ キャプチャを取得するまでの 5 ステップ
 sidebar:
   order: 1
 ---
@@ -9,8 +9,8 @@ sidebar:
 
 ## 前提条件
 
-- Docker Engine 24+ / Docker Desktop
-- Docker Compose v2+
+- **macOS 26+ / Apple Silicon** と [Apple Container](https://github.com/apple/container)
+  (`brew install container` → `container system start`)
 - `curl` と `jq` コマンド
 
 ## Step 1 — リポジトリを取得する
@@ -18,35 +18,38 @@ sidebar:
 ```bash
 git clone https://github.com/uraitakahito/browserhive.git
 cd browserhive
+./setup.sh        # chromium-server-docker submodule を初期化
 ```
 
-## Step 2 — 環境を起動する
+## Step 2 — スタックを起動する
 
 ```bash
-docker compose -f compose.dev.yaml up -d
+./bin/up.sh 2     # SeaweedFS + chromium worker×2 + BrowserHive
 ```
 
-起動後に立ち上がるサービスは以下の通りです。
+すべて Apple Container 上のコンテナ(軽量 VM)として起動します。
+ホストに公開されるのは BrowserHive の 8080 だけで、worker と S3 は
+固有 IP(192.168.64.0/24)への直結です。
 
-| サービス | アドレス | 用途 |
-|----------|----------|------|
+| コンポーネント | アドレス | 用途 |
+|----------------|----------|------|
 | BrowserHive API | http://localhost:8080 | キャプチャ受付 |
-| SeaweedFS S3 | http://localhost:8333 | 成果物の保存先 |
-| Chromium (noVNC) | http://localhost:6080 | ブラウザの確認 |
+| SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | 成果物の保存先(IP は `container ls`) |
+| chromium worker | `http://<worker-ip>:9222`(up.sh が表示) | CDP。目視は `chrome://inspect` |
 
 起動確認:
 
 ```bash
-curl -s http://localhost:8080/v1/status | jq '.coordinator.state'
-# → "active.running"
+./bin/status.sh
+# または
+curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
+# → { "isRunning": true, "workers": ["ready", "ready"] }
 ```
-
-`active.running` が返れば準備完了です。
 
 ## Step 3 — 最初のキャプチャをリクエストする
 
 `POST /v1/captures` はリクエストを受け付けると **202** を即座に返します
-(火打ち石モデル: 実際のキャプチャは非同期で実行されます)。
+(実際のキャプチャは非同期で実行されます)。
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/captures \
@@ -68,8 +71,8 @@ curl -s -X POST http://localhost:8080/v1/captures \
 
 ```json
 {
-  "taskId": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "accepted"
+  "accepted": true,
+  "taskId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -78,25 +81,31 @@ curl -s -X POST http://localhost:8080/v1/captures \
 ## Step 4 — 処理状況を確認する
 
 ```bash
-curl -s http://localhost:8080/v1/status | jq '.coordinator.workers'
+curl -s http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
 ```
 
-ワーカーの `state` が `"operational.idle"` になっていればキャプチャ完了です。
-処理中は `"operational.processing"` が表示されます。
+`completed` が増え、worker の `processedCount` が上がっていればキャプチャ完了です。
 
 ## Step 5 — 成果物を取得する
 
-デフォルトでは SeaweedFS の `browserhive` バケットに保存されます。
+成果物は SeaweedFS の `browserhive` バケットに保存されます。
+いちばん簡単なのは **Filer UI** をブラウザで開く方法です
+(`<seaweedfs-ip>` は `container ls` で確認):
+
+```text
+http://<seaweedfs-ip>:8888/buckets/browserhive/
+```
+
+AWS CLI を使う場合(認証必須 — 既定クレデンシャルは browserhive/browserhive):
 
 ```bash
-# バケット内のファイルを一覧
-aws --endpoint-url http://localhost:8333 \
-  --no-sign-request \
+AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
+aws --endpoint-url "http://<seaweedfs-ip>:8333" \
   s3 ls s3://browserhive/
 
 # WACZ をダウンロード (taskId は Step 3 のレスポンスから)
-aws --endpoint-url http://localhost:8333 \
-  --no-sign-request \
+AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
+aws --endpoint-url "http://<seaweedfs-ip>:8333" \
   s3 cp s3://browserhive/550e8400-e29b-41d4-a716-446655440000.wacz ./capture.wacz
 ```
 
@@ -106,9 +115,17 @@ aws --endpoint-url http://localhost:8333 \
 2. "Choose File" → `capture.wacz` を選択
 3. ページ一覧が表示されたら URL をクリックして再生
 
+## 片付け
+
+```bash
+./bin/down.sh     # 成果物は volume(seaweedfs-data)に残る
+```
+
 ---
 
 ## 次のステップ
 
 - [API リファレンス](/api/) — `dismissBanners` / `resetState` / `viewport` など全パラメータの型定義
 - [アーキテクチャ解説](/architecture/) — XState ステートマシンと内部構造
+- worker の動作確認・目視は chromium-server 側の
+  [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/) を参照

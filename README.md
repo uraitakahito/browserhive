@@ -95,7 +95,9 @@ See [docs/production-environment.md](docs/production-environment.md).
 
 ## Usage
 
-Please run the following commands inside the Docker container.
+The full stack (server + SeaweedFS + chromium workers) runs on
+[Apple Container](https://github.com/apple/container): `./bin/up.sh 2`.
+The commands below are for developing the server itself on the host.
 
 ### Build
 
@@ -107,7 +109,9 @@ npm run build
 
 Start the HTTP server to accept capture requests via JSON over HTTP.
 
-When `BROWSERHIVE_BROWSER_URLS` and the `BROWSERHIVE_S3_*` group are set (the dev/prod compose files already do this), the start command is just:
+When `BROWSERHIVE_BROWSER_URLS` and the `BROWSERHIVE_S3_*` group are set
+(point them at the workers / SeaweedFS that `./bin/up.sh` started — the
+worker URLs are printed by the script), the start command is just:
 
 ```sh
 LOG_LEVEL=info npm run server | pino-pretty

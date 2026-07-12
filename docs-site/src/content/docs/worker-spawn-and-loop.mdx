@@ -53,7 +53,7 @@ guard / tags …)を使う。これらが初めてなら先に
 ## 2. 生成 ― プロファイルごとに 1 アクター、キューは 1 つを共有
 
 親機械が `initializing` に入った瞬間(entry)、`browserProfiles` を `map` して
-**1 プロファイル = 1 ワーカーアクター**を `spawn` する。2 つの chromium-server を
+**1 プロファイル = 1 ワーカーアクター**を `spawn` する。2 つの chromium worker を
 指定すれば 2 ワーカー。各ワーカーには**同じ `taskQueue` 参照**を渡す。
 
 ```mermaid
@@ -179,7 +179,7 @@ idle/processing どちらでも拾えるように一段上に置いてある)。
 `TaskQueue` は **1 インスタンス**を全ワーカーで共有(参照渡し)。`dequeue` は配列の
 `shift`(FIFO)で、取り出した `taskId` を `processing` 集合へ移す。これにより**同じ
 タスクを 2 ワーカーが取ることはない**(早い者勝ち=work-stealing)。タスクは特定の
-chromium-server に固定されず、手が空いたワーカーが次を引く。
+chromium worker に固定されず、手が空いたワーカーが次を引く。
 
 取り出し ― 先頭を取って `processing` へ移す:
 

@@ -48,8 +48,8 @@ export interface StorageConfig {
    *     resolve correctly.
    *
    * Defaults to `false` (virtual-hosted-style — the AWS S3 form). The
-   * bundled SeaweedFS in compose.dev.yaml / compose.prod.yaml opts in
-   * via `BROWSERHIVE_S3_FORCE_PATH_STYLE=true`.
+   * bundled SeaweedFS started by `bin/up.sh` opts in via
+   * `BROWSERHIVE_S3_FORCE_PATH_STYLE=true`.
    */
   forcePathStyle?: boolean;
 }

@@ -7,20 +7,19 @@ AWS S3, Cloudflare R2, MinIO-compatible managed services.
 
 ## Bundled SeaweedFS
 
-Both `compose.dev.yaml` and `compose.prod.yaml` ship with a self-hosted
-SeaweedFS service (Apache 2.0, actively maintained) plus a one-shot
-`weed shell` init container that creates the `browserhive` bucket on
-first start. Default S3 identity is `browserhive` / `browserhive`,
-overridable via the `BROWSERHIVE_S3_ACCESS_KEY_ID` /
-`BROWSERHIVE_S3_SECRET_ACCESS_KEY` env vars on `docker compose up`
-(the bundled SeaweedFS and the BrowserHive container read from the
-same pair, so they always agree by construction).
+`bin/up.sh` ships with a self-hosted SeaweedFS service (Apache 2.0,
+actively maintained) plus a one-shot `weed shell` init step that creates
+the `browserhive` bucket on first start. Default S3 identity is
+`browserhive` / `browserhive`, overridable via the
+`BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY` env
+vars when invoking `./bin/up.sh` (the bundled SeaweedFS and the
+BrowserHive container read from the same pair, so they always agree by
+construction).
 
-The dev compose publishes the SeaweedFS S3 API at `localhost:8333`
-and the Filer UI at `localhost:8888` (open
-<http://localhost:8888/buckets/browserhive/> to inspect captured
-artifacts). The prod compose `expose:`s them only to the internal
-network.
+Nothing is published to host ports: the S3 API (`:8333`) and the Filer UI
+(`:8888`) listen on the SeaweedFS container's own IP, reachable from the
+Mac only (open `http://<seaweedfs-ip>:8888/buckets/browserhive/` to
+inspect captured artifacts; IP from `container ls`).
 
 ## External S3
 
@@ -41,9 +40,8 @@ The default is virtual-hosted-style addressing — the form AWS S3
 expects. For SeaweedFS, MinIO-compatible managed services, and most
 other self-hosted S3 implementations (which do not have wildcard DNS
 for the bucket subdomain), pass `--s3-force-path-style` (or set
-`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). The bundled SeaweedFS in
-`compose.dev.yaml` / `compose.prod.yaml` opts in to path-style via
-this env var automatically.
+`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). `bin/up.sh` opts the bundled
+SeaweedFS in to path-style via this env var automatically.
 
 The `s3-access-key-id` and `s3-secret-access-key` values are accepted
 on the command line for completeness, but prefer the

@@ -2,19 +2,21 @@
 #
 # Production image for the BrowserHive HTTP server.
 #
-# Build:
-#   docker build -f Dockerfile.prod -t browserhive:prod .
+# The whole stack (this server + SeaweedFS + chromium workers) is normally
+# brought up on Apple Container with ./bin/up.sh — see that script. To build
+# and run just this image by hand:
 #
-# Run (standalone, point at an external MinIO / AWS S3):
-#   docker run --rm -p 8080:8080 \
-#     -e BROWSERHIVE_BROWSER_URLS=http://chromium-server-1:9222 \
-#     -e BROWSERHIVE_S3_ENDPOINT=http://minio:9000 \
+# Build:
+#   container build -f Dockerfile.prod -t browserhive:prod .
+#
+# Run (standalone, point at an external S3 and existing workers):
+#   container run --rm -p 127.0.0.1:8080:8080 \
+#     -e BROWSERHIVE_BROWSER_URLS=http://<worker-ip>:9222 \
+#     -e BROWSERHIVE_S3_ENDPOINT=http://<s3-host>:8333 \
 #     -e BROWSERHIVE_S3_BUCKET=browserhive \
 #     -e BROWSERHIVE_S3_ACCESS_KEY_ID=... \
 #     -e BROWSERHIVE_S3_SECRET_ACCESS_KEY=... \
 #     browserhive:prod
-#
-# Or use compose.prod.yaml (which also bundles a self-hosted MinIO).
 
 ARG NODE_VERSION=24.15.0
 
@@ -71,6 +73,6 @@ USER node
 EXPOSE 8080
 
 # Configuration is supplied via BROWSERHIVE_* environment variables
-# (set in `environment:` of compose.prod.yaml or via `docker run -e ...`).
+# (bin/up.sh bakes them in; standalone runs pass `container run -e ...`).
 # CLI flags still work and override env values.
 ENTRYPOINT ["node", "dist/bin/server.js"]
