@@ -1,29 +1,32 @@
 ---
-title: アーキテクチャ解説 ― 実装の全体像
-description: ヘッドレス Chromium で Web ページをキャプチャし WACZ として S3 に保存する HTTP サーバの、5 層構成・リクエストの一生・オーケストレーション・キャプチャ・プロデューサを実コードに沿って解説する
+title: Architecture — the implementation at a glance
+description: A code-accurate walkthrough of the HTTP server that captures web pages with headless Chromium and stores them in S3 as WACZ — its 5 layers, the life of a request, orchestration, capture, and the producer pipeline
 ---
 
-ヘッドレス Chromium で Web ページをキャプチャし、**WACZ(Web Archive Collection Zipped)**
-として S3 に保存する HTTP サーバ。Fastify の API が受け付け、XState のワーカープールが
-puppeteer/CDP でキャプチャし、WARC→WACZ に固めて保存する。
+An HTTP server that captures web pages with headless Chromium and stores them
+in S3 as **WACZ (Web Archive Collection Zipped)**. A Fastify API accepts
+requests, an XState worker pool captures via puppeteer/CDP, and the result is
+packed WARC→WACZ and stored.
 
-:::note[一文で]
-`POST /v1/captures` に URL を投げると **202 で taskId を即返し**、内部の FIFO キューに積む。
-**browserURL ごとに 1 つの XState ワーカー**が共有キューから work-stealing で取り出し、保持して
-いる Chromium タブで `PageCapturer.capture` を実行。スクショ/HTML/MHTML/リンク/**WACZ** を生成し、
-ネットワークは CDP で WARC に記録、WACZ に固めて S3 に保存する。進捗は `GET /v1/status` で
-ポーリングする。
+:::note[In one sentence]
+POST a URL to `POST /v1/captures` and it **returns a taskId with 202
+immediately**, enqueueing onto an internal FIFO. **One XState worker per
+browserURL** pulls from the shared queue by work-stealing and runs
+`PageCapturer.capture` on its persistent Chromium tab. It produces
+screenshots/HTML/MHTML/links/**WACZ**, records the network into WARC over
+CDP, packs the WACZ, and stores it in S3. Poll progress with
+`GET /v1/status`.
 :::
 
-**主要技術:** `Fastify` · `OpenAPI 3.1 (ajv)` · `XState v5` · `puppeteer + CDP` ·
+**Key technologies:** `Fastify` · `OpenAPI 3.1 (ajv)` · `XState v5` · `puppeteer + CDP` ·
 `archiver (ZIP)` · `@aws-sdk/client-s3` · `pino` · `RFC 7807`
 
-## 0. 一枚絵 ― リクエストから WACZ まで
+## 0. One picture — from request to WACZ
 
 ```mermaid
 flowchart LR
-  CL["クライアント<br>(waggle 等)"] -->|"POST /v1/captures (url, formats)"| API["Fastify API<br>submitCapture"]
-  API -->|enqueue| Q[("共有 FIFO<br>TaskQueue")]
+  CL["client<br>(e.g. waggle)"] -->|"POST /v1/captures (url, formats)"| API["Fastify API<br>submitCapture"]
+  API -->|enqueue| Q[("shared FIFO<br>TaskQueue")]
   API -.->|"202 Accepted + taskId"| CL
   Q -->|"dequeue (work-stealing)"| W1["Worker 0<br>XState actor"]
   Q --> W2["Worker 1<br>XState actor"]
@@ -35,258 +38,285 @@ flowchart LR
   CL -.->|"GET /v1/status (poll)"| API
 ```
 
-*図0: 受付は非同期(即 202)。実キャプチャはワーカーが後から実行し、成果物 WACZ は S3 に
-1 オブジェクトとして保存される。*
+*Fig. 0: Acceptance is asynchronous (202 right away). The actual capture runs
+later on a worker, and the WACZ artifact is stored as one S3 object.*
 
-:::note[3 階層モノレポの真ん中]
-**waggle**(URL を Postgres から読んで BrowserHive に POST する出し手)→ **browserhive**
-(この repo・キャプチャサーバ)→ **chromium-server-docker**(CDP で操作される Chromium
-バックエンド、git submodule)。本書は中段の browserhive を解説する。
+:::note[The middle of a three-tier monorepo]
+**waggle** (the sender that reads URLs from Postgres and POSTs to BrowserHive)
+→ **browserhive** (this repo — the capture server) → **chromium-server-docker**
+(the CDP-driven Chromium backend, a git submodule). This document covers the
+middle tier, browserhive.
 :::
 
-## 1. 5 層構成 ― ディレクトリと責務
+## 1. Five layers — directories and responsibilities
 
 ```mermaid
 flowchart TD
-  subgraph L1["① API 層 — src/http/"]
-    A1["Fastify サーバ / OpenAPI スキーマ検証 / RFC7807"]
+  subgraph L1["① API layer — src/http/"]
+    A1["Fastify server / OpenAPI schema validation / RFC7807"]
   end
-  subgraph L2["② オーケストレーション — src/capture/*coordinator,worker,queue"]
+  subgraph L2["② Orchestration — src/capture/*coordinator,worker,queue"]
     A2["XState: coordinatorMachine + captureWorkerMachine / TaskQueue"]
   end
-  subgraph L3["③ キャプチャエンジン — src/capture/page-capturer.ts"]
-    A3["PageCapturer.capture / autoScroll / 2層タイムアウト"]
+  subgraph L3["③ Capture engine — src/capture/page-capturer.ts"]
+    A3["PageCapturer.capture / autoScroll / two-layer timeouts"]
   end
-  subgraph L4["④ プロデューサ — src/capture/network-recorder + src/storage/"]
-    A4["NetworkRecorder(CDP→WARC) / WACZ packager / S3 store"]
+  subgraph L4["④ Producer — src/capture/network-recorder + src/storage/"]
+    A4["NetworkRecorder (CDP→WARC) / WACZ packager / S3 store"]
   end
-  subgraph L5["⑤ 設定・CLI — src/config/, src/cli/"]
+  subgraph L5["⑤ Config & CLI — src/config/, src/cli/"]
     A5["CaptureConfig / parseCliOptions / logServerConfig"]
   end
   L1 --> L2 --> L3 --> L4
-  L5 -. 設定を注入 .-> L1
-  L5 -. 設定を注入 .-> L2
-  L5 -. 設定を注入 .-> L3
+  L5 -. injects config .-> L1
+  L5 -. injects config .-> L2
+  L5 -. injects config .-> L3
 ```
 
-*図1: 上から下へ「受付 → 配分 → 実行 → 保存」。設定層(⑤)が全層へ注入される。*
+*Fig. 1: Top to bottom, "accept → distribute → execute → store". The config
+layer (⑤) is injected into every layer.*
 
-| 層 | ディレクトリ | 中心 | 責務 |
-|----|--------------|------|------|
-| ① API | `src/http/` | `HttpServer` / `handlers.ts` | HTTP 受付・OpenAPI 検証・Problem 応答・coordinator へ橋渡し |
-| ② オーケストレーション | `src/capture/*coordinator,worker,queue` | [`CaptureCoordinator`](/terminology/#g-CaptureCoordinator) + 2 つの XState machine | キュー・ワーカープール・再接続/リトライ・状態管理 |
-| ③ キャプチャ | `src/capture/page-capturer.ts` | `PageCapturer.capture` | ページ操作の実行(navigate/scroll/各形式の取得)・タイムアウト制御 |
-| ④ プロデューサ | `src/capture/network-recorder.ts` + `src/storage/` | [`NetworkRecorder`](/terminology/#g-NetworkRecorder) / `WaczPackager` / `ArtifactStore` | CDP→WARC 記録・WACZ 梱包・S3 保存 |
-| ⑤ 設定・CLI | `src/config/`, `src/cli/` | `CaptureConfig` / `server-cli.ts` | フラグ/env→設定木・起動ログ |
+| Layer | Directory | Core | Responsibility |
+|-------|-----------|------|----------------|
+| ① API | `src/http/` | `HttpServer` / `handlers.ts` | HTTP acceptance, OpenAPI validation, Problem responses, bridging to the coordinator |
+| ② Orchestration | `src/capture/*coordinator,worker,queue` | [`CaptureCoordinator`](/terminology/#g-CaptureCoordinator) + two XState machines | queue, worker pool, reconnect/retry, state |
+| ③ Capture | `src/capture/page-capturer.ts` | `PageCapturer.capture` | page operations (navigate/scroll/every format) and timeout control |
+| ④ Producer | `src/capture/network-recorder.ts` + `src/storage/` | [`NetworkRecorder`](/terminology/#g-NetworkRecorder) / `WaczPackager` / `ArtifactStore` | CDP→WARC recording, WACZ packing, S3 storage |
+| ⑤ Config & CLI | `src/config/`, `src/cli/` | `CaptureConfig` / `server-cli.ts` | flags/env → config tree, startup log |
 
-## 2. リクエストの一生 ― 非同期な受付とポーリング
+## 2. The life of a request — async acceptance and polling
 
-API は **2 エンドポイントだけ**(認証なし・`security: []`)。受付は**ファイア&フォーゲット**で、
-キャプチャ完了を待たずに `202` を返す。
+The API is **just 2 endpoints** (no auth, `security: []`). Acceptance is
+**fire-and-forget**: it returns `202` without waiting for the capture.
 
-| エンドポイント | 役割 | 応答 |
-|----------------|------|------|
-| `POST /v1/captures` | キャプチャ依頼(url + captureFormats…) | **202** `{accepted, taskId, correlationId?}` / 400 / 409(重複URL) / 503(ワーカー無) |
-| `GET /v1/status` | キュー・ワーカープールの**全体**スナップショット | 200 `{pending, processing, workers[], queue{...}}` |
+| Endpoint | Role | Response |
+|----------|------|----------|
+| `POST /v1/captures` | capture request (url + captureFormats…) | **202** `{accepted, taskId, correlationId?}` / 400 / 409 (duplicate URL) / 503 (no workers) |
+| `GET /v1/status` | a **whole-pool** snapshot of queue and workers | 200 `{pending, processing, workers[], queue{...}}` |
 
-:::caution[タスク単位の取得口は無い]
-`GET /v1/captures/{taskId}` は存在せず、`/v1/status` は**全体**スナップショット。呼び出し側は
-`queue.pendingTasks` / `processingTasks` / worker の `currentTask` を `taskId`/`correlationId` で
-突き合わせて追う。
+:::caution[There is no per-task endpoint]
+`GET /v1/captures/{taskId}` does not exist; `/v1/status` is a **global**
+snapshot. Callers correlate `queue.pendingTasks` / `processingTasks` /
+each worker's `currentTask` by `taskId`/`correlationId`.
 :::
 
-:::note[OpenAPI ファースト]
-ルートは手書きせず、ビルド時に dereference した OpenAPI から `body/querystring/response` スキーマを
-取り出して `app.route({schema})` に渡す。Fastify の Ajv が**ハンドラ実行前に**検証・型強制。
-`removeAdditional:false` なので未知フィールドは黙って消えず **400** になる。検証エラーは
-RFC 7807 `application/problem+json` に整形される。
+:::note[OpenAPI-first]
+Routes are not hand-written: at build time the dereferenced OpenAPI supplies
+the `body/querystring/response` schemas passed to `app.route({schema})`.
+Fastify's Ajv validates and coerces **before the handler runs**. With
+`removeAdditional:false`, unknown fields are not silently dropped — they are
+a **400**. Validation errors are shaped into RFC 7807
+`application/problem+json`.
 :::
 
-## 3. オーケストレーション ― XState の親子アクター
+## 3. Orchestration — XState parent/child actors
 
-:::tip[📘 前提知識:XState]
-この節以降は XState v5 の状態機械が前提。`setup` / `spawn` / `invoke` / `fromPromise` /
-`fromCallback` / guard / tags …の基本と BrowserHive での使い方は
-[→ XState 入門 + BrowserHive で使う機能](/xstate-primer/)を参照。
+:::tip[📘 Prerequisite: XState]
+From here on, XState v5 machines are assumed. For `setup` / `spawn` /
+`invoke` / `fromPromise` / `fromCallback` / guards / tags … and how
+BrowserHive uses them, see
+[→ XState primer + the features BrowserHive uses](/xstate-primer/).
 :::
 
-スレッド的な「ワーカープール」ではなく、**browserURL ごとに 1 つの XState ワーカーアクター**を
-持つ親子モデル。全ワーカーは**1 つの共有 [`TaskQueue`](/terminology/#g-TaskQueue)**から
-work-stealing で取り出す(chromium worker 2 台 → 2 ワーカー)。
+Not a thread-style "worker pool" but a parent/child model with **one XState
+worker actor per browserURL**. All workers pull from **one shared
+[`TaskQueue`](/terminology/#g-TaskQueue)** by work-stealing (2 chromium
+workers → 2 workers).
 
-### 親:coordinatorMachine
+### Parent: coordinatorMachine
 
 ```mermaid
 flowchart TD
   created -->|INITIALIZE| initializing
-  initializing -->|全員 healthy| running
-  initializing -->|一部失敗| degraded
-  subgraph active["active(複合状態)"]
+  initializing -->|all healthy| running
+  initializing -->|some failed| degraded
+  subgraph active["active (compound state)"]
     running -->|WORKER_DEGRADED| degraded
     degraded -->|ALL_WORKERS_HEALTHY| running
   end
   active -->|SHUTDOWN| shuttingDown
-  shuttingDown -->|完了 / タイムアウト| terminated
+  shuttingDown -->|done / timeout| terminated
 ```
 
-### 子:captureWorkerMachine(URL ごと)
+### Child: captureWorkerMachine (one per URL)
 
 ```mermaid
 flowchart TD
   disconnected -->|CONNECT| connecting
-  connecting -->|接続成功| operational
-  connecting -->|失敗| error
-  subgraph operational["operational(複合状態)"]
+  connecting -->|connected| operational
+  connecting -->|failed| error
+  subgraph operational["operational (compound state)"]
     idle -->|TASK_STARTED| processing
     processing -->|TASK_DONE| idle
     processing -->|TASK_FAILED| idle
   end
   operational -->|CONNECTION_LOST| error
   operational -->|DISCONNECT| disconnecting
-  error -->|"CONNECT (再接続)"| connecting
+  error -->|"CONNECT (reconnect)"| connecting
   error -->|DISCONNECT| disconnecting
-  disconnecting -->|完了| disconnected
+  disconnecting -->|done| disconnected
 ```
 
-*図2: 親が全体の running/degraded を管理し、子が 1 ブラウザの接続〜処理を管理。初期化の一部失敗は
-致命ではなく `active.degraded` 入り(部分稼働)。*
+*Fig. 2: The parent manages the overall running/degraded; each child manages
+one browser's connect-to-process lifecycle. Partial initialization failure is
+not fatal — it enters `active.degraded` (partial operation).*
 
-:::note[📄 ワーカーの生成とループは詳説ページへ]
-この節は**概要**。生成(spawn)→ 接続(CONNECT)→ ループ起動 → イベント駆動 → 共有キュー →
-停止までの**段階的な分解**(実ソースから注入したコード片つき)は
-[→ ワーカーの生成とループ(詳説)](/worker-spawn-and-loop/)を参照。
-[`coordinatorMachine`](/terminology/#g-coordinatorMachine) /
+:::note[📄 Worker spawn & loop has the detailed page]
+This section is the **overview**. For the step-by-step decomposition of
+spawn → CONNECT → loop start → event-driven operation → the shared queue →
+shutdown (with code injected from the real source), see
+[→ Worker spawn & loop (in depth)](/worker-spawn-and-loop/).
+Definitions of [`coordinatorMachine`](/terminology/#g-coordinatorMachine) /
 [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine) /
-[`workerLoop`](/terminology/#g-workerLoop) の定義は[用語集](/terminology/)に。
+[`workerLoop`](/terminology/#g-workerLoop) live in the [Terminology](/terminology/) page.
 :::
 
-:::note[リトライと自己修復]
-失敗タスクは `retryCount < maxRetryCount`(既定 2)なら `requeue`。ワーカーが `error` に落ちると
-親が `degraded` へ移り、`retryFailedWorkers` が **指数バックオフ(1s→2s→…→60s)**で `CONNECT` を
-再送。全員回復で `running` に戻る。タスクは特定サーバに固定されず、空いたワーカーが次を引く
-(work-stealing)。
+:::note[Retry and self-healing]
+A failed task is `requeue`d while `retryCount < maxRetryCount` (default 2).
+When a worker drops to `error`, the parent moves to `degraded` and
+`retryFailedWorkers` re-sends `CONNECT` with **exponential backoff
+(1s→2s→…→60s)**. When everyone recovers it returns to `running`. Tasks are
+not pinned to a server; whichever worker is free pulls the next
+(work-stealing).
 :::
 
-## 4. キャプチャエンジン ― PageCapturer.capture の順序と 2 層タイムアウト
+## 4. Capture engine — the order inside PageCapturer.capture and the two-layer timeouts
 
-[`BrowserClient`](/terminology/#g-BrowserClient) が保持する**常設タブ**に対し、`capture()` は
-「設定→移動→整える→スクロール→各形式取得→WACZ梱包」を順に実行する純粋な実行器(タブの生成/破棄は
-しない)。
+Against the **persistent tab** owned by
+[`BrowserClient`](/terminology/#g-BrowserClient), `capture()` is a pure
+executor that runs "configure → navigate → settle → scroll → capture each
+format → pack WACZ" in order (it neither creates nor destroys tabs).
 
 ```mermaid
 flowchart TD
-  S0["開始時刻記録"] --> S1{"wacz?"}
-  S1 -->|yes| S2["NetworkRecorder.start<br>(goto より前に attach)"]
+  S0["record start time"] --> S1{"wacz?"}
+  S1 -->|yes| S2["NetworkRecorder.start<br>(attach before goto)"]
   S1 -->|no| S3
-  S2 --> S3["viewport / UA / Accept-Language 設定"]
+  S2 --> S3["set viewport / UA / Accept-Language"]
   S3 --> S4["page.goto domcontentloaded<br>withTimeout(pageLoadMs)"]
   S4 --> S5{"HTTP 2xx?"}
-  S5 -->|no| SE["早期 return: httpError"]
-  S5 -->|yes| S6["動的待ち 3s (runOnStableContext)"]
-  S6 --> S7["スクロールバー隠す"]
-  S7 --> S8["バナー除去 dismissBanners"]
+  S5 -->|no| SE["early return: httpError"]
+  S5 -->|yes| S6["dynamic wait 3s (runOnStableContext)"]
+  S6 --> S7["hide scrollbars"]
+  S7 --> S8["dismissBanners"]
   S8 --> S9["autoScroll<br>withTimeout(autoScrollMs)"]
-  S9 --> S10["各形式: PNG→WebP→HTML→links→MHTML<br>各 withTimeout(captureMs)"]
-  S10 --> S11["WACZ 梱包(最後)<br>recorder.stop→pack→store.put"]
-  S11 --> S12["CaptureResult 返却"]
-  S12 --> S13["finally: recorder停止 / temp削除 / resetPageState"]
+  S9 --> S10["each format: PNG→WebP→HTML→links→MHTML<br>each withTimeout(captureMs)"]
+  S10 --> S11["WACZ packing (last)<br>recorder.stop→pack→store.put"]
+  S11 --> S12["return CaptureResult"]
+  S12 --> S13["finally: stop recorder / delete temp / resetPageState"]
 ```
 
-*図3: autoScroll は「バナー除去後・各形式取得前」に置く ― スティッキー要素を消し、遅延読み込み
-リソースを WARC に載せ、スクショ用に最上部へ戻すため。WACZ 梱包は**最後**(他形式が誘発した通信も
-WARC に含めるため)。*
+*Fig. 3: autoScroll sits "after banner dismissal, before format capture" —
+it removes sticky elements, loads lazy resources into the WARC, and scrolls
+back to the top for the screenshot. WACZ packing is **last** so traffic
+triggered by the other formats is also in the WARC.*
 
-**Layer A**: `capture()` 内の各 await を個別に `withTimeout` で包む(navigate=`pageLoadMs` 30s /
-autoScroll=`autoScrollMs` 20s / 各形式=`captureMs` 10s)。puppeteer は `evaluate`/`screenshot` 等に
-組込タイムアウトが無く、JS リダイレクトで context が壊れると無例外で永久ハングするため。
+**Layer A**: every await inside `capture()` is individually wrapped in
+`withTimeout` (navigate=`pageLoadMs` 30s / autoScroll=`autoScrollMs` 20s /
+each format=`captureMs` 10s). puppeteer has no built-in timeouts on
+`evaluate`/`screenshot` etc., and a JS redirect that destroys the context
+hangs forever without an exception.
 
-**Layer B**: `capture()` 全体を `withTimeout(taskTotalMs)`(130s)で包む最終防壁。発火時は
-`status:"timeout"` を返して放置(タブは常設なので次タスクの `goto` が上書き)。Layer A の総和
-(~95s)より広く設計され、平常時は決して発火しない。
+**Layer B**: the whole `capture()` is wrapped in `withTimeout(taskTotalMs)`
+(130s) as the final barrier. On firing it returns `status:"timeout"` and
+walks away (the tab is persistent, so the next task's `goto` overwrites it).
+It is sized wider than the sum of Layer A (~95s) and never fires in normal
+operation.
 
 ```ts file="src/capture/browser-client.ts#layer-b-timeout"
 ```
 
-### runOnStableContext(リダイレクト復帰)
+### runOnStableContext (redirect recovery)
 
-2 層の**間**に座る回復ラッパ。operation を Layer A で実行し、「Execution context was destroyed」で
-失敗した時だけ `waitForNavigation` して最大 2 回リトライ。実在のトップページ(企業サイト等)が
-DOMContentLoaded 直後に client-side リダイレクトし context を壊す問題への対策で、これが無いと
-スクショが必ず失敗していた。
+A recovery wrapper sitting **between** the two layers. It runs the operation
+under Layer A and, only when it fails with "Execution context was
+destroyed", waits for navigation and retries up to twice. Real-world top
+pages (corporate sites, …) client-side-redirect right after DOMContentLoaded
+and destroy the context — without this, screenshots reliably failed.
 
 ```ts file="src/capture/page-capturer.ts#stable-context-retry"
 ```
 
-### キャプチャ形式
+### Capture formats
 
-| flag | 取得方法 | 出力 |
-|------|----------|------|
+| flag | How it is captured | Output |
+|------|--------------------|--------|
 | `png` / `webp` | `page.screenshot({fullPage, type, quality?})` | `image/png` / `image/webp` |
 | `html` | `page.content()` | `text/html` |
-| `links` | `a[href]` を evaluate→http(s) 抽出・重複排除 | `application/json` |
+| `links` | evaluate `a[href]` → extract http(s), dedupe | `application/json` |
 | `mhtml` | CDP `Page.captureSnapshot{format:"mhtml"}` | `multipart/related` |
-| `wacz` | NetworkRecorder の WARC → WaczPackager | `application/wacz+zip` |
+| `wacz` | NetworkRecorder's WARC → WaczPackager | `application/wacz+zip` |
 
-各形式は `store.put(filename, bytes, mime)` で保存し、結果 `CaptureResult` の `*Location` に保存先
-(S3 なら `s3://…`)を載せる。ファイル名は `{taskId}[_{correlationId}][_{labels}].{ext}`。
+Each format is stored via `store.put(filename, bytes, mime)` and the
+destination (`s3://…` for S3) lands in the `*Location` fields of the
+resulting `CaptureResult`. Filenames are
+`{taskId}[_{correlationId}][_{labels}].{ext}`.
 
-## 5. プロデューサパイプライン ― CDP → WARC → WACZ → S3
+## 5. Producer pipeline — CDP → WARC → WACZ → S3
 
 ```mermaid
 flowchart LR
-  CDP["CDP Network.*<br>requestWillBeSent / responseReceived /<br>loadingFinished / loadingFailed"] --> PR["pending マップ<br>(requestId 単位)"]
-  PR -->|成功| REC["request+response<br>WARC レコード対"]
-  PR -->|失敗/未完了/ブロック| META["WARC-Type: metadata<br>(application/warc-fields)"]
-  REC --> WW["WarcWriter<br>各レコードを独立 gzip member"]
+  CDP["CDP Network.*<br>requestWillBeSent / responseReceived /<br>loadingFinished / loadingFailed"] --> PR["pending map<br>(per requestId)"]
+  PR -->|success| REC["request+response<br>WARC record pair"]
+  PR -->|failed/incomplete/blocked| META["WARC-Type: metadata<br>(application/warc-fields)"]
+  REC --> WW["WarcWriter<br>each record an independent gzip member"]
   META --> WW
   WW --> WARC["archive/data.warc.gz"]
   REC -. offset/length/digest .-> CDXJ["RecordedResponse[]<br>→ CDXJ index"]
-  WARC --> PACK["WaczPackager<br>ZIP 梱包"]
+  WARC --> PACK["WaczPackager<br>ZIP packing"]
   CDXJ --> PACK
   PACK --> WACZ["*.wacz (5 entries)"]
   WACZ -->|PutObject| S3[("S3 / SeaweedFS")]
 ```
 
-*図4: 通信イベントを WARC に記録しつつ、各 response の offset/length/digest を控えて CDXJ を
-再パースなしで構築。WARC は per-record の独立 gzip member 連結なので、offset でバイトシークできる。*
+*Fig. 4: Network events are recorded into the WARC while each response's
+offset/length/digest is noted, so the CDXJ is built without re-parsing. The
+WARC is a concatenation of per-record independent gzip members, enabling
+byte seeks by offset.*
 
-### WACZ レイアウト(ZIP・5 エントリ)
+### WACZ layout (ZIP, 5 entries)
 
-| パス | 圧縮 | 用途 |
-|------|------|------|
-| `archive/data.warc.gz` | **STORE** | WARC 本体(既に gzip 済みなので無圧縮格納) |
-| `pages/pages.jsonl` | DEFLATE | ヘッダ行 + 1 page。`ts` が replay の時刻を固定 |
-| `indexes/index.cdxj` | DEFLATE | SURT ソート済 CDXJ(非 gzip) |
-| `fuzzy.json` | DEFLATE | クエリ除去ルール(キャッシュバスター対策) |
-| `datapackage.json` | DEFLATE | Frictionless 記述子。他 4 資源の `sha256:<hex>` を保持 |
+| Path | Compression | Purpose |
+|------|-------------|---------|
+| `archive/data.warc.gz` | **STORE** | the WARC itself (already gzipped, stored uncompressed) |
+| `pages/pages.jsonl` | DEFLATE | header line + 1 page; `ts` pins the replay time |
+| `indexes/index.cdxj` | DEFLATE | SURT-sorted CDXJ (not gzipped) |
+| `fuzzy.json` | DEFLATE | query-stripping rules (cache-buster counters) |
+| `datapackage.json` | DEFLATE | Frictionless descriptor; holds `sha256:<hex>` of the other 4 resources |
 
-※ browserhive の packager は `datapackage-digest.json` を**出さない**(5 エントリのみ)。digest は
-2 エンコード併用:WARC は `sha256:<base32>`、datapackage は `sha256:<hex>`。各語の定義は
-[用語リファレンス](/glossary-reference/#t-datapackagejson)を参照。
+※ browserhive's packager does **not** emit `datapackage-digest.json` (5
+entries only). Digests use both encodings: WARC carries `sha256:<base32>`,
+datapackage `sha256:<hex>`. Definitions in the
+[glossary reference](/glossary-reference/#t-datapackagejson).
 
-### failed/incomplete の metadata レコード(案 3)
+### metadata records for failed/incomplete exchanges (plan 3)
 
-失敗・未完了・ブロック・打ち切りの通信は `response` ではなく `WARC-Type: metadata` として記録。
-案 3 で **resourceType / blockedReason / status** を付与し、消費側(waxlens)が本文をパースせず
-「広告ブロックされた画像」と「本物のネットワーク障害」を区別できる。
+Failed, incomplete, blocked, or truncated exchanges are recorded not as
+`response` but as `WARC-Type: metadata`. Plan 3 adds **resourceType /
+blockedReason / status**, so consumers (waxlens) can tell an "ad-blocked
+image" from a "real network failure" without parsing bodies.
 
 ```ts file="src/capture/network-recorder.ts#metadata-loadingfailed"
 ```
 
-:::note[記録の堅さ]
-`pending` マップの変更は全て **await の前に同期実行**(redirect→response→loadingFinished の高速
-連射に耐えるため)。WARC 書き込みは単一の `writeQueue: Promise` で直列化し、連結 gzip member が
-交錯しないようにする。ブロックリスト一致 URL は**レコードを一切書かない**(skip/truncate は
-request/response + 打ち切り metadata を残すのと別)。
+:::note[Recording robustness]
+All mutations of the `pending` map run **synchronously before any await**
+(to survive rapid redirect→response→loadingFinished bursts). WARC writes are
+serialized through a single `writeQueue: Promise` so concatenated gzip
+members never interleave. URLs matching the blocklist write **no record at
+all** (distinct from skip/truncate, which keep request/response plus a
+truncation metadata record).
 :::
 
-## 6. 設定とデプロイ
+## 6. Configuration and deployment
 
-### 設定木と CLI
+### The config tree and the CLI
 
-`BrowserHiveConfig → CoordinatorConfig → CaptureConfig` の 3 階層。`parseCliOptions` が
-**フラグ > env > 既定**の優先で組み立て、同一 `CaptureConfig` を全 browserURL に配る。
-`logServerConfig` が起動時に解決済み設定を 1 行の構造化ログで出す(S3 シークレットはマスク)。
+Three tiers: `BrowserHiveConfig → CoordinatorConfig → CaptureConfig`.
+`parseCliOptions` assembles them with **flags > env > defaults** and hands
+the same `CaptureConfig` to every browserURL. `logServerConfig` logs the
+resolved configuration as one structured line at startup (S3 secrets
+masked).
 
 ```text
 BrowserHiveConfig
@@ -308,17 +338,18 @@ BrowserHiveConfig
 ```
 
 ```bash
-# bin/up.sh が browserhive コンテナに焼き込む env(IP は起動時に収集)
+# The env bin/up.sh bakes into the browserhive container (IPs collected at startup)
 BROWSERHIVE_BROWSER_URLS=http://192.168.64.x:9222,http://192.168.64.y:9222
 BROWSERHIVE_S3_ENDPOINT=http://192.168.64.z:8333
 BROWSERHIVE_S3_BUCKET=browserhive
-BROWSERHIVE_S3_FORCE_PATH_STYLE=true   # SeaweedFS は path-style 必須
+BROWSERHIVE_S3_FORCE_PATH_STYLE=true   # SeaweedFS requires path-style
 ```
 
-タイムアウトは全て `*Ms` 接尾辞(識別子で単位が分かる・リポ慣習)。CLI オプション名
-`--page-load-timeout` 等は別サーフェスで `timeouts` フィールドとは独立。
+Timeouts all carry the `*Ms` suffix (units visible in the identifier — a
+repo convention). CLI option names like `--page-load-timeout` are a separate
+surface, independent of the `timeouts` fields.
 
-### デプロイ・トポロジ(4 コンテナ)
+### Deployment topology (4 containers)
 
 ```mermaid
 flowchart TD
@@ -326,44 +357,48 @@ flowchart TD
   BH -->|"CDP :9222"| C1["chromium-1"]
   BH -->|"CDP :9222"| C2["chromium-2"]
   BH -->|"S3 PutObject :8333<br>path-style"| SW["browserhive-seaweedfs<br>S3 :8333 / Filer :8888"]
-  UP["bin/up.sh<br>(bucket 初期化 one-shot・<br>IP 収集 → env 焼き込み)"] -.->|orchestrates| BH
+  UP["bin/up.sh<br>(one-shot bucket init ·<br>collect IPs → bake env)"] -.->|orchestrates| BH
   UP -.->|probe /cluster/status| SW
   UP -.->|probe /json/version| C1
   UP -.->|probe /json/version| C2
 ```
 
-*図5: 全コンテナは Apple Container の VM(192.168.64.0/24 で相互 IP 直結)。
-compose のサービス名 DNS と `depends_on` は `bin/up.sh` の「逐次起動 + 外部プローブ
-(Chromium `/json/version`、SeaweedFS `/cluster/status`)+ IP 収集 → env 焼き込み」に
-置き換わった。ホストに公開されるのは browserhive の 8080 のみ。*
+*Fig. 5: Every container is an Apple Container VM (mutual IP-direct on
+192.168.64.0/24). Compose's service-name DNS and `depends_on` are replaced
+by `bin/up.sh`'s "sequential startup + external probes (Chromium
+`/json/version`, SeaweedFS `/cluster/status`) + IP collection → env baking".
+Only browserhive's 8080 is published to the host.*
 
-:::note[S3 アドレッシング]
-バンドルされた SeaweedFS は仮想ホスト形式(`browserhive.<endpoint>:8333`)を解決できないため
-**path-style**(`<endpoint>:8333/browserhive/<key>`)を強制。`BROWSERHIVE_S3_ENDPOINT` を AWS/R2 に
-向け force-path-style を false にすれば同一イメージで外部ストアも使える。
+:::note[S3 addressing]
+The bundled SeaweedFS cannot resolve virtual-hosted style
+(`browserhive.<endpoint>:8333`), so **path-style**
+(`<endpoint>:8333/browserhive/<key>`) is forced. Point
+`BROWSERHIVE_S3_ENDPOINT` at AWS/R2 and set force-path-style to false and
+the same image works against external stores.
 :::
 
-## 7. 主要ファイル早見表(コードへの地図)
+## 7. Key-file cheat sheet (a map into the code)
 
-行番号は載せない(ドリフトするため)。各ファイルの最新位置は IDE の記号ジャンプで辿るのが速い。
+No line numbers (they drift). Jump by symbol in your IDE for the latest
+location of each item.
 
-| 関心事 | ファイル | 中身 |
-|--------|----------|------|
-| プロセス起点 | `bin/server.ts` | `main()`: CLI parse → startServer → SIGINT/TERM |
-| 合成ルート | `src/cli/server-cli.ts` | `startServer`: Coordinator + HttpServer 構築 |
-| HTTP サーバ | `src/http/server.ts` | `HttpServer`: Fastify/Ajv/Problem/ルート登録 |
-| 受付ハンドラ | `src/http/handlers.ts` | `submitCapture` / `getStatus` |
-| オーケストレーション facade | `src/capture/capture-coordinator.ts` | [`CaptureCoordinator`](/terminology/#g-CaptureCoordinator): enqueue/initialize/status |
-| 親 machine | `src/capture/coordinator-machine.ts` | [`coordinatorMachine`](/terminology/#g-coordinatorMachine): `created→active{running/degraded}→terminated` |
-| 子 machine | `src/capture/capture-worker.ts` | [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine): `disconnected→operational{idle/processing}→error` |
-| ワーカーループ | `src/capture/worker-loop.ts` | [`workerLoop`](/terminology/#g-workerLoop): dequeue→process→イベント送出 |
-| キュー | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing/completed Set |
-| ブラウザ接続/処理 | `src/capture/browser-client.ts` | [`BrowserClient`](/terminology/#g-BrowserClient): `process`(Layer B), `connect`, 常設タブ保持 |
-| キャプチャ本体 | `src/capture/page-capturer.ts` | `capture()` 全工程 + `withTimeout`/`runOnStableContext` |
-| ネットワーク記録 | `src/capture/network-recorder.ts` | [`NetworkRecorder`](/terminology/#g-NetworkRecorder): CDP→WARC、pending/writeQueue、metadata レコード |
-| WARC 構築/書込 | `src/storage/warc/builders.ts` / `writer.ts` | レコード生成 / per-record gzip member |
-| WACZ 梱包 | `src/storage/wacz/packager.ts` | 5 資源を hash して ZIP(WARC=STORE) |
-| S3 ストア | `src/storage/s3-compatible-store.ts` | `put`→`s3://bucket/key` |
-| 設定型 | `src/config/types.ts` | `CaptureConfig` ほか |
-| CLI/設定組立 | `src/cli/server-cli.ts` | `parseCliOptions` / `buildServerConfig` / `logServerConfig` |
-| デプロイ | `bin/up.sh` / `Dockerfile.prod` | Apple Container 4 コンテナ構成(S3 + worker×N + 本体) |
+| Concern | File | Contents |
+|---------|------|----------|
+| Process entry | `bin/server.ts` | `main()`: CLI parse → startServer → SIGINT/TERM |
+| Composition root | `src/cli/server-cli.ts` | `startServer`: builds Coordinator + HttpServer |
+| HTTP server | `src/http/server.ts` | `HttpServer`: Fastify/Ajv/Problem/route registration |
+| Handlers | `src/http/handlers.ts` | `submitCapture` / `getStatus` |
+| Orchestration facade | `src/capture/capture-coordinator.ts` | [`CaptureCoordinator`](/terminology/#g-CaptureCoordinator): enqueue/initialize/status |
+| Parent machine | `src/capture/coordinator-machine.ts` | [`coordinatorMachine`](/terminology/#g-coordinatorMachine): `created→active{running/degraded}→terminated` |
+| Child machine | `src/capture/capture-worker.ts` | [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine): `disconnected→operational{idle/processing}→error` |
+| Worker loop | `src/capture/worker-loop.ts` | [`workerLoop`](/terminology/#g-workerLoop): dequeue→process→emit events |
+| Queue | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing/completed sets |
+| Browser connect/process | `src/capture/browser-client.ts` | [`BrowserClient`](/terminology/#g-BrowserClient): `process` (Layer B), `connect`, owns the persistent tab |
+| Capture proper | `src/capture/page-capturer.ts` | the whole `capture()` + `withTimeout`/`runOnStableContext` |
+| Network recording | `src/capture/network-recorder.ts` | [`NetworkRecorder`](/terminology/#g-NetworkRecorder): CDP→WARC, pending/writeQueue, metadata records |
+| WARC build/write | `src/storage/warc/builders.ts` / `writer.ts` | record construction / per-record gzip members |
+| WACZ packing | `src/storage/wacz/packager.ts` | hash 5 resources into a ZIP (WARC=STORE) |
+| S3 store | `src/storage/s3-compatible-store.ts` | `put`→`s3://bucket/key` |
+| Config types | `src/config/types.ts` | `CaptureConfig` et al. |
+| CLI/config assembly | `src/cli/server-cli.ts` | `parseCliOptions` / `buildServerConfig` / `logServerConfig` |
+| Deployment | `bin/up.sh` / `Dockerfile.prod` | Apple Container, 4 containers (S3 + worker×N + server) |

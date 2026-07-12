@@ -1,27 +1,27 @@
 ---
-title: XState 入門 + BrowserHive で使う機能
-description: XState v5 の基本(状態機械・アクター・副作用・setup)と、BrowserHive が実際に使う機能をコードに沿って解説する
+title: XState primer + the features BrowserHive uses
+description: XState v5 fundamentals (state machines, actors, side effects, setup) and the features BrowserHive actually uses, explained along the code
 ---
 
-BrowserHive のオーケストレーションは XState v5 の状態機械でできている。ソースを読む前提として、XState の基本(前半)と、BrowserHive が実際に使う機能(後半)をコードに沿って解説する。
+BrowserHive's orchestration is built from XState v5 state machines. As groundwork for reading the source, this page covers the XState fundamentals (Part A) and the features BrowserHive actually uses (Part B), following the code.
 
-:::note[30 秒サマリ]
-XState の**状態機械**は「いま**どの状態**か」「**イベント**で**どの状態へ遷移**するか」を宣言的に書く道具。動かすと**アクター**になり、`send(event)` で動かし `getSnapshot()` で覗く。状態機械は **booleans の散らばり**(`isConnecting` / `isBusy` / `hasError` …)を**1 つの「現在状態」**に畳み、ありえない組合せを**構造的に排除**する。
+:::note[30-second summary]
+An XState **state machine** is a tool for declaring "which **state** we are in now" and "which **event** causes a **transition** to which state". Running one produces an **actor**: drive it with `send(event)` and peek with `getSnapshot()`. A state machine folds a **scatter of booleans** (`isConnecting` / `isBusy` / `hasError` …) into **one "current state"**, ruling out impossible combinations **structurally**.
 
-BrowserHive は v5 の**アクターモデル**を使う:coordinator アクターが worker アクターを **spawn** し、worker は **invoke** で `fromPromise`(接続)/ `fromCallback`(処理ループ)アクターを動かし、結果を**イベントで親へ報告**する。
+BrowserHive uses v5's **actor model**: the coordinator actor **spawn**s worker actors, each worker **invoke**s `fromPromise` (connection) / `fromCallback` (processing loop) actors, and results are **reported to the parent as events**.
 :::
 
-## ― Part A:XState の基本 ―
+## — Part A: XState fundamentals —
 
-## A1. なぜ状態機械か ― boolean の沼を畳む
+## A1. Why state machines — folding the boolean swamp
 
-「接続中?」「処理中?」「エラー?」をバラバラの boolean で持つと、`isConnecting && hasError` のような**ありえない組合せ**が表現できてしまい、分岐が爆発する。状態機械は「現在は **1 つの状態**」と決め、**どのイベントでどこへ動くか**だけを書く。**到達不能・矛盾した状態が型と構造で消える**のが最大の利点。
+Holding "connecting?", "busy?", "error?" as separate booleans lets you express **impossible combinations** like `isConnecting && hasError`, and the branching explodes. A state machine decides "we are in exactly **one state**" and only writes **which event moves us where**. The biggest win: **unreachable and contradictory states disappear by type and structure**.
 
-:::tip[たとえ]
-信号機。「赤・黄・青」は同時に点かない(=排他状態)。「タイマー満了(イベント)で次へ」だけ決めればよい。boolean 3 つ(`red/yellow/green`)だと「赤かつ青」が書けてしまう。
+:::tip[Analogy]
+A traffic light. Red, yellow, and green never shine at once (= exclusive states). You only decide "on timer expiry (an event), advance to the next". With three booleans (`red/yellow/green`) you could write "red and green".
 :::
 
-## A2. 4 つの核 ― State / Event / Transition / Context
+## A2. The four cores — State / Event / Transition / Context
 
 ```mermaid
 stateDiagram-v2
@@ -30,328 +30,329 @@ stateDiagram-v2
   playing --> paused: TOGGLE
 ```
 
-*図A: 最小の機械(再生/一時停止)。**状態** paused/playing、**イベント** TOGGLE、**遷移**は矢印。これを XState で書くと↓*
+*Fig. A: A minimal machine (play/pause). **States** paused/playing, **event** TOGGLE, **transitions** are the arrows. In XState this becomes ↓*
 
 ```ts
-// 最小の機械(XState v5・一般例)。paused ⇄ playing を切り替え、再生開始(paused→playing)のたび playCount を +1。
+// A minimal machine (XState v5, generic example). Toggles paused ⇄ playing and
+// increments playCount every time playback starts (paused→playing).
 import { setup, assign, createActor } from "xstate";
 
 const player = setup({
-  // types = 値ではなく「型」だけ宣言する場所。`{} as T` は「中身は空・型は T」の書き方。
+  // types = the place to declare *types* only, not values. `{} as T` means "empty value, typed as T".
   types: {
-    context: {} as { playCount: number }, // この機械が持つ context の型
-    events:  {} as { type: "TOGGLE" },    // 受け取りうるイベント(ここでは TOGGLE だけ)
+    context: {} as { playCount: number }, // the shape of this machine's context
+    events:  {} as { type: "TOGGLE" },    // the events it can receive (only TOGGLE here)
   },
 }).createMachine({
-  initial: "paused",         // 開始状態
-  context: { playCount: 0 }, // context の初期値
+  initial: "paused",         // starting state
+  context: { playCount: 0 }, // initial context value
   states: {
-    paused: {                 // ← 状態 paused の定義(状態名は自由に付けられる)
-      on: {                   //   on = この状態での「イベント → 遷移」対応表(on は XState の予約キー)
-        TOGGLE: {             //   TOGGLE を受けたら…
-          target: "playing",                                    //     playing へ遷移し
+    paused: {                 // ← definition of state "paused" (state names are free-form)
+      on: {                   //   on = this state's "event → transition" table (a reserved XState key)
+        TOGGLE: {             //   when TOGGLE arrives…
+          target: "playing",                                    //     transition to playing, and
           actions: assign({ playCount: ({ context }) => context.playCount + 1 }), // +1
         },
       },
     },
     playing: {
-      on: { TOGGLE: "paused" },  // playing で TOGGLE → paused。短縮形(target だけ・actions なし)
+      on: { TOGGLE: "paused" },  // TOGGLE in playing → paused. Shorthand (target only, no actions)
     },
   },
 });
 ```
 
-### コードの構造 ― 入れ子を分解する
+### The shape of the code — unpacking the nesting
 
-config は**入れ子のオブジェクト**。骨組みだけにするとこう:
+The config is a **nested object**. Reduced to its skeleton:
 
 ```ts
 createMachine({
-  initial,              // ← どの状態から始めるか
-  context,              // ← 状態名で表せないデータの初期値
-  states: {             // ← 取りうる状態の一覧
-    <状態名>: {
-      on: {             // ← この状態での「イベント → 遷移」対応表
-        <イベント名>: <遷移>     // ← 遷移は 2 通りの書き方(下記)
+  initial,              // ← which state to start in
+  context,              // ← initial values of data that state names cannot express
+  states: {             // ← the set of possible states
+    <stateName>: {
+      on: {             // ← this state's "event → transition" table
+        <eventName>: <transition>     // ← two ways to write a transition (below)
       }
     }
   }
 })
 ```
 
-**遷移の書き方は 2 通り**あり、「移るだけ」か「移る＋副作用」かで選ぶ:
+**Transitions come in two spellings**, chosen by "just move" vs "move + side effect":
 
-- **短縮形** `TOGGLE: "paused"` ― 文字列は**遷移先の状態名**。「TOGGLE が来たら paused へ移るだけ」。
-- **完全形** `TOGGLE: { target: "playing", actions: … }` ― `target`(遷移先)に加え、`actions`(遷移のついでに走る副作用)を書ける。
+- **Shorthand** `TOGGLE: "paused"` — the string is **the target state name**. "On TOGGLE, just move to paused."
+- **Full form** `TOGGLE: { target: "playing", actions: … }` — besides `target`, you can attach `actions` (side effects that run with the transition).
 
-`assign({ playCount: ({ context }) => context.playCount + 1 })` は「context の `playCount` を**現在値 +1 に置き換える**」副作用。関数にするのは**今の context / event を読んで新しい値を計算**するため(`({ context }) => …` が現在の context を受け取っている)。
+`assign({ playCount: ({ context }) => context.playCount + 1 })` is the side effect "replace `playCount` in context with **its current value +1**". It is a function so it can **read the current context / event and compute the new value** (`({ context }) => …` receives the current context).
 
-### TOGGLE を送るたびに何が起きるか(実行トレース)
+### What happens on each TOGGLE (execution trace)
 
-アクターに `send({ type: "TOGGLE" })` を繰り返したときの動き。**今いる状態の `on.TOGGLE` を引いて**、その遷移を適用する:
+The behavior as you repeatedly `send({ type: "TOGGLE" })` to the actor: **look up `on.TOGGLE` of the current state** and apply that transition:
 
-| 今の状態 | 今の playCount | TOGGLE で引く遷移 | 結果 |
-|----------|----------------|-------------------|------|
+| Current state | Current playCount | Transition looked up for TOGGLE | Result |
+|---------------|-------------------|--------------------------------|--------|
 | `paused` | 0 | `{ target:"playing", actions:+1 }` | `playing` / playCount **1** |
-| `playing` | 1 | `"paused"`(短縮形・actions なし) | `paused` / playCount 1(**不変**) |
+| `playing` | 1 | `"paused"` (shorthand, no actions) | `paused` / playCount 1 (**unchanged**) |
 | `paused` | 1 | `{ target:"playing", actions:+1 }` | `playing` / playCount **2** |
 
-ポイントは「**playCount が増えるのは `paused→playing` のときだけ**」 ― `playing→paused` の遷移には `actions` が無いから。**状態(paused/playing)と context(playCount)は別々に動く**のが見て取れる。これが「状態=モード / context=付随データ」の感覚。
+The point: **playCount only grows on `paused→playing`** — the `playing→paused` transition has no `actions`. You can see that **state (paused/playing) and context (playCount) move independently**. That is the "state = mode / context = accompanying data" intuition.
 
-各概念の語義は用語集の該当語へ(📖):[State(状態)](/glossary-reference/#t-state) / [Event(イベント)](/glossary-reference/#t-event) / [Transition(遷移)](/glossary-reference/#t-transition) / [Context](/glossary-reference/#t-context)。
+For each concept's definition, see the glossary entries (📖): [State](/glossary-reference/#t-state) / [Event](/glossary-reference/#t-event) / [Transition](/glossary-reference/#t-transition) / [Context](/glossary-reference/#t-context).
 
-:::note[状態 vs context]
-**状態**=「離散的なモード」(数えられる)、**context**=「連続値・任意データ」(カウンタ、エラー履歴、現在のタスク等)。BrowserHive の worker なら状態=`operational`、context=`processedCount` / `currentTask`。
+:::note[State vs context]
+**State** = a "discrete mode" (countable); **context** = "continuous values / arbitrary data" (counters, error history, the current task, …). For a BrowserHive worker: state = `operational`, context = `processedCount` / `currentTask`.
 :::
 
-## A3. アクター ― 機械を「動かす」と何になるか
+## A3. Actors — what a machine becomes when you "run" it
 
-機械(`createMachine` の戻り値)は**設計図**。`createActor(machine).start()` で**稼働インスタンス=アクター**になる。アクターは現在状態+context を抱え、**イベントを受け取って**遷移し、**外から観測**できる。
+A machine (the return value of `createMachine`) is a **blueprint**. `createActor(machine).start()` turns it into a **running instance = an actor**. The actor holds the current state + context, **receives events** to transition, and can be **observed from outside**.
 
 ```mermaid
 flowchart LR
-  M["machine(設計図)"] --> CA["createActor(machine).start()"]
-  CA --> ACT["稼働アクター<br>状態 + context"]
+  M["machine (blueprint)"] --> CA["createActor(machine).start()"]
+  CA --> ACT["running actor<br>state + context"]
   S["send(event)"] -->|mailbox| ACT
-  ACT -->|"getSnapshot()"| SNAP["スナップショット<br>value / context / matches / hasTag"]
-  ACT -->|"subscribe(fn)"| OBS["状態が変わるたび通知"]
+  ACT -->|"getSnapshot()"| SNAP["snapshot<br>value / context / matches / hasTag"]
+  ACT -->|"subscribe(fn)"| OBS["notified on every state change"]
 ```
 
-*図B: アクターは「送る(send)/覗く(getSnapshot)/購読(subscribe)」で外と関わる。内部状態は直接いじれない ― イベント経由のみ*
+*Fig. B: An actor interacts with the outside through "send / getSnapshot / subscribe". You never poke the internal state directly — events only.*
 
 ```ts
-// アクターの操作(一般例)
+// Operating an actor (generic example)
 const actor = createActor(player);
-actor.subscribe((snap) => console.log(snap.value, snap.context.playCount)); // 変化を購読
+actor.subscribe((snap) => console.log(snap.value, snap.context.playCount)); // subscribe to changes
 actor.start();                          // → "paused"
 actor.send({ type: "TOGGLE" });        // → "playing",  playCount 1
 actor.getSnapshot().value;             // "playing"
-actor.getSnapshot().matches("playing");  // true(状態判定)
+actor.getSnapshot().matches("playing");  // true (state test)
 ```
 
-:::note[アクターモデルが肝(v5)]
-XState v5 は**アクター中心**。1 つのアクターは別アクターを **spawn**(動的生成)や **invoke**(状態に紐づけ起動)でき、互いに**イベントで通信**する。BrowserHive の coordinator→worker→loop の階層がまさにこれ(後半)。
+:::note[The actor model is the heart of v5]
+XState v5 is **actor-centric**. One actor can **spawn** other actors (dynamic creation) or **invoke** them (bound to a state), and they **communicate via events**. BrowserHive's coordinator→worker→loop hierarchy is exactly this (Part B).
 :::
 
-## A4. 副作用 ― actions / assign / guards / invoke・spawn
+## A4. Side effects — actions / assign / guards / invoke·spawn
 
-状態機械は「純粋な遷移」だけでなく、遷移の**ついでに副作用**を起こせる。BrowserHive で多用するのは [**actions**](/glossary-reference/#t-action)(同期副作用)/ [**assign**](/glossary-reference/#t-assign)(context 更新)/ [**guards**](/glossary-reference/#t-guard)(遷移可否の条件)/ [**invoke**](/glossary-reference/#t-invoke)・[**spawn**](/glossary-reference/#t-spawn)(別アクター起動)の 4 種(各語は用語集の該当語にリンク)。ここでは特に重要な **guard での枝分かれ**を見る。
+State machines are not just pure transitions; they can raise **side effects along with** a transition. BrowserHive leans on four kinds: [**actions**](/glossary-reference/#t-action) (synchronous side effects) / [**assign**](/glossary-reference/#t-assign) (context updates) / [**guards**](/glossary-reference/#t-guard) (conditions on transitions) / [**invoke**](/glossary-reference/#t-invoke)·[**spawn**](/glossary-reference/#t-spawn) (starting other actors) — each linked to its glossary entry. Here we look at the especially important **branching with guards**.
 
-1 つのイベントに**複数の遷移を配列**で書くと、**上から最初に guard を満たした枝**だけが選ばれる(BrowserHive のリトライ判定がこれ):
+Writing **multiple transitions as an array** for one event selects **the first branch whose guard passes, top-down** (this is BrowserHive's retry decision):
 
 ```ts
-// guard 配列(上から最初に通った枝が勝つ)
+// guard array (the first passing branch wins)
 on: { TASK_FAILED: [
-  { guard: "canRetry", target: "idle", actions: "retryTask" },   // 予算が残っていれば
-  {                      target: "idle", actions: "markComplete" }, // それ以外(諦め)
+  { guard: "canRetry", target: "idle", actions: "retryTask" },   // if budget remains
+  {                      target: "idle", actions: "markComplete" }, // otherwise (give up)
 ]}
 ```
 
-## A5. setup() ― v5 の「型付き部品箱」
+## A5. setup() — v5's "typed parts box"
 
-v5 では `setup({...})` で**部品(types / actors / guards / actions)を先に登録**し、`createMachine` 内では**文字列名で参照**する。これで型が通り、機械定義が宣言的に読める。BrowserHive の両機械はこの形。
+In v5 you **register the parts (types / actors / guards / actions) first** with `setup({...})`, then **reference them by string name** inside `createMachine`. Types flow through and the machine definition reads declaratively. Both BrowserHive machines take this shape.
 
 ```ts
-// setup の骨格(BrowserHive も全部この形)
+// The setup skeleton (all of BrowserHive follows this shape)
 setup({
-  types:  { context: {} as Ctx, input: {} as In, events: {} as Ev },  // 型
-  actors: { connectBrowser, workerLoop /* … */ },   // invoke できるアクター群
-  guards: { canRetry: ({ context, event }) => … },  // 条件
-  actions:{ setCurrentTask: assign({ … }) },         // 副作用
+  types:  { context: {} as Ctx, input: {} as In, events: {} as Ev },  // types
+  actors: { connectBrowser, workerLoop /* … */ },   // actors available to invoke
+  guards: { canRetry: ({ context, event }) => … },  // conditions
+  actions:{ setCurrentTask: assign({ … }) },         // side effects
 }).createMachine({
   id: "…", initial: "…", context: ({ input }) => ({ … }), states: { … },
 });
 ```
 
-:::tip[前半まとめ]
-機械=状態+イベント+遷移+context の設計図。`createActor().start()` で**アクター**になり、`send`/`getSnapshot`/`subscribe` で扱う。副作用は **actions / assign / guards / invoke・spawn**。v5 は **setup() で部品登録 → 名前参照**。これだけ分かれば BrowserHive の機械が読める。
+:::tip[Part A recap]
+A machine = a blueprint of states + events + transitions + context. `createActor().start()` makes it an **actor**, handled via `send`/`getSnapshot`/`subscribe`. Side effects are **actions / assign / guards / invoke·spawn**. v5 = **register parts in setup(), reference by name**. That is all you need to read BrowserHive's machines.
 :::
 
-## ― Part B:BrowserHive が使う機能 ―
+## — Part B: the features BrowserHive uses —
 
-これ以降の BrowserHive 側のコード片は**理解のための抜粋**。**実ソースからビルド時に注入した完全版**は[ワーカーの生成とループ](/worker-spawn-and-loop/)に、各部品の正体・役割の定義は[用語集](/terminology/)にまとまっているので、実際のコードを追いたいときはそちらを参照。
+The BrowserHive code snippets from here on are **excerpts for understanding**. The **complete versions, injected at build time from the real source**, live in [Worker spawn & loop](/worker-spawn-and-loop/), and the identity/role of each part is defined in the [Terminology](/terminology/) page — go there to follow the actual code.
 
-## B1. 2 つの機械と「状態の形」(compound / final)
+## B1. The two machines and the "shape" of states (compound / final)
 
-BrowserHive は親子 2 機械。どちらも**compound state(入れ子の状態)**を使う:`active` の中に `running`/`degraded`、`operational` の中に `idle`/`processing`。親の `active` に付けた `invoke` や `on:{SHUTDOWN}` は、内部の `running↔degraded` 往復に**影響されない**(これが入れ子の効用)。終端は `type:"final"`(coordinator の `terminated`)。
+BrowserHive has a parent and a child machine. Both use **compound states (nested states)**: `running`/`degraded` inside `active`, and `idle`/`processing` inside `operational`. An `invoke` or `on:{SHUTDOWN}` attached to the parent's `active` is **unaffected** by the internal `running↔degraded` shuttling (that is the point of nesting). The terminal is `type:"final"` (the coordinator's `terminated`).
 
 ```ts
-// coordinator-machine.ts ― compound state「active」(抜粋)
+// coordinator-machine.ts — the compound state "active" (excerpt)
 active: {
-  invoke: { src: "watchWorkerHealth" },  // active の間ずっと稼働(running/degraded 不問)
-  on: { SHUTDOWN: "shuttingDown" },        // active のどの substate からでも効く
+  invoke: { src: "watchWorkerHealth" },  // runs the whole time we are in active (running/degraded alike)
+  on: { SHUTDOWN: "shuttingDown" },        // works from any substate of active
   initial: "running",
   states: {
     running:  { on: { WORKER_DEGRADED:    "degraded" } },
     degraded: { invoke: { src: "retryFailedWorkers" }, on: { ALL_WORKERS_HEALTHY: "running" } },
   },
 },
-terminated: { type: "final" },         // 終端状態
+terminated: { type: "final" },         // terminal state
 ```
 
-実コードに即した [`coordinatorMachine`](/terminology/#g-coordinatorMachine) / [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine) の全体は[用語集](/terminology/)と[ワーカーの生成とループ](/worker-spawn-and-loop/)を参照。
+For the full, code-accurate [`coordinatorMachine`](/terminology/#g-coordinatorMachine) / [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine), see the [Terminology](/terminology/) page and [Worker spawn & loop](/worker-spawn-and-loop/).
 
-:::note[型付きイベント]
-イベントは**判別 union**で型定義する。worker 機械の例:`{type:"CONNECT"} | {type:"TASK_DONE"; task; result} | {type:"CONNECTION_LOST"; task; message} | …`。各遷移ハンドラ内で `event.task` 等に型安全にアクセスできる。
+:::note[Typed events]
+Events are typed as a **discriminated union**. The worker machine's example: `{type:"CONNECT"} | {type:"TASK_DONE"; task; result} | {type:"CONNECTION_LOST"; task; message} | …`. Inside each transition handler you access `event.task` etc. type-safely.
 :::
 
-## B2. invoke と 2 種のアクター ― fromPromise / fromCallback
+## B2. invoke and the two actor kinds — fromPromise / fromCallback
 
-状態に `invoke` を付けると、**その状態にいる間だけ**別アクターが動き、**状態を抜けると自動で停止**する。BrowserHive は 2 種を使い分ける。
+Attach an `invoke` to a state and another actor runs **only while in that state**, stopping **automatically on exit**. BrowserHive uses two kinds.
 
 ```mermaid
 flowchart LR
-  EN["状態に入る"] --> INV["invoke: アクター起動"]
-  INV --> FP["fromPromise<br>1回で完了する非同期"]
-  INV --> FC["fromCallback<br>常駐(イベントを送り続ける)"]
-  FP -->|resolve| OD["onDone → 遷移"]
-  FP -->|reject| OE["onError → 遷移"]
-  FC -->|"sendBack(event)"| EV["親へイベント送出"]
-  FC -.->|"receive(fn)"| RX["親からの指示受信"]
-  EX["状態を抜ける"] -->|XStateが自動| KILL["invoke を破棄"]
+  EN["enter state"] --> INV["invoke: start actor"]
+  INV --> FP["fromPromise<br>one-shot async"]
+  INV --> FC["fromCallback<br>resident (keeps sending events)"]
+  FP -->|resolve| OD["onDone → transition"]
+  FP -->|reject| OE["onError → transition"]
+  FC -->|"sendBack(event)"| EV["events up to the parent"]
+  FC -.->|"receive(fn)"| RX["instructions from the parent"]
+  EX["leave state"] -->|XState, automatically| KILL["dispose the invoke"]
 ```
 
-*図C: **fromPromise**=「やって結果を返す」一発仕事(onDone/onError で分岐)。**fromCallback**=「動き続けて随時 sendBack」常駐ワーカー*
+*Fig. C: **fromPromise** = a "do it and return the result" one-shot (branch via onDone/onError). **fromCallback** = a resident worker that "keeps running and sendBacks as it goes".*
 
-### fromPromise ― 一発の非同期(接続・初期化・切断・終了)
+### fromPromise — one-shot async (connect / initialize / disconnect / shutdown)
 
-Promise を返すだけ。`onDone` の `event.output` に解決値が入り、**guard 付き配列**で結果に応じて分岐できる。
+Just return a Promise. The resolved value arrives in `onDone`'s `event.output`, and a **guarded array** branches on the result.
 
 ```ts
-// capture-worker.ts ― connecting 状態が connectBrowser(fromPromise)を invoke
-connectBrowser: fromPromise(async ({ input }) => input.client.connect()),  // Result<void,Err> を返す
+// capture-worker.ts — the connecting state invokes connectBrowser (fromPromise)
+connectBrowser: fromPromise(async ({ input }) => input.client.connect()),  // returns Result<void,Err>
 // …states.connecting:
 invoke: {
   src: "connectBrowser",
   input: ({ context }) => ({ client: context.runtime.client }),
   onDone: [
-    { guard: ({ event }) => event.output.ok, target: "operational" },  // 成功
-    { target: "error", actions: assign({ /* errorHistory 追記 */ }) },     // 失敗
+    { guard: ({ event }) => event.output.ok, target: "operational" },  // success
+    { target: "error", actions: assign({ /* append errorHistory */ }) },     // failure
   ],
 }
 ```
 
-:::note[throw しない設計]
-BrowserHive の `fromPromise` は `Result<void, ErrorDetails>` を**返す**(reject しない)。だから `onError` ではなく `onDone` 内で `event.output.ok` を guard 分岐する。例外ではなく値で失敗を扱う流儀。
+:::note[A no-throw design]
+BrowserHive's `fromPromise`s **return** `Result<void, ErrorDetails>` (they do not reject). Hence failures are guard-branched on `event.output.ok` inside `onDone` rather than in `onError`. Failure travels as a value, not an exception.
 :::
 
-### fromCallback ― 常駐(処理ループ・健全性監視・再接続)
+### fromCallback — resident (processing loop / health watch / reconnection)
 
-関数が `{ sendBack, receive, input }` を受け取り、**動き続けながら親へイベントを送る**。返り値の関数が**後始末**(状態を抜けた時に呼ばれる)。`workerLoop` がこれ。
+The function receives `{ sendBack, receive, input }`, and **keeps running while sending events to the parent**. The returned function is the **cleanup** (called when the state is left). `workerLoop` is one of these.
 
 ```ts
-// worker-loop.ts ― fromCallback の骨格
+// worker-loop.ts — the fromCallback skeleton
 export const workerLoopCallback = fromCallback(({ sendBack, receive, input }) => {
   let running = true;
   const loop = async () => {
     while (running) {
       const task = input.taskQueue.dequeue();
       if (!task) { await sleep(input.pollIntervalMs); continue; }
-      sendBack({ type: "TASK_STARTED", task });   // ← 親(worker 機械)へイベント
-      /* … client.process → TASK_DONE / TASK_FAILED / CONNECTION_LOST を sendBack … */
+      sendBack({ type: "TASK_STARTED", task });   // ← event to the parent (worker machine)
+      /* … client.process → sendBack TASK_DONE / TASK_FAILED / CONNECTION_LOST … */
     }
   };
   void loop();
-  receive(() => { running = false; });    // 親からの停止メッセージ
-  return () => { running = false; };       // 後始末:状態(operational)を抜ける時に呼ばれる
+  receive(() => { running = false; });    // stop message from the parent
+  return () => { running = false; };       // cleanup: called when leaving the state (operational)
 });
 ```
 
 |  | `fromPromise` | `fromCallback` |
 |--|---------------|----------------|
-| 寿命 | 1 回 resolve/reject で終わり | 常駐(明示停止 or 状態離脱まで) |
-| 親への通知 | `onDone` / `onError` | `sendBack(event)` を随時 |
-| 親からの指示 | なし | `receive(fn)` |
-| BrowserHive | connectBrowser / disconnectBrowser / initializeWorkers / shutdownWorkers | workerLoop / watchWorkerHealth / retryFailedWorkers |
+| Lifetime | ends after one resolve/reject | resident (until explicit stop or state exit) |
+| Notifying the parent | `onDone` / `onError` | `sendBack(event)` any time |
+| Instructions from the parent | none | `receive(fn)` |
+| In BrowserHive | connectBrowser / disconnectBrowser / initializeWorkers / shutdownWorkers | workerLoop / watchWorkerHealth / retryFailedWorkers |
 
-## B3. spawn と親子アクター ― coordinator が worker を生む
+## B3. spawn and parent/child actors — the coordinator births the workers
 
-`invoke` が「状態に紐づく 1 つのアクター」なのに対し、`spawn` は**動的に複数のアクターを生成**して context に保持する。coordinator は `initializing` の `entry` で **browserURL の数だけ** worker アクターを `spawn` する。
+Where `invoke` is "one actor bound to a state", `spawn` **dynamically creates multiple actors** and keeps them in context. The coordinator `spawn`s **as many worker actors as there are browserURLs** in the `entry` of `initializing`.
 
 ```mermaid
 flowchart TD
-  P["coordinator アクター"] -->|"spawn × N"| C0["worker アクター 0"]
-  P -->|"spawn × N"| C1["worker アクター 1"]
-  C0 -->|"sendBack 不可※"| P
+  P["coordinator actor"] -->|"spawn × N"| C0["worker actor 0"]
+  P -->|"spawn × N"| C1["worker actor 1"]
+  C0 -->|"no auto sendBack※"| P
   C0 -->|"invoke"| L0["workerLoop / connectBrowser …"]
   L0 -->|sendBack| C0
 ```
 
-*図D: 3 階層。coordinator が worker を spawn、worker が loop 等を invoke。※ spawn された子→親への自動 sendBack は無く、BrowserHive は親が子を `subscribe` して健全性を監視する(watchWorkerHealth)*
+*Fig. D: Three tiers. The coordinator spawns workers; workers invoke the loop etc. ※ A spawned child has no automatic sendBack to its parent — BrowserHive has the parent `subscribe` to each child to watch health (watchWorkerHealth).*
 
 ```ts
-// coordinator-machine.ts ― entry で spawn、ref を context に保持
+// coordinator-machine.ts — spawn in entry, keep the refs in context
 entry: assign({
   workers: ({ context, spawn }) =>
     context.config.browserProfiles.map((profile, index) => {
       const client = new BrowserClient(index, profile, context.store);
       const ref = spawn("captureWorker", { id: `worker-${index}`, input: { /* maxRetryCount, runtime… */ } });
-      return new CaptureWorker(ref, client);  // ref = ActorRef(send/subscribe/getSnapshot できる取っ手)
+      return new CaptureWorker(ref, client);  // ref = ActorRef (a handle with send/subscribe/getSnapshot)
     }),
 })
 ```
 
-`spawn` が生む [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine) / [`workerLoop`](/terminology/#g-workerLoop) / [`BrowserClient`](/terminology/#g-BrowserClient) を実コードで追うなら[ワーカーの生成とループ](/worker-spawn-and-loop/)へ。
+To follow the [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine) / [`workerLoop`](/terminology/#g-workerLoop) / [`BrowserClient`](/terminology/#g-BrowserClient) that `spawn` produces in the real code, see [Worker spawn & loop](/worker-spawn-and-loop/).
 
-:::note[invoke と spawn の違い]
-**invoke**=「この状態の間だけの 1 アクター、状態を抜けたら自動停止」(workerLoop)。**spawn**=「いま N 個作って context に持ち、寿命を自分で管理」(worker 群)。個数が動的・寿命が状態と別なら spawn。
+:::note[invoke vs spawn]
+**invoke** = "one actor for the duration of this state; auto-stop on exit" (workerLoop). **spawn** = "create N now, hold them in context, manage the lifetime yourself" (the worker set). If the count is dynamic or the lifetime differs from a state's, spawn.
 :::
 
-## B4. guard / tags / 機械の外から触る API
+## B4. guards / tags / the outside-the-machine API
 
-### guard ― リトライ予算の判定
+### guard — judging the retry budget
 
 ```ts
-// capture-worker.ts ― 名前付き guard を setup で登録し、遷移配列で参照
+// capture-worker.ts — a named guard registered in setup, referenced from the transition array
 guards: { canRetry: ({ context, event }) =>
   (event.type === "TASK_FAILED" || event.type === "CONNECTION_LOST") &&
   event.task.retryCount < context.maxRetryCount },
 ```
 
-### tags ― 状態を「ラベル」で束ねて外から判定
+### tags — bundle states under a "label", tested from outside
 
-状態に `tags` を付け、`snapshot.hasTag("…")` で**状態名を直接知らずに**性質を問える。`operational` に `"healthy"`、`operational.idle` に `"canProcess"`。
+Attach `tags` to states and ask about properties **without knowing state names** via `snapshot.hasTag("…")`: `"healthy"` on `operational`, `"canProcess"` on `operational.idle`.
 
 ```ts
 // capture-worker.ts
 operational: { tags: ["healthy"], initial: "idle", states: { idle: { tags: ["canProcess"] }, processing: {} } }
-// 利用側(CaptureWorker.isHealthy):
+// consumer side (CaptureWorker.isHealthy):
 get isHealthy() { return this.ref.getSnapshot().hasTag("healthy"); }
 ```
 
-### 機械の外から触る ― createActor / send / getSnapshot / matches / subscribe
+### Touching the machine from outside — createActor / send / getSnapshot / matches / subscribe
 
-クラス([`CaptureCoordinator`](/terminology/#g-CaptureCoordinator) / `CaptureWorker`)が機械の**取っ手**になり、ドメイン操作を公開する。
+Classes ([`CaptureCoordinator`](/terminology/#g-CaptureCoordinator) / `CaptureWorker`) act as the machine's **handles**, exposing domain operations.
 
 ```ts
-// capture-coordinator.ts ― ルートアクターを起動して send/getSnapshot で操作
+// capture-coordinator.ts — start the root actor and drive it via send/getSnapshot
 this.lifecycleActor = createActor(coordinatorMachine, { input: { config, store } });
 this.lifecycleActor.start();
 // …
-this.lifecycleActor.send({ type: "INITIALIZE" });                 // イベント注入
-get isActive() { return this.lifecycleActor.getSnapshot().matches("active"); }  // 状態判定(入れ子も {active:"running"})
+this.lifecycleActor.send({ type: "INITIALIZE" });                 // inject an event
+get isActive() { return this.lifecycleActor.getSnapshot().matches("active"); }  // state test (nested too: {active:"running"})
 ```
 
-:::note[`matches` の入れ子記法]
-`matches("active")` は `active.*` の**どの substate でも true**。特定なら `matches({ active: "running" })`。BrowserHive は「稼働中か」を `matches("active")`、「全員健全か」を `matches({active:"running"})` で見分ける。
+:::note[`matches` and nesting]
+`matches("active")` is true in **any substate of `active.*`**. For a specific one, `matches({ active: "running" })`. BrowserHive distinguishes "running at all" with `matches("active")` from "everyone healthy" with `matches({active:"running"})`.
 :::
 
-## B5. 早見表 ― XState 機能 → BrowserHive 使用箇所
+## B5. Cheat sheet — XState feature → where BrowserHive uses it
 
-| XState 機能 | 役割 | BrowserHive での使用 |
-|-------------|------|----------------------|
-| `setup().createMachine()` | 型付き部品 → 機械定義 | coordinatorMachine / captureWorkerMachine |
-| compound state | 状態の入れ子 | `active{running,degraded}` / `operational{idle,processing}` |
-| `type:"final"` | 終端状態 | coordinator の `terminated` |
-| typed events(union) | イベントの型安全 | CONNECT / TASK_DONE / CONNECTION_LOST … |
-| `entry` + `assign` + `spawn` | 状態突入時に context 構築・子生成 | `initializing` で worker 群を spawn |
-| `invoke` + `fromPromise` | 一発の非同期(onDone/onError) | connectBrowser / disconnectBrowser / initializeWorkers / shutdownWorkers |
-| `invoke` + `fromCallback` | 常駐アクター(sendBack/receive) | workerLoop / watchWorkerHealth / retryFailedWorkers |
-| `guard` + 遷移配列 | 条件分岐(最初に通る枝) | `canRetry` → requeue / 諦め |
-| `tags` + `hasTag` | 状態にラベル、外から性質判定 | `healthy` / `canProcess` |
-| nested target | 入れ子状態へ遷移 | `target:"active.running"` |
-| actor API(`createActor`/`send`/`getSnapshot`/`matches`/`subscribe`) | 機械を外から駆動・観測 | CaptureCoordinator / CaptureWorker / watchWorkerHealth |
+| XState feature | Role | Used in BrowserHive |
+|----------------|------|---------------------|
+| `setup().createMachine()` | typed parts → machine definition | coordinatorMachine / captureWorkerMachine |
+| compound state | nested states | `active{running,degraded}` / `operational{idle,processing}` |
+| `type:"final"` | terminal state | the coordinator's `terminated` |
+| typed events (union) | type-safe events | CONNECT / TASK_DONE / CONNECTION_LOST … |
+| `entry` + `assign` + `spawn` | build context / spawn children on state entry | spawning the worker set in `initializing` |
+| `invoke` + `fromPromise` | one-shot async (onDone/onError) | connectBrowser / disconnectBrowser / initializeWorkers / shutdownWorkers |
+| `invoke` + `fromCallback` | resident actor (sendBack/receive) | workerLoop / watchWorkerHealth / retryFailedWorkers |
+| `guard` + transition array | conditional branch (first passing wins) | `canRetry` → requeue / give up |
+| `tags` + `hasTag` | label states, test properties externally | `healthy` / `canProcess` |
+| nested target | transition into a nested state | `target:"active.running"` |
+| actor API (`createActor`/`send`/`getSnapshot`/`matches`/`subscribe`) | drive & observe from outside | CaptureCoordinator / CaptureWorker / watchWorkerHealth |
 
-:::tip[次に読む]
-この表の右列を頭に入れて [**ワーカーの生成とループ**](/worker-spawn-and-loop/) を読むと、spawn→invoke→sendBack の流れがコードで追えるはず。
+:::tip[Read next]
+With the right column of this table in mind, read [**Worker spawn & loop**](/worker-spawn-and-loop/) — the spawn→invoke→sendBack flow should now be traceable in the code.
 :::

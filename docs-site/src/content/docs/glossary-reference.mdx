@@ -1,213 +1,213 @@
 ---
-title: 用語リファレンス(WACZ 形式 / XState API)
-description: BrowserHive の成果物フォーマット(WACZ / WARC)と、状態機械ライブラリ XState v5 の API 用語を、定義と相互リンク用アンカー付きでまとめた早見表
+title: Glossary reference (WACZ format / XState API)
+description: A quick reference for BrowserHive's artifact formats (WACZ / WARC) and the XState v5 state-machine API terms, with definitions and stable anchors for cross-linking
 ---
 
-このページは **WACZ 形式の用語**(成果物のアーカイブ構造)と **XState API の用語**(状態機械ライブラリ v5)の早見表。
-他ドキュメントから各用語の定義へ直接リンクできるよう、用語ごとに安定したアンカーを張ってある。
+This page is a quick reference for **WACZ format terms** (the artifact archive structure) and **XState API terms** (the state-machine library, v5).
+Every term carries a stable anchor so other documents can link straight to its definition.
 
-:::note[3 つの用語リソースの使い分け]
-この docs-site には**性質の異なる 3 つの用語リソース**がある。混同しないこと。
+:::note[Three terminology resources, three jobs]
+This docs-site has **three terminology resources with different natures**. Do not mix them up.
 
-- **BrowserHive のコンポーネント定義**(`TaskQueue` / `CaptureCoordinator` / `coordinatorMachine` /
-  `captureWorkerMachine` / `workerLoop` / `BrowserClient` / `NetworkRecorder`)は、ソースの `@glossary`
-  タグから自動生成される[用語集](/terminology/)が持ち主。**このページには載せない。**
-- **WACZ 語の表記ルール**(例:「zip」ではなく「ZIP file」と書く)は
-  [WACZ 用語の使い分け](/wacz-vocabulary/)が扱う(語選びの規律であって定義ではない)。
-- **このページ**(用語リファレンス)は、上記 2 つに属さない **WACZ 形式の構造用語**と
-  **XState API の用語**を定義する。
+- **BrowserHive component definitions** (`TaskQueue` / `CaptureCoordinator` / `coordinatorMachine` /
+  `captureWorkerMachine` / `workerLoop` / `BrowserClient` / `NetworkRecorder`) belong to the
+  [Terminology](/terminology/) page auto-generated from `@glossary` tags in the source. **They are not defined here.**
+- **WACZ wording rules** (e.g. write `ZIP file`, never `zip`) live in
+  [WACZ vocabulary](/wacz-vocabulary/) — a discipline for choosing words, not definitions.
+- **This page** (glossary reference) defines the **WACZ structural terms** and **XState API terms**
+  that belong to neither of the above.
 :::
 
 ---
 
-## 1. WACZ 形式の用語(成果物のアーカイブ形式)
+## 1. WACZ format terms (the artifact archive format)
 
-WACZ は WARC・索引・メタデータを 1 つの ZIP file に固めた可搬な Web アーカイブ形式で、BrowserHive の最終成果物。
-中身は 5 エントリ(`archive/data.warc.gz` / `pages/pages.jsonl` / `indexes/index.cdxj` / `fuzzy.json` / `datapackage.json`)。
+WACZ is a portable web-archive format that packs WARC, indexes, and metadata into a single ZIP file — BrowserHive's final artifact.
+It holds 5 entries: `archive/data.warc.gz` / `pages/pages.jsonl` / `indexes/index.cdxj` / `fuzzy.json` / `datapackage.json`.
 
 <span id="t-wacz"></span>
 <span id="t-WACZ"></span>
-**WACZ**(Web Archive Collection Zipped / 拡張子 `.wacz`)
-WARC + 索引 + メタデータを 1 つの ZIP file に固めた可搬な Web アーカイブ形式。BrowserHive の最終成果物。
-中身は次の 5 エントリ:`archive/data.warc.gz` / `pages/pages.jsonl` / `indexes/index.cdxj` / `fuzzy.json` / `datapackage.json`。
+**WACZ** (Web Archive Collection Zipped / extension `.wacz`)
+A portable web-archive format that packs WARC + indexes + metadata into one ZIP file. BrowserHive's final artifact.
+Contents are the following 5 entries: `archive/data.warc.gz` / `pages/pages.jsonl` / `indexes/index.cdxj` / `fuzzy.json` / `datapackage.json`.
 
 <span id="t-WARC"></span>
-**WARC**(Web ARChive)
-HTTP のリクエスト/レスポンスを 1 件 1 レコードとして連結する標準フォーマット。
-BrowserHive は各レコードを**独立 gzip member** にして `archive/data.warc.gz` に書く。
+**WARC** (Web ARChive)
+The standard format that concatenates HTTP requests/responses as one record each.
+BrowserHive writes each record as an **independent gzip member** into `archive/data.warc.gz`.
 
 <span id="t-archivedatawarcgz"></span>
 **`archive/data.warc.gz`**
-WACZ 内で WARC レコード本体を収める gzip 圧縮済みエントリ。各レコードは独立した gzip member として連結される。
+The gzip-compressed entry inside the WACZ that holds the WARC records themselves. Records are concatenated as independent gzip members.
 
 <span id="t-pagespagesjsonl"></span>
 <span id="t-pagesjsonl"></span>
 **`pages/pages.jsonl`**
-キャプチャしたページの一覧を 1 行 1 JSON(JSON Lines)で持つエントリ。replay でページ単位の入口になる。
+The entry listing captured pages, one JSON per line (JSON Lines). Replay uses it as the per-page entry point.
 
 <span id="t-indexesindexcdxj"></span>
 **`indexes/index.cdxj`**
-WACZ 内に置かれる CDXJ 形式の索引ファイル(下記 **CDXJ** を参照)。
+The CDXJ-format index file placed inside the WACZ (see **CDXJ** below).
 
 <span id="t-CDXJ"></span>
 **CDXJ**
-WARC 内レコードの**索引**。`<SURT> <timestamp> <JSON{offset,length,…}>` の行を SURT 順にソートしたもの。
-replay が「URL → WARC のバイト位置」を引くために使う。
+The **index** of records inside the WARC: lines of `<SURT> <timestamp> <JSON{offset,length,…}>` sorted in SURT order.
+Replay uses it to look up "URL → byte position in the WARC".
 
 <span id="t-SURT"></span>
-**SURT**(Sort-friendly URI Reordering)
-ホストを逆順に並べた正規化 URL。同一ドメインが隣り合うので CDXJ のソート鍵に向く。
+**SURT** (Sort-friendly URI Reordering)
+A normalized URL with the host reversed. Entries of the same domain become adjacent, which makes it a good sort key for CDXJ.
 
 <span id="t-comexamplepath"></span>
-**SURT キー(例 `com,example)/path`)**
-SURT で正規化したキー表記。`https://example.com/path` をホスト逆順にすると `com,example)/path` になり、CDXJ の行頭ソート鍵として並ぶ。
+**SURT key (e.g. `com,example)/path`)**
+The SURT-normalized key notation. Reversing the host of `https://example.com/path` yields `com,example)/path`, which sorts as the CDXJ line prefix.
 
 <span id="t-fuzzyjson"></span>
 **`fuzzy.json`**
-キャッシュバスター(`?_=…` 等)のクエリを剥がす replay 用ルール。毎回値が変わる URL でも記録済みレスポンスに当てるため。
+Replay rules that strip cache-buster queries (`?_=…`, etc.), so URLs whose values change every load still match the recorded response.
 
 <span id="t-datapackagejson"></span>
 **`datapackage.json`**
-Frictionless 記述子。WACZ 内の他資源の `sha256:<hex>` と byte 数を持ち、改竄検知の起点になる。
+The Frictionless descriptor. It carries the `sha256:<hex>` and byte counts of the other resources in the WACZ, anchoring tamper detection.
 
 <span id="t-sha256"></span>
-**`sha256:…`(payload digest の符号化)**
-SHA-256 ハッシュ値の接頭辞付き表記。WARC レコードでは `sha256:<base32>`、`datapackage.json` では `sha256:<hex>` と、
-**同じ値を 2 通りの符号化**で持つ(下記 **payload digest** を参照)。
+**`sha256:…` (payload digest encodings)**
+The prefixed notation of a SHA-256 hash. WARC records use `sha256:<base32>` and `datapackage.json` uses `sha256:<hex>` —
+**the same value in two encodings** (see **payload digest** below).
 
 <span id="t-WARCTypemetadata"></span>
 <span id="t-applicationwarcfields"></span>
 <span id="t-resourceType"></span>
 <span id="t-blockedReason"></span>
 <span id="t-status"></span>
-**metadata レコード**(`WARC-Type: metadata`)
-本文を `application/warc-fields` で持つ WARC レコード。失敗/未完了/ブロックされた通信を記録する。
-本文には `resourceType` / `blockedReason` / `status` のフィールドを付与する(=「案 3」拡張)。
+**metadata record** (`WARC-Type: metadata`)
+A WARC record whose body is `application/warc-fields`. It records failed / incomplete / blocked exchanges.
+The body carries the `resourceType` / `blockedReason` / `status` fields (the "plan 3" extension).
 
-- `WARC-Type: metadata` ― このレコードがメタデータ種別であることを示す WARC ヘッダ。
-- `application/warc-fields` ― metadata レコードの本文 MIME 型(`key: value` 行の集合)。
-- `resourceType` ― 記録対象のリソース種別。
-- `blockedReason` ― 通信がブロックされた理由。
-- `status` ― そのリソースの取得結果ステータス。
+- `WARC-Type: metadata` — the WARC header marking this record as the metadata kind.
+- `application/warc-fields` — the body MIME type of a metadata record (a set of `key: value` lines).
+- `resourceType` — the kind of resource being recorded.
+- `blockedReason` — why the exchange was blocked.
+- `status` — the fetch outcome status of that resource.
 
 <span id="t-payloaddigest"></span>
 **payload digest**
-レコード本文の SHA-256。WARC では `sha256:<base32>`、`datapackage.json` では `sha256:<hex>` と
-**同じ値を 2 通りの符号化**で持つ。
+The SHA-256 of a record body. WARC holds it as `sha256:<base32>`, `datapackage.json` as `sha256:<hex>` —
+**the same value in two encodings**.
 
 <span id="t-gzipmember"></span>
 **gzip member**
-単独で gunzip できる gzip ブロック。連結しても valid な gzip になり、offset でバイトシークできる(CDXJ がこれを利用)。
+A gzip block that gunzips on its own. Members remain valid gzip when concatenated and support byte seeking by offset (CDXJ relies on this).
 
 <span id="t-replay"></span>
 **replay**
-保存した WACZ を「再生」して当時のページを表示すること(ReplayWeb.page / wabac.js 等)。BrowserHive は記録側=producer。
+"Playing back" a saved WACZ to display the page as it was (ReplayWeb.page / wabac.js, etc.). BrowserHive is the recording side — the producer.
 
-:::tip[語の表記について]
-「ZIP file」「WARC record」のような WACZ 仕様語の**表記の揺れ**(例:「zip」と書かない)は
-[WACZ 用語の使い分け](/wacz-vocabulary/)で規律としてまとめている。定義はこのページ、語選びはあちら。
+:::tip[On wording]
+The **spelling discipline** for WACZ spec terms like `ZIP file` and `WARC record` (e.g. never write `zip`) is
+collected in [WACZ vocabulary](/wacz-vocabulary/). Definitions live here; word choice lives there.
 :::
 
 ---
 
-## 2. XState API の用語(状態機械 v5)
+## 2. XState API terms (state machines, v5)
 
-BrowserHive のワーカー制御は XState v5 の状態機械で書かれている。ここでは**コードに現れる API 用語**を引けるようにまとめる。
-これらを概念から学ぶなら[XState 入門 + BrowserHive で使う機能](/xstate-primer/)、実際の使われ方は
-[ワーカーの生成とループ](/worker-spawn-and-loop/)を参照。
+BrowserHive's worker control is written with XState v5 state machines. This section makes the **API terms that appear in the code** easy to look up.
+To learn the concepts, see [XState primer + the features BrowserHive uses](/xstate-primer/); for how they are used in practice, see
+[Worker spawn & loop](/worker-spawn-and-loop/).
 
 <span id="t-statemachine"></span>
-**状態機械**(state machine)
-「現在どの**状態**か」と「**イベント**でどこへ**遷移**するか」を宣言的に書くモデル。ありえない状態の組合せを構造的に排除する。
+**state machine**
+A model that declares "which **state** we are in" and "which **event** moves us **where**". It structurally rules out impossible state combinations.
 
 <span id="t-actor"></span>
-**アクター**(actor)
-稼働中の機械インスタンス。`createActor(machine).start()` で得て、`send` で動かし `getSnapshot` で覗く。XState v5 はアクター中心。
+**actor**
+A running machine instance. Obtain one with `createActor(machine).start()`, drive it with `send`, and peek with `getSnapshot`. XState v5 is actor-centric.
 
 <span id="t-createActor"></span>
 **`createActor(machine).start()`**
-機械(machine)から**アクター**を生成して起動する。戻り値のアクターに `send` でイベントを送り、`getSnapshot` で現在状態を取得する。
+Creates an **actor** from a machine and starts it. Send events to the returned actor with `send` and read the current state with `getSnapshot`.
 
 <span id="t-send"></span>
 **`send`**
-アクターにイベントを送って機械を動かすメソッド。`{ type: "CONNECT" }` のようなイベントオブジェクトを渡す。
+The method that delivers an event to an actor to drive the machine. Pass an event object like `{ type: "CONNECT" }`.
 
 <span id="t-getSnapshot"></span>
 **`getSnapshot`**
-アクターの現在状態の**スナップショット**(下記 **snapshot**)を取得するメソッド。
+The method that returns the actor's current **snapshot** (see **snapshot** below).
 
 <span id="t-state"></span>
-**状態**(state)
-排他的なモード。atomic(単純)/ **compound**(入れ子、例 `active{running,degraded}`)/ **final**(`type:"final"`、終端)。
+**state**
+An exclusive mode. atomic (simple) / **compound** (nested, e.g. `active{running,degraded}`) / **final** (`type:"final"`, terminal).
 
 <span id="t-event"></span>
-**イベント**(event)
-機械に届く「何か起きた」の通知。`{ type: "CONNECT" }` のような判別 union。
+**event**
+A "something happened" notification delivered to the machine — a discriminated union like `{ type: "CONNECT" }`.
 
 <span id="t-transition"></span>
-**遷移**(transition)
-「この状態でこのイベント → あの状態」の規則。`on: { EVENT: target }`。配列にすると guard で枝分かれする。
+**transition**
+The rule "in this state, on this event → that state": `on: { EVENT: target }`. Written as an array, guards select the branch.
 
 <span id="t-context"></span>
 **`context`**
-状態名で表せない付随データ(カウンタ・エラー履歴・現在タスク等)。`assign` で更新する。スナップショットからは `.context` で読む。
+Accompanying data that state names cannot express (counters, error history, current task, …). Update with `assign`; read from a snapshot via `.context`.
 
 <span id="t-guard"></span>
 **`guard`**
-遷移の可否を判定する条件。複数遷移を配列で書くと**上から最初に通った枝**が選ばれる(例 `canRetry`)。
+A condition deciding whether a transition may fire. With multiple transitions in an array, **the first branch whose guard passes** wins (e.g. `canRetry`).
 
 <span id="t-action"></span>
 <span id="t-assign"></span>
 **`action` / `assign`**
-**`action`** = 遷移時の同期副作用(ログ等)。**`assign`** = `context` を更新する特別な action。
+**`action`** = a synchronous side effect on transition (logging, …). **`assign`** = the special action that updates `context`.
 
 <span id="t-invoke"></span>
 <span id="t-onDone"></span>
 <span id="t-onError"></span>
 **`invoke`**
-状態に紐づけて別アクターを起動する。**その状態にいる間だけ**動き、抜けると自動停止する。
-`onDone` / `onError` で結果を分岐する(`onDone` は正常完了、`onError` は失敗を受ける)。
+Starts another actor tied to a state. It runs **only while in that state** and stops automatically on exit.
+Branch on the result with `onDone` / `onError` (`onDone` receives normal completion, `onError` receives failure).
 
 <span id="t-spawn"></span>
 **`spawn`**
-動的に複数のアクターを生成し `context` に保持する。寿命は自分で管理する(BrowserHive は worker 群を `spawn` する)。
+Dynamically creates multiple actors and keeps them in `context`. You manage their lifetime yourself (BrowserHive `spawn`s its worker set).
 
 <span id="t-fromPromise"></span>
 **`fromPromise`**
-1 回 resolve/reject して終わる非同期アクター。`onDone`(`event.output`)/ `onError` で受ける。
+An async actor that resolves/rejects once and ends. Received via `onDone` (`event.output`) / `onError`.
 
 <span id="t-fromCallback"></span>
 <span id="t-sendBack"></span>
 <span id="t-receive"></span>
 **`fromCallback`**
-常駐アクター。`sendBack` で随時イベントを親へ、`receive` で親から指示を受け、戻り値の関数で後始末する。
+A resident actor. It sends events up with `sendBack`, receives parent instructions with `receive`, and cleans up in the returned function.
 
-- `sendBack` ― fromCallback アクターから**子 → 親**へイベントを送る。
-- `receive` ― fromCallback アクターで**親 → 子**のメッセージを受信する。
+- `sendBack` — sends an event **child → parent** from a fromCallback actor.
+- `receive` — receives **parent → child** messages inside a fromCallback actor.
 
 <span id="t-tags"></span>
 <span id="t-hasTag"></span>
 **`tags` / `.hasTag()`**
-`tags` は状態に付けるラベル(`"healthy"` 等)。`snapshot.hasTag("healthy")` で**状態名を知らずに性質を判定**できる。
+`tags` are labels attached to states (`"healthy"`, …). `snapshot.hasTag("healthy")` lets you **test a property without knowing state names**.
 
 <span id="t-snapshot"></span>
 <span id="t-value"></span>
 <span id="t-matches"></span>
 **snapshot**
-アクターの現在状態のスナップ。`.value`(現在の状態名)/ `.context` / `.matches()`(状態判定)/ `.hasTag()` / `.can()` を持つ。
+A snap of the actor's current state. It carries `.value` (current state name) / `.context` / `.matches()` (state test) / `.hasTag()` / `.can()`.
 
-- `.value` ― 現在の状態名。
-- `.matches()` ― 指定した状態にいるかを判定する。
+- `.value` — the current state name.
+- `.matches()` — tests whether the machine is in the given state.
 
 <span id="t-final"></span>
 **`"final"`**
-状態を終端として宣言する種別(`type: "final"`)。compound 状態内の子がすべて `final` に達すると親の `onDone` が発火する。
+The kind that declares a state terminal (`type: "final"`). When every child of a compound state reaches `final`, the parent's `onDone` fires.
 
 <span id="t-setup"></span>
 **`setup()`**
-v5 の型付き部品箱。`types` / `actors` / `guards` / `actions` を先に登録し、`createMachine` 内で名前参照する。
+v5's typed parts box. Register `types` / `actors` / `guards` / `actions` first, then reference them by name inside `createMachine`.
 
-:::tip[読む順のヒント]
-初めてなら **② XState API → ① WACZ 形式**の順で眺めると、データの流れ(依頼 → 処理 → WARC → WACZ → 保存)に沿って用語がつながる。
-各用語の深掘りは [XState 入門](/xstate-primer/) と [ワーカーの生成とループ](/worker-spawn-and-loop/) へ。
+:::tip[Suggested reading order]
+If this is your first pass, skim **② XState API → ① WACZ format** — the terms then connect along the data flow (request → processing → WARC → WACZ → storage).
+For deeper dives, see the [XState primer](/xstate-primer/) and [Worker spawn & loop](/worker-spawn-and-loop/).
 :::

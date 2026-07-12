@@ -1,20 +1,29 @@
 ---
-title: 用語集
-description: browserhive のコード内 @glossary タグから生成される用語集
+title: Terminology
+description: The glossary generated from @glossary tags in the browserhive source code
 ---
 
 import Glossary from "../../components/Glossary.astro";
 
-このページの**定義は手書きしない**。browserhive の TypeScript ソースに付けた
-`@glossary` タグ(と `@category`)から **ビルド時に抽出**して並べている。
-コード側のコメントを直せば、ここも次のビルドで自動的に追従する。
+The definitions on this page are **not written by hand**. They are
+**extracted at build time** from `@glossary` tags (and `@category`) attached
+to browserhive's TypeScript source. Fix the comment in the code and this
+page follows automatically on the next build.
 
-各行の「場所」列は定義元の `ファイル:行` を指す。用語の意味を疑ったら、
-まずそのソースの TSDoc を読むのが最短になる。
+The "location" column of each row points at the defining `file:line`. When
+in doubt about what a term means, reading that TSDoc at the source is the
+shortest path.
 
-## コンポーネント
+:::note
+The extracted definitions currently come from Japanese TSDoc comments in the
+source code, so the table below is in Japanese. Translating the `@glossary`
+comments at the source is a separate task.
+:::
 
-取り込みパイプラインを構成する主要なクラス・アクターたち。外側(API ファサード)
-から内側(1 タブを占有する実行体)へ向かって読むと、責務の分かれ方が掴める。
+## Components
+
+The main classes and actors that make up the capture pipeline. Reading from
+the outside (the API facade) inward (the executor that owns one tab) shows
+how the responsibilities split.
 
 <Glossary category="コンポーネント" />
