@@ -1,39 +1,41 @@
 ---
 title: BrowserHive
-description: URL を POST するだけで、スクリーンショット・HTML・WACZ アーカイブを S3 に保存する Web キャプチャサーバ
+description: A web-capture server that saves screenshots, HTML, and WACZ archives to S3 — just POST a URL
 template: splash
 hero:
-  tagline: URL を POST するだけ。スクリーンショット・HTML・WACZ アーカイブを S3 に非同期保存
+  tagline: Just POST a URL. Screenshots, HTML, and WACZ archives are saved to S3 asynchronously
   actions:
-    - text: クイックスタート
+    - text: Quickstart
+      # frontmatter does not pass through rehype, so write base directly
       link: /browserhive/quickstart/
       icon: right-arrow
       variant: primary
-    - text: API リファレンス
+    - text: API reference
       link: /browserhive/api/
       icon: external
       variant: minimal
 ---
 
-## BrowserHive とは
+## What is BrowserHive
 
-BrowserHive は Fastify + Puppeteer で動く HTTP キャプチャサーバです。
-`POST /v1/captures` を呼ぶとリクエストをキューに積み、202 を即座に返します。
-Chromium ワーカーが非同期でページを取得し、結果を S3 互換ストレージに保存します。
+BrowserHive is an HTTP capture server built on Fastify + Puppeteer.
+Calling `POST /v1/captures` enqueues the request and returns 202
+immediately. Chromium workers fetch the page asynchronously and store the
+results in S3-compatible storage.
 
-## 取得できる形式
+## Capture formats
 
-| 形式 | フラグ | 用途 |
-|------|--------|------|
-| PNG スクリーンショット | `png` | ページ全体の画像 |
-| WebP スクリーンショット | `webp` | 軽量な画像 |
-| DOM スナップショット | `html` | JavaScript 実行後の HTML |
-| 単一ファイルアーカイブ | `mhtml` | リソース埋め込み MHTML |
-| 再生可能アーカイブ | `wacz` | WARC + インデックス (ReplayWeb.page で再生可) |
-| リンク一覧 | `links` | ページ内リンクの JSON |
+| Format | Flag | Use |
+|--------|------|-----|
+| PNG screenshot | `png` | Image of the page |
+| WebP screenshot | `webp` | Lightweight image |
+| DOM snapshot | `html` | HTML after JavaScript execution |
+| Single-file archive | `mhtml` | MHTML with embedded resources |
+| Replayable archive | `wacz` | WARC + indexes (replayable in ReplayWeb.page) |
+| Link list | `links` | JSON of the links on the page |
 
-## さらに詳しく
+## Learn more
 
-- [クイックスタート](/quickstart/) — Docker 起動から最初のキャプチャまで 5 ステップ
-- [アーキテクチャ解説](/architecture/) — XState ステートマシン・ワーカーモデルの詳細
-- [API リファレンス](/api/) — 全パラメータの型定義と使用例
+- [Quickstart](/quickstart/) — from Apple Container startup to your first capture in 5 steps
+- [Architecture](/architecture/) — XState state machines and the worker model in depth
+- [API reference](/api/) — type definitions and usage for every parameter

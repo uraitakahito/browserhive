@@ -1,55 +1,55 @@
 ---
-title: クイックスタート
-description: Apple Container でスタックを起動し、最初の WACZ キャプチャを取得するまでの 5 ステップ
+title: Quickstart
+description: From bringing the stack up on Apple Container to your first WACZ capture, in 5 steps
 sidebar:
   order: 1
 ---
 
-5 ステップで BrowserHive を動かし、最初のキャプチャを取得します。
+Get BrowserHive running and take your first capture in 5 steps.
 
-## 前提条件
+## Prerequisites
 
-- **macOS 26+ / Apple Silicon** と [Apple Container](https://github.com/apple/container)
+- **macOS 26+ / Apple silicon** with [Apple Container](https://github.com/apple/container)
   (`brew install container` → `container system start`)
-- `curl` と `jq` コマンド
+- The `curl` and `jq` commands
 
-## Step 1 — リポジトリを取得する
+## Step 1 — Get the repository
 
 ```bash
 git clone https://github.com/uraitakahito/browserhive.git
 cd browserhive
-./setup.sh        # chromium-server-docker submodule を初期化
+./setup.sh        # initializes the chromium-server-docker submodule
 ```
 
-## Step 2 — スタックを起動する
+## Step 2 — Bring the stack up
 
 ```bash
 ./bin/up.sh 2     # SeaweedFS + chromium worker×2 + BrowserHive
 ```
 
-すべて Apple Container 上のコンテナ(軽量 VM)として起動します。
-ホストに公開されるのは BrowserHive の 8080 だけで、worker と S3 は
-固有 IP(192.168.64.0/24)への直結です。
+Everything starts as Apple Container containers (lightweight VMs).
+Only BrowserHive's port 8080 is published to the host; the workers and S3
+are reached directly on their per-container IPs (192.168.64.0/24).
 
-| コンポーネント | アドレス | 用途 |
-|----------------|----------|------|
-| BrowserHive API | http://localhost:8080 | キャプチャ受付 |
-| SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | 成果物の保存先(IP は `container ls`) |
-| chromium worker | `http://<worker-ip>:9222`(up.sh が表示) | CDP。目視は `chrome://inspect` |
+| Component | Address | Purpose |
+|-----------|---------|---------|
+| BrowserHive API | http://localhost:8080 | Accepts captures |
+| SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | Artifact store (IP from `container ls`) |
+| chromium workers | `http://<worker-ip>:9222` (printed by up.sh) | CDP; watch via `chrome://inspect` |
 
-起動確認:
+Verify it is up:
 
 ```bash
 ./bin/status.sh
-# または
+# or
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready", "ready"] }
 ```
 
-## Step 3 — 最初のキャプチャをリクエストする
+## Step 3 — Request your first capture
 
-`POST /v1/captures` はリクエストを受け付けると **202** を即座に返します
-(実際のキャプチャは非同期で実行されます)。
+`POST /v1/captures` returns **202** as soon as the request is accepted
+(the capture itself runs asynchronously).
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/captures \
@@ -67,7 +67,7 @@ curl -s -X POST http://localhost:8080/v1/captures \
   }' | jq .
 ```
 
-レスポンス例:
+Example response:
 
 ```json
 {
@@ -76,56 +76,58 @@ curl -s -X POST http://localhost:8080/v1/captures \
 }
 ```
 
-`taskId` を手元に控えておきます。
+Keep the `taskId` handy.
 
-## Step 4 — 処理状況を確認する
+## Step 4 — Check progress
 
 ```bash
 curl -s http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
 ```
 
-`completed` が増え、worker の `processedCount` が上がっていればキャプチャ完了です。
+When `completed` increments and a worker's `processedCount` goes up, the
+capture is done.
 
-## Step 5 — 成果物を取得する
+## Step 5 — Fetch the artifacts
 
-成果物は SeaweedFS の `browserhive` バケットに保存されます。
-いちばん簡単なのは **Filer UI** をブラウザで開く方法です
-(`<seaweedfs-ip>` は `container ls` で確認):
+Artifacts are stored in the `browserhive` bucket on SeaweedFS.
+The easiest way to browse them is the **Filer UI** in a browser
+(get `<seaweedfs-ip>` from `container ls`):
 
 ```text
 http://<seaweedfs-ip>:8888/buckets/browserhive/
 ```
 
-AWS CLI を使う場合(認証必須 — 既定クレデンシャルは browserhive/browserhive):
+With the AWS CLI (authentication required — default credentials are
+browserhive/browserhive):
 
 ```bash
 AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
 aws --endpoint-url "http://<seaweedfs-ip>:8333" \
   s3 ls s3://browserhive/
 
-# WACZ をダウンロード (taskId は Step 3 のレスポンスから)
+# Download the WACZ (taskId from the Step 3 response)
 AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
 aws --endpoint-url "http://<seaweedfs-ip>:8333" \
   s3 cp s3://browserhive/550e8400-e29b-41d4-a716-446655440000.wacz ./capture.wacz
 ```
 
-### WACZ を ReplayWeb.page で再生する
+### Replay the WACZ in ReplayWeb.page
 
-1. [replayweb.page](https://replayweb.page/) を開く
-2. "Choose File" → `capture.wacz` を選択
-3. ページ一覧が表示されたら URL をクリックして再生
+1. Open [replayweb.page](https://replayweb.page/)
+2. "Choose File" → select `capture.wacz`
+3. When the page list appears, click a URL to replay it
 
-## 片付け
+## Tear down
 
 ```bash
-./bin/down.sh     # 成果物は volume(seaweedfs-data)に残る
+./bin/down.sh     # artifacts survive in the volume (seaweedfs-data)
 ```
 
 ---
 
-## 次のステップ
+## Next steps
 
-- [API リファレンス](/api/) — `dismissBanners` / `resetState` / `viewport` など全パラメータの型定義
-- [アーキテクチャ解説](/architecture/) — XState ステートマシンと内部構造
-- worker の動作確認・目視は chromium-server 側の
-  [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/) を参照
+- [API reference](/api/) — type definitions for every parameter (`dismissBanners` / `resetState` / `viewport`, …)
+- [Architecture](/architecture/) — XState state machines and the internals
+- To verify or watch a worker, see chromium-server's
+  [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/)

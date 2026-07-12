@@ -10,8 +10,17 @@ A server that captures web pages using [chromium-server-docker](https://github.c
 - **Stealth mode**: Uses [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to bypass bot detection, including Cloudflare WAF
 - **Banner / modal dismissal**: Per-request flag that strips known cookie-consent banners (OneTrust, Cookiebot, Quantcast, etc.) and large fixed/sticky overlays before capturing. Accepts a plain `boolean` for the curated default behaviour, or an inline `DismissSpec` object to customise per page (extra selectors, framework exclusions, heuristic thresholds). Best-effort by default — failures are swallowed so a malformed page or a typo cannot fail the capture; opt into strict mode with `failOnError: true` when a missing dismiss should fail the capture instead. See the OpenAPI reference for the full schema.
 - **Per-task state isolation**: By default, per-task state (cookies / `localStorage` / DOM context) is wiped between tasks via `about:blank` + `Network.clearBrowserCookies`. The wipe is configurable per-server (`--no-reset-cookies` / `--no-reset-page-context` and the matching `BROWSERHIVE_RESET_*` env vars) and per-request (the `resetState` field on `POST /v1/captures`) — useful for SSO-walled crawls or stateful multi-page journeys against a single origin.
-- **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/>; request/response types and runtime validation are both driven from it.
+- **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](src/http/openapi.yaml) is the single source of truth — published as a Redoc reference at <https://uraitakahito.github.io/browserhive/api/>; request/response types and runtime validation are both driven from it.
 - Used by [waggle](https://github.com/uraitakahito/waggle).
+
+## Documentation
+
+Guides and internals live on the docs site:
+
+- **English** — <https://uraitakahito.github.io/browserhive/>
+- **日本語** — <https://uraitakahito.github.io/browserhive/ja/>
+
+The API reference (Redoc) is at <https://uraitakahito.github.io/browserhive/api/>.
 
 ## Architecture
 
