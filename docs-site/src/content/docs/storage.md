@@ -1,4 +1,7 @@
-# Storage
+---
+title: Storage
+description: The S3-compatible artifact store — bundled SeaweedFS, external S3, and addressing styles
+---
 
 Captured artifacts (PNG / WebP / HTML / links JSON / MHTML / WACZ) are uploaded
 to an S3-compatible object store via `@aws-sdk/client-s3`. Anything that

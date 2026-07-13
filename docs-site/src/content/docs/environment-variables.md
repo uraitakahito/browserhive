@@ -1,4 +1,7 @@
-# Environment variables
+---
+title: Environment variables
+description: The full CLI flag ↔ BROWSERHIVE_* environment variable mapping, with types and defaults
+---
 
 Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **CLI flag > env var > default**.
 

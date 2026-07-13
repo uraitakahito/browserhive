@@ -1,4 +1,7 @@
-# WACZ Replay Quickstart
+---
+title: Replay quickstart
+description: Recording a WACZ capture and replaying it in ReplayWeb.page — what replays faithfully and what is out of scope
+---
 
 BrowserHive's `wacz` capture format records every HTTP exchange Chromium
 performs during a capture (the navigation request, every CSS / image /
@@ -124,8 +127,7 @@ replayable interactive snapshot.
 | Skip video / audio bodies | `--wacz-skip-content-types` | (empty) |
 | Fuzzy-strip cache-buster params | `--wacz-fuzzy-param` | `_,cb,nocache,t,nonce,timestamp,_t,_v,ts` |
 
-Each flag has a `BROWSERHIVE_WACZ_*` env equivalent (see the README CLI
-table). Variadic flags accept multiple values on the CLI; the env
+Each flag has a `BROWSERHIVE_WACZ_*` env equivalent (see [Environment variables](/environment-variables/)). Variadic flags accept multiple values on the CLI; the env
 form is comma-separated.
 
 ## Troubleshooting
@@ -150,4 +152,4 @@ form is comma-separated.
 - WACZ spec: <https://specs.webrecorder.net/wacz/1.0.0/>
 - WARC 1.1 spec: <https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/>
 - ReplayWeb.page: <https://replayweb.page/>
-- WACZ internals (BrowserHive's encoding decisions): [`docs/wacz-internals.md`](wacz-internals.md)
+- WACZ internals (BrowserHive's encoding decisions): [WACZ internals](/wacz-internals/)

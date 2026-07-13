@@ -1,4 +1,7 @@
-# Production Environment
+---
+title: Production environment
+description: Running the full stack (SeaweedFS + chromium workers + BrowserHive) on Apple Container with bin/up.sh
+---
 
 The stack runs on [Apple Container](https://github.com/apple/container)
 (macOS 26+, Apple silicon): a self-hosted SeaweedFS with one-shot bucket

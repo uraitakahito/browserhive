@@ -11,8 +11,9 @@ hero:
       icon: right-arrow
       variant: primary
     - text: API リファレンス
-      # API リファレンスはロケール外(redocly 生成)なので /ja は付けない
-      link: /browserhive/api/
+      # /api/ は Starlight ロケール外(Redoc をデプロイ時に注入)。相対パスだと
+      # Starlight が hero リンクに /ja を注入して 404 になるため絶対 URL で回避
+      link: https://uraitakahito.github.io/browserhive/api/
       icon: external
       variant: minimal
 ---
@@ -22,6 +23,17 @@ hero:
 BrowserHive は Fastify + Puppeteer で動く HTTP キャプチャサーバです。
 `POST /v1/captures` を呼ぶとリクエストをキューに積み、202 を即座に返します。
 Chromium ワーカーが非同期でページを取得し、結果を S3 互換ストレージに保存します。
+
+## 特長
+
+- **Fire-and-forget**: リクエストは即座に受理(202)され、非同期に処理される
+- **Capture coordinator**: 複数 worker が並行してキャプチャを処理(共有キューの work-stealing)
+- **S3 互換の成果物ストレージ**: 全成果物を `s3://<bucket>/[<keyPrefix>/]<filename>` としてアップロード(SeaweedFS・AWS S3・Cloudflare R2 など)
+- **リンク抽出**: オプションで `<a href>` を抽出し `…links.json` としてアップロード — 外部クロールドライバの発見側として設計
+- **ステルスモード**: [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) で Cloudflare WAF を含む bot 検出を回避
+- **バナー / モーダル除去**: 既知の cookie 同意バナーや大きな fixed/sticky オーバーレイをキャプチャ前に除去するリクエスト単位フラグ(既定はベストエフォート。`failOnError: true` で厳格モード)
+- **タスク間の状態分離**: cookie / `localStorage` / DOM コンテキストをタスク間で消去(サーバ単位・リクエスト単位で設定可能)
+- **OpenAPI 3.1 契約**: [`src/http/openapi.yaml`](https://github.com/uraitakahito/browserhive/blob/main/src/http/openapi.yaml) が単一の真実 — リクエスト/レスポンス型と実行時検証の両方がここから導出される。[API リファレンス](/api/)参照
 
 ## 取得できる形式
 

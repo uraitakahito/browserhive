@@ -1,4 +1,7 @@
-# Development Environment
+---
+title: Development environment
+description: Host-side development against the Apple Container stack — dev loop, watching workers, browsing and wiping artifacts
+---
 
 The stack (SeaweedFS + chromium workers + the server) runs on
 [Apple Container](https://github.com/apple/container); the server code you
@@ -36,8 +39,35 @@ if you want port 8080 for the host process.)
 
 Override individual settings ad hoc by either setting another env var or by
 passing the equivalent CLI flag (CLI > env > default). See
-[Environment variables](../README.md#environment-variables) in the README
-for the full list.
+[Environment variables](/environment-variables/) for the full list.
+
+CLI flags override env values; mix and match as needed:
+
+```sh
+LOG_LEVEL=info npm run server -- \
+  --reject-duplicate-urls \
+  --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" \
+  | pino-pretty
+```
+
+## Example: data client
+
+An example client that sends capture requests from a YAML data file
+(fire-and-forget). The format and parser live in
+[`examples/data-file.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-file.ts).
+The client sends requests and receives acceptance confirmations; the
+actual captures are processed asynchronously by the server — check the
+server logs for completion.
+
+Build first (the example ships as TypeScript source only):
+
+```sh
+npm run build
+node dist/examples/data-client.js \
+  --data data/smoke-test.yaml --webp --html --links --limit 30 \
+  --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
+  | pino-pretty
+```
 
 ## Watching Chromium render
 
