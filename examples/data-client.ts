@@ -26,7 +26,7 @@
  * キャプチャ中の全 HTTP セッション (将来のスクロール起因の遅延ロード
  * リソースを含む) を WACZ アーカイブとして保存し、ReplayWeb.page
  * (https://replayweb.page/) で対話的にリプレイできる — 詳しくは
- * `docs/replay-quickstart.md` を参照。
+ * https://uraitakahito.github.io/browserhive/replay-quickstart/ を参照。
  *
  * ## data/accept-language.yaml
  *

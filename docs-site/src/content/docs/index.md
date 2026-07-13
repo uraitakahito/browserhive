@@ -23,6 +23,17 @@ Calling `POST /v1/captures` enqueues the request and returns 202
 immediately. Chromium workers fetch the page asynchronously and store the
 results in S3-compatible storage.
 
+## Features
+
+- **Fire-and-forget**: requests are accepted immediately (202) and processed asynchronously
+- **Capture coordinator**: multiple workers process capture tasks concurrently (work-stealing over a shared queue)
+- **S3-compatible artifact storage**: every artifact is uploaded as `s3://<bucket>/[<keyPrefix>/]<filename>` (SeaweedFS, AWS S3, Cloudflare R2, …)
+- **Link extraction**: optional `<a href>` extraction uploaded as `…links.json` — the discovery side of an external crawl driver
+- **Stealth mode**: [puppeteer-extra-plugin-stealth](https://github.com/berstend/puppeteer-extra/tree/master/packages/puppeteer-extra-plugin-stealth) to pass bot detection, including Cloudflare WAF
+- **Banner / modal dismissal**: per-request flag that strips known cookie-consent banners and large fixed/sticky overlays before capturing (best-effort by default; strict mode via `failOnError: true`)
+- **Per-task state isolation**: cookies / `localStorage` / DOM context wiped between tasks (configurable per-server and per-request)
+- **OpenAPI 3.1 contract**: [`src/http/openapi.yaml`](https://github.com/uraitakahito/browserhive/blob/main/src/http/openapi.yaml) is the single source of truth — request/response types and runtime validation are both driven from it; see the [API reference](/api/)
+
 ## Capture formats
 
 | Format | Flag | Use |

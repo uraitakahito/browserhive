@@ -151,6 +151,21 @@ flowchart TD
 *図2: 親が全体の running/degraded を管理し、子が 1 ブラウザの接続〜処理を管理。初期化の一部失敗は
 致命ではなく `active.degraded` 入り(部分稼働)。*
 
+### worker の状態とタグ
+
+| 状態 | タグ | 説明 |
+|-------|------|-------------|
+| `disconnected` | | リモートブラウザ未接続(初期状態・切断後) |
+| `connecting` | | リモートブラウザへ接続中(invoke) |
+| `operational.idle` | `healthy`, `canProcess` | タスク受け入れ可能 |
+| `operational.processing` | `healthy` | キャプチャタスクを処理中 |
+| `error` | | 接続喪失または接続失敗 |
+| `disconnecting` | | ブラウザ切断中(invoke) |
+
+`submitCapture` は、少なくとも 1 worker が operational であれば、coordinator が
+`active.*` のどの substate にいる間も受理される。切断の失敗も(ベストエフォートで)
+`disconnected` へ遷移するが、元のエラーはログに残す。
+
 :::note[📄 ワーカーの生成とループは詳説ページへ]
 この節は**概要**。生成(spawn)→ 接続(CONNECT)→ ループ起動 → イベント駆動 → 共有キュー →
 停止までの**段階的な分解**(実ソースから注入したコード片つき)は

@@ -1,4 +1,7 @@
-# WACZ Internals
+---
+title: WACZ internals
+description: How BrowserHive encodes a capture into a ReplayWeb.page-compatible WACZ — WARC pipeline, CDXJ, replay contracts, and spec-vs-implementation gotchas
+---
 
 How BrowserHive turns a single Chromium capture into a
 [ReplayWeb.page](https://replayweb.page/)-compatible WACZ archive.
@@ -175,7 +178,7 @@ HTTP/1.1-shaped regardless of upstream transport.
 ## What's deliberately NOT in the WACZ
 
 - **Auth flows / live data / WebRTC** — out of scope (see
-  [`docs/replay-quickstart.md`](replay-quickstart.md)).
+  [Replay quickstart](/replay-quickstart/)).
 - **Service Worker registrations from the captured page** — replay
   uses its own SW; the captured one would conflict.
 - **Images / video bodies above `maxResponseBytes`** — recorded as

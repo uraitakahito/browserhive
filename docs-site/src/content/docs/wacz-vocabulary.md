@@ -27,7 +27,7 @@ This is distinct from the **component glossary** (the
 This repository spans two bounded contexts. Choose vocabulary based on what
 a comment is **actually describing**:
 
-- **WACZ packaging** (the `src/storage/wacz/**` layer, `docs/wacz-internals.md`,
+- **WACZ packaging** (the `src/storage/wacz/**` layer, [WACZ internals](/wacz-internals/),
   the shipped output): use the WACZ Terminology terms — `ZIP file`,
   `Media Type`, `Page`.
 - **Capture / CDP / HTTP** (the `src/capture/**` layer): keep the original

@@ -10,7 +10,7 @@ This directory contains sample certificates for development and testing purposes
 rm -f certs/*.crt certs/*.key
 ```
 
-See [docs/tls-certificates.md](../docs/tls-certificates.md) for certificate creation instructions.
+See [TLS certificates](https://uraitakahito.github.io/browserhive/tls-certificates/) for certificate creation instructions.
 
 ## Reason
 

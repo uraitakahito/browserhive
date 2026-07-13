@@ -33,8 +33,13 @@ function rehypeRebaseLinks() {
         ) {
           const lastSeg = href.split(/[?#]/)[0].split("/").pop() ?? "";
           const isAsset = lastSeg.includes(".");
+          // /api/ は Starlight ロケール外(Redoc をデプロイ時に注入)なので
+          // /ja を付けない — /ja/api/ は存在しない。
+          const isApi = href === "/api" || href.startsWith("/api/");
           const locale =
-            inJa && !isAsset && !href.startsWith("/ja/") && href !== "/ja" ? "/ja" : "";
+            inJa && !isAsset && !isApi && !href.startsWith("/ja/") && href !== "/ja"
+              ? "/ja"
+              : "";
           node.properties.href = BASE + locale + href;
         }
       }
@@ -65,6 +70,17 @@ export default defineConfig({
       sidebar: [
         { label: "Quickstart", slug: "quickstart" },
         {
+          label: "Guides",
+          items: [
+            { label: "Development environment", slug: "development-environment" },
+            { label: "Production environment", slug: "production-environment" },
+            { label: "Environment variables", slug: "environment-variables" },
+            { label: "Storage", slug: "storage" },
+            { label: "TLS certificates", slug: "tls-certificates" },
+            { label: "Replay quickstart", slug: "replay-quickstart" },
+          ],
+        },
+        {
           label: "For developers",
           items: [
             { label: "Architecture", slug: "architecture" },
@@ -73,11 +89,17 @@ export default defineConfig({
             { label: "Terminology", slug: "terminology" },
             { label: "Glossary reference", slug: "glossary-reference" },
             { label: "WACZ vocabulary", slug: "wacz-vocabulary" },
+            { label: "WACZ internals", slug: "wacz-internals" },
           ],
         },
         {
+          // Absolute URL on purpose: /api/ is the Redoc reference injected
+          // outside Starlight at deploy time, so it is not a Starlight route.
+          // A root-relative "/api/" would be locale-prefixed to
+          // "/ja/api/" (a 404) on Japanese pages; an absolute URL is left
+          // untouched. It also has no page in a local `astro build`.
           label: "API reference ↗",
-          link: "/api/",
+          link: "https://uraitakahito.github.io/browserhive/api/",
         },
       ],
     }),

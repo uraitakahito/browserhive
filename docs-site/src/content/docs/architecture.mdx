@@ -161,6 +161,22 @@ flowchart TD
 one browser's connect-to-process lifecycle. Partial initialization failure is
 not fatal — it enters `active.degraded` (partial operation).*
 
+### Worker states and tags
+
+| State | Tags | Description |
+|-------|------|-------------|
+| `disconnected` | | Not connected to the remote browser (initial, or after disconnect) |
+| `connecting` | | Connecting to the remote browser (invoke) |
+| `operational.idle` | `healthy`, `canProcess` | Ready to accept tasks |
+| `operational.processing` | `healthy` | Processing a capture task |
+| `error` | | Connection lost or connect failure |
+| `disconnecting` | | Disconnecting the browser (invoke) |
+
+`submitCapture` is accepted while the coordinator is in any `active.*`
+substate as long as at least one worker is operational. Disconnect
+failures still transition to `disconnected` (best-effort) but log the
+underlying error.
+
 :::note[📄 Worker spawn & loop has the detailed page]
 This section is the **overview**. For the step-by-step decomposition of
 spawn → CONNECT → loop start → event-driven operation → the shared queue →

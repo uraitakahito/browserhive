@@ -25,7 +25,7 @@ browserhive は WACZ ファイルを生成する。WACZ 出力について書く
 このリポジトリは 2 つの境界づけられたコンテキスト(bounded context)にまたがる。
 コメントが**実際に何を説明しているか**に合わせて語彙を選ぶ:
 
-- **WACZ パッケージング**(`src/storage/wacz/**` 層、`docs/wacz-internals.md`、
+- **WACZ パッケージング**(`src/storage/wacz/**` 層、[WACZ internals](/wacz-internals/)、
   配信される出力):WACZ Terminology の用語 — `ZIP file`、`Media Type`、`Page` — を使う。
 - **キャプチャ / CDP / HTTP**(`src/capture/**` 層):そのコードが記述している
   元の語彙を保つ — Chromium DevTools Protocol の `mimeType`、HTTP の

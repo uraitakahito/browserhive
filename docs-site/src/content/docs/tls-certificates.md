@@ -1,4 +1,7 @@
-# TLS Certificate Creation Guide
+---
+title: TLS certificates
+description: Creating the CA / server certificates for TLS, verifying them, and starting and calling the server over HTTPS
+---
 
 This guide explains how to create the certificates required to enable TLS in BrowserHive.
 
@@ -148,9 +151,9 @@ To start the server using the pre-prepared sample certificates and private keys:
 
 ```sh
 LOG_LEVEL=info npm run server -- \
-  --browser-url http://chromium-server-1:9222 \
-  --browser-url http://chromium-server-2:9222 \
-  --s3-endpoint http://seaweedfs:8333 --s3-bucket browserhive \
+  --browser-url http://192.168.64.x:9222 \
+  --browser-url http://192.168.64.y:9222 \
+  --s3-endpoint http://192.168.64.z:8333 --s3-bucket browserhive \
   --s3-access-key-id "$BROWSERHIVE_S3_ACCESS_KEY_ID" \
   --s3-secret-access-key "$BROWSERHIVE_S3_SECRET_ACCESS_KEY" \
   --tls-cert ./certs/sample-server.crt --tls-key ./certs/sample-server.key \
