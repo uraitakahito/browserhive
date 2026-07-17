@@ -19,9 +19,8 @@ hero:
 ## What is BrowserHive
 
 BrowserHive is an HTTP capture server built on Fastify + Puppeteer.
-Calling `POST /v1/captures` enqueues the request and returns 202
-immediately. Chromium workers fetch the page asynchronously and store the
-results in S3-compatible storage.
+Calling `POST /v1/captures` enqueues the request, and Chromium workers fetch
+the page asynchronously and store the results in S3-compatible storage.
 
 ## Features
 
