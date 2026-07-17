@@ -145,9 +145,12 @@ export const DEFAULT_COORDINATOR_CONFIG = {
 } satisfies Omit<CoordinatorConfig, "storage">;
 
 /**
- * Top-level default for documentation / test seeds. The `storage` key under
- * `coordinator` is intentionally absent because no useful global default
- * exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
+ * Single source of truth for the default config values: `createProgram()` in
+ * server-cli.ts reads it to seed the CLI defaults (`--port`, and via
+ * `coordinator`, `--max-retry-count` / `--queue-poll-interval-ms`), and the
+ * config tests assert against it so those defaults can't silently drift. The
+ * `storage` key under `coordinator` is intentionally absent because no useful
+ * global default exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
  */
 export const DEFAULT_BROWSERHIVE_CONFIG = {
   http: { port: 8080 },
