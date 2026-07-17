@@ -400,9 +400,10 @@ location of each item.
 
 | Concern | File | Contents |
 |---------|------|----------|
-| Process entry | `bin/server.ts` | `main()`: CLI parse → startServer → SIGINT/TERM |
-| Composition root | `src/cli/server-cli.ts` | `startServer`: builds Coordinator + HttpServer |
-| HTTP server | `src/http/server.ts` | `HttpServer`: Fastify/Ajv/Problem/route registration |
+| Process entry | `bin/main.ts` | `main()`: CLI parse → startServer → SIGINT/TERM |
+| CLI / config | `src/cli/server-cli.ts` | `parseCliOptions`: argv + env → config |
+| Composition root | `src/bootstrap.ts` | `startServer`: builds Coordinator + HttpServer |
+| HTTP server | `src/http/http-server.ts` | `HttpServer`: Fastify/Ajv/Problem/route registration |
 | Handlers | `src/http/handlers.ts` | `submitCapture` / `getStatus` |
 | Orchestration facade | `src/capture/capture-coordinator.ts` | [`CaptureCoordinator`](/terminology/#g-CaptureCoordinator): enqueue/initialize/status |
 | Parent machine | `src/capture/coordinator-machine.ts` | [`coordinatorMachine`](/terminology/#g-coordinatorMachine): `created→active{running/degraded}→terminated` |
