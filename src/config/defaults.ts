@@ -126,8 +126,7 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
  * Defaults that apply regardless of the deploy target. `storage` and
  * `browserProfiles` have no meaningful default — they are always supplied by
  * `buildServerConfig` in `server-cli.ts` from CLI / env input — so they are
- * absent from this object. Test fixtures fill them in via
- * `createTestCoordinatorConfig`.
+ * absent from this object.
  */
 export const DEFAULT_COORDINATOR_CONFIG = {
   browserProfiles: [],
@@ -147,10 +146,10 @@ export const DEFAULT_COORDINATOR_CONFIG = {
 /**
  * Single source of truth for the default config values: `createProgram()` in
  * server-cli.ts reads it to seed the CLI defaults (`--port`, and via
- * `coordinator`, `--max-retry-count` / `--queue-poll-interval-ms`), and the
- * config tests assert against it so those defaults can't silently drift. The
- * `storage` key under `coordinator` is intentionally absent because no useful
- * global default exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
+ * `coordinator`, `--max-retry-count` / `--queue-poll-interval-ms`), keeping
+ * those defaults defined in exactly one place. The `storage` key under
+ * `coordinator` is intentionally absent because no useful global default
+ * exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
  */
 export const DEFAULT_BROWSERHIVE_CONFIG = {
   http: { port: 8080 },
