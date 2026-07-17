@@ -73,4 +73,4 @@ EXPOSE 8080
 # Configuration is supplied via BROWSERHIVE_* environment variables
 # (bin/up.sh bakes them in; standalone runs pass `container run -e ...`).
 # CLI flags still work and override env values.
-ENTRYPOINT ["node", "dist/bin/server.js"]
+ENTRYPOINT ["node", "dist/bin/main.js"]
