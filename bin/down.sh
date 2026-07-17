@@ -10,6 +10,7 @@ cd "$(dirname "$0")/.."
 source bin/lib.sh
 
 container stop browserhive >/dev/null 2>&1 || true
+container stop meadow >/dev/null 2>&1 || true
 WORKERS="$(list_workers)"
 [ -n "${WORKERS}" ] && echo "${WORKERS}" | xargs container stop >/dev/null 2>&1
 container stop browserhive-seaweedfs >/dev/null 2>&1 || true

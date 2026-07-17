@@ -1,0 +1,51 @@
+name: e2e
+
+# Full black-box E2E: brings up the real stack (meadow + chromium-server-docker +
+# seaweedfs + browserhive) on Apple Container and runs the `e2e` Vitest project
+# against it — exactly what a client sees. Kept OFF the per-PR path (the fast unit
+# CI covers every PR); this runs nightly and on demand.
+#
+# Requires a self-hosted macOS 26 runner with the `container` CLI: Apple Container
+# does not run on GitHub-hosted Linux. For a Linux/GitHub-hosted E2E, port the same
+# `test:e2e` suite to testcontainers (out of scope here).
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 18 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Black-box E2E (real stack)
+    runs-on: [self-hosted, macos]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      # Initialises submodules and builds meadow so `"meadow": "file:./meadow"`
+      # resolves its dist/.
+      - name: Setup
+        run: ./setup.sh
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bring up the stack
+        run: ./bin/up.sh 2
+
+      - name: Run E2E (writes/consumes .e2e-stack.json)
+        run: npm run test:e2e
+
+      - name: Tear down
+        if: always()
+        run: ./bin/down.sh

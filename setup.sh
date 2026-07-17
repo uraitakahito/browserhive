@@ -3,8 +3,12 @@ set -e
 
 echo "Starting BrowserHive setup..."
 
-echo "Initializing chromium-server-docker submodule..."
-git submodule update --init chromium-server-docker
+echo "Initializing submodules (chromium-server-docker, meadow)..."
+git submodule update --init chromium-server-docker meadow
+
+echo "Building meadow (fixture-origin) so \"meadow\": \"file:./meadow\" resolves its dist/..."
+npm --prefix meadow ci
+npm --prefix meadow run build
 
 echo ""
 echo "Setup complete!"

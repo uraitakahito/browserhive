@@ -1,0 +1,11 @@
+{
+  // Production build config used by `npm run build` (and Dockerfile.prod).
+  // Emits only what the server ships (src + bin). Tests and examples are
+  // type-checked by ESLint/editor via tsconfig.json but never compiled into
+  // the image — test/e2e in particular depends on the dev-only `meadow`
+  // package, which is absent from the runtime.
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "bin/**/*"],
+  "exclude": ["src/http/generated"],
+  "references": [{ "path": "./tsconfig.generated.json" }]
+}

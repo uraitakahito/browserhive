@@ -29,7 +29,15 @@ S3_KEY="${BROWSERHIVE_S3_ACCESS_KEY_ID:-browserhive}"
 S3_SECRET="${BROWSERHIVE_S3_SECRET_ACCESS_KEY:-browserhive}"
 SEAWEEDFS_IMAGE="docker.io/chrislusf/seaweedfs:4.23"
 
-echo "== [1/4] SeaweedFS (S3) =="
+echo "== [1/5] meadow (fixture-origin for E2E) =="
+container build -t meadow:latest ./meadow >/dev/null
+container stop meadow >/dev/null 2>&1 || true
+container run -d --rm --name meadow meadow:latest >/dev/null
+MEADOW_IP="$(ip_of meadow)"
+wait_http "http://${MEADOW_IP}:8080/health"
+echo "meadow    : http://${MEADOW_IP}:8080"
+
+echo "== [2/5] SeaweedFS (S3) =="
 container volume create seaweedfs-data >/dev/null 2>&1 || true
 container stop browserhive-seaweedfs >/dev/null 2>&1 || true
 # The entrypoint renders the S3 identity from these env vars — the same
@@ -49,7 +57,7 @@ container run --rm -v "${PWD}/etc/seaweedfs:/etc/seaweedfs:ro" \
     "${BUCKET}" "${SW_IP}:9333" >/dev/null
 echo "seaweedfs : http://${SW_IP}:8333 (bucket: ${BUCKET})"
 
-echo "== [2/4] Chromium workers (${WORKERS}) =="
+echo "== [3/5] Chromium workers (${WORKERS}) =="
 # Sweep stale workers first so a previous larger pool cannot leak extra
 # entries into the URL list below; prod.sh then (re)creates chromium-1..N.
 STALE="$(list_workers)"
@@ -57,7 +65,7 @@ STALE="$(list_workers)"
 ./chromium-server-docker/bin/prod.sh "${WORKERS}" >/dev/null
 echo "workers   : ${WORKERS} started"
 
-echo "== [3/4] Worker URL wiring =="
+echo "== [4/5] Worker URL wiring =="
 URLS=""
 while IFS= read -r name; do
     URLS="${URLS:+${URLS},}http://$(ip_of "${name}"):9222"
@@ -65,7 +73,7 @@ done < <(list_workers)
 [ -n "${URLS}" ] || { echo "error: no chromium-* workers running" >&2; exit 1; }
 echo "browser urls: ${URLS}"
 
-echo "== [4/4] BrowserHive =="
+echo "== [5/5] BrowserHive =="
 container build -f Dockerfile.prod -t browserhive:prod .
 container stop browserhive >/dev/null 2>&1 || true
 container run -d --rm --name browserhive -p 127.0.0.1:8080:8080 \
@@ -80,6 +88,14 @@ container run -d --rm --name browserhive -p 127.0.0.1:8080:8080 \
     browserhive:prod >/dev/null
 wait_http "http://localhost:8080/v1/status" 45
 
+# Write the endpoints the E2E suite reads. globalSetup consumes this file
+# instead of environment variables; IPs change across restarts so it is
+# regenerated every up.sh. Listed in .gitignore.
+cat > .e2e-stack.json <<EOF
+{ "api": "http://localhost:8080", "meadow": "http://${MEADOW_IP}:8080" }
+EOF
+
 echo
 echo "BrowserHive: http://localhost:8080"
+echo "meadow     : http://${MEADOW_IP}:8080"
 echo "Stop with  : ./bin/down.sh   Status: ./bin/status.sh"
