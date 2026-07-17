@@ -12,7 +12,6 @@ import type { BrowserHiveConfig } from "./config/index.js";
 import { HttpServer } from "./http/http-server.js";
 import { logger } from "./logger.js";
 
-/** Server control interface */
 export interface ServerControl {
   shutdown: () => Promise<void>;
 }
