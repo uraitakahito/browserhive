@@ -77,7 +77,10 @@ export class BrowserClient {
         }
       : undefined;
     this.pageCapturer = new PageCapturer(profile.capture, store, waczConfig);
-    this.logger = createChildLogger({ workerIndex: index, browserURL: profile.browserURL });
+    this.logger = createChildLogger({
+      workerIndex: index,
+      browserURL: profile.browserURL.href,
+    });
   }
 
   /**

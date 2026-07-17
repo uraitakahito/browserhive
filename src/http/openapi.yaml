@@ -832,6 +832,12 @@ components:
       properties:
         browserUrl:
           type: string
+          description: >-
+            The configured browser endpoint, returned in WHATWG-canonical form
+            (e.g. a trailing slash is added: `http://chromium-1:9222/`). The
+            server parses the operator-supplied value into a URL, so the string
+            echoed here is the normalized form, not necessarily the exact input.
+          example: http://chromium-1:9222/
     CurrentTask:
       type: object
       description: |

@@ -100,7 +100,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
       errorHistory: [],
     };
     expect(workerInfoToWire(worker).browserOptions).toEqual({
-      browserUrl: "http://chromium-1:9222",
+      browserUrl: "http://chromium-1:9222/",
     });
   });
 

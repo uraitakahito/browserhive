@@ -423,8 +423,9 @@ export class CaptureWorker {
   get profile(): BrowserProfile {
     return this.client.profile;
   }
-  get browserURL(): string {
-    return this.client.profile.browserURL;
+  /** Display/diagnostic string form of the browser URL (for logs, status, errors). */
+  get browserAddress(): string {
+    return this.client.profile.browserURL.href;
   }
 
   // -- state queries --

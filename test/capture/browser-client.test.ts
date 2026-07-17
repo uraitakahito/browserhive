@@ -45,7 +45,7 @@ import { BrowserClient } from "../../src/capture/browser-client.js";
 import connectBrowser from "../../src/browser.js";
 
 const createBrowserProfile = (browserURL = "http://chromium:9222"): BrowserProfile => ({
-  browserURL,
+  browserURL: new URL(browserURL),
   capture: createTestCaptureConfig(),
 });
 
@@ -110,7 +110,7 @@ describe("BrowserClient", () => {
       const result = await client.connect();
 
       expect(connectBrowser).toHaveBeenCalledWith(
-        expect.objectContaining({ browserURL: "http://chromium:9222" })
+        expect.objectContaining({ browserURL: new URL("http://chromium:9222") })
       );
       expect(result).toEqual({ ok: true, value: undefined });
     });
@@ -353,7 +353,7 @@ describe("BrowserClient", () => {
         const fastClient = new BrowserClient(
           0,
           {
-            browserURL: "http://chromium:9222",
+            browserURL: new URL("http://chromium:9222"),
             capture: {
               ...createBrowserProfile().capture,
               timeouts: {

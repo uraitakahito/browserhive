@@ -162,7 +162,7 @@ interface ResolvedOptions
     | "waczSkipContentTypes"
     | "waczFuzzyParam"
   > {
-  browserUrl: string[];
+  browserUrl: URL[];
   storage: StorageConfig;
   waczBlockPattern: string[];
   waczSkipContentTypes: string[];
@@ -470,20 +470,58 @@ const splitCsv = (raw: string): string[] =>
   raw.split(",").map((s) => s.trim()).filter((s) => s !== "");
 
 /**
+ * Parse a raw string into an http(s) `URL`. Pure: knows nothing about the
+ * CLI, env, or which option supplied the value — the caller owns the
+ * user-facing error message (see {@link requireBrowserUrls}). `new URL()`
+ * accepts any scheme (ftp/file/ws/…) and even mis-parses a missing scheme
+ * (`localhost:9222` → protocol `localhost:`), so the http(s) allow-list is
+ * required, not decorative.
+ */
+const parseHttpUrl = (
+  raw: string,
+): { ok: true; url: URL } | { ok: false; reason: "not-a-url" | "not-http" } => {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { ok: false, reason: "not-a-url" };
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return { ok: false, reason: "not-http" };
+  }
+  return { ok: true, url };
+};
+
+/**
  * Variadic `--browser-url` cannot be expressed via commander's `Option#env`,
  * so we merge the env value manually after parsing. CLI wins; env is a
- * comma-separated list. Calls `program.error` (which exits) when the source
- * is missing entirely.
+ * comma-separated list. Each value is parsed & validated into a `URL` via
+ * {@link parseHttpUrl}; the option-name-aware error message lives here (the
+ * only place that knows both sources). Calls `program.error` (which exits)
+ * when the source is missing entirely or a value is not an http(s) URL.
  */
 const requireBrowserUrls = (
   cliValue: string[] | undefined,
   program: Command,
-): string[] => {
-  if (cliValue !== undefined && cliValue.length > 0) return cliValue;
+): URL[] => {
+  const toUrls = (raws: string[]): URL[] =>
+    raws.map((value) => {
+      const result = parseHttpUrl(value);
+      if (!result.ok) {
+        program.error(
+          `invalid browser URL (--browser-url / BROWSERHIVE_BROWSER_URLS): ${value}` +
+            (result.reason === "not-http"
+              ? " — must be an http(s) URL"
+              : " — not a URL"),
+        );
+      }
+      return result.url;
+    });
+  if (cliValue !== undefined && cliValue.length > 0) return toUrls(cliValue);
   const envRaw = process.env["BROWSERHIVE_BROWSER_URLS"];
   if (envRaw !== undefined) {
     const parsed = splitCsv(envRaw);
-    if (parsed.length > 0) return parsed;
+    if (parsed.length > 0) return toUrls(parsed);
   }
   program.error(
     "--browser-url is required (or set BROWSERHIVE_BROWSER_URLS as comma-separated list)",
@@ -699,7 +737,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       tls: config.http.tls
         ? { enabled: true, certPath: config.http.tls.certPath }
         : { enabled: false },
-      browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL),
+      browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL.href),
       storage: logSafeStorage(coordinator.storage),
       timeouts: {
         pageLoadMs: capture.timeouts.pageLoadMs,
