@@ -209,8 +209,8 @@ export const resolveWsUrlHost = async (
  *      target host so the subsequent WebSocket upgrade also passes
  *      the same guard (see `resolveWsUrlHost` for the WHY).
  */
-const fetchWebSocketEndpoint = async (browserURL: string): Promise<string> => {
-  const url = new URL(browserURL);
+const fetchWebSocketEndpoint = async (browserURL: URL): Promise<string> => {
+  const url = browserURL; // already parsed & validated at the CLI boundary
   const targetHost = url.host; // e.g., "chromium-server-1:9222"
   const port = url.port ? parseInt(url.port, 10) : 9222;
 

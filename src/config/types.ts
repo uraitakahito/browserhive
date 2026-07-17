@@ -197,8 +197,8 @@ export interface BrowserHiveConfig {
 
 /** Browser connection options for connecting to a remote Chromium instance */
 export interface BrowserConnectOptions {
-  /** Remote browser URL (e.g., http://puppeteer:9222) */
-  browserURL: string;
+  /** Remote browser URL, parsed & validated to http(s) at the CLI boundary. */
+  browserURL: URL;
   /** Slow down Puppeteer operations by the specified milliseconds */
   slowMo?: number;
 }

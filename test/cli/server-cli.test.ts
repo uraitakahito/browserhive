@@ -46,9 +46,9 @@ describe("server-cli parseCliOptions", () => {
         argv("--browser-url", "http://b1:9222", "http://b2:9222", ...s3Args),
       );
 
-      expect(config.coordinator.browserProfiles.map((p) => p.browserURL)).toEqual([
-        "http://b1:9222",
-        "http://b2:9222",
+      expect(config.coordinator.browserProfiles.map((p) => p.browserURL.href)).toEqual([
+        "http://b1:9222/",
+        "http://b2:9222/",
       ]);
       expect(config.coordinator.storage).toEqual({
         endpoint: "http://seaweedfs:8333",
@@ -59,6 +59,18 @@ describe("server-cli parseCliOptions", () => {
         forcePathStyle: false,
       });
       expect(config.http.port).toBe(8080);
+    });
+
+    it("--browser-url は WHATWG 正準形（末尾スラッシュ付き）へ正規化される（意図的な契約）", () => {
+      // `new URL(raw).href` は末尾 / を付与する。/v1/status やログも
+      // この正準形を返すため、テストでも仕様として固定する。
+      const config = parseCliOptions(
+        argv("--browser-url", "http://b:9222", ...s3Args),
+      );
+
+      expect(config.coordinator.browserProfiles[0]!.browserURL.href).toBe(
+        "http://b:9222/",
+      );
     });
 
     it("--s3-region と --s3-key-prefix の上書きが反映される", () => {
@@ -90,9 +102,9 @@ describe("server-cli parseCliOptions", () => {
 
       const config = parseCliOptions(argv());
 
-      expect(config.coordinator.browserProfiles.map((p) => p.browserURL)).toEqual([
-        "http://b1:9222",
-        "http://b2:9222",
+      expect(config.coordinator.browserProfiles.map((p) => p.browserURL.href)).toEqual([
+        "http://b1:9222/",
+        "http://b2:9222/",
       ]);
       expect(config.coordinator.storage).toMatchObject({
         endpoint: "http://seaweedfs:8333",
@@ -111,9 +123,9 @@ describe("server-cli parseCliOptions", () => {
 
       const config = parseCliOptions(argv());
 
-      expect(config.coordinator.browserProfiles.map((p) => p.browserURL)).toEqual([
-        "http://a:9222",
-        "http://b:9222",
+      expect(config.coordinator.browserProfiles.map((p) => p.browserURL.href)).toEqual([
+        "http://a:9222/",
+        "http://b:9222/",
       ]);
     });
 
@@ -149,8 +161,8 @@ describe("server-cli parseCliOptions", () => {
         argv("--browser-url", "http://from-cli:9222"),
       );
 
-      expect(config.coordinator.browserProfiles.map((p) => p.browserURL)).toEqual([
-        "http://from-cli:9222",
+      expect(config.coordinator.browserProfiles.map((p) => p.browserURL.href)).toEqual([
+        "http://from-cli:9222/",
       ]);
     });
 
@@ -319,6 +331,32 @@ describe("server-cli parseCliOptions", () => {
       stubS3Env();
 
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
+    });
+
+    it("非 http(s) スキーム（ftp）の --browser-url で exit する", () => {
+      stubS3Env();
+
+      expect(() =>
+        parseCliOptions(argv("--browser-url", "ftp://h:9222")),
+      ).toThrow(ProcessExitError);
+    });
+
+    it("スキーム欠落（localhost:9222）の --browser-url で exit する", () => {
+      stubS3Env();
+
+      // `new URL("localhost:9222")` は throw せず protocol=localhost: と
+      // 誤解釈されるので、http(s) 許可リストで弾く必要がある。
+      expect(() =>
+        parseCliOptions(argv("--browser-url", "localhost:9222")),
+      ).toThrow(ProcessExitError);
+    });
+
+    it("URL として不正な --browser-url で exit する", () => {
+      stubS3Env();
+
+      expect(() =>
+        parseCliOptions(argv("--browser-url", "not a url")),
+      ).toThrow(ProcessExitError);
     });
 
     it("不正な BROWSERHIVE_PORT で exit する", () => {

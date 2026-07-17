@@ -81,7 +81,7 @@ export const workerInfoToWire = (
   now: number = Date.now(),
 ): WorkerInfoWire => ({
   index: worker.index,
-  browserOptions: { browserUrl: worker.browserProfile.browserURL },
+  browserOptions: { browserUrl: worker.browserProfile.browserURL.href },
   health: worker.health,
   processedCount: worker.processedCount,
   errorCount: worker.errorCount,

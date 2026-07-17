@@ -90,7 +90,7 @@ export const createTestBrowserProfile = (
   browserURL: string,
   captureOverrides: DeepPartial<CaptureConfig> = {}
 ): BrowserProfile => ({
-  browserURL,
+  browserURL: new URL(browserURL),
   capture: createTestCaptureConfig(captureOverrides),
 });
 

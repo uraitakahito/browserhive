@@ -111,7 +111,7 @@ const collectFailedWorkers = (workers: CaptureWorker[]): WorkerInitFailure[] =>
     .map((worker) => {
       const lastError = worker.getSnapshot().context.errorHistory[0];
       return {
-        browserURL: worker.browserURL,
+        browserURL: worker.browserAddress,
         reason:
           lastError ??
           createConnectionError("Unknown failure (no error recorded)"),
@@ -223,7 +223,7 @@ export const retryFailedWorkers = fromCallback<{ type: "noop" }, CaptureWorker[]
             {
               attempt,
               count: targets.length,
-              browserURLs: targets.map((t) => t.browserURL),
+              browserURLs: targets.map((t) => t.browserAddress),
             },
             "Retrying failed workers",
           );
@@ -265,14 +265,14 @@ export const shutdownWorkers = fromPromise<
   // for already-settled workers but races the actor for stuck ones.
   const unsettled = input.workers
     .filter((worker) => !worker.isDisconnected)
-    .map((worker) => worker.browserURL);
+    .map((worker) => worker.browserAddress);
   await Promise.all(
     input.workers.map(async (worker) => {
       const result = await worker.forceDisconnectClient();
       if (!result.ok) {
         logger.warn(
           {
-            browserURL: worker.browserURL,
+            browserURL: worker.browserAddress,
             reason: result.error,
           },
           "Safety-net disconnect failed",

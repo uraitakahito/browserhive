@@ -574,12 +574,12 @@ describe("CaptureWorker class", () => {
   const buildWorker = (overrides?: { index?: number; browserURL?: string }) => {
     const client = createMockClient(overrides?.index ?? 0);
     if (overrides?.browserURL !== undefined) {
-      (client as unknown as { profile: { browserURL: string } }).profile = {
-        browserURL: overrides.browserURL,
+      (client as unknown as { profile: { browserURL: URL } }).profile = {
+        browserURL: new URL(overrides.browserURL),
       };
     } else {
-      (client as unknown as { profile: { browserURL: string } }).profile = {
-        browserURL: "http://test:9222",
+      (client as unknown as { profile: { browserURL: URL } }).profile = {
+        browserURL: new URL("http://test:9222"),
       };
     }
     const runtime: WorkerRuntime = {
@@ -601,9 +601,9 @@ describe("CaptureWorker class", () => {
       expect(worker.index).toBe(7);
     });
 
-    it("exposes browserURL from client.profile", () => {
+    it("exposes browserAddress (canonical href) from client.profile", () => {
       const { worker } = buildWorker({ browserURL: "http://example:9222" });
-      expect(worker.browserURL).toBe("http://example:9222");
+      expect(worker.browserAddress).toBe("http://example:9222/");
     });
 
     it("exposes profile reference", () => {
@@ -701,7 +701,7 @@ describe("CaptureWorker class", () => {
       });
       const info = worker.toInfo();
       expect(info.index).toBe(3);
-      expect(info.browserProfile.browserURL).toBe("http://x:9222");
+      expect(info.browserProfile.browserURL.href).toBe("http://x:9222/");
       expect(info.health).toBe("ready");
       expect(info.processedCount).toBe(0);
       expect(info.errorCount).toBe(0);

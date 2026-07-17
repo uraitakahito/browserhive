@@ -226,7 +226,7 @@ describe("waitForWorkersToReach", () => {
  * Reproduces the worker status machine surface that initializeWorkers
  * depends on: `send`, `getSnapshot().value`, `getSnapshot().matches()`,
  * `getSnapshot().hasTag()`, `getSnapshot().context.errorHistory`,
- * `subscribe`, and `worker.browserURL`.
+ * `subscribe`, and `worker.browserAddress`.
  */
 const fakeInitEntry = (browserURL = "http://test:9222") => {
   interface FakeSnapshot {
@@ -271,7 +271,7 @@ const fakeInitEntry = (browserURL = "http://test:9222") => {
     send,
   } as unknown as WorkerRef;
   const fakeClient = {
-    profile: { browserURL },
+    profile: { browserURL: new URL(browserURL) },
   } as unknown as BrowserClient;
   const entry = new CaptureWorker(fakeRef, fakeClient);
 
@@ -372,7 +372,7 @@ describe("initializeWorkers", () => {
         allHealthy: false,
         failed: [
           {
-            browserURL: "http://b-failed:9222",
+            browserURL: "http://b-failed:9222/",
             reason: httpErrorRecord("ECONNREFUSED"),
           },
         ],
@@ -389,7 +389,7 @@ describe("initializeWorkers", () => {
       expect(result.allHealthy).toBe(false);
       expect(result.failed).toEqual([
         {
-          browserURL: "http://a:9222",
+          browserURL: "http://a:9222/",
           reason: {
             type: "connection",
             message: "Unknown failure (no error recorded)",
@@ -409,8 +409,8 @@ describe("initializeWorkers", () => {
       const result = await settled;
       expect(result.allHealthy).toBe(false);
       expect(result.failed.map((f) => f.browserURL)).toEqual([
-        "http://a:9222",
-        "http://b:9222",
+        "http://a:9222/",
+        "http://b:9222/",
       ]);
     });
   });
@@ -436,7 +436,7 @@ describe("initializeWorkers", () => {
       const result = await settled;
       expect(result.allHealthy).toBe(false);
       expect(result.failed.map((f) => f.browserURL)).toEqual([
-        "http://slow:9222",
+        "http://slow:9222/",
       ]);
     });
   });
@@ -455,7 +455,7 @@ const fakeRetryEntry = (browserURL: string, initialValue: unknown = "error") => 
     send,
   } as unknown as WorkerRef;
   const fakeClient = {
-    profile: { browserURL },
+    profile: { browserURL: new URL(browserURL) },
   } as unknown as BrowserClient;
   const entry = new CaptureWorker(fakeRef, fakeClient);
   return {

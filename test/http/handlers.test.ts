@@ -292,7 +292,7 @@ describe("getStatus handler", () => {
           {
             index: 0,
             browserProfile: {
-              browserURL: "http://chromium-1:9222",
+              browserURL: new URL("http://chromium-1:9222"),
               capture: {
                 timeouts: { pageLoadMs: 30000, captureMs: 10000, autoScrollMs: 20000, taskTotalMs: 90000 },
                 viewport: { width: 1280, height: 800 },
