@@ -1,11 +1,8 @@
 /**
  * Server CLI Entry Point
  */
-import {
-  parseCliOptions,
-  logServerConfig,
-  startServer,
-} from "../src/cli/server-cli.js";
+import { parseCliOptions, logServerConfig } from "../src/cli/server-cli.js";
+import { startServer } from "../src/bootstrap.js";
 import { logger } from "../src/logger.js";
 
 /**

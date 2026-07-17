@@ -12,8 +12,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { Command, InvalidArgumentError, Option } from "commander";
-import { CaptureCoordinator } from "../capture/index.js";
-import { HttpServer } from "../http/server.js";
 import type {
   BrowserHiveConfig,
   CaptureConfig,
@@ -32,7 +30,7 @@ import { logger } from "../logger.js";
  * Read the package version once at module load so the WARC `warcinfo`
  * record carries the real BrowserHive version (e.g. `browserhive/1.0.0`)
  * rather than the literal default. The path resolution mirrors how
- * `http/server.ts` finds `dist/openapi.dereferenced.json` — walks two
+ * `http/http-server.ts` finds `dist/openapi.dereferenced.json` — walks two
  * levels up from the compiled file location to reach the project root.
  */
 const readPackageVersion = (): string => {
@@ -736,26 +734,4 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
     },
     "Server configuration",
   );
-};
-
-/** Server control interface */
-export interface ServerControl {
-  shutdown: () => Promise<void>;
-}
-
-export const startServer = async (
-  config: BrowserHiveConfig,
-): Promise<ServerControl> => {
-  const coordinator = new CaptureCoordinator(config.coordinator);
-  const server = new HttpServer(coordinator, config.http);
-
-  await server.initialize();
-  await server.start();
-
-  return {
-    shutdown: async (): Promise<void> => {
-      logger.info("Received shutdown signal");
-      await server.shutdown();
-    },
-  };
 };
