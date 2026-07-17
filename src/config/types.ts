@@ -101,9 +101,7 @@ export interface WaczConfig {
   fuzzyParams: string[];
 }
 
-/** Capture configuration */
 export interface CaptureConfig {
-  /** Timeout settings */
   timeouts: {
     /** Page load timeout. */
     pageLoadMs: number;
@@ -143,7 +141,6 @@ export interface CaptureConfig {
     /** `page.waitForNetworkIdle` overall timeout. */
     idleTimeoutMs: number;
   };
-  /** Screenshot options */
   screenshot: ScreenshotConfig;
   /** Custom User-Agent string (uses browser default if undefined) */
   userAgent?: string;
@@ -157,7 +154,6 @@ export interface CaptureConfig {
   wacz?: WaczConfig;
 }
 
-/** Coordinator configuration */
 export interface CoordinatorConfig {
   /** List of browser profile configurations */
   browserProfiles: BrowserProfile[];
@@ -187,7 +183,6 @@ export interface HttpServerConfig {
   tls?: TlsConfig;
 }
 
-/** Client TLS configuration */
 export interface ClientTlsConfig {
   /** Whether to enable TLS */
   enabled: boolean;
@@ -195,7 +190,6 @@ export interface ClientTlsConfig {
   caCertPath: string;
 }
 
-/** BrowserHive configuration */
 export interface BrowserHiveConfig {
   http: HttpServerConfig;
   coordinator: CoordinatorConfig;
