@@ -32,21 +32,19 @@
 
 # 3. Re-include build configuration files
 !tsconfig.json
+!tsconfig.build.json
 !tsconfig.generated.json
 !redocly.yaml
 !openapi-ts.config.ts
 
-# 4. Re-include source / entry / tsc-include directories.
-#    Use both `!dir` and `!dir/**` so the directory itself and its
-#    contents are kept across BuildKit versions.
+# 4. Re-include source / entry directories the production build compiles.
+#    tsconfig.build.json = src + bin only; tests and examples are NOT shipped
+#    (test/e2e depends on the dev-only `meadow` package), so they stay out of
+#    the context. Use both `!dir` and `!dir/**` across BuildKit versions.
 !bin
 !bin/**
 !src
 !src/**
-!examples
-!examples/**
-!test
-!test/**
 !scripts
 !scripts/**
 

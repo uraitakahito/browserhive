@@ -29,15 +29,13 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc .puppeteerrc.json ./
 RUN npm ci
 
-# Sources required by tsc include patterns (src, bin, examples, test).
-# redocly.yaml is required by the `openapi:lint` and `openapi:build-docs`
-# steps; openapi-ts.config.ts and scripts/ are required by `openapi:generate`.
-# All three run as part of `npm run build` (prebuild hook).
-COPY tsconfig.json tsconfig.generated.json redocly.yaml openapi-ts.config.ts ./
+# Sources the production build compiles (tsconfig.build.json = src + bin only;
+# tests and examples are not shipped). redocly.yaml is required by the
+# `openapi:lint` / `openapi:build-docs` steps; openapi-ts.config.ts and scripts/
+# are required by `openapi:generate`. All run as part of `npm run build`.
+COPY tsconfig.json tsconfig.build.json tsconfig.generated.json redocly.yaml openapi-ts.config.ts ./
 COPY src ./src
 COPY bin ./bin
-COPY examples ./examples
-COPY test ./test
 COPY scripts ./scripts
 
 # openapi:generate (prebuild hook) + tsc -> ./dist
