@@ -19,12 +19,17 @@ jobs:
       - run: npm ci
       - run: npm run openapi:generate
       - run: npm run openapi:gen-operations
+      # reviewdog がコメントを投稿するトークンを GitHub App から実行ごとに発行する。
+      # 保管する秘密は App の秘密鍵(REVIEWDOG_APP_KEY)だけで、これは無期限。
+      # Dependabot PR でも動くよう、この鍵は Actions/Dependabot の両 secret store に登録する。
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: 4355270
+          private-key: ${{ secrets.REVIEWDOG_APP_KEY }}
       - uses: reviewdog/action-eslint@v1
         with:
-          # Dependabot PR では GITHUB_TOKEN が read-only に降格 + Actions secrets が
-          # 隔離されるため、Dependabot/Actions の両 secret store に同名で登録した
-          # Fine-grained PAT (REVIEWDOG_PAT) を使う。両 trigger 経路で同じ参照式が解決される。
-          github_token: ${{ secrets.REVIEWDOG_PAT }}
+          github_token: ${{ steps.app-token.outputs.token }}
           reporter: github-pr-review
           eslint_flags: '. --max-warnings 0'
           fail_level: warning
