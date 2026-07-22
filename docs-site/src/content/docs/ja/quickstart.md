@@ -16,9 +16,8 @@ sidebar:
 ## Step 1 — リポジトリを取得する
 
 ```bash
-git clone https://github.com/uraitakahito/browserhive.git
+git clone --recurse-submodules https://github.com/uraitakahito/browserhive.git
 cd browserhive
-./setup.sh        # chromium-server-docker submodule を初期化
 ```
 
 ## Step 2 — スタックを起動する

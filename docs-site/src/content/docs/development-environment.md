@@ -34,6 +34,9 @@ BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
 LOG_LEVEL=info npm run server | pino-pretty
 ```
 
+`npm ci` also builds the linked `meadow` fixture dep (`file:./meadow`) via its
+`prepare` script — no separate build step is needed.
+
 (Stop the containerized `browserhive` first — `container stop browserhive` —
 if you want port 8080 for the host process.)
 
