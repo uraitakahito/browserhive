@@ -10,12 +10,12 @@ AWS S3, Cloudflare R2, MinIO-compatible managed services.
 
 ## Bundled SeaweedFS
 
-`bin/up.sh` ships with a self-hosted SeaweedFS service (Apache 2.0,
+`bin/stack.sh up` ships with a self-hosted SeaweedFS service (Apache 2.0,
 actively maintained) plus a one-shot `weed shell` init step that creates
 the `browserhive` bucket on first start. Default S3 identity is
 `browserhive` / `browserhive`, overridable via the
 `BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY` env
-vars when invoking `./bin/up.sh` (the bundled SeaweedFS and the
+vars when invoking `./bin/stack.sh up` (the bundled SeaweedFS and the
 BrowserHive container read from the same pair, so they always agree by
 construction).
 
@@ -43,7 +43,7 @@ The default is virtual-hosted-style addressing — the form AWS S3
 expects. For SeaweedFS, MinIO-compatible managed services, and most
 other self-hosted S3 implementations (which do not have wildcard DNS
 for the bucket subdomain), pass `--s3-force-path-style` (or set
-`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). `bin/up.sh` opts the bundled
+`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). `bin/stack.sh up` opts the bundled
 SeaweedFS in to path-style via this env var automatically.
 
 The `s3-access-key-id` and `s3-secret-access-key` values are accepted

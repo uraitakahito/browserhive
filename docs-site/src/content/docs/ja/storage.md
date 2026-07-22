@@ -10,9 +10,9 @@ AWS S3、Cloudflare R2、MinIO 互換のマネージドサービス。
 
 ## 同梱 SeaweedFS
 
-`bin/up.sh` は自己ホストの SeaweedFS サービス(Apache 2.0・活発にメンテ)と、
+`bin/stack.sh up` は自己ホストの SeaweedFS サービス(Apache 2.0・活発にメンテ)と、
 初回起動時に `browserhive` bucket を作る one-shot の `weed shell` 初期化を同梱する。
-既定の S3 identity は `browserhive` / `browserhive` で、`./bin/up.sh` 実行時の
+既定の S3 identity は `browserhive` / `browserhive` で、`./bin/stack.sh up` 実行時の
 `BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY` 環境変数で
 上書きできる(同梱 SeaweedFS と BrowserHive コンテナは同じペアを読むため、
 両者の資格情報は構成上必ず一致する)。
@@ -40,7 +40,7 @@ environment:
 SeaweedFS・MinIO 互換のマネージドサービス・その他ほとんどの自己ホスト S3
 実装(bucket サブドメインのワイルドカード DNS を持たない)では
 `--s3-force-path-style`(または `BROWSERHIVE_S3_FORCE_PATH_STYLE=true`)を
-指定する。`bin/up.sh` は同梱 SeaweedFS に対しこの env 変数で自動的に
+指定する。`bin/stack.sh up` は同梱 SeaweedFS に対しこの env 変数で自動的に
 path-style を有効化する。
 
 `s3-access-key-id` と `s3-secret-access-key` はコマンドラインでも受け付けるが、

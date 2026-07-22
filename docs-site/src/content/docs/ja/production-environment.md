@@ -1,38 +1,38 @@
 ---
 title: 本番環境
-description: bin/up.sh でフルスタック(SeaweedFS + chromium worker + BrowserHive)を Apple Container 上に立てる
+description: bin/stack.sh up でフルスタック(SeaweedFS + chromium worker + BrowserHive)を Apple Container 上に立てる
 ---
 
 スタックは [Apple Container](https://github.com/apple/container)
 (macOS 26+・Apple Silicon)上で動く: bucket 初期化 one-shot つきの自己ホスト
 SeaweedFS、`chromium-server-docker` submodule(固定リリース)からビルドされる
 N 台の headless chromium worker、そして BrowserHive 本番イメージ。
-`bin/up.sh` が必要な `BROWSERHIVE_*` 設定をすべて供給する — worker の URL と
+`bin/stack.sh up` が必要な `BROWSERHIVE_*` 設定をすべて供給する — worker の URL と
 S3 エンドポイントは起動時にコンテナ IP として収集され、環境変数に焼き込まれる。
 
 ポートを公開するのは BrowserHive だけ(`127.0.0.1:8080`)。SeaweedFS と worker
 へはコンテナ固有 IP(`192.168.64.0/24`・ホストローカル)でのみ到達できる。
 
 ```sh
-./bin/up.sh 2                        # または 4, 8, ...
+./bin/stack.sh up 2                        # または 4, 8, ...
 container logs browserhive
 
 # 確認
 curl http://localhost:8080/v1/status
-./bin/status.sh
+./bin/stack.sh status
 ```
 
 停止:
 
 ```sh
-./bin/down.sh
+./bin/stack.sh down
 ```
 
-再起動は常に `./bin/down.sh && ./bin/up.sh N` — コンテナ IP は再起動で変わるため、
+再起動は常に `./bin/stack.sh down && ./bin/stack.sh up N` — コンテナ IP は再起動で変わるため、
 部分再起動は設計として非サポート。
 
 > **Note:** SeaweedFS のデータ volume(`seaweedfs-data`)は全キャプチャ成果物を
-> 保持し、`down.sh`/`up.sh` を跨いで残る。バックアップ/ライフサイクルは別途
+> 保持し、`stack.sh down`/`stack.sh up` を跨いで残る。バックアップ/ライフサイクルは別途
 > 計画すること — `container volume rm seaweedfs-data` で消える。外部 S3 構成では
 > この volume は使われない。
 

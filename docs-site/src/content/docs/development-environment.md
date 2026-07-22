@@ -10,15 +10,15 @@ are editing runs **on the host**. There is no dev container.
 ## Full stack (when you just need a running BrowserHive)
 
 ```sh
-./bin/up.sh 2        # SeaweedFS + 2 workers + browserhive:prod
-./bin/status.sh      # external health probe of every component
-./bin/down.sh        # stop everything (artifacts survive in the volume)
+./bin/stack.sh up 2        # SeaweedFS + 2 workers + browserhive:prod
+./bin/stack.sh status      # external health probe of every component
+./bin/stack.sh down        # stop everything (artifacts survive in the volume)
 ```
 
 ## Host dev loop (when you are changing the server)
 
 Start the stack once, then run your work-in-progress server on the host
-against the same workers and S3. `./bin/up.sh` prints the worker URLs
+against the same workers and S3. `./bin/stack.sh up` prints the worker URLs
 (`http://192.168.64.x:9222,...`); the SeaweedFS endpoint is
 `http://<seaweedfs-ip>:8333` (IP from `container ls`).
 
@@ -108,12 +108,12 @@ curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecu
 ### Reset the SeaweedFS state too
 
 ```sh
-./bin/down.sh
+./bin/stack.sh down
 container volume rm seaweedfs-data
-./bin/up.sh 2
+./bin/stack.sh up 2
 ```
 
 Drops the `seaweedfs-data` volume, taking the bucket and all SeaweedFS
-metadata with it; `up.sh` recreates volume and bucket on the next start.
+metadata with it; `stack.sh up` recreates volume and bucket on the next start.
 Reach for this when the SeaweedFS state itself looks wrong (corrupt
 metadata, mismatched credentials), not for routine artifact cleanup.

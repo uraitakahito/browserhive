@@ -23,7 +23,7 @@ cd browserhive
 ## Step 2 — Bring the stack up
 
 ```bash
-./bin/up.sh 2     # SeaweedFS + chromium worker×2 + BrowserHive
+./bin/stack.sh up 2     # SeaweedFS + chromium worker×2 + BrowserHive
 ```
 
 Everything starts as Apple Container containers (lightweight VMs).
@@ -34,12 +34,12 @@ are reached directly on their per-container IPs (192.168.64.0/24).
 |-----------|---------|---------|
 | BrowserHive API | http://localhost:8080 | Accepts captures |
 | SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | Artifact store (IP from `container ls`) |
-| chromium workers | `http://<worker-ip>:9222` (printed by up.sh) | CDP; watch via `chrome://inspect` |
+| chromium workers | `http://<worker-ip>:9222` (printed by stack.sh up) | CDP; watch via `chrome://inspect` |
 
 Verify it is up:
 
 ```bash
-./bin/status.sh
+./bin/stack.sh status
 # or
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready", "ready"] }
@@ -119,7 +119,7 @@ aws --endpoint-url "http://<seaweedfs-ip>:8333" \
 ## Tear down
 
 ```bash
-./bin/down.sh     # artifacts survive in the volume (seaweedfs-data)
+./bin/stack.sh down     # artifacts survive in the volume (seaweedfs-data)
 ```
 
 ---

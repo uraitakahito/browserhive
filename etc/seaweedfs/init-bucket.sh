@@ -3,7 +3,7 @@
 # retries.
 #
 # `weed shell` reaches the master via gRPC on a port distinct from the
-# HTTP readiness probe used by `bin/up.sh`. The HTTP endpoint can be
+# HTTP readiness probe used by `bin/stack.sh up`. The HTTP endpoint can be
 # reachable a moment before the gRPC port accepts connections — `weed
 # shell` then errors with "passthrough: received empty target" but
 # still exits 0. We cannot rely on the command's exit code alone, so

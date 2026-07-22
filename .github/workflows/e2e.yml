@@ -37,11 +37,11 @@ jobs:
         run: npm ci
 
       - name: Bring up the stack
-        run: ./bin/up.sh 2
+        run: ./bin/stack.sh up 2
 
       - name: Run E2E (writes/consumes .e2e-stack.json)
         run: npm run test:e2e
 
       - name: Tear down
         if: always()
-        run: ./bin/down.sh
+        run: ./bin/stack.sh down

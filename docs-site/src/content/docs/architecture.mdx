@@ -354,7 +354,7 @@ BrowserHiveConfig
 ```
 
 ```bash
-# The env bin/up.sh bakes into the browserhive container (IPs collected at startup)
+# The env bin/stack.sh up bakes into the browserhive container (IPs collected at startup)
 BROWSERHIVE_BROWSER_URLS=http://192.168.64.x:9222,http://192.168.64.y:9222
 BROWSERHIVE_S3_ENDPOINT=http://192.168.64.z:8333
 BROWSERHIVE_S3_BUCKET=browserhive
@@ -373,7 +373,7 @@ flowchart TD
   BH -->|"CDP :9222"| C1["chromium-1"]
   BH -->|"CDP :9222"| C2["chromium-2"]
   BH -->|"S3 PutObject :8333<br>path-style"| SW["browserhive-seaweedfs<br>S3 :8333 / Filer :8888"]
-  UP["bin/up.sh<br>(one-shot bucket init ·<br>collect IPs → bake env)"] -.->|orchestrates| BH
+  UP["bin/stack.sh up<br>(one-shot bucket init ·<br>collect IPs → bake env)"] -.->|orchestrates| BH
   UP -.->|probe /cluster/status| SW
   UP -.->|probe /json/version| C1
   UP -.->|probe /json/version| C2
@@ -381,7 +381,7 @@ flowchart TD
 
 *Fig. 5: Every container is an Apple Container VM (mutual IP-direct on
 192.168.64.0/24). Compose's service-name DNS and `depends_on` are replaced
-by `bin/up.sh`'s "sequential startup + external probes (Chromium
+by `bin/stack.sh up`'s "sequential startup + external probes (Chromium
 `/json/version`, SeaweedFS `/cluster/status`) + IP collection → env baking".
 Only browserhive's 8080 is published to the host.*
 
@@ -418,4 +418,4 @@ location of each item.
 | S3 store | `src/storage/s3-compatible-store.ts` | `put`→`s3://bucket/key` |
 | Config types | `src/config/types.ts` | `CaptureConfig` et al. |
 | CLI/config assembly | `src/cli/server-cli.ts` | `parseCliOptions` / `buildServerConfig` / `logServerConfig` |
-| Deployment | `bin/up.sh` / `Dockerfile.prod` | Apple Container, 4 containers (S3 + worker×N + server) |
+| Deployment | `bin/stack.sh up` / `Dockerfile.prod` | Apple Container, 4 containers (S3 + worker×N + server) |
