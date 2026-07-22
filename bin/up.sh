@@ -23,6 +23,11 @@ cd "$(dirname "$0")/.."
 # shellcheck source=bin/lib.sh
 source bin/lib.sh
 
+[ -f chromium-server-docker/bin/prod.sh ] && [ -f meadow/Dockerfile ] || {
+    echo "error: submodules not initialized — run: git submodule update --init" >&2
+    exit 1
+}
+
 WORKERS="${1:-2}"
 BUCKET="${BROWSERHIVE_S3_BUCKET:-browserhive}"
 S3_KEY="${BROWSERHIVE_S3_ACCESS_KEY_ID:-browserhive}"
