@@ -3,7 +3,8 @@ name: e2e
 # Full black-box E2E: brings up the real stack (meadow + chromium-server-docker +
 # seaweedfs + browserhive) on Apple Container and runs the `e2e` Vitest project
 # against it — exactly what a client sees. Kept OFF the per-PR path (the fast unit
-# CI covers every PR); this runs nightly and on demand.
+# CI covers every PR). Manual dispatch only: with no self-hosted runner registered,
+# the former nightly schedule just queued for 24 h and auto-cancelled every night.
 #
 # Requires a self-hosted macOS 26 runner with the `container` CLI: Apple Container
 # does not run on GitHub-hosted Linux. For a Linux/GitHub-hosted E2E, port the same
@@ -11,8 +12,6 @@ name: e2e
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 18 * * *"
 
 permissions:
   contents: read
