@@ -16,9 +16,8 @@ Get BrowserHive running and take your first capture in 5 steps.
 ## Step 1 — Get the repository
 
 ```bash
-git clone https://github.com/uraitakahito/browserhive.git
+git clone --recurse-submodules https://github.com/uraitakahito/browserhive.git
 cd browserhive
-./setup.sh        # initializes the chromium-server-docker submodule
 ```
 
 ## Step 2 — Bring the stack up
