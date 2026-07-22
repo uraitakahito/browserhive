@@ -95,7 +95,7 @@ export class S3CompatibleArtifactStore implements ArtifactStore {
    * 404-only short retry:
    *
    * Self-hosted S3 implementations (notably the SeaweedFS bundled by
-   * `bin/up.sh` and the downstream waggle stack) finalise
+   * `bin/stack.sh up` and the downstream waggle stack) finalise
    * bucket creation through their master / filer plane and *then*
    * propagate the existence to the S3 listener. That propagation is
    * normally instantaneous but can lag by hundreds of ms — long enough

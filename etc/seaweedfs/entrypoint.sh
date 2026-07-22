@@ -4,7 +4,7 @@
 #
 # The S3 identity here is the SAME one BrowserHive uses on the client side
 # (BROWSERHIVE_S3_ACCESS_KEY_ID / BROWSERHIVE_S3_SECRET_ACCESS_KEY in the
-# browserhive container). bin/up.sh passes identical values to both
+# browserhive container). bin/stack.sh up passes identical values to both
 # containers, so the bundled SeaweedFS and the client agree on credentials
 # by construction.
 #

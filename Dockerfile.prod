@@ -3,7 +3,7 @@
 # Production image for the BrowserHive HTTP server.
 #
 # The whole stack (this server + SeaweedFS + chromium workers) is normally
-# brought up on Apple Container with ./bin/up.sh — see that script. To build
+# brought up on Apple Container with ./bin/stack.sh up — see that script. To build
 # and run just this image by hand:
 #
 # Build:
@@ -71,6 +71,6 @@ USER node
 EXPOSE 8080
 
 # Configuration is supplied via BROWSERHIVE_* environment variables
-# (bin/up.sh bakes them in; standalone runs pass `container run -e ...`).
+# (bin/stack.sh up bakes them in; standalone runs pass `container run -e ...`).
 # CLI flags still work and override env values.
 ENTRYPOINT ["node", "dist/bin/main.js"]
