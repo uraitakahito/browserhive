@@ -32,11 +32,8 @@ jobs:
           node-version: '24'
           cache: npm
 
-      # Initialises submodules and builds meadow so `"meadow": "file:./meadow"`
-      # resolves its dist/.
-      - name: Setup
-        run: ./setup.sh
-
+      # `npm ci` also builds the linked meadow dep via its `prepare` script,
+      # so `"meadow": "file:./meadow"` resolves its dist/.
       - name: Install dependencies
         run: npm ci
 
