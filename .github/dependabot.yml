@@ -7,6 +7,11 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # 版が枯れてから PR 化する(supply-chain 対策 / CI の safe-chain min-age と整合)
+    # security 更新には適用されない点に注意(CVE 修正は即時 PR)
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
     open-pull-requests-limit: 3
     versioning-strategy: increase
     labels:
@@ -24,6 +29,9 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # 新しすぎる base image を避ける(docker は default-days のみ対応)
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     labels:
       - docker
@@ -35,6 +43,9 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # 新しすぎる action を避ける(github-actions は default-days のみ対応)
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     labels:
       - ci
