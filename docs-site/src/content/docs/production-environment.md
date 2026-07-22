@@ -1,13 +1,13 @@
 ---
 title: Production environment
-description: Running the full stack (SeaweedFS + chromium workers + BrowserHive) on Apple Container with bin/up.sh
+description: Running the full stack (SeaweedFS + chromium workers + BrowserHive) on Apple Container with bin/stack.sh up
 ---
 
 The stack runs on [Apple Container](https://github.com/apple/container)
 (macOS 26+, Apple silicon): a self-hosted SeaweedFS with one-shot bucket
 init, N headless chromium workers (built from the `chromium-server-docker`
 submodule at its pinned release), and the BrowserHive production image.
-`bin/up.sh` supplies all required `BROWSERHIVE_*` configuration — worker
+`bin/stack.sh up` supplies all required `BROWSERHIVE_*` configuration — worker
 URLs and the S3 endpoint are collected as container IPs at startup and
 baked into the environment.
 
@@ -16,25 +16,25 @@ workers are reachable solely on their per-container IPs
 (`192.168.64.0/24`, host-local).
 
 ```sh
-./bin/up.sh 2                        # or 4, 8, ...
+./bin/stack.sh up 2                        # or 4, 8, ...
 container logs browserhive
 
 # verify
 curl http://localhost:8080/v1/status
-./bin/status.sh
+./bin/stack.sh status
 ```
 
 Stop with:
 
 ```sh
-./bin/down.sh
+./bin/stack.sh down
 ```
 
-Restarting is always `./bin/down.sh && ./bin/up.sh N` — container IPs
+Restarting is always `./bin/stack.sh down && ./bin/stack.sh up N` — container IPs
 change across restarts, so partial restarts are unsupported by design.
 
 > **Note:** The SeaweedFS data volume (`seaweedfs-data`) holds every
-> captured artifact and survives `down.sh`/`up.sh`. Plan its backup /
+> captured artifact and survives `stack.sh down`/`stack.sh up`. Plan its backup /
 > lifecycle separately — `container volume rm seaweedfs-data` wipes it.
 > For external S3 deployments, the volume is unused.
 

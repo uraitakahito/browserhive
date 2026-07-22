@@ -23,7 +23,7 @@ cd browserhive
 ## Step 2 — スタックを起動する
 
 ```bash
-./bin/up.sh 2     # SeaweedFS + chromium worker×2 + BrowserHive
+./bin/stack.sh up 2     # SeaweedFS + chromium worker×2 + BrowserHive
 ```
 
 すべて Apple Container 上のコンテナ(軽量 VM)として起動します。
@@ -34,12 +34,12 @@ cd browserhive
 |----------------|----------|------|
 | BrowserHive API | http://localhost:8080 | キャプチャ受付 |
 | SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | 成果物の保存先(IP は `container ls`) |
-| chromium worker | `http://<worker-ip>:9222`(up.sh が表示) | CDP。目視は `chrome://inspect` |
+| chromium worker | `http://<worker-ip>:9222`(stack.sh up が表示) | CDP。目視は `chrome://inspect` |
 
 起動確認:
 
 ```bash
-./bin/status.sh
+./bin/stack.sh status
 # または
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready", "ready"] }
@@ -117,7 +117,7 @@ aws --endpoint-url "http://<seaweedfs-ip>:8333" \
 ## 片付け
 
 ```bash
-./bin/down.sh     # 成果物は volume(seaweedfs-data)に残る
+./bin/stack.sh down     # 成果物は volume(seaweedfs-data)に残る
 ```
 
 ---
