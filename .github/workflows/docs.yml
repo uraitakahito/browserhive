@@ -46,8 +46,8 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -57,7 +57,7 @@ jobs:
       - name: Build Astro site
         run: npm run site:build
       - name: Upload Astro dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: astro-dist
           path: docs-site/dist
@@ -69,15 +69,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
       - run: npm run openapi:build-docs
       - name: Upload Redoc HTML
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: redoc-html
           path: dist/docs/index.html
@@ -95,12 +95,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download Astro dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: astro-dist
           path: merged-dist
       - name: Download Redoc HTML
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: redoc-html
           path: redoc-tmp
