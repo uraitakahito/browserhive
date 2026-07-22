@@ -34,6 +34,9 @@ BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
 LOG_LEVEL=info npm run server | pino-pretty
 ```
 
+`npm ci` は `file:./meadow` の `prepare` により meadow もビルドします —
+追加手順は不要です。
+
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive` で止める。)
 
