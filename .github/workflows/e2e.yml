@@ -6,9 +6,14 @@ name: e2e
 # CI covers every PR). Manual dispatch only: with no self-hosted runner registered,
 # the former nightly schedule just queued for 24 h and auto-cancelled every night.
 #
-# Requires a self-hosted macOS 26 runner with the `container` CLI: Apple Container
-# does not run on GitHub-hosted Linux. For a Linux/GitHub-hosted E2E, port the same
-# `test:e2e` suite to testcontainers (out of scope here).
+# Runner prerequisites (self-hosted macOS 26, Apple silicon):
+#   - the `container` CLI (Apple Container does not run on GitHub-hosted Linux)
+#   - `brew install container-compose`
+#   - one-time: `sudo container system dns create browserhive` (the project-named
+#     DNS domain that makes <service>.browserhive names resolve — see
+#     docker-compose.yml)
+# For a Linux/GitHub-hosted E2E, port the same `test:e2e` suite to
+# testcontainers (out of scope here).
 
 on:
   workflow_dispatch: {}
@@ -37,11 +42,12 @@ jobs:
         run: npm ci
 
       - name: Bring up the stack
-        run: ./bin/stack.sh up 2
+        run: container-compose --profile e2e up -d -b
 
-      - name: Run E2E (writes/consumes .e2e-stack.json)
+      - name: Run E2E (readiness handled by the suite's globalSetup retry)
         run: npm run test:e2e
 
       - name: Tear down
         if: always()
-        run: ./bin/stack.sh down
+        # down only covers services active under the given profiles.
+        run: container-compose --profile e2e down
