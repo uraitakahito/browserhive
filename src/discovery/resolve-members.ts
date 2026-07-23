@@ -16,7 +16,6 @@
 import { lookup } from "node:dns/promises";
 
 import type { BrowserProfile } from "../config/index.js";
-import { logger } from "../logger.js";
 
 export interface Membership {
   /** Profiles whose host resolves (or failed only transiently) — kept in the pool. */
@@ -31,7 +30,8 @@ const isNxdomain = (e: unknown): boolean =>
 
 /**
  * Resolve the declared profiles against DNS once and split them into
- * present (provisioned) vs absent (NXDOMAIN). Never throws for individual
+ * present (provisioned) vs absent (NXDOMAIN). Pure — never logs; callers
+ * decide when a change is worth reporting. Never throws for individual
  * lookups; throws only if the resulting present set is empty, since a
  * coordinator with zero workers cannot serve.
  */
@@ -56,12 +56,6 @@ export const resolveMembers = async (
     .filter((c) => !c.present)
     .map((c) => c.profile.browserURL.hostname);
 
-  if (absent.length > 0) {
-    logger.info(
-      { absent },
-      "workers not provisioned (NXDOMAIN) — excluded from the pool",
-    );
-  }
   if (present.length === 0) {
     throw new Error(
       "no provisioned workers: every declared BROWSERHIVE_BROWSER_URLS host is NXDOMAIN",
