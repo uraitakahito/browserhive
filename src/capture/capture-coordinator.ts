@@ -8,6 +8,7 @@
 import { createActor, type SnapshotFrom } from "xstate";
 import type { CaptureConfig, CoordinatorConfig } from "../config/index.js";
 import { DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
+import type { WorkerRegistry } from "../discovery/worker-registry.js";
 import { S3CompatibleArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
@@ -63,9 +64,11 @@ export interface GetStatusOptions {
 export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
+  private registry: WorkerRegistry;
 
-  constructor(config: CoordinatorConfig) {
+  constructor(config: CoordinatorConfig, registry: WorkerRegistry) {
     this.store = new S3CompatibleArtifactStore(config.storage);
+    this.registry = registry;
     this.lifecycleActor = createActor(coordinatorMachine, {
       input: { config, store: this.store },
     });
@@ -94,6 +97,11 @@ export class CaptureCoordinator {
     // operator sees the cause directly instead of a cascade of capture
     // failures inside `errorHistory`.
     await this.store.initialize();
+    // Membership (discovery) is resolved by the registry, separate from
+    // health (monitoring). Seed the machine with the resolved member set
+    // before spawning workers, so absent workers are never spawned.
+    const members = await this.registry.list();
+    this.lifecycleActor.send({ type: "SET_MEMBERS", members });
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("active");
   }

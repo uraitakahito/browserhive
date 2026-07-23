@@ -26,6 +26,7 @@ import { TaskQueue } from "../../src/capture/task-queue.js";
 import { ok, err, type Result } from "../../src/result.js";
 import {
   createTestArtifactStore,
+  createTestBrowserProfile,
   createTestCoordinatorConfig,
 } from "../helpers/config.js";
 
@@ -34,12 +35,16 @@ const createTestInput = () => ({
   store: createTestArtifactStore(),
 });
 
-const createTestContext = () => ({
-  config: createTestCoordinatorConfig(),
-  store: createTestArtifactStore(),
-  taskQueue: new TaskQueue(),
-  workers: [],
-});
+const createTestContext = () => {
+  const config = createTestCoordinatorConfig();
+  return {
+    config,
+    store: createTestArtifactStore(),
+    taskQueue: new TaskQueue(),
+    desiredMembers: config.browserProfiles,
+    workers: [],
+  };
+};
 
 /** Promise actor stub that hangs forever, holding its enclosing state */
 const hangingPromise = fromPromise<undefined>(
@@ -113,6 +118,27 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().can({ type: "INITIALIZE" })).toBe(true);
         actor.send({ type: "INITIALIZE" });
         expect(actor.getSnapshot().value).toBe("initializing");
+      });
+
+      it("SET_MEMBERS in `created` narrows the membership spawned on INITIALIZE", () => {
+        const [one, two] = [
+          createTestBrowserProfile("http://chromium-1:9222/"),
+          createTestBrowserProfile("http://chromium-2:9222/"),
+        ];
+        const machine = machineWith();
+        const actor = createActor(machine, {
+          input: {
+            config: createTestCoordinatorConfig({ browserProfiles: [one, two] }),
+            store: createTestArtifactStore(),
+          },
+        });
+        actor.start();
+        // Registry resolved only one of the two declared workers as present.
+        actor.send({ type: "SET_MEMBERS", members: [one] });
+        expect(actor.getSnapshot().context.desiredMembers).toEqual([one]);
+        actor.send({ type: "INITIALIZE" });
+        // initializing spawns exactly the resolved members, not the config list.
+        expect(actor.getSnapshot().context.workers).toHaveLength(1);
       });
 
       it("initializing → active.running when initializeWorkers reports allHealthy", async () => {

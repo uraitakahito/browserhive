@@ -30,7 +30,7 @@ import {
   assign,
   setup,
 } from "xstate";
-import type { CoordinatorConfig } from "../config/index.js";
+import type { BrowserProfile, CoordinatorConfig } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { logger } from "../logger.js";
 import {
@@ -47,6 +47,14 @@ export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   store: ArtifactStore;
   taskQueue: TaskQueue;
+  /**
+   * The membership target — the profiles that *should* have a worker. The
+   * source of truth for spawning, decoupled from `config.browserProfiles`:
+   * a WorkerRegistry supplies it (initially via SET_MEMBERS, and later — in
+   * the dynamic design — via MEMBERSHIP_CHANGED). Seeded from config so the
+   * machine is self-sufficient when driven directly (e.g. in tests).
+   */
+  desiredMembers: BrowserProfile[];
   workers: CaptureWorker[];
 }
 
@@ -68,6 +76,7 @@ export const coordinatorMachine = setup({
     input: {} as CoordinatorMachineInput,
     events: {} as
       | { type: "INITIALIZE" }
+      | { type: "SET_MEMBERS"; members: BrowserProfile[] }
       | { type: "SHUTDOWN" }
       | { type: "WORKER_DEGRADED" }
       | { type: "ALL_WORKERS_HEALTHY" },
@@ -86,17 +95,25 @@ export const coordinatorMachine = setup({
     config: input.config,
     store: input.store,
     taskQueue: new TaskQueue(),
+    desiredMembers: input.config.browserProfiles,
     workers: [],
   }),
   states: {
     created: {
-      on: { INITIALIZE: "initializing" },
+      on: {
+        // The coordinator resolves membership from its WorkerRegistry and
+        // sets it here before INITIALIZE; without it, the config default stands.
+        SET_MEMBERS: {
+          actions: assign({ desiredMembers: ({ event }) => event.members }),
+        },
+        INITIALIZE: "initializing",
+      },
     },
     initializing: {
       // #region spawn-workers
       entry: assign({
         workers: ({ context, spawn }): CaptureWorker[] =>
-          context.config.browserProfiles.map((profile, index) => {
+          context.desiredMembers.map((profile, index) => {
             const client = new BrowserClient(index, profile, context.store);
             const ref = spawn("captureWorker", {
               id: `worker-${String(index)}`,

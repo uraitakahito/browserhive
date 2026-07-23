@@ -9,6 +9,7 @@
  */
 import { CaptureCoordinator } from "./capture/index.js";
 import type { BrowserHiveConfig } from "./config/index.js";
+import { StaticRegistry } from "./discovery/worker-registry.js";
 import { HttpServer } from "./http/http-server.js";
 import { logger } from "./logger.js";
 
@@ -19,7 +20,10 @@ export interface ServerControl {
 export const startServer = async (
   config: BrowserHiveConfig,
 ): Promise<ServerControl> => {
-  const coordinator = new CaptureCoordinator(config.coordinator);
+  // Stage 2: StaticRegistry == the configured profiles (no discovery yet).
+  // Swapped for DnsRegistry to make membership dynamic.
+  const registry = new StaticRegistry(config.coordinator.browserProfiles);
+  const coordinator = new CaptureCoordinator(config.coordinator, registry);
   const server = new HttpServer(coordinator, config.http);
 
   await server.initialize();

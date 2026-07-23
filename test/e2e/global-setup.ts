@@ -31,8 +31,8 @@ const READY_ATTEMPTS = 45;
 
 export default async function setup({ provide }: GlobalSetupApi): Promise<void> {
   const endpoints: StackEndpoints = {
-    api: process.env.E2E_API_URL ?? "http://localhost:8080",
-    meadow: process.env.E2E_MEADOW_URL ?? "http://meadow.browserhive:8080",
+    api: process.env["E2E_API_URL"] ?? "http://localhost:8080",
+    meadow: process.env["E2E_MEADOW_URL"] ?? "http://meadow.browserhive:8080",
   };
 
   let reachable = false;
