@@ -28,11 +28,15 @@ until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 ```
 
-`BROWSERHIVE_BROWSER_URLS` always declares all three workers: ones a scale
-profile did not start show as `error`, and `isRunning` stays `false` until
-all three are `ready`. Captures flow as long as at least one worker is
-`ready` — the coordinator runs degraded and keeps retrying the missing
-workers with capped exponential backoff.
+`BROWSERHIVE_BROWSER_URLS` declares the full set of workers, but the pool is
+resolved from DNS: a declared host that is not running (NXDOMAIN) is excluded
+at startup — not carried as an erroring worker — so `totalWorkers` and
+`isRunning` reflect what actually exists. Membership is refreshed on an
+interval, so starting more workers (`--profile scaleN up -d`) adds them to a
+running browserhive **without a restart**, and stopping a worker retires it
+from the pool. A worker that is present but unreachable (its CDP is down)
+stays in the pool and is retried with capped exponential backoff — that is a
+health concern, distinct from membership.
 
 Stop with:
 
@@ -44,12 +48,13 @@ container-compose --profile scale3 down      # pass the same profiles you used
 `down` only covers the services active under the given profiles — profile
 workers are otherwise left running.
 
-**Workers** can be restarted or replaced individually: the DNS name follows
-the new container and the coordinator reconnects within seconds (verified).
-For everything else — seaweedfs, browserhive, scale changes — note that
-`up` *recreates* running services, so treat it as
+**Workers scale live.** Adding workers (`--profile scaleN up -d`) or
+stopping/replacing one is reconciled into a running browserhive without a
+restart — membership is discovered from DNS (verified: scale 1→3 and back
+with no browserhive restart). For **seaweedfs and browserhive** themselves,
+`up` *recreates* the running service, so treat a change to those as
 `container-compose down && container-compose up -d` (in-flight captures do
-not survive it).
+not survive recreating browserhive).
 
 > **Note:** The SeaweedFS data volume (`browserhive_seaweedfs-data`) holds
 > every captured artifact and survives `down`/`up`. Plan its backup /
