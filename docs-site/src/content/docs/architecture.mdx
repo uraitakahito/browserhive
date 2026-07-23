@@ -354,9 +354,10 @@ BrowserHiveConfig
 ```
 
 ```bash
-# The env bin/stack.sh up bakes into the browserhive container (IPs collected at startup)
-BROWSERHIVE_BROWSER_URLS=http://192.168.64.x:9222,http://192.168.64.y:9222
-BROWSERHIVE_S3_ENDPOINT=http://192.168.64.z:8333
+# The env docker-compose.yml bakes into the browserhive container (static
+# platform-DNS names — no IP collection anywhere)
+BROWSERHIVE_BROWSER_URLS=http://chromium-1.browserhive:9222,http://chromium-2.browserhive:9222,http://chromium-3.browserhive:9222
+BROWSERHIVE_S3_ENDPOINT=http://seaweedfs.browserhive:8333
 BROWSERHIVE_S3_BUCKET=browserhive
 BROWSERHIVE_S3_FORCE_PATH_STYLE=true   # SeaweedFS requires path-style
 ```
@@ -370,20 +371,19 @@ surface, independent of the `timeouts` fields.
 ```mermaid
 flowchart TD
   HOST["host 127.0.0.1:8080"] --> BH["browserhive<br>Fastify :8080<br>node dist/bin/server.js"]
-  BH -->|"CDP :9222"| C1["chromium-1"]
-  BH -->|"CDP :9222"| C2["chromium-2"]
-  BH -->|"S3 PutObject :8333<br>path-style"| SW["browserhive-seaweedfs<br>S3 :8333 / Filer :8888"]
-  UP["bin/stack.sh up<br>(one-shot bucket init ·<br>collect IPs → bake env)"] -.->|orchestrates| BH
-  UP -.->|probe /cluster/status| SW
-  UP -.->|probe /json/version| C1
-  UP -.->|probe /json/version| C2
+  BH -->|"CDP :9222"| C1["chromium-1.browserhive"]
+  BH -->|"CDP :9222"| C2["chromium-2.browserhive"]
+  BH -->|"S3 PutObject :8333<br>path-style"| SW["seaweedfs.browserhive<br>S3 :8333 / Filer :8888"]
+  UP["container-compose up<br>(docker-compose.yml ·<br>name-based wiring)"] -.->|orchestrates| BH
 ```
 
-*Fig. 5: Every container is an Apple Container VM (mutual IP-direct on
-192.168.64.0/24). Compose's service-name DNS and `depends_on` are replaced
-by `bin/stack.sh up`'s "sequential startup + external probes (Chromium
-`/json/version`, SeaweedFS `/cluster/status`) + IP collection → env baking".
-Only browserhive's 8080 is published to the host.*
+*Fig. 5: Every container is an Apple Container VM. Wiring is name-based:
+the one-time `container system dns create browserhive` domain lets
+containers (and the host) resolve each other as `<service>.browserhive`.
+There is no orchestrator-side readiness probing — the S3 bucket init lives
+inside seaweedfs's entrypoint, browserhive retries missing workers itself
+(degraded mode, capped backoff), and consumers wait via curl / the E2E
+globalSetup. Only browserhive's 8080 is published to the host.*
 
 :::note[S3 addressing]
 The bundled SeaweedFS cannot resolve virtual-hosted style
@@ -418,4 +418,4 @@ location of each item.
 | S3 store | `src/storage/s3-compatible-store.ts` | `put`→`s3://bucket/key` |
 | Config types | `src/config/types.ts` | `CaptureConfig` et al. |
 | CLI/config assembly | `src/cli/server-cli.ts` | `parseCliOptions` / `buildServerConfig` / `logServerConfig` |
-| Deployment | `bin/stack.sh up` / `Dockerfile.prod` | Apple Container, 4 containers (S3 + worker×N + server) |
+| Deployment | `docker-compose.yml` / `Dockerfile.prod` | Apple Container via container-compose (S3 + worker×1–3 + server) |

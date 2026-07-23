@@ -10,17 +10,17 @@ AWS S3、Cloudflare R2、MinIO 互換のマネージドサービス。
 
 ## 同梱 SeaweedFS
 
-`bin/stack.sh up` は自己ホストの SeaweedFS サービス(Apache 2.0・活発にメンテ)と、
-初回起動時に `browserhive` bucket を作る one-shot の `weed shell` 初期化を同梱する。
-既定の S3 identity は `browserhive` / `browserhive` で、`./bin/stack.sh up` 実行時の
-`BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY` 環境変数で
-上書きできる(同梱 SeaweedFS と BrowserHive コンテナは同じペアを読むため、
+compose スタック(`docker-compose.yml`)は自己ホストの SeaweedFS サービス
+(Apache 2.0・活発にメンテ)を同梱し、その entrypoint が初回起動時に
+`browserhive` bucket を上限つきリトライで作成する。
+既定の S3 identity は `browserhive` / `browserhive` で、`docker-compose.yml` の
+`BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY` env で
+設定される(SeaweedFS と BrowserHive の両サービスが同じペアを持つため、
 両者の資格情報は構成上必ず一致する)。
 
 ホストへのポート公開は無い: S3 API(`:8333`)と Filer UI(`:8888`)は
-SeaweedFS コンテナ自身の IP で待ち受け、この Mac からのみ到達できる
-(成果物の閲覧は `http://<seaweedfs-ip>:8888/buckets/browserhive/`。
-IP は `container ls`)。
+SeaweedFS コンテナで待ち受け、この Mac からはプラットフォーム DNS 名で到達する
+(成果物の閲覧は `http://seaweedfs.browserhive:8888/buckets/browserhive/`)。
 
 ## 外部 S3
 
@@ -40,8 +40,8 @@ environment:
 SeaweedFS・MinIO 互換のマネージドサービス・その他ほとんどの自己ホスト S3
 実装(bucket サブドメインのワイルドカード DNS を持たない)では
 `--s3-force-path-style`(または `BROWSERHIVE_S3_FORCE_PATH_STYLE=true`)を
-指定する。`bin/stack.sh up` は同梱 SeaweedFS に対しこの env 変数で自動的に
-path-style を有効化する。
+指定する。`docker-compose.yml` は同梱 SeaweedFS に対しこの env 変数で
+path-style を有効化している。
 
 `s3-access-key-id` と `s3-secret-access-key` はコマンドラインでも受け付けるが、
 `ps` 経由の漏洩を避けるため `BROWSERHIVE_S3_ACCESS_KEY_ID` /

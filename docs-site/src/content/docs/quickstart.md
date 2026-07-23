@@ -11,6 +11,11 @@ Get BrowserHive running and take your first capture in 5 steps.
 
 - **macOS 26+ / Apple silicon** with [Apple Container](https://github.com/apple/container)
   (`brew install container` → `container system start`)
+- [container-compose](https://github.com/Mcrich23/Container-Compose)
+  (`brew install container-compose`)
+- One-time: `sudo container system dns create browserhive` — registers the
+  local DNS domain that makes the stack's `<service>.browserhive` names
+  resolve, from containers and from this Mac
 - The `curl` and `jq` commands
 
 ## Step 1 — Get the repository
@@ -23,27 +28,32 @@ cd browserhive
 ## Step 2 — Bring the stack up
 
 ```bash
-./bin/stack.sh up 2     # SeaweedFS + chromium worker×2 + BrowserHive
+container-compose up -d -b     # SeaweedFS + chromium worker + BrowserHive
 ```
 
-Everything starts as Apple Container containers (lightweight VMs).
-Only BrowserHive's port 8080 is published to the host; the workers and S3
-are reached directly on their per-container IPs (192.168.64.0/24).
+Everything starts as Apple Container containers (lightweight VMs), wired
+together by their platform DNS names. Only BrowserHive's port 8080 is
+published to the host. The default is one chromium worker; add more with
+`--profile scale2` or `--profile scale3` (up to three).
 
 | Component | Address | Purpose |
 |-----------|---------|---------|
 | BrowserHive API | http://localhost:8080 | Accepts captures |
-| SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | Artifact store (IP from `container ls`) |
-| chromium workers | `http://<worker-ip>:9222` (printed by stack.sh up) | CDP; watch via `chrome://inspect` |
+| SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | Artifact store |
+| chromium workers | `http://chromium-N.browserhive:9222` | CDP; watch via `chrome://inspect` |
 
-Verify it is up:
+Wait until it is up, then check:
 
 ```bash
-./bin/stack.sh status
-# or
+until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
-# → { "isRunning": true, "workers": ["ready", "ready"] }
+# → { "isRunning": false, "workers": ["ready", "error", "error"] }
 ```
+
+All three workers are always declared: the ones you did not start show as
+`error`, and `isRunning` is `true` only when all three are `ready`
+(`--profile scale3`). Captures flow as long as at least one worker is
+`ready`.
 
 ## Step 3 — Request your first capture
 
@@ -89,11 +99,10 @@ capture is done.
 ## Step 5 — Fetch the artifacts
 
 Artifacts are stored in the `browserhive` bucket on SeaweedFS.
-The easiest way to browse them is the **Filer UI** in a browser
-(get `<seaweedfs-ip>` from `container ls`):
+The easiest way to browse them is the **Filer UI** in a browser:
 
 ```text
-http://<seaweedfs-ip>:8888/buckets/browserhive/
+http://seaweedfs.browserhive:8888/buckets/browserhive/
 ```
 
 With the AWS CLI (authentication required — default credentials are
@@ -101,12 +110,12 @@ browserhive/browserhive):
 
 ```bash
 AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
-aws --endpoint-url "http://<seaweedfs-ip>:8333" \
+aws --endpoint-url "http://seaweedfs.browserhive:8333" \
   s3 ls s3://browserhive/
 
 # Download the WACZ (taskId from the Step 3 response)
 AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
-aws --endpoint-url "http://<seaweedfs-ip>:8333" \
+aws --endpoint-url "http://seaweedfs.browserhive:8333" \
   s3 cp s3://browserhive/550e8400-e29b-41d4-a716-446655440000.wacz ./capture.wacz
 ```
 
@@ -119,7 +128,7 @@ aws --endpoint-url "http://<seaweedfs-ip>:8333" \
 ## Tear down
 
 ```bash
-./bin/stack.sh down     # artifacts survive in the volume (seaweedfs-data)
+container-compose down     # artifacts survive in the volume (browserhive_seaweedfs-data)
 ```
 
 ---

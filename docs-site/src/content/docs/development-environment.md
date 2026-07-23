@@ -10,23 +10,26 @@ are editing runs **on the host**. There is no dev container.
 ## Full stack (when you just need a running BrowserHive)
 
 ```sh
-./bin/stack.sh up 2        # SeaweedFS + 2 workers + browserhive:prod
-./bin/stack.sh status      # external health probe of every component
-./bin/stack.sh down        # stop everything (artifacts survive in the volume)
+container-compose up -d -b                   # SeaweedFS + 1 worker + browserhive:prod
+container-compose --profile scale3 up -d -b  # …or with 3 workers
+container-compose down                       # stop (pass the same --profile flags you used with up;
+                                             #  artifacts survive in the volume)
+
+# readiness is yours to check (compose does not wait):
+until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 ```
 
 ## Host dev loop (when you are changing the server)
 
 Start the stack once, then run your work-in-progress server on the host
-against the same workers and S3. `./bin/stack.sh up` prints the worker URLs
-(`http://192.168.64.x:9222,...`); the SeaweedFS endpoint is
-`http://<seaweedfs-ip>:8333` (IP from `container ls`).
+against the same workers and S3 — the platform DNS names resolve from the
+host too, so the wiring is static:
 
 ```sh
 npm ci
 npm run build
-BROWSERHIVE_BROWSER_URLS=http://192.168.64.x:9222 \
-BROWSERHIVE_S3_ENDPOINT=http://192.168.64.y:8333 \
+BROWSERHIVE_BROWSER_URLS=http://chromium-1.browserhive:9222 \
+BROWSERHIVE_S3_ENDPOINT=http://seaweedfs.browserhive:8333 \
 BROWSERHIVE_S3_BUCKET=browserhive \
 BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive \
 BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive \
@@ -37,7 +40,7 @@ LOG_LEVEL=info npm run server | pino-pretty
 `npm ci` also builds the linked `meadow` fixture dep (`file:./meadow`) via its
 `prepare` script — no separate build step is needed.
 
-(Stop the containerized `browserhive` first — `container stop browserhive` —
+(Stop the containerized server first — `container stop browserhive.browserhive` —
 if you want port 8080 for the host process.)
 
 Override individual settings ad hoc by either setting another env var or by
@@ -84,13 +87,14 @@ One-shot CDP checks: `./chromium-server-docker/bin/cdp.sh smoke`.
 
 ## Browsing captured artifacts in SeaweedFS
 
-The Filer UI listens on the SeaweedFS container's own IP (nothing is
-published to the host): `http://<seaweedfs-ip>:8888/buckets/browserhive/`.
+The Filer UI listens on the SeaweedFS container (nothing is published to
+host ports — the DNS name resolves on this Mac only):
+`http://seaweedfs.browserhive:8888/buckets/browserhive/`.
 
 From inside the SeaweedFS container:
 
 ```sh
-container exec browserhive-seaweedfs sh -c \
+container exec seaweedfs.browserhive sh -c \
   'echo "fs.ls /buckets/browserhive" | weed shell -master=127.0.0.1:9333'
 ```
 
@@ -99,7 +103,7 @@ container exec browserhive-seaweedfs sh -c \
 ### Wipe every artifact, keep the bucket (Filer HTTP API)
 
 ```sh
-SW=<seaweedfs-ip>
+SW=seaweedfs.browserhive
 curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true" && \
   curl -X PUT  "http://${SW}:8888/buckets/browserhive/.keep" --data '' && \
   curl -X DELETE "http://${SW}:8888/buckets/browserhive/.keep"
@@ -108,12 +112,13 @@ curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecu
 ### Reset the SeaweedFS state too
 
 ```sh
-./bin/stack.sh down
-container volume rm seaweedfs-data
-./bin/stack.sh up 2
+container-compose down
+container volume rm browserhive_seaweedfs-data
+container-compose up -d
 ```
 
-Drops the `seaweedfs-data` volume, taking the bucket and all SeaweedFS
-metadata with it; `stack.sh up` recreates volume and bucket on the next start.
+Drops the `browserhive_seaweedfs-data` volume, taking the bucket and all
+SeaweedFS metadata with it; the next `up` recreates the volume, and the
+seaweedfs entrypoint recreates the bucket.
 Reach for this when the SeaweedFS state itself looks wrong (corrupt
 metadata, mismatched credentials), not for routine artifact cleanup.
