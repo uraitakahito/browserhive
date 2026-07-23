@@ -11,6 +11,11 @@ sidebar:
 
 - **macOS 26+ / Apple Silicon** と [Apple Container](https://github.com/apple/container)
   (`brew install container` → `container system start`)
+- [container-compose](https://github.com/Mcrich23/Container-Compose)
+  (`brew install container-compose`)
+- 一度だけ: `sudo container system dns create browserhive` — スタックの
+  `<service>.browserhive` 名をコンテナからもこの Mac からも解決可能にする
+  ローカル DNS ドメインの登録
 - `curl` と `jq` コマンド
 
 ## Step 1 — リポジトリを取得する
@@ -23,27 +28,31 @@ cd browserhive
 ## Step 2 — スタックを起動する
 
 ```bash
-./bin/stack.sh up 2     # SeaweedFS + chromium worker×2 + BrowserHive
+container-compose up -d -b     # SeaweedFS + chromium worker + BrowserHive
 ```
 
-すべて Apple Container 上のコンテナ(軽量 VM)として起動します。
-ホストに公開されるのは BrowserHive の 8080 だけで、worker と S3 は
-固有 IP(192.168.64.0/24)への直結です。
+すべて Apple Container 上のコンテナ(軽量 VM)として起動し、プラットフォーム
+DNS 名で配線されます。ホストに公開されるのは BrowserHive の 8080 だけです。
+既定は chromium worker 1 台 — `--profile scale2` / `--profile scale3` で
+最大 3 台まで増やせます。
 
 | コンポーネント | アドレス | 用途 |
 |----------------|----------|------|
 | BrowserHive API | http://localhost:8080 | キャプチャ受付 |
-| SeaweedFS S3 / Filer | `http://<seaweedfs-ip>:8333` / `:8888` | 成果物の保存先(IP は `container ls`) |
-| chromium worker | `http://<worker-ip>:9222`(stack.sh up が表示) | CDP。目視は `chrome://inspect` |
+| SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | 成果物の保存先 |
+| chromium worker | `http://chromium-N.browserhive:9222` | CDP。目視は `chrome://inspect` |
 
-起動確認:
+起動を待ってから確認:
 
 ```bash
-./bin/stack.sh status
-# または
+until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
-# → { "isRunning": true, "workers": ["ready", "ready"] }
+# → { "isRunning": false, "workers": ["ready", "error", "error"] }
 ```
+
+worker は常に 3 台分が宣言されます: 起動していない worker は `error` と表示され、
+`isRunning` が `true` になるのは 3 台全部が `ready` のとき(`--profile scale3`)だけ。
+`ready` が 1 台でもあれば capture は流れます。
 
 ## Step 3 — 最初のキャプチャをリクエストする
 
@@ -88,23 +97,22 @@ curl -s http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] |
 ## Step 5 — 成果物を取得する
 
 成果物は SeaweedFS の `browserhive` バケットに保存されます。
-いちばん簡単なのは **Filer UI** をブラウザで開く方法です
-(`<seaweedfs-ip>` は `container ls` で確認):
+いちばん簡単なのは **Filer UI** をブラウザで開く方法です:
 
 ```text
-http://<seaweedfs-ip>:8888/buckets/browserhive/
+http://seaweedfs.browserhive:8888/buckets/browserhive/
 ```
 
 AWS CLI を使う場合(認証必須 — 既定クレデンシャルは browserhive/browserhive):
 
 ```bash
 AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
-aws --endpoint-url "http://<seaweedfs-ip>:8333" \
+aws --endpoint-url "http://seaweedfs.browserhive:8333" \
   s3 ls s3://browserhive/
 
 # WACZ をダウンロード (taskId は Step 3 のレスポンスから)
 AWS_ACCESS_KEY_ID=browserhive AWS_SECRET_ACCESS_KEY=browserhive \
-aws --endpoint-url "http://<seaweedfs-ip>:8333" \
+aws --endpoint-url "http://seaweedfs.browserhive:8333" \
   s3 cp s3://browserhive/550e8400-e29b-41d4-a716-446655440000.wacz ./capture.wacz
 ```
 
@@ -117,7 +125,7 @@ aws --endpoint-url "http://<seaweedfs-ip>:8333" \
 ## 片付け
 
 ```bash
-./bin/stack.sh down     # 成果物は volume(seaweedfs-data)に残る
+container-compose down     # 成果物は volume(browserhive_seaweedfs-data)に残る
 ```
 
 ---

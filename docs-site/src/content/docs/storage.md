@@ -10,19 +10,19 @@ AWS S3, Cloudflare R2, MinIO-compatible managed services.
 
 ## Bundled SeaweedFS
 
-`bin/stack.sh up` ships with a self-hosted SeaweedFS service (Apache 2.0,
-actively maintained) plus a one-shot `weed shell` init step that creates
-the `browserhive` bucket on first start. Default S3 identity is
-`browserhive` / `browserhive`, overridable via the
+The compose stack (`docker-compose.yml`) ships with a self-hosted
+SeaweedFS service (Apache 2.0, actively maintained); its entrypoint
+creates the `browserhive` bucket on first start with a bounded retry loop.
+Default S3 identity is `browserhive` / `browserhive`, set by the
 `BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY` env
-vars when invoking `./bin/stack.sh up` (the bundled SeaweedFS and the
-BrowserHive container read from the same pair, so they always agree by
-construction).
+entries in `docker-compose.yml` (the SeaweedFS and BrowserHive services
+carry the same pair, so they always agree by construction).
 
 Nothing is published to host ports: the S3 API (`:8333`) and the Filer UI
-(`:8888`) listen on the SeaweedFS container's own IP, reachable from the
-Mac only (open `http://<seaweedfs-ip>:8888/buckets/browserhive/` to
-inspect captured artifacts; IP from `container ls`).
+(`:8888`) listen on the SeaweedFS container, reachable from this Mac only
+through its platform DNS name — open
+`http://seaweedfs.browserhive:8888/buckets/browserhive/` to inspect
+captured artifacts.
 
 ## External S3
 
@@ -43,8 +43,8 @@ The default is virtual-hosted-style addressing — the form AWS S3
 expects. For SeaweedFS, MinIO-compatible managed services, and most
 other self-hosted S3 implementations (which do not have wildcard DNS
 for the bucket subdomain), pass `--s3-force-path-style` (or set
-`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). `bin/stack.sh up` opts the bundled
-SeaweedFS in to path-style via this env var automatically.
+`BROWSERHIVE_S3_FORCE_PATH_STYLE=true`). `docker-compose.yml` opts the
+bundled SeaweedFS in to path-style via this env var.
 
 The `s3-access-key-id` and `s3-secret-access-key` values are accepted
 on the command line for completeness, but prefer the

@@ -47,6 +47,7 @@
 !src/**
 !scripts
 !scripts/**
+!docker-entrypoint.sh
 
 # 5. Within whitelisted dirs, re-exclude transient/generated content.
 #    `npm run build` (prebuild hook) regenerates these via `openapi-typescript`.

@@ -1,20 +1,20 @@
 #!/bin/sh
-# One-shot bucket creation against the bundled SeaweedFS, with bounded
-# retries.
+# Bucket creation with bounded retries. Spawned in the background by
+# entrypoint.sh alongside `weed server` — the retries below do all the
+# waiting for the master to come up.
 #
-# `weed shell` reaches the master via gRPC on a port distinct from the
-# HTTP readiness probe used by `bin/stack.sh up`. The HTTP endpoint can be
-# reachable a moment before the gRPC port accepts connections — `weed
-# shell` then errors with "passthrough: received empty target" but
-# still exits 0. We cannot rely on the command's exit code alone, so
-# verify the end state by re-listing buckets after each attempt.
+# `weed shell` reaches the master via gRPC, which can start accepting
+# connections a moment after the HTTP endpoint. It then errors with
+# "passthrough: received empty target" but still exits 0. We cannot rely
+# on the command's exit code alone, so verify the end state by re-listing
+# buckets after each attempt.
 #
 # Usage:  init-bucket.sh <bucket-name> [<master-host:port>]
 set -eu
 
 BUCKET="${1:?bucket name required}"
-MASTER="${2:-seaweedfs:9333}"
-MAX_ATTEMPTS=10
+MASTER="${2:-localhost:9333}"
+MAX_ATTEMPTS=30
 
 attempt=0
 while [ "${attempt}" -lt "${MAX_ATTEMPTS}" ]; do

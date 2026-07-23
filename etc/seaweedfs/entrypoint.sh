@@ -4,9 +4,9 @@
 #
 # The S3 identity here is the SAME one BrowserHive uses on the client side
 # (BROWSERHIVE_S3_ACCESS_KEY_ID / BROWSERHIVE_S3_SECRET_ACCESS_KEY in the
-# browserhive container). bin/stack.sh up passes identical values to both
-# containers, so the bundled SeaweedFS and the client agree on credentials
-# by construction.
+# browserhive container). The stack definition passes identical values to
+# both containers, so the bundled SeaweedFS and the client agree on
+# credentials by construction.
 #
 # `s3.json` is written to a tmpfs-friendly path (/tmp) because
 # /etc/seaweedfs is bind-mounted read-only.
@@ -20,6 +20,11 @@ sed \
   -e "s|__ACCESS_KEY__|${BROWSERHIVE_S3_ACCESS_KEY_ID}|" \
   -e "s|__SECRET_KEY__|${BROWSERHIVE_S3_SECRET_ACCESS_KEY}|" \
   /etc/seaweedfs/s3.template.json > "${S3_CONFIG}"
+
+# Create the bucket once the master answers — runs alongside the server,
+# replacing the former one-shot init container (and its ordering problem):
+# the retry loop inside init-bucket.sh does all the waiting.
+/etc/seaweedfs/init-bucket.sh "${BROWSERHIVE_S3_BUCKET:-browserhive}" localhost:9333 &
 
 exec weed server \
   -dir=/data \
