@@ -1,0 +1,98 @@
+# BrowserHive stack on Apple Container, driven by container-compose
+# (https://github.com/Mcrich23/Container-Compose — installed via Homebrew).
+#
+#   container-compose up -d -b                     # 1 worker
+#   container-compose --profile scale2 up -d -b    # 2 workers
+#   container-compose --profile scale3 up -d -b    # 3 workers
+#   container-compose --profile e2e up -d -b       # + meadow (E2E fixture)
+#   container-compose down                         # stop everything
+#
+# One-time machine setup (also required on a CI runner):
+#   sudo container system dns create browserhive
+# The project-named DNS domain switches container-compose into its real-DNS
+# mode: containers are named <service>.browserhive, registered with the
+# platform DNS, and resolvable from other containers AND from the host.
+# Do NOT add container_name: keys — they suppress the DNS naming and drop
+# the stack back to /etc/hosts patching, which silently fails for the
+# non-root containers here (browserhive, chromium).
+#
+# Readiness is deliberately NOT handled here (container-compose has no
+# healthcheck support): the S3 bucket init runs inside seaweedfs's
+# entrypoint, the E2E globalSetup retries until /v1/status answers, and
+# humans use the curl wait loop in the docs.
+#
+# BROWSERHIVE_BROWSER_URLS always lists all three workers: the coordinator
+# keeps running in active.degraded and retries missing workers with capped
+# exponential backoff, so declared-but-not-started workers are harmless —
+# and are picked up automatically when a scale profile starts them.
+
+services:
+  seaweedfs:
+    image: docker.io/chrislusf/seaweedfs:4.23
+    # The entrypoint also creates the bucket (background retry loop) —
+    # there is no separate one-shot init container to order around.
+    entrypoint: ["/etc/seaweedfs/entrypoint.sh"]
+    environment:
+      - BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive
+      - BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive
+      - BROWSERHIVE_S3_BUCKET=browserhive
+    volumes:
+      - ./etc/seaweedfs:/etc/seaweedfs:ro
+      - seaweedfs-data:/data
+
+  # Workers: 1-3. Default = chromium-1 only; scale2 adds one, scale3 adds
+  # two (chromium-2 belongs to both profiles, so one flag always suffices).
+  chromium-1: &worker
+    build:
+      context: ./chromium-server-docker
+      dockerfile: docker/Dockerfile
+      target: production
+    # cpus: is ignored by container-compose 1.1.0; the default (4 CPUs)
+    # happens to match what bin/prod.sh used to pass explicitly.
+    mem_limit: 4gb
+  chromium-2:
+    <<: *worker
+    profiles: ["scale2", "scale3"]
+  chromium-3:
+    <<: *worker
+    profiles: ["scale3"]
+
+  browserhive:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Name-based wiring via the platform DNS (<service>.browserhive) —
+      # no IP collection anywhere. All three workers are always listed;
+      # ones a scale profile did not start stay in active.degraded.
+      - BROWSERHIVE_BROWSER_URLS=http://chromium-1.browserhive:9222,http://chromium-2.browserhive:9222,http://chromium-3.browserhive:9222
+      - BROWSERHIVE_S3_ENDPOINT=http://seaweedfs.browserhive:8333
+      - BROWSERHIVE_S3_REGION=us-east-1
+      - BROWSERHIVE_S3_BUCKET=browserhive
+      - BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive
+      - BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive
+      - BROWSERHIVE_S3_FORCE_PATH_STYLE=true
+      - LOG_LEVEL=info
+      # The entrypoint shim polls this URL before starting the server —
+      # depends_on is start order only, and the boot HeadBucket is fatal.
+      - WAIT_FOR_S3=http://seaweedfs.browserhive:8333
+      # The platform DNS publishes AAAA records too, but there is no v6
+      # route between the VMs — resolve v4 first or worker WS URLs land on
+      # unreachable v6 addresses.
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+    depends_on:
+      - seaweedfs
+      - chromium-1
+
+  # E2E fixture-origin ("the synthetic internet"). One URL serves both
+  # directions: Chromium visits http://meadow.browserhive:8080 via the
+  # platform DNS, and the host-side test process resolves the SAME name
+  # for /__reset and /__hits — no port publishing needed.
+  meadow:
+    build: ./meadow
+    profiles: ["e2e"]
+
+volumes:
+  seaweedfs-data:

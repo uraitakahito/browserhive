@@ -3,8 +3,8 @@
 # Production image for the BrowserHive HTTP server.
 #
 # The whole stack (this server + SeaweedFS + chromium workers) is normally
-# brought up on Apple Container with ./bin/stack.sh up — see that script. To build
-# and run just this image by hand:
+# brought up on Apple Container with `container-compose up -d -b` — see
+# docker-compose.yml. To build and run just this image by hand:
 #
 # Build:
 #   container build -f Dockerfile.prod -t browserhive:prod .
@@ -64,6 +64,10 @@ COPY --from=builder /app/dist/bin ./dist/bin
 # running server has no /docs or /openapi.yaml endpoint.
 COPY --from=builder /app/dist/openapi.dereferenced.json ./dist/openapi.dereferenced.json
 
+# Entrypoint shim: optionally waits for the S3 endpoint (WAIT_FOR_S3) before
+# exec'ing the server — see the script header for why.
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 RUN chown -R node:node /app
 
 USER node
@@ -71,6 +75,6 @@ USER node
 EXPOSE 8080
 
 # Configuration is supplied via BROWSERHIVE_* environment variables
-# (bin/stack.sh up bakes them in; standalone runs pass `container run -e ...`).
+# (docker-compose.yml bakes them in; standalone runs pass `container run -e ...`).
 # CLI flags still work and override env values.
-ENTRYPOINT ["node", "dist/bin/main.js"]
+ENTRYPOINT ["docker-entrypoint.sh"]
