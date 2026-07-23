@@ -28,6 +28,7 @@
  */
 import {
   assign,
+  enqueueActions,
   setup,
 } from "xstate";
 import type { BrowserProfile, CoordinatorConfig } from "../config/index.js";
@@ -56,7 +57,13 @@ export interface CoordinatorMachineContext {
    */
   desiredMembers: BrowserProfile[];
   workers: CaptureWorker[];
+  /** Monotonic worker index, so display/log indices stay unique across reconciles. */
+  spawnCount: number;
 }
+
+/** The endpoint host (`hostname:port`) that identifies a worker's membership. */
+const workerHost = (worker: CaptureWorker): string =>
+  new URL(worker.browserAddress).host;
 
 export interface CoordinatorMachineInput {
   config: CoordinatorConfig;
@@ -77,6 +84,7 @@ export const coordinatorMachine = setup({
     events: {} as
       | { type: "INITIALIZE" }
       | { type: "SET_MEMBERS"; members: BrowserProfile[] }
+      | { type: "MEMBERSHIP_CHANGED"; members: BrowserProfile[] }
       | { type: "SHUTDOWN" }
       | { type: "WORKER_DEGRADED" }
       | { type: "ALL_WORKERS_HEALTHY" },
@@ -88,6 +96,52 @@ export const coordinatorMachine = setup({
     retryFailedWorkers,
     shutdownWorkers,
   },
+  actions: {
+    // Retire workers that left membership. Drain: a worker mid-capture is
+    // kept and retired on a later reconcile once idle. Only stops the child
+    // actor — under the compose stack a retired worker's container is gone,
+    // so there is no live CDP connection to close gracefully.
+    retireGoneWorkers: enqueueActions(({ context, enqueue }) => {
+      const wanted = new Set(context.desiredMembers.map((p) => p.browserURL.host));
+      for (const worker of context.workers) {
+        if (!wanted.has(workerHost(worker)) && !worker.isProcessing) {
+          enqueue.stopChild(worker.ref);
+        }
+      }
+    }),
+    // Keep survivors (still wanted, or draining), spawn workers for members
+    // that have no worker yet. `spawn` inside assign returns the ref to wrap.
+    spawnMissingWorkers: assign(({ context, spawn }) => {
+      const wanted = new Map(
+        context.desiredMembers.map((p) => [p.browserURL.host, p]),
+      );
+      const haveHosts = new Set(context.workers.map(workerHost));
+      const survivors = context.workers.filter(
+        (w) => wanted.has(workerHost(w)) || w.isProcessing,
+      );
+      let spawnCount = context.spawnCount;
+      const added: CaptureWorker[] = [];
+      for (const [host, profile] of wanted) {
+        if (haveHosts.has(host)) continue;
+        const index = spawnCount;
+        spawnCount += 1;
+        const client = new BrowserClient(index, profile, context.store);
+        const ref = spawn("captureWorker", {
+          id: `worker-${host}`,
+          input: {
+            maxRetryCount: context.config.maxRetryCount,
+            runtime: {
+              client,
+              taskQueue: context.taskQueue,
+              pollIntervalMs: context.config.queuePollIntervalMs,
+            },
+          },
+        });
+        added.push(new CaptureWorker(ref, client));
+      }
+      return { workers: [...survivors, ...added], spawnCount };
+    }),
+  },
 }).createMachine({
   id: "coordinatorLifecycle",
   initial: "created",
@@ -97,6 +151,7 @@ export const coordinatorMachine = setup({
     taskQueue: new TaskQueue(),
     desiredMembers: input.config.browserProfiles,
     workers: [],
+    spawnCount: 0,
   }),
   states: {
     created: {
@@ -111,24 +166,9 @@ export const coordinatorMachine = setup({
     },
     initializing: {
       // #region spawn-workers
-      entry: assign({
-        workers: ({ context, spawn }): CaptureWorker[] =>
-          context.desiredMembers.map((profile, index) => {
-            const client = new BrowserClient(index, profile, context.store);
-            const ref = spawn("captureWorker", {
-              id: `worker-${String(index)}`,
-              input: {
-                maxRetryCount: context.config.maxRetryCount,
-                runtime: {
-                  client,
-                  taskQueue: context.taskQueue,
-                  pollIntervalMs: context.config.queuePollIntervalMs,
-                },
-              },
-            });
-            return new CaptureWorker(ref, client);
-          }),
-      }),
+      // Spawn a worker for every resolved member (first reconcile: workers
+      // is empty, so all desiredMembers are added).
+      entry: ["retireGoneWorkers", "spawnMissingWorkers"],
       // #endregion
       invoke: {
         src: "initializeWorkers",
@@ -161,12 +201,51 @@ export const coordinatorMachine = setup({
         ],
       },
     },
+    // Membership changed while serving: reconcile the worker set (spawn
+    // added / retire gone), then re-run initialization to re-evaluate
+    // health. Existing workers keep serving throughout — isActive covers
+    // this state, so captures are not rejected during a reconcile.
+    reconciling: {
+      entry: ["retireGoneWorkers", "spawnMissingWorkers"],
+      invoke: {
+        src: "initializeWorkers",
+        input: ({ context }): { workers: CaptureWorker[] } => ({ workers: context.workers }),
+        onDone: [
+          {
+            guard: ({ event }) => event.output.allHealthy,
+            target: "active.running",
+            actions: ({ context }) => {
+              logger.info(
+                { totalCount: context.workers.length },
+                "Worker membership reconciled",
+              );
+            },
+          },
+          {
+            target: "active.degraded",
+            actions: ({ context }) => {
+              logger.info(
+                { totalCount: context.workers.length },
+                "Worker membership reconciled (degraded)",
+              );
+            },
+          },
+        ],
+      },
+      on: { SHUTDOWN: "shuttingDown" },
+    },
     active: {
       invoke: {
         src: "watchWorkerHealth",
         input: ({ context }) => context.workers,
       },
-      on: { SHUTDOWN: "shuttingDown" },
+      on: {
+        SHUTDOWN: "shuttingDown",
+        MEMBERSHIP_CHANGED: {
+          target: "reconciling",
+          actions: assign({ desiredMembers: ({ event }) => event.members }),
+        },
+      },
       initial: "running",
       states: {
         running: {
@@ -235,6 +314,7 @@ export const coordinatorMachine = setup({
 export const ALL_COORDINATOR_LIFECYCLES = [
   "created",
   "initializing",
+  "reconciling",
   "active.running",
   "active.degraded",
   "shuttingDown",

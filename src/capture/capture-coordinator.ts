@@ -65,6 +65,7 @@ export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
   private registry: WorkerRegistry;
+  private unsubscribeMembership: (() => void) | null = null;
 
   constructor(config: CoordinatorConfig, registry: WorkerRegistry) {
     this.store = new S3CompatibleArtifactStore(config.storage);
@@ -104,6 +105,13 @@ export class CaptureCoordinator {
     this.lifecycleActor.send({ type: "SET_MEMBERS", members });
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("active");
+
+    // Track membership changes: a dynamic registry (DnsRegistry) emits the
+    // new member set, which the machine reconciles without a restart. A
+    // StaticRegistry never emits, so this is inert under the default config.
+    this.unsubscribeMembership = this.registry.subscribe((changed) => {
+      this.lifecycleActor.send({ type: "MEMBERSHIP_CHANGED", members: changed });
+    });
   }
 
   enqueueTask(task: CaptureTask): Result<void, string> {
@@ -117,6 +125,8 @@ export class CaptureCoordinator {
   }
 
   async shutdown(): Promise<void> {
+    this.unsubscribeMembership?.();
+    this.unsubscribeMembership = null;
     if (!this.lifecycleActor.getSnapshot().can({ type: "SHUTDOWN" })) {
       return;
     }
@@ -135,12 +145,13 @@ export class CaptureCoordinator {
   }
 
   /**
-   * True when the lifecycle is in any `active.*` substate. Equivalent to
-   * `isRunning || isDegraded`. Use this to decide whether the coordinator
-   * is accepting traffic.
+   * True when the coordinator is accepting traffic — any `active.*` substate,
+   * or `reconciling` (a membership change is being applied while existing
+   * workers keep serving). Used by the HTTP layer to admit captures.
    */
   get isActive(): boolean {
-    return this.lifecycleActor.getSnapshot().matches("active");
+    const snapshot = this.lifecycleActor.getSnapshot();
+    return snapshot.matches("active") || snapshot.matches("reconciling");
   }
 
   get operationalWorkerCount(): number {
