@@ -381,9 +381,10 @@ flowchart TD
 the one-time `container system dns create browserhive` domain lets
 containers (and the host) resolve each other as `<service>.browserhive`.
 There is no orchestrator-side readiness probing — the S3 bucket init lives
-inside seaweedfs's entrypoint, browserhive retries missing workers itself
-(degraded mode, capped backoff), and consumers wait via curl / the E2E
-globalSetup. Only browserhive's 8080 is published to the host.*
+inside seaweedfs's entrypoint, browserhive discovers worker membership from
+DNS (absent workers are excluded, not retried) and retries *present* workers
+whose CDP is down (degraded mode, capped backoff), and consumers wait via
+curl / the E2E globalSetup. Only browserhive's 8080 is published to the host.*
 
 :::note[S3 addressing]
 The bundled SeaweedFS cannot resolve virtual-hosted style
@@ -406,7 +407,8 @@ location of each item.
 | HTTP server | `src/http/http-server.ts` | `HttpServer`: Fastify/Ajv/Problem/route registration |
 | Handlers | `src/http/handlers.ts` | `submitCapture` / `getStatus` |
 | Orchestration facade | `src/capture/capture-coordinator.ts` | [`CaptureCoordinator`](/terminology/#g-CaptureCoordinator): enqueue/initialize/status |
-| Parent machine | `src/capture/coordinator-machine.ts` | [`coordinatorMachine`](/terminology/#g-coordinatorMachine): `created→active{running/degraded}→terminated` |
+| Parent machine | `src/capture/coordinator-machine.ts` | [`coordinatorMachine`](/terminology/#g-coordinatorMachine): `created→active{running/degraded}⇄reconciling→terminated` |
+| Membership discovery | `src/discovery/` | `WorkerRegistry` (Static/Dns): resolve members from DNS, emit changes → `reconciling` |
 | Child machine | `src/capture/capture-worker.ts` | [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine): `disconnected→operational{idle/processing}→error` |
 | Worker loop | `src/capture/worker-loop.ts` | [`workerLoop`](/terminology/#g-workerLoop): dequeue→process→emit events |
 | Queue | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing/completed sets |

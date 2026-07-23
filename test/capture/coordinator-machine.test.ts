@@ -26,6 +26,7 @@ import { TaskQueue } from "../../src/capture/task-queue.js";
 import { ok, err, type Result } from "../../src/result.js";
 import {
   createTestArtifactStore,
+  createTestBrowserProfile,
   createTestCoordinatorConfig,
 } from "../helpers/config.js";
 
@@ -34,12 +35,17 @@ const createTestInput = () => ({
   store: createTestArtifactStore(),
 });
 
-const createTestContext = () => ({
-  config: createTestCoordinatorConfig(),
-  store: createTestArtifactStore(),
-  taskQueue: new TaskQueue(),
-  workers: [],
-});
+const createTestContext = () => {
+  const config = createTestCoordinatorConfig();
+  return {
+    config,
+    store: createTestArtifactStore(),
+    taskQueue: new TaskQueue(),
+    desiredMembers: config.browserProfiles,
+    workers: [],
+    spawnCount: 0,
+  };
+};
 
 /** Promise actor stub that hangs forever, holding its enclosing state */
 const hangingPromise = fromPromise<undefined>(
@@ -92,6 +98,7 @@ describe("coordinator-machine", () => {
       expect(ALL_COORDINATOR_LIFECYCLES).toEqual([
         "created",
         "initializing",
+        "reconciling",
         "active.running",
         "active.degraded",
         "shuttingDown",
@@ -113,6 +120,27 @@ describe("coordinator-machine", () => {
         expect(actor.getSnapshot().can({ type: "INITIALIZE" })).toBe(true);
         actor.send({ type: "INITIALIZE" });
         expect(actor.getSnapshot().value).toBe("initializing");
+      });
+
+      it("SET_MEMBERS in `created` narrows the membership spawned on INITIALIZE", () => {
+        const [one, two] = [
+          createTestBrowserProfile("http://chromium-1:9222/"),
+          createTestBrowserProfile("http://chromium-2:9222/"),
+        ];
+        const machine = machineWith();
+        const actor = createActor(machine, {
+          input: {
+            config: createTestCoordinatorConfig({ browserProfiles: [one, two] }),
+            store: createTestArtifactStore(),
+          },
+        });
+        actor.start();
+        // Registry resolved only one of the two declared workers as present.
+        actor.send({ type: "SET_MEMBERS", members: [one] });
+        expect(actor.getSnapshot().context.desiredMembers).toEqual([one]);
+        actor.send({ type: "INITIALIZE" });
+        // initializing spawns exactly the resolved members, not the config list.
+        expect(actor.getSnapshot().context.workers).toHaveLength(1);
       });
 
       it("initializing → active.running when initializeWorkers reports allHealthy", async () => {
@@ -152,6 +180,76 @@ describe("coordinator-machine", () => {
         await vi.waitFor(() => {
           expect(actor.getSnapshot().matches({ active: "degraded" })).toBe(true);
         });
+      });
+
+      it("MEMBERSHIP_CHANGED in active reconciles: spawns the added worker without a restart", async () => {
+        const [one, two] = [
+          createTestBrowserProfile("http://chromium-1:9222/"),
+          createTestBrowserProfile("http://chromium-2:9222/"),
+        ];
+        const machine = machineWith({
+          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
+            Promise.resolve({ allHealthy: true, failed: [] }),
+          ),
+        });
+        // Start operational with a single member (chromium-1).
+        const actor = createActor(machine, {
+          input: {
+            config: createTestCoordinatorConfig({ browserProfiles: [one] }),
+            store: createTestArtifactStore(),
+          },
+        });
+        actor.start();
+        actor.send({ type: "SET_MEMBERS", members: [one] });
+        actor.send({ type: "INITIALIZE" });
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
+        });
+        expect(actor.getSnapshot().context.workers).toHaveLength(1);
+
+        // Registry discovers a second worker while serving.
+        actor.send({ type: "MEMBERSHIP_CHANGED", members: [one, two] });
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
+        });
+        const hosts = actor
+          .getSnapshot()
+          .context.workers.map((w) => new URL(w.browserAddress).host);
+        expect(hosts).toEqual(["chromium-1:9222", "chromium-2:9222"]);
+      });
+
+      it("MEMBERSHIP_CHANGED retires an idle worker that left membership", async () => {
+        const [one, two] = [
+          createTestBrowserProfile("http://chromium-1:9222/"),
+          createTestBrowserProfile("http://chromium-2:9222/"),
+        ];
+        const machine = machineWith({
+          initializeWorkers: fromPromise<InitializeWorkersOutput>(() =>
+            Promise.resolve({ allHealthy: true, failed: [] }),
+          ),
+        });
+        const actor = createActor(machine, {
+          input: {
+            config: createTestCoordinatorConfig({ browserProfiles: [one, two] }),
+            store: createTestArtifactStore(),
+          },
+        });
+        actor.start();
+        actor.send({ type: "SET_MEMBERS", members: [one, two] });
+        actor.send({ type: "INITIALIZE" });
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().context.workers).toHaveLength(2);
+        });
+
+        // chromium-2 disappears from membership.
+        actor.send({ type: "MEMBERSHIP_CHANGED", members: [one] });
+        await vi.waitFor(() => {
+          expect(actor.getSnapshot().matches({ active: "running" })).toBe(true);
+        });
+        const hosts = actor
+          .getSnapshot()
+          .context.workers.map((w) => new URL(w.browserAddress).host);
+        expect(hosts).toEqual(["chromium-1:9222"]);
       });
 
       it("active.running → active.degraded via WORKER_DEGRADED", () => {

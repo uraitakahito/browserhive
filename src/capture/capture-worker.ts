@@ -447,6 +447,10 @@ export class CaptureWorker {
   get isInError(): boolean {
     return this.ref.getSnapshot().value === "error";
   }
+  /** True while the worker is holding a capture task (used to drain before retire). */
+  get isProcessing(): boolean {
+    return this.ref.getSnapshot().context.currentTask !== null;
+  }
 
   // -- actions --
   connect(): void {

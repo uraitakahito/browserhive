@@ -47,13 +47,14 @@ Wait until it is up, then check:
 ```bash
 until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
-# → { "isRunning": false, "workers": ["ready", "error", "error"] }
+# → { "isRunning": true, "workers": ["ready"] }
 ```
 
-All three workers are always declared: the ones you did not start show as
-`error`, and `isRunning` is `true` only when all three are `ready`
-(`--profile scale3`). Captures flow as long as at least one worker is
-`ready`.
+The pool contains exactly the workers that are running: browserhive resolves
+`BROWSERHIVE_BROWSER_URLS` against DNS and drops any host that is not started
+(logged once at boot). Start more with `--profile scale2` / `scale3` — they
+are **picked up live, without restarting browserhive** — and `isRunning`
+reflects the workers that actually exist.
 
 ## Step 3 — Request your first capture
 

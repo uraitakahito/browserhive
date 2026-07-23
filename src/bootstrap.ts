@@ -9,6 +9,7 @@
  */
 import { CaptureCoordinator } from "./capture/index.js";
 import type { BrowserHiveConfig } from "./config/index.js";
+import { DnsRegistry } from "./discovery/dns-registry.js";
 import { HttpServer } from "./http/http-server.js";
 import { logger } from "./logger.js";
 
@@ -19,7 +20,12 @@ export interface ServerControl {
 export const startServer = async (
   config: BrowserHiveConfig,
 ): Promise<ServerControl> => {
-  const coordinator = new CaptureCoordinator(config.coordinator);
+  // Membership is resolved from DNS: absent (NXDOMAIN) workers are excluded
+  // at boot, and workers that appear/disappear later are reconciled without
+  // a restart. Only NXDOMAIN drops a worker — transient/connection failures
+  // stay in the pool for the health layer.
+  const registry = new DnsRegistry(config.coordinator.browserProfiles);
+  const coordinator = new CaptureCoordinator(config.coordinator, registry);
   const server = new HttpServer(coordinator, config.http);
 
   await server.initialize();

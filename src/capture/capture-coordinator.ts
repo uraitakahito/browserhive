@@ -8,6 +8,7 @@
 import { createActor, type SnapshotFrom } from "xstate";
 import type { CaptureConfig, CoordinatorConfig } from "../config/index.js";
 import { DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
+import type { WorkerRegistry } from "../discovery/worker-registry.js";
 import { S3CompatibleArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
@@ -63,9 +64,12 @@ export interface GetStatusOptions {
 export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
+  private registry: WorkerRegistry;
+  private unsubscribeMembership: (() => void) | null = null;
 
-  constructor(config: CoordinatorConfig) {
+  constructor(config: CoordinatorConfig, registry: WorkerRegistry) {
     this.store = new S3CompatibleArtifactStore(config.storage);
+    this.registry = registry;
     this.lifecycleActor = createActor(coordinatorMachine, {
       input: { config, store: this.store },
     });
@@ -94,8 +98,20 @@ export class CaptureCoordinator {
     // operator sees the cause directly instead of a cascade of capture
     // failures inside `errorHistory`.
     await this.store.initialize();
+    // Membership (discovery) is resolved by the registry, separate from
+    // health (monitoring). Seed the machine with the resolved member set
+    // before spawning workers, so absent workers are never spawned.
+    const members = await this.registry.list();
+    this.lifecycleActor.send({ type: "SET_MEMBERS", members });
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("active");
+
+    // Track membership changes: a dynamic registry (DnsRegistry) emits the
+    // new member set, which the machine reconciles without a restart. A
+    // StaticRegistry never emits, so this is inert under the default config.
+    this.unsubscribeMembership = this.registry.subscribe((changed) => {
+      this.lifecycleActor.send({ type: "MEMBERSHIP_CHANGED", members: changed });
+    });
   }
 
   enqueueTask(task: CaptureTask): Result<void, string> {
@@ -109,6 +125,8 @@ export class CaptureCoordinator {
   }
 
   async shutdown(): Promise<void> {
+    this.unsubscribeMembership?.();
+    this.unsubscribeMembership = null;
     if (!this.lifecycleActor.getSnapshot().can({ type: "SHUTDOWN" })) {
       return;
     }
@@ -127,12 +145,13 @@ export class CaptureCoordinator {
   }
 
   /**
-   * True when the lifecycle is in any `active.*` substate. Equivalent to
-   * `isRunning || isDegraded`. Use this to decide whether the coordinator
-   * is accepting traffic.
+   * True when the coordinator is accepting traffic — any `active.*` substate,
+   * or `reconciling` (a membership change is being applied while existing
+   * workers keep serving). Used by the HTTP layer to admit captures.
    */
   get isActive(): boolean {
-    return this.lifecycleActor.getSnapshot().matches("active");
+    const snapshot = this.lifecycleActor.getSnapshot();
+    return snapshot.matches("active") || snapshot.matches("reconciling");
   }
 
   get operationalWorkerCount(): number {

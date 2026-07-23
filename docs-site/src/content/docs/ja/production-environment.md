@@ -28,11 +28,14 @@ until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 ```
 
-`BROWSERHIVE_BROWSER_URLS` は常に 3 台分を宣言する: scale profile で起動しなかった
-worker は `error` と表示され、3 台全部が `ready` になるまで `isRunning` は
-`false` のまま。ただし `ready` な worker が 1 台でもあれば capture は流れる —
-coordinator は degraded 状態で運転を続け、居ない worker には上限つき指数
-バックオフで再試行し続ける。
+`BROWSERHIVE_BROWSER_URLS` は worker の全集合を宣言するが、プールは DNS で
+解決される: 起動していない宣言ホスト(NXDOMAIN)は起動時に除外され、エラーの
+worker として抱え込まない。だから `totalWorkers` と `isRunning` は実在する
+ものを反映する。membership は一定間隔でリフレッシュされ、worker を増やすと
+(`--profile scaleN up -d`)稼働中の browserhive に**再起動なしで**編入され、
+worker を止めるとプールから retire される。存在するが到達不能な worker
+(CDP が落ちている)はプールに残り、上限つき指数バックオフで再試行される —
+これは membership とは別の health の問題。
 
 停止:
 
@@ -44,11 +47,13 @@ container-compose --profile scale3 down      # up と同じ profile を渡すこ
 `down` が止めるのは指定 profile で有効なサービスだけ — profile 付き worker は
 渡さないと生き残る。
 
-**worker は 1 台ずつ自由に再起動・作り直しできる**: DNS 名が新コンテナに追従し、
-coordinator が数秒で再接続する(検証済み)。それ以外 — seaweedfs・browserhive・
-台数変更 — は `up` が稼働中サービスを**再作成する**ため、実質
+**worker はライブでスケールする**: worker の追加(`--profile scaleN up -d`)や
+1 台の停止・入れ替えは、稼働中の browserhive に再起動なしで反映される —
+membership は DNS から発見される(検証済み: スケール 1→3 とその逆を
+browserhive 再起動なしで)。**seaweedfs と browserhive 本体**は `up` が
+稼働中サービスを**再作成する**ため、これらの変更は
 `container-compose down && container-compose up -d` として扱うこと
-(処理中の capture は失われる)。
+(browserhive 再作成で処理中の capture は失われる)。
 
 > **Note:** SeaweedFS のデータ volume(`browserhive_seaweedfs-data`)は全キャプチャ
 > 成果物を保持し、`down`/`up` を跨いで残る。バックアップ/ライフサイクルは別途

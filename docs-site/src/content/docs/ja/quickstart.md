@@ -47,12 +47,14 @@ DNS 名で配線されます。ホストに公開されるのは BrowserHive の
 ```bash
 until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
-# → { "isRunning": false, "workers": ["ready", "error", "error"] }
+# → { "isRunning": true, "workers": ["ready"] }
 ```
 
-worker は常に 3 台分が宣言されます: 起動していない worker は `error` と表示され、
-`isRunning` が `true` になるのは 3 台全部が `ready` のとき(`--profile scale3`)だけ。
-`ready` が 1 台でもあれば capture は流れます。
+プールには実際に起動している worker だけが入ります: browserhive は
+`BROWSERHIVE_BROWSER_URLS` を DNS で解決し、起動していないホストは除外します
+(起動時に 1 回ログ)。`--profile scale2` / `scale3` で増やすと
+**browserhive を再起動せずにライブで編入**され、`isRunning` は実在する worker を
+反映します。
 
 ## Step 3 — 最初のキャプチャをリクエストする
 
