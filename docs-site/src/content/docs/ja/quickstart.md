@@ -137,4 +137,4 @@ container-compose down     # 成果物は volume(browserhive_seaweedfs-data)に�
 - [API リファレンス](/api/) — `dismissBanners` / `resetState` / `viewport` など全パラメータの型定義
 - [アーキテクチャ解説](/architecture/) — XState ステートマシンと内部構造
 - worker の動作確認・目視は chromium-server 側の
-  [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/) を参照
+  [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/ja/getting-started/verify/) を参照
