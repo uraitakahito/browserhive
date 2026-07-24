@@ -73,7 +73,6 @@ export default defineConfig({
           label: "Guides",
           items: [
             { label: "Development environment", slug: "development-environment" },
-            { label: "Production environment", slug: "production-environment" },
             { label: "Environment variables", slug: "environment-variables" },
             { label: "Storage", slug: "storage" },
             { label: "TLS certificates", slug: "tls-certificates" },
