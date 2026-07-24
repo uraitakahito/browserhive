@@ -59,6 +59,9 @@ export default defineConfig({
     mermaid({ theme: "neutral" }),
     starlight({
       title: "BrowserHive Docs",
+      // リファレンス表のセル内コードを 1 行に保つ(長い CLI フラグが 2 行に割れて
+      // 読みにくくなるのを防ぐ。収まらない幅では Starlight 既定の overflow で横スクロール)
+      customCss: ["./src/styles/tables.css"],
       // i18n: English = root locale (no prefix) / Japanese = ja (/ja/ prefix).
       // Same layout as chromium-server-docker; untranslated ja pages fall
       // back to English automatically.
