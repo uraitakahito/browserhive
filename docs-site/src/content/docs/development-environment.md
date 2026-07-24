@@ -65,10 +65,13 @@ The client sends requests and receives acceptance confirmations; the
 actual captures are processed asynchronously by the server — check the
 server logs for completion.
 
-Build first (the example ships as TypeScript source only):
+The example ships as TypeScript source only, and the production `npm run
+build` compiles just `src` + `bin` — use `build:examples`, which also emits
+`dist/examples/`. Point it at a running server (the host dev loop above, or
+the container stack); by default it targets `localhost:8080`.
 
 ```sh
-npm run build
+npm run build:examples
 node dist/examples/data-client.js \
   --data data/smoke-test.yaml --webp --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \

@@ -9,6 +9,7 @@
   "type": "module",
   "//scripts": {
     "build": "Compile TypeScript via `tsc -b` (composite build — picks up tsconfig.generated.json through the `references` array in tsconfig.json). Output goes to dist/. The `prebuild` lifecycle hook runs `openapi:prep` first.",
+    "build:examples": "Dev-only build for examples/ (data-client). tsconfig.build.json ships only src + bin, so `npm run build` never emits dist/examples — this compiles src + bin + examples via tsconfig.examples.json so `node dist/examples/data-client.js` resolves its `../src/*.js` imports against dist/src. The `prebuild:examples` hook runs `openapi:prep` first (examples import src/http/generated). Requires a running server (host dev loop or the container stack) to accept requests.",
     "test": "Vitest test runner in single-run mode (see vitest.config.mts for setup). The `pretest` lifecycle hook runs `openapi:prep` first so generated TS is fresh.",
     "lint": "Top-level orchestrator that runs both `lint:source` (ESLint) and `lint:openapi` (Redocly). Has no `prelint` hook — see the `pre*/post*` notes below.",
     "server": "Run the compiled HTTP server entry point (`dist/bin/main.js`). Requires `npm run build` to have produced the dist/ output.",
@@ -36,6 +37,7 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
+    "build:examples": "tsc -b tsconfig.examples.json",
     "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
     "test:all": "vitest run",
@@ -54,6 +56,7 @@
     "site:preview": "npm --prefix docs-site run preview",
     "site:check": "npm run site:build && node scripts/check-doc-refs.mjs",
     "prebuild": "npm run openapi:prep",
+    "prebuild:examples": "npm run openapi:prep",
     "pretest": "npm run openapi:prep",
     "pretest:all": "npm run openapi:prep",
     "prelint:source": "npm run openapi:prep"
