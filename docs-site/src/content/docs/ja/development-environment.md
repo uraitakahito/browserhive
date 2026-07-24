@@ -62,10 +62,13 @@ YAML データファイルからキャプチャリクエストを送る例クラ
 にある。クライアントは受理確認を受け取るだけで、実際のキャプチャはサーバが
 非同期に処理する — 完了はサーバログで確認する。
 
-先にビルドする(例は TypeScript ソースのみで配布):
+例は TypeScript ソースのみで配布され、本番の `npm run build` は `src` + `bin`
+だけをコンパイルする。`dist/examples/` も出す `build:examples` を使うこと。
+実行先は起動中のサーバ(上のホスト開発ループ、またはコンテナスタック) —
+既定では `localhost:8080` に投げる。
 
 ```sh
-npm run build
+npm run build:examples
 node dist/examples/data-client.js \
   --data data/smoke-test.yaml --webp --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \

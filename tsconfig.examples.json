@@ -1,0 +1,11 @@
+{
+  // Dev-only build for the examples/ CLI utilities (e.g. data-client). Same
+  // as tsconfig.build.json (src + bin) plus examples/, so `dist/examples/*.js`
+  // is emitted and can resolve its `../src/*.js` imports against dist/src.
+  // NOT used by Dockerfile.prod — examples are never shipped in the runtime
+  // image (see tsconfig.build.json).
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "bin/**/*", "examples/**/*"],
+  "exclude": ["src/http/generated"],
+  "references": [{ "path": "./tsconfig.generated.json" }]
+}
