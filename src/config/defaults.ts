@@ -2,6 +2,7 @@ import type {
   CaptureConfig,
   CoordinatorConfig,
   BrowserHiveConfig,
+  DiscoveryConfig,
   WaczConfig,
 } from "./types.js";
 
@@ -151,9 +152,15 @@ export const DEFAULT_COORDINATOR_CONFIG = {
  * `coordinator` is intentionally absent because no useful global default
  * exists — see {@link DEFAULT_COORDINATOR_CONFIG}.
  */
+/** Default worker-membership discovery settings (DnsRegistry refresh). */
+export const DEFAULT_DISCOVERY_CONFIG: DiscoveryConfig = {
+  refreshMs: 10_000,
+};
+
 export const DEFAULT_BROWSERHIVE_CONFIG = {
   http: { port: 8080 },
   coordinator: DEFAULT_COORDINATOR_CONFIG,
+  discovery: DEFAULT_DISCOVERY_CONFIG,
 } satisfies Omit<BrowserHiveConfig, "coordinator"> & {
   coordinator: typeof DEFAULT_COORDINATOR_CONFIG;
 };

@@ -115,6 +115,11 @@ export const createTestBrowserHiveConfig = (
     ...(overrides.http?.tls && { tls: overrides.http.tls }),
   },
   coordinator: createTestCoordinatorConfig(overrides.coordinator),
+  discovery: {
+    refreshMs:
+      overrides.discovery?.refreshMs ??
+      DEFAULT_BROWSERHIVE_CONFIG.discovery.refreshMs,
+  },
 });
 
 /**

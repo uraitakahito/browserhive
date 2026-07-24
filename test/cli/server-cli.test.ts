@@ -135,6 +135,7 @@ describe("server-cli parseCliOptions", () => {
       vi.stubEnv("BROWSERHIVE_PORT", "9090");
       vi.stubEnv("BROWSERHIVE_MAX_RETRY_COUNT", "5");
       vi.stubEnv("BROWSERHIVE_QUEUE_POLL_INTERVAL_MS", "200");
+      vi.stubEnv("BROWSERHIVE_DISCOVERY_REFRESH_MS", "3000");
       vi.stubEnv("BROWSERHIVE_VIEWPORT_WIDTH", "1920");
       vi.stubEnv("BROWSERHIVE_VIEWPORT_HEIGHT", "1080");
       vi.stubEnv("BROWSERHIVE_SCREENSHOT_QUALITY", "85");
@@ -145,10 +146,20 @@ describe("server-cli parseCliOptions", () => {
       expect(config.http.port).toBe(9090);
       expect(config.coordinator.maxRetryCount).toBe(5);
       expect(config.coordinator.queuePollIntervalMs).toBe(200);
+      expect(config.discovery.refreshMs).toBe(3000);
       const capture = config.coordinator.browserProfiles[0]?.capture;
       expect(capture?.viewport).toEqual({ width: 1920, height: 1080 });
       expect(capture?.screenshot.quality).toBe(85);
       expect(capture?.userAgent).toBe("TestBot/1.0");
+    });
+
+    it("discovery refresh は未指定なら既定値になる", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+
+      const config = parseCliOptions(argv());
+
+      expect(config.discovery.refreshMs).toBe(10_000);
     });
   });
 
@@ -322,6 +333,14 @@ describe("server-cli parseCliOptions", () => {
       vi.stubEnv("BROWSERHIVE_S3_ENDPOINT", "http://seaweedfs:8333");
       vi.stubEnv("BROWSERHIVE_S3_BUCKET", "browserhive");
       vi.stubEnv("BROWSERHIVE_S3_ACCESS_KEY_ID", "AKIATESTACCESSKEYID");
+
+      expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
+    });
+
+    it("BROWSERHIVE_DISCOVERY_REFRESH_MS が下限 1000ms 未満なら exit する", () => {
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_DISCOVERY_REFRESH_MS", "500");
 
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
     });
