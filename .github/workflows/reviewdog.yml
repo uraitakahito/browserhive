@@ -22,7 +22,7 @@ jobs:
       # reviewdog がコメントを投稿するトークンを GitHub App から実行ごとに発行する。
       # 保管する秘密は App の秘密鍵(REVIEWDOG_APP_KEY)だけで、これは無期限。
       # Dependabot PR でも動くよう、この鍵は Actions/Dependabot の両 secret store に登録する。
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: 4355270
