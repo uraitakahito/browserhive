@@ -21,10 +21,18 @@
 # entrypoint, the E2E globalSetup retries until /v1/status answers, and
 # humans use the curl wait loop in the docs.
 #
-# BROWSERHIVE_BROWSER_URLS always lists all three workers: the coordinator
-# keeps running in active.degraded and retries missing workers with capped
-# exponential backoff, so declared-but-not-started workers are harmless —
-# and are picked up automatically when a scale profile starts them.
+# BROWSERHIVE_BROWSER_URLS lists all three workers, but the pool is the
+# DNS-resolved subset: browserhive excludes hosts that are not running
+# (NXDOMAIN) at startup and reconciles workers that appear/disappear later,
+# with no restart. See docs (production environment / architecture).
+
+# Pin the project name. container-compose derives it from the directory name
+# otherwise, and the project name IS the DNS domain here: it must equal the
+# `container system dns create <name>` domain and the hard-coded
+# `<service>.browserhive` hostnames below. Fixing it decouples the stack from
+# the checkout directory name (a mismatch silently falls back to /etc/hosts,
+# which fails for the non-root containers).
+name: browserhive
 
 services:
   seaweedfs:
