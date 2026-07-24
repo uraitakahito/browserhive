@@ -101,9 +101,19 @@
       "rimraf v4+ has a breaking API change (Promise instead of callback), but this is safe",
       "because we disable the stealth user-agent-override evasion in src/browser.ts,",
       "so user-data-dir's rimraf call (deleteUserDataDir) is never executed at runtime."
+    ],
+    "js-yaml": [
+      "@hey-api/openapi-ts -> @hey-api/json-schema-ref-parser pins js-yaml@4.2.0,",
+      "which is in the vulnerable range (high: quadratic-complexity DoS via merge",
+      "keys / repeated aliases). npm audit fix cannot touch it (it would need to",
+      "bump hey-api). Force js-yaml to ^4.3.0 (the fixed 4.x) everywhere.",
+      "Kept on 4.x — 5.x is a major hey-api/swagger-parser do not expect; 4.3.0",
+      "is API-compatible and clears the advisory (verified: build + tests pass).",
+      "Remove this once @hey-api ships json-schema-ref-parser with a fixed js-yaml."
     ]
   },
   "overrides": {
+    "js-yaml": "^4.3.0",
     "puppeteer-extra-plugin-user-data-dir": {
       "rimraf": "$rimraf"
     }
