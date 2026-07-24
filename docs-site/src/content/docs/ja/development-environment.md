@@ -82,7 +82,7 @@ worker は headless。DevTools のスクリーンキャストで観察する:
 `<worker-ip>:9222` を登録して **inspect** をクリック — headless のまま
 ページがライブ描画される。手順の詳細(ポート誤りの罠を含む)は
 chromium-server 側のドキュメント
-[Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/)
+[Verifying workers](https://uraitakahito.github.io/chromium-server-docker/ja/getting-started/verify/)
 を参照。ワンショットの CDP 確認は `./chromium-server-docker/bin/cdp.sh smoke`。
 
 ## SeaweedFS 内の成果物を閲覧する
