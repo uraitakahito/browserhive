@@ -24,7 +24,10 @@ export const startServer = async (
   // at boot, and workers that appear/disappear later are reconciled without
   // a restart. Only NXDOMAIN drops a worker — transient/connection failures
   // stay in the pool for the health layer.
-  const registry = new DnsRegistry(config.coordinator.browserProfiles);
+  const registry = new DnsRegistry(
+    config.coordinator.browserProfiles,
+    config.discovery.refreshMs,
+  );
   const coordinator = new CaptureCoordinator(config.coordinator, registry);
   const server = new HttpServer(coordinator, config.http);
 

@@ -69,6 +69,22 @@ const parsePositiveInt = (value: string): number => {
   return num;
 };
 
+/**
+ * DNS membership refresh interval. Enforces a floor so a tiny value cannot
+ * hammer DNS + trigger constant reconciles (`parsePositiveInt` alone allows
+ * any positive integer).
+ */
+const MIN_DISCOVERY_REFRESH_MS = 1000;
+const parseRefreshMs = (value: string): number => {
+  const num = parsePositiveInt(value);
+  if (num < MIN_DISCOVERY_REFRESH_MS) {
+    throw new InvalidArgumentError(
+      `Must be >= ${String(MIN_DISCOVERY_REFRESH_MS)}ms (avoids hammering DNS)`,
+    );
+  }
+  return num;
+};
+
 const parseNonNegativeInt = (value: string): number => {
   const num = parseInt(value, 10);
   if (isNaN(num) || num < 0) {
@@ -113,6 +129,7 @@ interface ParsedOptions {
   taskTimeout: number;
   maxRetryCount: number;
   queuePollIntervalMs: number;
+  discoveryRefreshMs: number;
   viewportWidth: number;
   viewportHeight: number;
   screenshotFullPage: boolean;
@@ -241,6 +258,9 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       queuePollIntervalMs: opts.queuePollIntervalMs,
       rejectDuplicateUrls: opts.rejectDuplicateUrls,
     },
+    discovery: {
+      refreshMs: opts.discoveryRefreshMs,
+    },
   };
 };
 
@@ -343,6 +363,15 @@ export const createProgram = (): Command => {
         .env("BROWSERHIVE_QUEUE_POLL_INTERVAL_MS")
         .default(defaultWorker.queuePollIntervalMs)
         .argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--discovery-refresh-ms <ms>",
+        "How often to re-resolve worker membership from DNS",
+      )
+        .env("BROWSERHIVE_DISCOVERY_REFRESH_MS")
+        .default(defaults.discovery.refreshMs)
+        .argParser(parseRefreshMs),
     )
     .addOption(
       new Option("--viewport-width <px>", "Viewport width in pixels")

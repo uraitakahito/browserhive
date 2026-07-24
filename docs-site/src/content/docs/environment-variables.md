@@ -21,6 +21,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--task-timeout <ms>` | `BROWSERHIVE_TASK_TIMEOUT_MS` | positive integer (Layer B per-task safety net) |
 | `--max-retry-count <n>` | `BROWSERHIVE_MAX_RETRY_COUNT` | non-negative integer |
 | `--queue-poll-interval-ms <ms>` | `BROWSERHIVE_QUEUE_POLL_INTERVAL_MS` | positive integer |
+| `--discovery-refresh-ms <ms>` | `BROWSERHIVE_DISCOVERY_REFRESH_MS` | integer ms (default `10000`, min `1000`) — how often worker membership is re-resolved from DNS |
 | `--viewport-width <px>` | `BROWSERHIVE_VIEWPORT_WIDTH` | positive integer (server-wide default; per-request `viewport.width` overrides) |
 | `--viewport-height <px>` | `BROWSERHIVE_VIEWPORT_HEIGHT` | positive integer (server-wide default; per-request `viewport.height` overrides) |
 | `--screenshot-full-page` | `BROWSERHIVE_SCREENSHOT_FULL_PAGE` | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default; per-request `fullPage` overrides) |

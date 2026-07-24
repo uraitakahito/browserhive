@@ -190,9 +190,16 @@ export interface ClientTlsConfig {
   caCertPath: string;
 }
 
+/** Worker-membership discovery configuration (DnsRegistry). */
+export interface DiscoveryConfig {
+  /** How often (ms) DnsRegistry re-resolves worker membership from DNS. */
+  refreshMs: number;
+}
+
 export interface BrowserHiveConfig {
   http: HttpServerConfig;
   coordinator: CoordinatorConfig;
+  discovery: DiscoveryConfig;
 }
 
 /** Browser connection options for connecting to a remote Chromium instance */
