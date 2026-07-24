@@ -1,0 +1,8 @@
+/* リファレンス表のセル内コード（CLI フラグ・環境変数名など）を折り返さない。
+   Starlight のテーブルは既定で `display: block; overflow: auto` なので、
+   1 行に収まらないときは表そのものが横スクロールする — 長いフラグ名が
+   セル内で 2 行に割れて読みにくくなるのを防ぐ。説明列のプレーンな文章は
+   従来どおり折り返す（対象は <code> トークンのみ）。 */
+.sl-markdown-content table code {
+  white-space: nowrap;
+}
