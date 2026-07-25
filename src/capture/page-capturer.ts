@@ -719,12 +719,6 @@ export class PageCapturer {
         `behaviors for ${task.url}`,
         behaviorBudgetMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
       );
-      if (behaviorReport) {
-        logger.debug(
-          { taskId: task.taskId, behaviorReport },
-          "behaviors completed",
-        );
-      }
 
       let pngLocation: string | undefined;
       let webpLocation: string | undefined;
@@ -802,6 +796,7 @@ export class PageCapturer {
         ...(waczLocation !== undefined && { waczLocation }),
         ...(waczStats !== undefined && { waczStats }),
         ...(dismissReport !== undefined && { dismissReport }),
+        ...(behaviorReport !== undefined && { behaviorReport }),
       };
     } catch (error) {
       const captureProcessingTimeMs = Date.now() - startTime;
