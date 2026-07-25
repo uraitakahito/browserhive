@@ -6,9 +6,16 @@
  * actor that spawns and orchestrates worker status actors itself.
  */
 import { createActor, type SnapshotFrom } from "xstate";
-import type { CaptureConfig, CoordinatorConfig } from "../config/index.js";
+import type {
+  BrowserProfile,
+  CaptureConfig,
+  CoordinatorConfig,
+  DiscoveryConfig,
+} from "../config/index.js";
 import { DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import type { WorkerRegistry } from "../discovery/worker-registry.js";
+import { resolveWithInitRetry } from "../discovery/init-retry.js";
+import { logger } from "../logger.js";
 import { S3CompatibleArtifactStore, type ArtifactStore } from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
@@ -49,6 +56,9 @@ export interface CoordinatorStatusReport {
 /** Default pending-task snapshot size used by `getStatus` when no override is given. */
 export const DEFAULT_PENDING_TASKS_LIMIT = 50;
 
+/** Cap for the exponential boot-time membership-retry backoff. */
+const INIT_RETRY_MAX_DELAY_MS = 4000;
+
 export interface GetStatusOptions {
   /** Maximum number of pending tasks to include. Defaults to {@link DEFAULT_PENDING_TASKS_LIMIT}. */
   pendingLimit?: number;
@@ -65,15 +75,48 @@ export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
   private registry: WorkerRegistry;
+  private discovery: DiscoveryConfig;
   private unsubscribeMembership: (() => void) | null = null;
 
-  constructor(config: CoordinatorConfig, registry: WorkerRegistry) {
+  constructor(
+    config: CoordinatorConfig,
+    registry: WorkerRegistry,
+    discovery: DiscoveryConfig,
+  ) {
     this.store = new S3CompatibleArtifactStore(config.storage);
     this.registry = registry;
+    this.discovery = discovery;
     this.lifecycleActor = createActor(coordinatorMachine, {
       input: { config, store: this.store },
     });
     this.lifecycleActor.start();
+  }
+
+  /**
+   * Boot-time membership resolution with exponential backoff. A cold stack can
+   * start browserhive before the chromium workers' DNS names are registered
+   * (`resolveMembers` throws when every declared host is NXDOMAIN), so retry a
+   * few times to absorb that registration race. After the attempts are spent
+   * the error is rethrown — a genuinely worker-less stack still fails loudly.
+   * Only used at startup; the runtime refresh already tolerates zero workers.
+   */
+  private async resolveInitialMembers(): Promise<BrowserProfile[]> {
+    return resolveWithInitRetry(
+      () => this.registry.list(),
+      {
+        attempts: this.discovery.initRetryAttempts,
+        delayMs: this.discovery.initRetryDelayMs,
+        maxDelayMs: INIT_RETRY_MAX_DELAY_MS,
+      },
+      {
+        onRetry: (info) => {
+          logger.warn(
+            info,
+            "worker discovery found no members at boot — retrying (DNS registration race?)",
+          );
+        },
+      },
+    );
   }
 
   private get config(): CoordinatorConfig {
@@ -101,7 +144,7 @@ export class CaptureCoordinator {
     // Membership (discovery) is resolved by the registry, separate from
     // health (monitoring). Seed the machine with the resolved member set
     // before spawning workers, so absent workers are never spawned.
-    const members = await this.registry.list();
+    const members = await this.resolveInitialMembers();
     this.lifecycleActor.send({ type: "SET_MEMBERS", members });
     this.lifecycleActor.send({ type: "INITIALIZE" });
     await this.waitForLifecycle("active");

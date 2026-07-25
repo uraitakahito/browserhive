@@ -28,7 +28,11 @@ export const startServer = async (
     config.coordinator.browserProfiles,
     config.discovery.refreshMs,
   );
-  const coordinator = new CaptureCoordinator(config.coordinator, registry);
+  const coordinator = new CaptureCoordinator(
+    config.coordinator,
+    registry,
+    config.discovery,
+  );
   const server = new HttpServer(coordinator, config.http);
 
   await server.initialize();

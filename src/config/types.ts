@@ -184,6 +184,17 @@ export interface ClientTlsConfig {
 export interface DiscoveryConfig {
   /** How often (ms) DnsRegistry re-resolves worker membership from DNS. */
   refreshMs: number;
+  /**
+   * Boot-time only: how many times `CaptureCoordinator.initialize` re-resolves
+   * worker membership before giving up. A cold stack can start browserhive
+   * before the chromium workers' DNS names are registered — all NXDOMAIN would
+   * otherwise be fatal — so the initial resolve is retried with backoff to
+   * absorb that registration race. Must be >= 1 (1 = no retry). The runtime
+   * refresh already tolerates zero workers, so this affects startup only.
+   */
+  initRetryAttempts: number;
+  /** Base delay (ms) for the exponential init-retry backoff (capped internally). */
+  initRetryDelayMs: number;
 }
 
 export interface BrowserHiveConfig {
