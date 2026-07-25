@@ -187,6 +187,10 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
     expect(response.workers).toHaveLength(1);
     expect(response.workers[0]?.health).toBe("busy");
     expect(response.queue.pendingTasks).toEqual([]);
+    // Build fingerprint is baked in at build time (revision/buildTime vary).
+    expect(response.build.version).toBe("1.0.0");
+    expect(typeof response.build.revision).toBe("string");
+    expect(typeof response.build.buildTime).toBe("string");
   });
 
   it("propagates currentTask from coordinator status to wire", () => {

@@ -5,6 +5,9 @@
 # Generated OpenAPI types
 src/http/generated/
 
+# Generated build fingerprint (scripts/generate-version.mjs)
+src/generated/
+
 # TypeScript project references build info
 *.tsbuildinfo
 

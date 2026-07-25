@@ -1048,6 +1048,7 @@ components:
         - isDegraded
         - workers
         - queue
+        - build
       additionalProperties: false
       properties:
         pending:
@@ -1070,3 +1071,25 @@ components:
             $ref: "#/components/schemas/WorkerInfo"
         queue:
           $ref: "#/components/schemas/QueueSnapshot"
+        build:
+          type: object
+          additionalProperties: false
+          required: [version, revision, buildTime]
+          description: |
+            Build fingerprint baked in at build time (src/generated/version.ts).
+            Use `revision` to confirm the running server matches a given source:
+            `revision === $(git rev-parse --short HEAD)`.
+          properties:
+            version:
+              type: string
+              description: BrowserHive package version (package.json).
+            revision:
+              type: string
+              description: |
+                Short git commit the image was built from — passed at build time
+                via `GIT_REV` (Docker) or read from git (host). `"dev"` when
+                neither was available.
+            buildTime:
+              type: string
+              format: date-time
+              description: When this build was produced. Changes every build.
