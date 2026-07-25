@@ -421,7 +421,7 @@ export const createProgram = (): Command => {
     .addOption(
       new Option(
         "--behaviors <list>",
-        "Comma-separated built-in behaviors run per capture, in order: autoscroll (lazy-load), autofetch (srcset/data-* completeness). Empty string disables all built-ins.",
+        "Comma-separated built-in behaviors run per capture, in order. Available: autoscroll (lazy-load), autofetch (srcset/data-* completeness), autoplay (play + fetch <video>/<audio> media; opt-in, can be large). Empty string disables all built-ins.",
       )
         .env("BROWSERHIVE_BEHAVIORS")
         .default(defaultCapture.behaviors.builtins.join(",")),

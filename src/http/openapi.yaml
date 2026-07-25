@@ -585,9 +585,11 @@ components:
             the page during capture that automate interaction so dynamic
             resources are archived — the built-in `autoscroll` (scrolls the
             full height so `loading="lazy"` / IntersectionObserver / `data-src`
-            loaders fire) and `autofetch` (actively fetches every `srcset` /
+            loaders fire), `autofetch` (actively fetches every `srcset` /
             `data-*` candidate so replay is DPR/viewport-complete, e.g. Retina
-            `_2x` variants), plus optional client-supplied custom behaviors.
+            `_2x` variants), and `autoplay` (muted-plays and fetches
+            `<video>` / `<audio>` media — opt-in, off by default, can be
+            large), plus optional client-supplied custom behaviors.
 
             When omitted, the server default set applies (configured via
             `--behaviors` / `BROWSERHIVE_BEHAVIORS`; the built-in default is
