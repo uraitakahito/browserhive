@@ -26,6 +26,7 @@ import type {
   StatusResponse,
   WorkerInfo as WorkerInfoWire,
 } from "./generated/index.js";
+import { BUILD_INFO } from "../generated/version.js";
 
 export const taskToAcceptance = (task: CaptureTask): CaptureAcceptance => ({
   accepted: true,
@@ -157,5 +158,7 @@ export const coordinatorStatusToResponse = (
         taskToProcessing(p, now),
       ),
     },
+    // Build fingerprint baked in at build time (src/generated/version.ts).
+    build: BUILD_INFO,
   };
 };

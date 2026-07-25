@@ -38,7 +38,13 @@ COPY src ./src
 COPY bin ./bin
 COPY scripts ./scripts
 
-# openapi:generate (prebuild hook) + tsc -> ./dist
+# Git revision baked into src/generated/version.ts (surfaced at
+# /v1/status.build). The build context has no .git, so generate-version.mjs
+# reads it from GIT_REV rather than `git rev-parse`. Defaults to "dev".
+ARG GIT_REV=dev
+ENV GIT_REV=$GIT_REV
+
+# prep (openapi:generate + generate:version) via the prebuild hook + tsc -> ./dist
 RUN npm run build
 
 # ---------- Runtime stage ----------
