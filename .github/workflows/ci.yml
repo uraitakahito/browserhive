@@ -1,0 +1,44 @@
+name: ci
+
+# Fast per-PR gate for the checks that were previously only run locally:
+# the production build (which now also type-checks the esbuild-bundled behavior
+# runtime via build:behaviors -> typecheck:behaviors), the examples build (whose
+# separate tsconfig is where a forgotten `exclude` for browser-only code would
+# surface), ESLint, and the unit tests. The heavier black-box e2e suite stays on
+# manual dispatch (see e2e.yml); ESLint annotations stay on reviewdog.yml.
+#
+# GitHub-hosted Linux. Submodules are checked out (public repos, default token)
+# because ESLint type-checks test/e2e/*, which imports the `meadow` submodule —
+# without it those files resolve to `any` and the type-aware rules error.
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build, examples, lint & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      # `build` runs prep (openapi:generate + generate:version), tsc, then
+      # build:behaviors (typecheck:behaviors + esbuild) — so the browser runtime
+      # is type-checked here.
+      - run: npm run build
+      # Guards the tsconfig.examples.json exclude: a browser-only file leaking
+      # into tsc fails here.
+      - run: npm run build:examples
+      - run: npm run lint:source
+      - run: npm test

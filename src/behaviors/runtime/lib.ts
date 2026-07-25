@@ -54,7 +54,9 @@ const collectStyleSheetUrls = (out: Set<string>): void => {
     for (const rule of Array.from(rules)) {
       const css = (rule as CSSRule).cssText || "";
       for (const m of css.matchAll(/url\((['"]?)([^'")]+)\1\)/g)) {
-        const abs = toAbsolute(m[2], sheet.href ?? undefined);
+        const url = m[2];
+        if (!url) continue; // noUncheckedIndexedAccess: m[2] is string | undefined
+        const abs = toAbsolute(url, sheet.href ?? undefined);
         if (abs && !abs.startsWith("data:")) out.add(abs);
       }
     }
