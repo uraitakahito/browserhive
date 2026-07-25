@@ -1,0 +1,30 @@
+{
+  // Type-check-only config for the browser-side behavior runtime
+  // (src/behaviors/runtime/). esbuild bundles the actual output
+  // (scripts/build-behaviors.mjs), so this never emits — it exists solely to
+  // give the runtime real type checking with the DOM lib, instead of being
+  // excluded-and-unchecked everywhere else. Run via `npm run typecheck:behaviors`
+  // (wired into build:behaviors). Same "separate project" idea as
+  // tsconfig.generated.json, but noEmit (generated ships its output; this does not).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // tsc here is a checker, not a compiler — esbuild produces the bundle.
+    "noEmit": true,
+    // Browser globals: window / document / fetch / MutationObserver / CSS*.
+    "lib": ["ES2023", "DOM"],
+    // Do not pull @types/node into browser code.
+    "types": [],
+    // ctx.opts is an intentionally dynamic options bag (Record<string, unknown>);
+    // dot access is fine here.
+    "noPropertyAccessFromIndexSignature": false,
+    // Same relaxation tsconfig.generated.json applies — avoids churn on the
+    // loosely-typed runtime without weakening noUncheckedIndexedAccess.
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src/behaviors/runtime/**/*"],
+  // Override the inherited exclude (tsconfig.json excludes src/behaviors/runtime);
+  // without this the include is cancelled out and zero files are checked.
+  "exclude": [],
+  // Do not inherit tsconfig.json's project references (the generated subproject).
+  "references": []
+}

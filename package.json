@@ -9,7 +9,8 @@
   "type": "module",
   "//scripts": {
     "build": "Compile TypeScript via `tsc -b` (composite build — picks up tsconfig.generated.json through the `references` array in tsconfig.json), then `build:behaviors`. Output goes to dist/. The `prebuild` lifecycle hook runs `openapi:prep` first.",
-    "build:behaviors": "Bundle src/behaviors/runtime/ (browser-side behavior scripts using window/document/self) into a single injectable IIFE at dist/src/behaviors/runtime.js via esbuild. Runs AFTER tsc and writes under dist/src so the Docker runtime stage (which only copies dist/src) ships it. The runtime dir is excluded from the tsc build.",
+    "typecheck:behaviors": "Type-check the browser-side behavior runtime (src/behaviors/runtime/) against tsconfig.behaviors.json (DOM lib, noEmit). The runtime is excluded from the other tsconfigs (Node lib) and bundled by esbuild, which does not type-check — this is the only place it is actually checked.",
+    "build:behaviors": "Type-check the behavior runtime (typecheck:behaviors) then bundle src/behaviors/runtime/ (browser scripts using window/document/self) into a single injectable IIFE at dist/src/behaviors/runtime.js via esbuild. Runs AFTER tsc and writes under dist/src so the Docker runtime stage (which only copies dist/src) ships it. The runtime dir is excluded from the tsc build.",
     "build:examples": "Dev-only build for examples/ (data-client). tsconfig.build.json ships only src + bin, so `npm run build` never emits dist/examples — this compiles src + bin + examples via tsconfig.examples.json so `node dist/examples/data-client.js` resolves its `../src/*.js` imports against dist/src. The `prebuild:examples` hook runs `openapi:prep` first (examples import src/http/generated). Requires a running server (host dev loop or the container stack) to accept requests.",
     "test": "Vitest test runner in single-run mode (see vitest.config.mts for setup). The `pretest` lifecycle hook runs `openapi:prep` first so generated TS is fresh.",
     "lint": "Top-level orchestrator that runs both `lint:source` (ESLint) and `lint:openapi` (Redocly). Has no `prelint` hook — see the `pre*/post*` notes below.",
@@ -40,7 +41,8 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.build.json && npm run build:behaviors",
-    "build:behaviors": "node scripts/build-behaviors.mjs",
+    "typecheck:behaviors": "tsc --noEmit -p tsconfig.behaviors.json",
+    "build:behaviors": "npm run typecheck:behaviors && node scripts/build-behaviors.mjs",
     "build:examples": "tsc -b tsconfig.examples.json",
     "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
