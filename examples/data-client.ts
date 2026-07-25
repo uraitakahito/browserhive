@@ -49,12 +49,19 @@ import {
 import type { CaptureFormats } from "../src/capture/index.js";
 import { logger } from "../src/logger.js";
 import { parseDataFile, type DataEntry } from "./data-file.js";
+import {
+  loadBehaviorRegistry,
+  selectForHost,
+  type CustomBehavior,
+} from "./behaviors-loader.js";
 
 interface SubmitResult {
   taskId: string;
   correlationId: string;
   labels: string[];
   accepted: boolean;
+  /** Ids of the custom behaviors attached to this request (by host match). */
+  behaviors: string[];
   error?: string;
 }
 
@@ -88,8 +95,14 @@ const submitRequest = async (
   acceptLanguage: string | undefined,
   viewport: { width: number; height: number } | undefined,
   fullPage: boolean | undefined,
+  selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
+  // Attach custom behaviors matched by the target host. Only `custom` is sent:
+  // sending `builtins` would replace the server's enabled built-in set for this
+  // capture, so the built-ins are left to the server's own configuration.
+  const custom = selectBehaviors(new URL(entry.url).hostname);
+  const behaviors = custom.map((c) => c.id);
   const body: CaptureRequest = {
     url: entry.url,
     labels: entry.labels,
@@ -99,6 +112,7 @@ const submitRequest = async (
     ...(acceptLanguage !== undefined && { acceptLanguage }),
     ...(viewport !== undefined && { viewport }),
     ...(fullPage !== undefined && { fullPage }),
+    ...(custom.length > 0 && { behaviors: { custom } }),
   };
 
   try {
@@ -109,6 +123,7 @@ const submitRequest = async (
         correlationId,
         labels: entry.labels,
         accepted: true,
+        behaviors,
       };
     }
     const status = response?.status;
@@ -119,6 +134,7 @@ const submitRequest = async (
       correlationId,
       labels: entry.labels,
       accepted: false,
+      behaviors,
       error: message,
     };
   } catch (caught) {
@@ -128,6 +144,7 @@ const submitRequest = async (
       correlationId,
       labels: entry.labels,
       accepted: false,
+      behaviors,
       error: errorMessage,
     };
   }
@@ -140,6 +157,7 @@ const submitAll = async (
   acceptLanguage: string | undefined,
   viewport: { width: number; height: number } | undefined,
   fullPage: boolean | undefined,
+  selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult[]> => {
   const total = entries.length;
   let completed = 0;
@@ -152,12 +170,13 @@ const submitAll = async (
       acceptLanguage,
       viewport,
       fullPage,
+      selectBehaviors,
     );
     completed++;
 
     if (result.accepted) {
       logger.info(
-        { progress: `${String(completed)}/${String(total)}`, taskId: result.taskId, correlationId: result.correlationId, labels: result.labels },
+        { progress: `${String(completed)}/${String(total)}`, taskId: result.taskId, correlationId: result.correlationId, labels: result.labels, behaviors: result.behaviors },
         "Request accepted",
       );
     } else {
@@ -219,6 +238,8 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     options.viewportWidth !== undefined && options.viewportHeight !== undefined
       ? { width: options.viewportWidth, height: options.viewportHeight }
       : undefined;
+  // Build the custom-behavior registry once, then attach per-entry by host.
+  const registry = loadBehaviorRegistry(options.behaviorsVersion ?? "v1.0");
   const results = await submitAll(
     entries,
     captureFormats,
@@ -226,6 +247,7 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     options.acceptLanguage,
     viewport,
     options.fullPage,
+    (host) => selectForHost(registry, host),
   );
 
   const totalDuration = Date.now() - startTime;

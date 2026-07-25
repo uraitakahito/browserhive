@@ -98,6 +98,43 @@ the capture browser can reach — bound egress at your network boundary and trea
 enabling them as granting code execution to clients.
 :::
 
+### Organizing custom behaviors by site (example client)
+
+The bundled example client (`examples/data-client.ts`) keeps custom behaviors on
+disk, **one directory per site**, and attaches them automatically based on each
+target URL's host — so most site-specific automation is just a file you drop in,
+with no per-request wiring:
+
+```
+examples/behaviors/
+└─ <version>/                    # runtime-contract version, e.g. v1.0
+   ├─ www.apple.com/             # FQDN — most specific
+   │  └─ tv-gallery.js
+   └─ apple.com/                 # registrable domain — all subdomains
+      └─ promo-carousel.js
+```
+
+Each `<name>.js` is a bare **class expression** (the same shape shown above). By
+convention its `static id` equals `"<dir>:<basename>"` (e.g.
+`www.apple.com:tv-gallery`) — the client sends that id, and the runner matches
+enabled ids to registered classes by `static id`.
+
+Pick the version directory with `--behaviors-version` (default `v1.0`). For each
+entry the client loads the FQDN directory then the registrable-domain directory
+and sends the result as `behaviors.custom`:
+
+```sh
+# the server must allow custom behaviors
+node dist/bin/main.js server --allow-custom-behaviors
+# the client resolves the base URL from --server / BROWSERHIVE_SERVER / the SDK
+# default (no URL is hardcoded) and attaches behaviors by host
+node dist/examples/data-client.js --data data/apple.yaml --wacz --behaviors-version v1.0
+```
+
+Only `custom` is sent, never `builtins`: the built-in set (`autoscroll`,
+`autofetch`, …) is left to the server's own `--behaviors` configuration so the
+client cannot accidentally disable it.
+
 ## The behavior report
 
 When at least one behavior runs, the completed-task server log line includes a

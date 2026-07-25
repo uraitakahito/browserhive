@@ -14,7 +14,10 @@ export default defineConfig(
     // must not police.
     // src/behaviors/runtime/** is browser code bundled by esbuild and excluded
     // from the tsc project, so the type-aware ESLint rules cannot parse it.
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**'],
+    // examples/behaviors/** and the behavior fixtures are bare class-expression
+    // templates (injected as `register(<source>)`), not modules — parsing them
+    // as source would be a syntax error, so they are excluded like the runtime.
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**'],
   },
 
   //
