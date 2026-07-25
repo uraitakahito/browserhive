@@ -77,6 +77,7 @@ export default defineConfig({
           items: [
             { label: "Development environment", slug: "development-environment" },
             { label: "Environment variables", slug: "environment-variables" },
+            { label: "Behaviors", slug: "behaviors" },
             { label: "Storage", slug: "storage" },
             { label: "TLS certificates", slug: "tls-certificates" },
             { label: "Replay quickstart", slug: "replay-quickstart" },

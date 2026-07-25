@@ -10,9 +10,11 @@
 import { runner } from "./runner";
 import { AutoScrollBehavior } from "./builtins/autoscroll";
 import { AutoFetchBehavior } from "./builtins/autofetch";
+import { AutoPlayBehavior } from "./builtins/autoplay";
 
 runner.register(AutoScrollBehavior);
 runner.register(AutoFetchBehavior);
+runner.register(AutoPlayBehavior);
 
 // Publish to the page. `globalThis` works in every browser execution context.
 (globalThis as unknown as { __bh_behaviors: typeof runner }).__bh_behaviors =
