@@ -6,6 +6,8 @@
   // image (see tsconfig.build.json).
   "extends": "./tsconfig.json",
   "include": ["src/**/*", "bin/**/*", "examples/**/*"],
-  "exclude": ["src/http/generated"],
+  // src/behaviors/runtime is browser code bundled by esbuild (never compiled by
+  // tsc) — excluded here too, matching tsconfig.build.json / tsconfig.json.
+  "exclude": ["src/http/generated", "src/behaviors/runtime"],
   "references": [{ "path": "./tsconfig.generated.json" }]
 }
