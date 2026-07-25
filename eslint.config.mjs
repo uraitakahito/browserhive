@@ -12,7 +12,9 @@ export default defineConfig(
     // chromium-server-docker/ is a git submodule with its own lint setup and
     // CI — since 0.5.0 it ships TypeScript (docs-site) that this repo's rules
     // must not police.
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**'],
+    // src/behaviors/runtime/** is browser code bundled by esbuild and excluded
+    // from the tsc project, so the type-aware ESLint rules cannot parse it.
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/behaviors/runtime/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**'],
   },
 
   //

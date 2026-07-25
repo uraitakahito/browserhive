@@ -294,12 +294,16 @@ describe("getStatus handler", () => {
             browserProfile: {
               browserURL: new URL("http://chromium-1:9222"),
               capture: {
-                timeouts: { pageLoadMs: 30000, captureMs: 10000, autoScrollMs: 20000, taskTotalMs: 90000 },
+                timeouts: { pageLoadMs: 30000, captureMs: 10000, taskTotalMs: 90000 },
                 viewport: { width: 1280, height: 800 },
-                autoScroll: {
-                  enabled: true,
-                  stepDelayMs: 250,
-                  maxSteps: 40,
+                behaviors: {
+                  builtins: ["autoscroll", "autofetch"],
+                  timeoutMs: 30000,
+                  allowCustom: false,
+                  options: {
+                    autoscroll: { stepDelayMs: 250, maxSteps: 40, idleTimeMs: 1000 },
+                    autofetch: { maxUrls: 2000 },
+                  },
                   idleTimeMs: 1000,
                   idleTimeoutMs: 15000,
                 },

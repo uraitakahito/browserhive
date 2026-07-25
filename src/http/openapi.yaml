@@ -577,23 +577,57 @@ components:
             the built-in default is `false`).
 
             Has no effect on the `html` / `links` formats.
-        autoScroll:
-          type: boolean
+        behaviors:
+          type: object
+          additionalProperties: false
           description: |
-            When `true`, BrowserHive scrolls the full document height during
-            the capture so scroll-triggered lazy loaders (`loading="lazy"`,
-            IntersectionObserver, `data-src` libraries) fire and their
-            resources are recorded into the WACZ/WARC. The page is scrolled
-            back to the top before screenshots are taken.
+            Per-request behavior override. Behaviors are scripts injected into
+            the page during capture that automate interaction so dynamic
+            resources are archived — the built-in `autoscroll` (scrolls the
+            full height so `loading="lazy"` / IntersectionObserver / `data-src`
+            loaders fire) and `autofetch` (actively fetches every `srcset` /
+            `data-*` candidate so replay is DPR/viewport-complete, e.g. Retina
+            `_2x` variants), plus optional client-supplied custom behaviors.
 
-            When omitted, the server-side default applies (configured via
-            `--auto-scroll` / `BROWSERHIVE_AUTO_SCROLL`; the built-in default
-            is `true`). The pass is bounded by `--auto-scroll-timeout` and
-            `--auto-scroll-max-steps` so infinite-scroll pages cannot hang
-            the worker.
-
-            Most useful with `wacz` (records the lazy resources); also
-            improves `fullPage` screenshots of lazy pages.
+            When omitted, the server default set applies (configured via
+            `--behaviors` / `BROWSERHIVE_BEHAVIORS`; the built-in default is
+            `autoscroll,autofetch`). The whole pass is bounded by
+            `--behavior-timeout` so it cannot hang the worker.
+          properties:
+            builtins:
+              type: array
+              items:
+                type: string
+              description: |
+                Built-in behavior ids to run, in execution order. Replaces the
+                server default enabled set for this capture. An empty array
+                disables all built-ins.
+            options:
+              type: object
+              additionalProperties: true
+              description: |
+                Per-behavior option overrides, keyed by behavior id, merged over
+                the server options — e.g. `{ "autoscroll": { "maxSteps": 60 } }`.
+            custom:
+              type: array
+              description: |
+                Client-supplied custom behaviors. Honoured only when the server
+                is started with `--allow-custom-behaviors`; otherwise ignored.
+              items:
+                type: object
+                additionalProperties: false
+                required: [id, source]
+                properties:
+                  id:
+                    type: string
+                    description: Identifier used in the behavior report.
+                  source:
+                    type: string
+                    description: |
+                      A JavaScript class *expression* implementing the behavior
+                      interface: `class { static id = "…"; static isMatch() {…}
+                      async *run(ctx) {…} }`. Injected into the page and
+                      registered alongside the built-ins.
         resetState:
           oneOf:
             - type: boolean

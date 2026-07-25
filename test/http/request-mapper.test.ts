@@ -297,26 +297,38 @@ describe("captureRequestToTask", () => {
     });
   });
 
-  describe("autoScroll → CaptureTask.autoScroll", () => {
-    it("propagates autoScroll: true to the CaptureTask", () => {
-      const result = captureRequestToTask(baseRequest({ autoScroll: true }));
+  describe("behaviors → CaptureTask.behaviors", () => {
+    it("propagates a builtins override to the CaptureTask", () => {
+      const result = captureRequestToTask(
+        baseRequest({ behaviors: { builtins: ["autofetch"] } }),
+      );
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.autoScroll).toBe(true);
+      expect(result.value.behaviors).toEqual({ builtins: ["autofetch"] });
     });
 
-    it("propagates autoScroll: false to the CaptureTask", () => {
-      const result = captureRequestToTask(baseRequest({ autoScroll: false }));
+    it("propagates options and custom behaviors", () => {
+      const result = captureRequestToTask(
+        baseRequest({
+          behaviors: {
+            options: { autoscroll: { maxSteps: 60 } },
+            custom: [{ id: "x", source: "class {}" }],
+          },
+        }),
+      );
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.autoScroll).toBe(false);
+      expect(result.value.behaviors).toEqual({
+        options: { autoscroll: { maxSteps: 60 } },
+        custom: [{ id: "x", source: "class {}" }],
+      });
     });
 
-    it("omits autoScroll when not provided (server default applies)", () => {
+    it("omits behaviors when not provided (server default applies)", () => {
       const result = captureRequestToTask(baseRequest());
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.autoScroll).toBeUndefined();
+      expect(result.value.behaviors).toBeUndefined();
     });
   });
 

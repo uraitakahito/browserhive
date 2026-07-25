@@ -64,14 +64,14 @@ export const createTestCaptureConfig = (
     ...DEFAULT_CAPTURE_CONFIG.viewport,
     ...overrides.viewport,
   },
-  autoScroll: {
-    ...DEFAULT_CAPTURE_CONFIG.autoScroll,
-    // Off by default in tests: the capture-integration tests assert exact
-    // CDP call sequences (evaluate / screenshot counts) and would shift if an
-    // extra scroll pass ran. autoScroll() has its own unit test, and tests
-    // that want the in-capture path opt in via overrides.autoScroll.enabled.
-    enabled: false,
-    ...overrides.autoScroll,
+  behaviors: {
+    ...DEFAULT_CAPTURE_CONFIG.behaviors,
+    // No built-ins by default in tests: the capture-integration tests assert
+    // exact CDP call sequences (evaluate / screenshot counts) and would shift
+    // if the behavior pass ran. Tests that want behaviors opt in via
+    // overrides.behaviors.builtins.
+    builtins: [],
+    ...overrides.behaviors,
   },
   screenshot: {
     ...DEFAULT_CAPTURE_CONFIG.screenshot,

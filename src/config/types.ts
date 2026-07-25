@@ -5,6 +5,8 @@
  * BrowserHiveConfig > CoordinatorConfig > CaptureConfig
  */
 
+import type { BehaviorConfig } from "../behaviors/types.js";
+
 /** Screenshot configuration compatible with Puppeteer ScreenshotOptions */
 export interface ScreenshotConfig {
   /** Capture full page screenshot */
@@ -107,14 +109,12 @@ export interface CaptureConfig {
     pageLoadMs: number;
     /** Capture operation timeout. */
     captureMs: number;
-    /** Upper bound for the auto-scroll pass (Layer A bound). */
-    autoScrollMs: number;
     /**
      * Layer B safety net — upper bound for the entire `PageCapturer.capture`
      * invocation, applied in `BrowserClient.process`. Must be wider than the
      * sum of the inner Layer A timeouts (newPage + pageLoad + dynamic-content
-     * wait + addStyleTag + dismissBanners + N × capture). Catches any
-     * hang that escapes the per-call wraps inside `PageCapturer.capture`.
+     * wait + addStyleTag + dismissBanners + behaviors + N × capture). Catches
+     * any hang that escapes the per-call wraps inside `PageCapturer.capture`.
      */
     taskTotalMs: number;
   };
@@ -124,23 +124,13 @@ export interface CaptureConfig {
     height: number;
   };
   /**
-   * Auto-scroll behaviour. When enabled, `PageCapturer` scrolls the full
-   * document height during capture so scroll-triggered lazy loaders
-   * (`loading="lazy"`, IntersectionObserver, `data-src` libraries) fire and
-   * their resources are recorded into the WACZ/WARC.
+   * Behavior configuration. The behavior runtime (src/behaviors/runtime/) is
+   * injected into each page and runs the enabled built-ins — `autoscroll`
+   * (scrolls the full height so lazy loaders fire) and `autofetch` (pulls all
+   * srcset/data-* candidates so replay is DPR/viewport-complete) — plus any
+   * client-supplied custom behaviors. Replaces the former native `autoScroll`.
    */
-  autoScroll: {
-    /** Server-wide on/off default. Per-request `autoScroll` overrides it. */
-    enabled: boolean;
-    /** Pause after each viewport-sized scroll step, to let lazy loads start. */
-    stepDelayMs: number;
-    /** Hard cap on scroll steps — guards against infinite-scroll pages. */
-    maxSteps: number;
-    /** `page.waitForNetworkIdle` idle window after the scroll pass. */
-    idleTimeMs: number;
-    /** `page.waitForNetworkIdle` overall timeout. */
-    idleTimeoutMs: number;
-  };
+  behaviors: BehaviorConfig;
   screenshot: ScreenshotConfig;
   /** Custom User-Agent string (uses browser default if undefined) */
   userAgent?: string;

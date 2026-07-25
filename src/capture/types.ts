@@ -9,6 +9,7 @@ import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
 import type { DismissOptions, DismissReport } from "./banner-dismisser.js";
 import type { ResetStateOptions } from "./reset-state.js";
+import type { BehaviorRequest } from "../behaviors/types.js";
 
 /** Capture task representing a single URL to capture */
 export interface CaptureTask {
@@ -53,12 +54,13 @@ export interface CaptureTask {
    */
   fullPage?: boolean;
   /**
-   * Per-request override for the server-wide `CaptureConfig.autoScroll.enabled`
-   * default. When `true`, `PageCapturer` scrolls the full document height
-   * during the capture so scroll-triggered lazy loaders fire and their
-   * resources are recorded. Undefined means "use the server default".
+   * Per-request behavior override. Its `builtins` (if set) replace the server
+   * default enabled set, `options` merge over the server options, and `custom`
+   * behaviors run when the server allows them (`--allow-custom-behaviors`).
+   * Undefined means "use the server behavior defaults". Resolved from the HTTP
+   * `behaviors` field by the request-mapper.
    */
-  autoScroll?: boolean;
+  behaviors?: BehaviorRequest;
   /**
    * Fully-resolved inter-task wipe options. Always present after
    * request-mapper resolution against `CaptureConfig.resetPageState`,

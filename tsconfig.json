@@ -73,6 +73,8 @@
   "include": ["src/**/*", "bin/**/*", "examples/**/*", "test/**/*"],
   // src/http/generated is built as a separate subproject (tsconfig.generated.json)
   // so exactOptionalPropertyTypes can be disabled only for the generated runtime.
-  "exclude": ["src/http/generated"],
+  // src/behaviors/runtime is browser code (window/document/self) bundled by
+  // esbuild (scripts/build-behaviors.mjs), never compiled by tsc.
+  "exclude": ["src/http/generated", "src/behaviors/runtime"],
   "references": [{ "path": "./tsconfig.generated.json" }]
 }
