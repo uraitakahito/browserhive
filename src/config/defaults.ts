@@ -161,6 +161,10 @@ export const DEFAULT_COORDINATOR_CONFIG = {
 /** Default worker-membership discovery settings (DnsRegistry refresh). */
 export const DEFAULT_DISCOVERY_CONFIG: DiscoveryConfig = {
   refreshMs: 10_000,
+  // Absorb the DNS-registration race at boot: ~0.5+1+2+4+4 ≈ 11.5s of
+  // retrying before a genuinely worker-less stack fails fatally.
+  initRetryAttempts: 6,
+  initRetryDelayMs: 500,
 };
 
 export const DEFAULT_BROWSERHIVE_CONFIG = {

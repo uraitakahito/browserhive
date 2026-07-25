@@ -119,6 +119,12 @@ export const createTestBrowserHiveConfig = (
     refreshMs:
       overrides.discovery?.refreshMs ??
       DEFAULT_BROWSERHIVE_CONFIG.discovery.refreshMs,
+    initRetryAttempts:
+      overrides.discovery?.initRetryAttempts ??
+      DEFAULT_BROWSERHIVE_CONFIG.discovery.initRetryAttempts,
+    initRetryDelayMs:
+      overrides.discovery?.initRetryDelayMs ??
+      DEFAULT_BROWSERHIVE_CONFIG.discovery.initRetryDelayMs,
   },
 });
 

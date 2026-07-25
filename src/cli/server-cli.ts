@@ -142,6 +142,10 @@ interface ParsedOptions {
   maxRetryCount: number;
   queuePollIntervalMs: number;
   discoveryRefreshMs: number;
+  /** Boot-time worker-resolve retry attempts. Env BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS. */
+  discoveryInitRetryAttempts: number;
+  /** Base backoff (ms) for the boot-time retry. Env BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS. */
+  discoveryInitRetryDelayMs: number;
   viewportWidth: number;
   viewportHeight: number;
   screenshotFullPage: boolean;
@@ -278,6 +282,8 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     },
     discovery: {
       refreshMs: opts.discoveryRefreshMs,
+      initRetryAttempts: opts.discoveryInitRetryAttempts,
+      initRetryDelayMs: opts.discoveryInitRetryDelayMs,
     },
   };
 };
@@ -390,6 +396,24 @@ export const createProgram = (): Command => {
         .env("BROWSERHIVE_DISCOVERY_REFRESH_MS")
         .default(defaults.discovery.refreshMs)
         .argParser(parseRefreshMs),
+    )
+    .addOption(
+      new Option(
+        "--discovery-init-retry-attempts <n>",
+        "Boot-time only: times to re-resolve worker membership before giving up (absorbs the DNS-registration race). 1 = no retry.",
+      )
+        .env("BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS")
+        .default(defaults.discovery.initRetryAttempts)
+        .argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--discovery-init-retry-delay-ms <ms>",
+        "Base delay for the boot-time membership-retry exponential backoff (capped internally)",
+      )
+        .env("BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS")
+        .default(defaults.discovery.initRetryDelayMs)
+        .argParser(parsePositiveInt),
     )
     .addOption(
       new Option("--viewport-width <px>", "Viewport width in pixels")
