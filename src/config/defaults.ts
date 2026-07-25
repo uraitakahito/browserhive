@@ -82,11 +82,11 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   timeouts: {
     pageLoadMs: 30000,
     captureMs: 10000,
-    autoScrollMs: 20000,
     // Layer B outer task budget. Sized to be larger than the worst-case
     // sum of inner Layer A bounds in PageCapturer.capture:
-    //   pageLoad(30s) + dynamic-wait(5s) + addStyleTag(5s) + autoScroll(20s)
-    //   + dismissBanners(5s) + 3 × capture(10s) = 95s. (newPage / page.close
+    //   pageLoad(30s) + dynamic-wait(5s) + addStyleTag(5s) + dismissBanners(5s)
+    //   + behaviors(timeout 30s + idle 15s = 45s) + 3 × capture(10s) = 120s.
+    //   (newPage / page.close
     //   are no longer in the sum: BrowserClient holds a single Chromium tab
     //   for the worker's whole lifetime and capture only navigates it. The
     //   3 × capture term covers PNG + WebP + HTML in the all-formats-on case;
@@ -105,12 +105,18 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     width: 1280,
     height: 800,
   },
-  // Auto-scroll defaults. Enabled so lazy-loaded resources are captured by
-  // default; bounded by maxSteps + timeouts.autoScrollMs so it cannot hang.
-  autoScroll: {
-    enabled: true,
-    stepDelayMs: 250,
-    maxSteps: 40,
+  // Behavior defaults. autoscroll (lazy-load) + autofetch (srcset/data-*
+  // completeness for DPR/viewport-correct replay) run by default. Bounded by
+  // behaviors.timeoutMs (yield-checkpointed) so they cannot hang. Custom
+  // client behaviors are off by default (opt in with --allow-custom-behaviors).
+  behaviors: {
+    builtins: ["autoscroll", "autofetch"],
+    timeoutMs: 30000,
+    allowCustom: false,
+    options: {
+      autoscroll: { stepDelayMs: 250, maxSteps: 40, idleTimeMs: 1000 },
+      autofetch: { maxUrls: 2000 },
+    },
     idleTimeMs: 1000,
     idleTimeoutMs: 15000,
   },

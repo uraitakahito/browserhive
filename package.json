@@ -8,7 +8,8 @@
   "main": "index.js",
   "type": "module",
   "//scripts": {
-    "build": "Compile TypeScript via `tsc -b` (composite build — picks up tsconfig.generated.json through the `references` array in tsconfig.json). Output goes to dist/. The `prebuild` lifecycle hook runs `openapi:prep` first.",
+    "build": "Compile TypeScript via `tsc -b` (composite build — picks up tsconfig.generated.json through the `references` array in tsconfig.json), then `build:behaviors`. Output goes to dist/. The `prebuild` lifecycle hook runs `openapi:prep` first.",
+    "build:behaviors": "Bundle src/behaviors/runtime/ (browser-side behavior scripts using window/document/self) into a single injectable IIFE at dist/src/behaviors/runtime.js via esbuild. Runs AFTER tsc and writes under dist/src so the Docker runtime stage (which only copies dist/src) ships it. The runtime dir is excluded from the tsc build.",
     "build:examples": "Dev-only build for examples/ (data-client). tsconfig.build.json ships only src + bin, so `npm run build` never emits dist/examples — this compiles src + bin + examples via tsconfig.examples.json so `node dist/examples/data-client.js` resolves its `../src/*.js` imports against dist/src. The `prebuild:examples` hook runs `openapi:prep` first (examples import src/http/generated). Requires a running server (host dev loop or the container stack) to accept requests.",
     "test": "Vitest test runner in single-run mode (see vitest.config.mts for setup). The `pretest` lifecycle hook runs `openapi:prep` first so generated TS is fresh.",
     "lint": "Top-level orchestrator that runs both `lint:source` (ESLint) and `lint:openapi` (Redocly). Has no `prelint` hook — see the `pre*/post*` notes below.",
@@ -36,7 +37,8 @@
     "prelint:source": "npm lifecycle hook for `lint:source` — runs `openapi:prep`. Fires automatically; see the `pre*/post* hooks` note."
   },
   "scripts": {
-    "build": "tsc -b tsconfig.build.json",
+    "build": "tsc -b tsconfig.build.json && npm run build:behaviors",
+    "build:behaviors": "node scripts/build-behaviors.mjs",
     "build:examples": "tsc -b tsconfig.examples.json",
     "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
@@ -90,6 +92,7 @@
     "@apidevtools/swagger-parser": "Pre-dereferences openapi.yaml at build time (scripts/openapi-bundle.mjs). The output JSON is shipped instead of the YAML, so this is build-time only — not required at runtime.",
     "@hey-api/openapi-ts": "Generates TypeScript types, operationId-keyed SDK functions, and a fetch-based client from openapi.yaml. Output is src/http/generated/. Replaces openapi-typescript + openapi-fetch (one tool for both type and runtime client).",
     "@redocly/cli": "OpenAPI linter / preview / docs generator. Configured via redocly.yaml at the repo root; surfaced via `lint:openapi` (a sibling of `lint:source` under the top-level `lint` orchestrator) and the openapi.yml CI workflow.",
+    "esbuild": "Bundles the browser-side behavior runtime (src/behaviors/runtime/) into one injectable IIFE (see the build:behaviors script). Build-time only — the prebuilt bundle ships in dist/src, so esbuild is not needed in the Docker runtime stage.",
     "@types/estree": "Required for TypeScript type resolution. Transitive dependency from eslint and rollup (via vite).",
     "@types/json-schema": "Required for TypeScript type resolution. Transitive dependency from @eslint/core.",
     "@types/node": "Required for TypeScript type resolution. Transitive dependency from vitest and vite.",
@@ -136,6 +139,7 @@
     "@types/node": "^25.6.2",
     "@types/yauzl": "^3.4.0",
     "aws-sdk-client-mock": "^4.1.0",
+    "esbuild": "^0.28.1",
     "eslint": "^10.2.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",

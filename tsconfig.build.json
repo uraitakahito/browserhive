@@ -6,6 +6,6 @@
   // package, which is absent from the runtime.
   "extends": "./tsconfig.json",
   "include": ["src/**/*", "bin/**/*"],
-  "exclude": ["src/http/generated"],
+  "exclude": ["src/http/generated", "src/behaviors/runtime"],
   "references": [{ "path": "./tsconfig.generated.json" }]
 }

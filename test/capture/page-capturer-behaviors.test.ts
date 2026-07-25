@@ -1,16 +1,21 @@
 /**
- * PageCapturer integration test for the auto-scroll wiring.
+ * PageCapturer integration test for the behavior wiring.
  *
- * `autoScroll` is the only step that calls `page.waitForNetworkIdle`, so we
- * use that call as the signal for "the scroll pass ran". The scroll loop
- * itself is covered by auto-scroll.test.ts; here we only assert the gating:
- * server default, the per-request override, and the disabled path.
+ * `runBehaviors` is the only capture step that calls `page.waitForNetworkIdle`,
+ * so that call is the signal for "the behavior pass ran". runBehaviors returns
+ * early (no evaluate / no waitForNetworkIdle) when nothing is enabled. Here we
+ * assert the gating: server default enabled set, the per-request override, and
+ * the disabled path. The behaviors themselves run in-page (bundled runtime) and
+ * are exercised by the e2e suite.
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Page } from "puppeteer";
 import { PageCapturer } from "../../src/capture/page-capturer.js";
 import type { CaptureTask } from "../../src/capture/types.js";
-import { createTestArtifactStore, createTestCaptureConfig } from "../helpers/config.js";
+import {
+  createTestArtifactStore,
+  createTestCaptureConfig,
+} from "../helpers/config.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 interface MockPage {
@@ -35,7 +40,7 @@ const buildMockPage = (): MockPage => ({
 
 const asPage = (page: MockPage): Page => page as unknown as Page;
 
-// No format work — we only care whether the autoScroll pass runs.
+// No format work — we only care whether the behavior pass runs.
 const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-task",
   labels: ["test"],
@@ -47,35 +52,43 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   ...overrides,
 });
 
-describe("PageCapturer.capture — autoScroll wiring", () => {
-  it("runs the scroll pass when the server default enables autoScroll", async () => {
-    const config = createTestCaptureConfig({ autoScroll: { enabled: true } });
+describe("PageCapturer.capture — behavior wiring", () => {
+  it("runs the behavior pass when the server default enables built-ins", async () => {
+    const config = createTestCaptureConfig({
+      behaviors: { builtins: ["autoscroll"] },
+    });
     const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
     await capturer.capture(asPage(page), buildTask(), 0);
     expect(page.waitForNetworkIdle).toHaveBeenCalledTimes(1);
   });
 
-  it("skips the scroll pass when autoScroll is disabled", async () => {
-    // createTestCaptureConfig disables autoScroll by default.
+  it("skips the behavior pass when no built-ins are enabled", async () => {
+    // createTestCaptureConfig disables all built-ins by default.
     const capturer = new PageCapturer(createTestCaptureConfig(), createTestArtifactStore());
     const page = buildMockPage();
     await capturer.capture(asPage(page), buildTask(), 0);
     expect(page.waitForNetworkIdle).not.toHaveBeenCalled();
   });
 
-  it("per-request task.autoScroll=true overrides a disabled server default", async () => {
+  it("per-request behaviors override enables built-ins over a disabled default", async () => {
     const capturer = new PageCapturer(createTestCaptureConfig(), createTestArtifactStore());
     const page = buildMockPage();
-    await capturer.capture(asPage(page), buildTask({ autoScroll: true }), 0);
+    await capturer.capture(
+      asPage(page),
+      buildTask({ behaviors: { builtins: ["autoscroll"] } }),
+      0,
+    );
     expect(page.waitForNetworkIdle).toHaveBeenCalledTimes(1);
   });
 
-  it("per-request task.autoScroll=false overrides an enabled server default", async () => {
-    const config = createTestCaptureConfig({ autoScroll: { enabled: true } });
+  it("per-request empty builtins override disables an enabled default", async () => {
+    const config = createTestCaptureConfig({
+      behaviors: { builtins: ["autoscroll"] },
+    });
     const capturer = new PageCapturer(config, createTestArtifactStore());
     const page = buildMockPage();
-    await capturer.capture(asPage(page), buildTask({ autoScroll: false }), 0);
+    await capturer.capture(asPage(page), buildTask({ behaviors: { builtins: [] } }), 0);
     expect(page.waitForNetworkIdle).not.toHaveBeenCalled();
   });
 });

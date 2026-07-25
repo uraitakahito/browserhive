@@ -15,6 +15,7 @@ import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { WaczPackager } from "../storage/wacz/index.js";
+import { runBehaviors } from "../behaviors/index.js";
 import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
 import { captureStatus } from "./capture-status.js";
 import {
@@ -409,51 +410,6 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
 };
 
 /**
- * Scroll the full document height so scroll-triggered lazy loaders
- * (`loading="lazy"`, IntersectionObserver, `data-src` libraries) fire and
- * their resources are fetched while the NetworkRecorder is attached — without
- * this, below-the-fold lazy images are never requested and never make it into
- * the WACZ/WARC.
- *
- * Behaviour: scroll one viewport at a time, pausing `stepDelayMs` after each
- * step so lazy loads can start; stop at the bottom (scrollY stops advancing)
- * or after `maxSteps` (the infinite-scroll guard); return to the top so a
- * follow-up screenshot is framed from the top; then `waitForNetworkIdle` so
- * the freshly-started fetches land in the WARC before it is finalized.
- *
- * The whole pass is bounded by the caller's `withTimeout(timeouts.autoScrollMs)`.
- * `waitForNetworkIdle` is best-effort (`.catch`) — a page that never idles
- * must degrade to "captured what we have", not fail the capture.
- */
-export const autoScroll = async (
-  page: Page,
-  opts: Pick<
-    CaptureConfig["autoScroll"],
-    "stepDelayMs" | "maxSteps" | "idleTimeMs" | "idleTimeoutMs"
-  >,
-): Promise<void> => {
-  await page.evaluate(
-    async ({ stepDelayMs, maxSteps }) => {
-      const sleep = (ms: number): Promise<void> =>
-        new Promise((resolve) => setTimeout(resolve, ms));
-      let last = -1;
-      let steps = 0;
-      while (steps++ < maxSteps) {
-        window.scrollBy(0, window.innerHeight);
-        await sleep(stepDelayMs);
-        if (window.scrollY === last) break; // reached the bottom — stop
-        last = window.scrollY;
-      }
-      window.scrollTo(0, 0); // back to the top for the screenshot
-    },
-    { stepDelayMs: opts.stepDelayMs, maxSteps: opts.maxSteps },
-  );
-  await page
-    .waitForNetworkIdle({ idleTime: opts.idleTimeMs, timeout: opts.idleTimeoutMs })
-    .catch(() => undefined); // best-effort: a never-idle page must not fail the capture
-};
-
-/**
  * Wipe per-task state from the worker's persistent page so the next task
  * starts on a clean slate.
  *
@@ -742,23 +698,31 @@ export class PageCapturer {
         dismissReport = await dismissBanners(page, task.dismissOptions);
       }
 
-      // Auto-scroll AFTER banner dismissal (so sticky overlays are gone) and
-      // BEFORE any format capture (so lazy resources are in the WARC and the
-      // page is scrolled back to the top for screenshots). The NetworkRecorder
-      // is already attached, so scroll-triggered fetches are recorded as-is.
-      // Same redirect/SPA hazard as the other awaits — route through
-      // runOnStableContext, bounded by timeouts.autoScrollMs.
-      if (task.autoScroll ?? this.config.autoScroll.enabled) {
-        await runOnStableContext(
-          page,
-          () =>
-            withTimeout(
-              autoScroll(page, this.config.autoScroll),
-              this.config.timeouts.autoScrollMs,
-              `autoScroll for ${task.url}`,
-            ),
-          `autoScroll for ${task.url}`,
-          this.config.timeouts.autoScrollMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+      // Behaviors AFTER banner dismissal (so sticky overlays are gone) and
+      // BEFORE any format capture (so lazy/srcset resources are in the WARC and
+      // the page is scrolled back to the top for screenshots). The injected
+      // runtime runs the enabled built-ins (autoscroll, autofetch) plus any
+      // client custom behaviors. The NetworkRecorder is already attached, so
+      // behavior-triggered fetches are recorded as-is. Same redirect/SPA hazard
+      // as the other awaits — route through runOnStableContext. In-page work is
+      // bounded by behaviors.timeoutMs; the network-idle settle by idleTimeoutMs.
+      const behaviorBudgetMs =
+        this.config.behaviors.timeoutMs + this.config.behaviors.idleTimeoutMs;
+      const behaviorReport = await runOnStableContext(
+        page,
+        () =>
+          withTimeout(
+            runBehaviors(page, this.config.behaviors, task.behaviors),
+            behaviorBudgetMs,
+            `behaviors for ${task.url}`,
+          ),
+        `behaviors for ${task.url}`,
+        behaviorBudgetMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+      );
+      if (behaviorReport) {
+        logger.debug(
+          { taskId: task.taskId, behaviorReport },
+          "behaviors completed",
         );
       }
 

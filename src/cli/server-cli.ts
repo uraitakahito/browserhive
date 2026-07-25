@@ -70,6 +70,18 @@ const parsePositiveInt = (value: string): number => {
 };
 
 /**
+ * Parse the `--behaviors` comma list into ordered, de-duplicated ids. An empty
+ * or whitespace-only string yields `[]` (all built-ins disabled).
+ */
+const parseBehaviorList = (value: string): string[] => {
+  const ids = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return [...new Set(ids)];
+};
+
+/**
  * DNS membership refresh interval. Enforces a floor so a tiny value cannot
  * hammer DNS + trigger constant reconciles (`parsePositiveInt` alone allows
  * any positive integer).
@@ -136,14 +148,19 @@ interface ParsedOptions {
   screenshotQuality?: number;
   rejectDuplicateUrls: boolean;
   /**
-   * Auto-scroll the full page during capture so scroll-triggered lazy
-   * loaders fire and their resources are recorded. Negate with
-   * `--no-auto-scroll`; env `BROWSERHIVE_AUTO_SCROLL` resolved post-parse
-   * via `resolveBoolWithEnvDefaultTrue` (same contract as `resetCookies`).
+   * Comma-separated built-in behavior ids run per capture, in execution order
+   * (e.g. `autoscroll,autofetch`). An empty string disables all built-ins.
+   * Env `BROWSERHIVE_BEHAVIORS` (resolved by commander `.env()`).
    */
-  autoScroll: boolean;
-  /** Upper bound for the auto-scroll pass (ms). Env BROWSERHIVE_AUTO_SCROLL_TIMEOUT_MS. */
-  autoScrollTimeout: number;
+  behaviors: string;
+  /** Overall wall-clock budget for the behavior pass (ms). Env BROWSERHIVE_BEHAVIOR_TIMEOUT_MS. */
+  behaviorTimeout: number;
+  /**
+   * Accept client-supplied custom behavior JS (request `behaviors.custom`).
+   * Off by default. Env `BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS` resolved
+   * post-parse via `resolveBoolWithEnv`.
+   */
+  allowCustomBehaviors: boolean;
   /**
    * Commander auto-generates `--no-reset-cookies` for any boolean option;
    * default `true` flips to `false` when the negation flag is present. Env
@@ -218,21 +235,22 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     timeouts: {
       pageLoadMs: opts.pageLoadTimeout,
       captureMs: opts.captureTimeout,
-      autoScrollMs: opts.autoScrollTimeout,
       taskTotalMs: opts.taskTimeout,
     },
     viewport: {
       width: opts.viewportWidth,
       height: opts.viewportHeight,
     },
-    // enabled / timeout come from CLI+env; the loop tuning params are
-    // server-wide defaults (not currently exposed as individual flags).
-    autoScroll: {
-      enabled: opts.autoScroll,
-      stepDelayMs: DEFAULT_CAPTURE_CONFIG.autoScroll.stepDelayMs,
-      maxSteps: DEFAULT_CAPTURE_CONFIG.autoScroll.maxSteps,
-      idleTimeMs: DEFAULT_CAPTURE_CONFIG.autoScroll.idleTimeMs,
-      idleTimeoutMs: DEFAULT_CAPTURE_CONFIG.autoScroll.idleTimeoutMs,
+    // Enabled built-in set + timeout + allowCustom come from CLI+env; the
+    // per-behavior tuning params (autoscroll steps, autofetch maxUrls) and the
+    // idle-settle windows are server-wide defaults.
+    behaviors: {
+      builtins: parseBehaviorList(opts.behaviors),
+      timeoutMs: opts.behaviorTimeout,
+      allowCustom: opts.allowCustomBehaviors,
+      options: DEFAULT_CAPTURE_CONFIG.behaviors.options,
+      idleTimeMs: DEFAULT_CAPTURE_CONFIG.behaviors.idleTimeMs,
+      idleTimeoutMs: DEFAULT_CAPTURE_CONFIG.behaviors.idleTimeoutMs,
     },
     screenshot: {
       fullPage: opts.screenshotFullPage,
@@ -400,19 +418,27 @@ export const createProgram = (): Command => {
       "Reject capture requests for URLs already in the queue (env: BROWSERHIVE_REJECT_DUPLICATE_URLS)",
       false,
     )
-    .option(
-      "--auto-scroll",
-      "Scroll the full page during capture so lazy-loaded resources are recorded (env: BROWSERHIVE_AUTO_SCROLL). Use --no-auto-scroll to disable. Default: on.",
-      defaultCapture.autoScroll.enabled,
+    .addOption(
+      new Option(
+        "--behaviors <list>",
+        "Comma-separated built-in behaviors run per capture, in order: autoscroll (lazy-load), autofetch (srcset/data-* completeness). Empty string disables all built-ins.",
+      )
+        .env("BROWSERHIVE_BEHAVIORS")
+        .default(defaultCapture.behaviors.builtins.join(",")),
     )
     .addOption(
       new Option(
-        "--auto-scroll-timeout <ms>",
-        "Upper bound for the auto-scroll pass in milliseconds",
+        "--behavior-timeout <ms>",
+        "Overall wall-clock budget for the behavior pass in milliseconds",
       )
-        .env("BROWSERHIVE_AUTO_SCROLL_TIMEOUT_MS")
-        .default(defaultCapture.timeouts.autoScrollMs)
+        .env("BROWSERHIVE_BEHAVIOR_TIMEOUT_MS")
+        .default(defaultCapture.behaviors.timeoutMs)
         .argParser(parsePositiveInt),
+    )
+    .option(
+      "--allow-custom-behaviors",
+      "Accept client-supplied custom behavior JavaScript in the request `behaviors.custom` field (env: BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS). Default: off.",
+      defaultCapture.behaviors.allowCustom,
     )
     // Negation-only flags: commander generates `opts.resetCookies` from the
     // `--no-` form, default `true`. Pairing with env (BROWSERHIVE_RESET_COOKIES /
@@ -704,9 +730,9 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
       "BROWSERHIVE_REJECT_DUPLICATE_URLS",
       program,
     ),
-    autoScroll: resolveBoolWithEnvDefaultTrue(
-      opts.autoScroll,
-      "BROWSERHIVE_AUTO_SCROLL",
+    allowCustomBehaviors: resolveBoolWithEnv(
+      opts.allowCustomBehaviors,
+      "BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS",
       program,
     ),
     resetCookies: resolveBoolWithEnvDefaultTrue(
@@ -771,10 +797,13 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       timeouts: {
         pageLoadMs: capture.timeouts.pageLoadMs,
         captureMs: capture.timeouts.captureMs,
-        autoScrollMs: capture.timeouts.autoScrollMs,
         taskTotalMs: capture.timeouts.taskTotalMs,
       },
-      autoScroll: { enabled: capture.autoScroll.enabled, maxSteps: capture.autoScroll.maxSteps },
+      behaviors: {
+        builtins: capture.behaviors.builtins,
+        timeoutMs: capture.behaviors.timeoutMs,
+        allowCustom: capture.behaviors.allowCustom,
+      },
       maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,
       viewport: {
