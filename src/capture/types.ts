@@ -9,7 +9,7 @@ import type { CaptureStatus } from "./capture-status.js";
 import type { ErrorType } from "./error-type.js";
 import type { DismissOptions, DismissReport } from "./banner-dismisser.js";
 import type { ResetStateOptions } from "./reset-state.js";
-import type { BehaviorRequest } from "../behaviors/types.js";
+import type { BehaviorRequest, BehaviorRunReport } from "../behaviors/types.js";
 
 /** Capture task representing a single URL to capture */
 export interface CaptureTask {
@@ -127,6 +127,13 @@ export interface CaptureResult {
   workerIndex: number;
   /** Banner dismissal report (only set when `task.dismissBanners` is true) */
   dismissReport?: DismissReport;
+  /**
+   * Behavior run report — which behaviors ran, their step counts, durations,
+   * and whether the pass hit the wall-clock deadline. Only set when at least
+   * one behavior was enabled for the task. Surfaced in the "Task completed"
+   * worker log line (see worker-loop.ts).
+   */
+  behaviorReport?: BehaviorRunReport;
 }
 
 /** A single anchor link extracted from a captured page. */

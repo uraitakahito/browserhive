@@ -28,12 +28,24 @@ interface MockPage {
   waitForNetworkIdle: ReturnType<typeof vi.fn>;
 }
 
+const BEHAVIOR_REPORT = {
+  ran: [{ id: "autoscroll", steps: 2, ms: 5 }],
+  timedOut: false,
+};
+
 const buildMockPage = (): MockPage => ({
   setViewport: vi.fn().mockResolvedValue(undefined),
   setUserAgent: vi.fn().mockResolvedValue(undefined),
   setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
   goto: vi.fn().mockResolvedValue({ status: () => 200, statusText: () => "OK" }),
-  evaluate: vi.fn().mockResolvedValue(undefined),
+  // The behavior run is the only evaluate whose arg carries `enabled`; return a
+  // report for it so the result-attachment path is exercised, undefined else.
+  evaluate: vi.fn().mockImplementation((_fn: unknown, arg?: unknown) => {
+    if (arg !== null && typeof arg === "object" && "enabled" in arg) {
+      return Promise.resolve(BEHAVIOR_REPORT);
+    }
+    return Promise.resolve(undefined);
+  }),
   addStyleTag: vi.fn().mockResolvedValue(undefined),
   waitForNetworkIdle: vi.fn().mockResolvedValue(undefined),
 });
@@ -90,5 +102,22 @@ describe("PageCapturer.capture — behavior wiring", () => {
     const page = buildMockPage();
     await capturer.capture(asPage(page), buildTask({ behaviors: { builtins: [] } }), 0);
     expect(page.waitForNetworkIdle).not.toHaveBeenCalled();
+  });
+
+  it("attaches the behaviorReport to the result when behaviors run", async () => {
+    const config = createTestCaptureConfig({
+      behaviors: { builtins: ["autoscroll"] },
+    });
+    const capturer = new PageCapturer(config, createTestArtifactStore());
+    const page = buildMockPage();
+    const result = await capturer.capture(asPage(page), buildTask(), 0);
+    expect(result.behaviorReport).toEqual(BEHAVIOR_REPORT);
+  });
+
+  it("omits the behaviorReport when no behaviors run", async () => {
+    const capturer = new PageCapturer(createTestCaptureConfig(), createTestArtifactStore());
+    const page = buildMockPage();
+    const result = await capturer.capture(asPage(page), buildTask(), 0);
+    expect(result.behaviorReport).toBeUndefined();
   });
 });

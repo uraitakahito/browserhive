@@ -57,6 +57,7 @@ const logTaskCompleted = (
       ...(result.waczLocation && { waczLocation: result.waczLocation }),
       ...(result.waczStats && { waczStats: result.waczStats }),
       ...(result.dismissReport && { dismissReport: result.dismissReport }),
+      ...(result.behaviorReport && { behaviorReport: result.behaviorReport }),
     },
     "Task completed",
   );
