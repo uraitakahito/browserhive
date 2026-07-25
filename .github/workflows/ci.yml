@@ -7,9 +7,9 @@ name: ci
 # surface), ESLint, and the unit tests. The heavier black-box e2e suite stays on
 # manual dispatch (see e2e.yml); ESLint annotations stay on reviewdog.yml.
 #
-# GitHub-hosted Linux, no submodules: none of these steps need the `meadow`
-# submodule (only test/e2e imports it, and `npm test` runs the unit project) —
-# the same install pattern reviewdog.yml relies on.
+# GitHub-hosted Linux. Submodules are checked out (public repos, default token)
+# because ESLint type-checks test/e2e/*, which imports the `meadow` submodule —
+# without it those files resolve to `any` and the type-aware rules error.
 
 on:
   pull_request:
@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
