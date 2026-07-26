@@ -94,6 +94,7 @@ const submitRequest = async (
   dismissBanners: boolean,
   acceptLanguage: string | undefined,
   viewport: { width: number; height: number } | undefined,
+  deviceScaleFactor: number | undefined,
   fullPage: boolean | undefined,
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult> => {
@@ -111,6 +112,7 @@ const submitRequest = async (
     dismissBanners,
     ...(acceptLanguage !== undefined && { acceptLanguage }),
     ...(viewport !== undefined && { viewport }),
+    ...(deviceScaleFactor !== undefined && { deviceScaleFactor }),
     ...(fullPage !== undefined && { fullPage }),
     ...(custom.length > 0 && { behaviors: { custom } }),
   };
@@ -156,6 +158,7 @@ const submitAll = async (
   dismissBanners: boolean,
   acceptLanguage: string | undefined,
   viewport: { width: number; height: number } | undefined,
+  deviceScaleFactor: number | undefined,
   fullPage: boolean | undefined,
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult[]> => {
@@ -169,6 +172,7 @@ const submitAll = async (
       dismissBanners,
       acceptLanguage,
       viewport,
+      deviceScaleFactor,
       fullPage,
       selectBehaviors,
     );
@@ -246,6 +250,7 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     options.dismissBanners ?? false,
     options.acceptLanguage,
     viewport,
+    options.deviceScaleFactor,
     options.fullPage,
     (host) => selectForHost(registry, host),
   );

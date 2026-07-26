@@ -129,6 +129,25 @@ node dist/examples/data-client.js --data data/apple.yaml --wacz --behaviors-vers
 `autofetch` 等）はサーバ自身の `--behaviors` 設定に委ね、クライアントが誤って
 無効化しないようにする。
 
+### Retina（2x）忠実度 — DPR 2 で撮る
+
+一部のサイト（例: `apple.com`）は**デバイスピクセル比ごとに 1 変種だけ**を
+レンダリングする: スライドの `<img>` に `srcset` は無く、URL を
+`window.devicePixelRatio` から決める。既定の DPR-1 撮影では 1x しか取得されず、
+Retina 再生が要求する `2x` がアーカイブに無いため画像が黒くなる。
+
+**DPR 2 で撮る**とブラウザ自身が `2x` を取得する:
+
+```sh
+node dist/examples/data-client.js --data data/apple.yaml --wacz --device-scale-factor 2
+```
+
+またはサーバ既定を `BROWSERHIVE_DEVICE_SCALE_FACTOR=2` /
+`--device-scale-factor 2` にする。DPR 2 では PNG / WebP スクリーンショットの画素
+寸法も 2 倍になる点に注意。各変種は DPR 固有でハイドレーション後に DOM から
+消えるため、1 回のキャプチャで **1x と 2x の両方**を確実に保持することはできない
+— 両方必要なら DPR ごとに 2 回撮ること。
+
 ## behavior レポート
 
 behavior が 1 つでも実行されると、完了タスクのサーバログ行に `behaviorReport` が入る:

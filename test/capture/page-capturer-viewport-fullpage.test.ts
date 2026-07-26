@@ -97,6 +97,7 @@ describe("PageCapturer.capture — viewport override", () => {
     expect(page.setViewport).toHaveBeenCalledWith({
       width: 1920,
       height: 1080,
+      deviceScaleFactor: 1,
     });
   });
 
@@ -113,6 +114,43 @@ describe("PageCapturer.capture — viewport override", () => {
     expect(page.setViewport).toHaveBeenCalledWith({
       width: 1280,
       height: 800,
+      deviceScaleFactor: 1,
+    });
+  });
+
+  it("uses task.deviceScaleFactor when present (overrides config DPR)", async () => {
+    const config = createTestCaptureConfig({
+      viewport: { width: 1280, height: 800, deviceScaleFactor: 1 },
+    });
+    const capturer = new PageCapturer(config, store);
+    const page = buildMockPage();
+
+    await capturer.capture(
+      asPage(page),
+      buildTask({ deviceScaleFactor: 2 }),
+      0,
+    );
+
+    expect(page.setViewport).toHaveBeenCalledWith({
+      width: 1280,
+      height: 800,
+      deviceScaleFactor: 2,
+    });
+  });
+
+  it("falls back to config.viewport.deviceScaleFactor when task DPR is absent", async () => {
+    const config = createTestCaptureConfig({
+      viewport: { width: 1280, height: 800, deviceScaleFactor: 2 },
+    });
+    const capturer = new PageCapturer(config, store);
+    const page = buildMockPage();
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
+    expect(page.setViewport).toHaveBeenCalledWith({
+      width: 1280,
+      height: 800,
+      deviceScaleFactor: 2,
     });
   });
 });

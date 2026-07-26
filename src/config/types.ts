@@ -122,6 +122,15 @@ export interface CaptureConfig {
   viewport: {
     width: number;
     height: number;
+    /**
+     * Device pixel ratio (`window.devicePixelRatio`) the capture browser
+     * renders at. `1` is a normal display; `2` is Retina, which makes the page
+     * request the `2x` srcset / responsive-image candidates — the fix for
+     * JS carousels (e.g. apple.com TV+) whose slides have no srcset and compute
+     * their image URL from the DPR, so the `2x` variant is unreachable at DPR 1.
+     * Also scales PNG / WebP screenshots by the same factor.
+     */
+    deviceScaleFactor: number;
   };
   /**
    * Behavior configuration. The behavior runtime (src/behaviors/runtime/) is
