@@ -9,6 +9,7 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 |---|---|
 | `--port <port>`<code class="env">BROWSERHIVE_PORT</code> | 整数(1–65535) |
 | `--browser-url <urls...>`<code class="env">BROWSERHIVE_BROWSER_URLS</code> | カンマ区切りリスト(必須) |
+| `--slow-mo <ms>`<code class="env">BROWSERHIVE_SLOW_MO_MS</code> | 0 以上の整数(既定 `0`) — 各 CDP 操作の間に入れる遅延。headless の描画を観察するとき用。接続時に決まるため変更には再作成が必要 |
 | `--s3-endpoint <url>`<code class="env">BROWSERHIVE_S3_ENDPOINT</code> | URL(必須) |
 | `--s3-region <region>`<code class="env">BROWSERHIVE_S3_REGION</code> | 文字列(既定 `us-east-1`) |
 | `--s3-bucket <name>`<code class="env">BROWSERHIVE_S3_BUCKET</code> | 文字列(必須) |
@@ -22,8 +23,15 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--max-retry-count <n>`<code class="env">BROWSERHIVE_MAX_RETRY_COUNT</code> | 非負整数 |
 | `--queue-poll-interval-ms <ms>`<code class="env">BROWSERHIVE_QUEUE_POLL_INTERVAL_MS</code> | 正の整数 |
 | `--discovery-refresh-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_REFRESH_MS</code> | ミリ秒の整数(既定 `10000`・最小 `1000`) — worker membership を DNS から再解決する間隔 |
+| `--discovery-init-retry-attempts <n>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS</code> | 正の整数(既定 `6`) — 起動時の worker 解決リトライ回数(DNS 登録レースの吸収) |
+| `--discovery-init-retry-delay-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS</code> | 正の整数(既定 `500`) — 同リトライの初回バックオフ |
 | `--viewport-width <px>`<code class="env">BROWSERHIVE_VIEWPORT_WIDTH</code> | 正の整数(サーバ既定。リクエストの `viewport.width` が優先) |
 | `--viewport-height <px>`<code class="env">BROWSERHIVE_VIEWPORT_HEIGHT</code> | 正の整数(サーバ既定。リクエストの `viewport.height` が優先) |
+| `--device-scale-factor <n>`<code class="env">BROWSERHIVE_DEVICE_SCALE_FACTOR</code> | 正の整数(既定 `1`) — 描画時の DPR。`2` で Retina 相当。`multipass` では無視される |
+| `--archive-mode <mode>`<code class="env">BROWSERHIVE_ARCHIVE_MODE</code> | `single-pass` または `multipass`(既定 `single-pass`) — `multipass` は DPR 1/2 の 2 パスを 1 つの WACZ に、キャッシュ無効で記録 |
+| `--behaviors <list>`<code class="env">BROWSERHIVE_BEHAVIORS</code> | カンマ区切りの behavior id(既定 `autoscroll,autofetch`)。空文字で全 built-in を無効化 |
+| `--behavior-timeout <ms>`<code class="env">BROWSERHIVE_BEHAVIOR_TIMEOUT_MS</code> | 正の整数(既定 `30000`) — behavior パス全体の上限 |
+| `--allow-custom-behaviors`<code class="env">BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS</code> | `"true"`/`"1"` または `"false"`/`"0"`(既定 `false`) — リクエストの `behaviors.custom` を受理する |
 | `--screenshot-full-page`<code class="env">BROWSERHIVE_SCREENSHOT_FULL_PAGE</code> | `"true"`/`"1"` または `"false"`/`"0"`(サーバ既定。リクエストの `fullPage` が優先) |
 | `--screenshot-quality <n>`<code class="env">BROWSERHIVE_SCREENSHOT_QUALITY</code> | 整数(1–100) |
 | `--reject-duplicate-urls`<code class="env">BROWSERHIVE_REJECT_DUPLICATE_URLS</code> | `"true"`/`"1"` または `"false"`/`"0"` |
@@ -39,4 +47,4 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--tls-cert <path>`<code class="env">BROWSERHIVE_TLS_CERT</code> | パス |
 | `--tls-key <path>`<code class="env">BROWSERHIVE_TLS_KEY</code> | パス |
 
-`data-client` の例は 2 つの環境変数を受け付ける: `BROWSERHIVE_SERVER`(既定 `http://localhost:8080`)と `BROWSERHIVE_TLS_CA_CERT`(情報提供用。実際の CA ピン留めは `NODE_EXTRA_CA_CERTS` を使う)。ジョブ単位のフラグ(`--data`、`--png`、`--webp`、`--html`、`--links`、`--mhtml`、`--wacz`、`--limit`、`--dismiss-banners`、`--accept-language`、`--viewport-width`、`--viewport-height`、`--full-page`)には意図的に env 版が無い。
+`data-client` の例は 2 つの環境変数を受け付ける: `BROWSERHIVE_SERVER`(既定 `http://localhost:8080`)と `BROWSERHIVE_TLS_CA_CERT`(情報提供用。実際の CA ピン留めは `NODE_EXTRA_CA_CERTS` を使う)。ジョブ単位のフラグ(`--data`、`--png`、`--webp`、`--html`、`--links`、`--mhtml`、`--wacz`、`--limit`、`--dismiss-banners`、`--accept-language`、`--viewport-width`、`--viewport-height`、`--full-page`、`--device-scale-factor`、`--archive-mode`、`--behaviors-version`)には意図的に env 版が無い。

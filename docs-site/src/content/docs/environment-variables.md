@@ -9,6 +9,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 |---|---|
 | `--port <port>`<code class="env">BROWSERHIVE_PORT</code> | integer (1–65535) |
 | `--browser-url <urls...>`<code class="env">BROWSERHIVE_BROWSER_URLS</code> | comma-separated list (required) |
+| `--slow-mo <ms>`<code class="env">BROWSERHIVE_SLOW_MO_MS</code> | integer ≥ 0 (default `0`) — delay inserted between CDP operations, for watching a headless capture. Connect-time: changing it needs a recreate |
 | `--s3-endpoint <url>`<code class="env">BROWSERHIVE_S3_ENDPOINT</code> | URL (required) |
 | `--s3-region <region>`<code class="env">BROWSERHIVE_S3_REGION</code> | string (default `us-east-1`) |
 | `--s3-bucket <name>`<code class="env">BROWSERHIVE_S3_BUCKET</code> | string (required) |
@@ -22,8 +23,15 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--max-retry-count <n>`<code class="env">BROWSERHIVE_MAX_RETRY_COUNT</code> | non-negative integer |
 | `--queue-poll-interval-ms <ms>`<code class="env">BROWSERHIVE_QUEUE_POLL_INTERVAL_MS</code> | positive integer |
 | `--discovery-refresh-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_REFRESH_MS</code> | integer ms (default `10000`, min `1000`) — how often worker membership is re-resolved from DNS |
+| `--discovery-init-retry-attempts <n>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS</code> | positive integer (default `6`) — boot-time worker-resolve retries, absorbing the DNS registration race |
+| `--discovery-init-retry-delay-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS</code> | positive integer (default `500`) — base backoff for that retry |
 | `--viewport-width <px>`<code class="env">BROWSERHIVE_VIEWPORT_WIDTH</code> | positive integer (server-wide default; per-request `viewport.width` overrides) |
 | `--viewport-height <px>`<code class="env">BROWSERHIVE_VIEWPORT_HEIGHT</code> | positive integer (server-wide default; per-request `viewport.height` overrides) |
+| `--device-scale-factor <n>`<code class="env">BROWSERHIVE_DEVICE_SCALE_FACTOR</code> | positive integer (default `1`) — rendering DPR; `2` is Retina. Ignored under `multipass` |
+| `--archive-mode <mode>`<code class="env">BROWSERHIVE_ARCHIVE_MODE</code> | `single-pass` or `multipass` (default `single-pass`) — `multipass` records a DPR 1 and DPR 2 pass into one WACZ with the browser cache disabled |
+| `--behaviors <list>`<code class="env">BROWSERHIVE_BEHAVIORS</code> | comma-separated behavior ids (default `autoscroll,autofetch`); an empty string disables all built-ins |
+| `--behavior-timeout <ms>`<code class="env">BROWSERHIVE_BEHAVIOR_TIMEOUT_MS</code> | positive integer (default `30000`) — wall-clock budget for the whole behavior pass |
+| `--allow-custom-behaviors`<code class="env">BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS</code> | `"true"`/`"1"` or `"false"`/`"0"` (default `false`) — accept the request's `behaviors.custom` |
 | `--screenshot-full-page`<code class="env">BROWSERHIVE_SCREENSHOT_FULL_PAGE</code> | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default; per-request `fullPage` overrides) |
 | `--screenshot-quality <n>`<code class="env">BROWSERHIVE_SCREENSHOT_QUALITY</code> | integer (1–100) |
 | `--reject-duplicate-urls`<code class="env">BROWSERHIVE_REJECT_DUPLICATE_URLS</code> | `"true"`/`"1"` or `"false"`/`"0"` |
@@ -39,4 +47,4 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>`<code class="env">BROWSERHIVE_TLS_CERT</code> | path |
 | `--tls-key <path>`<code class="env">BROWSERHIVE_TLS_KEY</code> | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--webp`, `--html`, `--links`, `--mhtml`, `--wacz`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--webp`, `--html`, `--links`, `--mhtml`, `--wacz`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`, `--device-scale-factor`, `--archive-mode`, `--behaviors-version`) intentionally have no env equivalents.
