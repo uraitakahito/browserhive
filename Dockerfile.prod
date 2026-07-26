@@ -34,25 +34,16 @@ RUN npm ci
 # `openapi:lint` / `openapi:build-docs` steps; openapi-ts.config.ts and scripts/
 # are required by `openapi:generate`. All run as part of `npm run build`.
 #
-# APPLE CONTAINER BUILD QUIRK (local `container` / `container-compose` only —
-# GitHub CI on standard Docker/buildx is unaffected). This COPY can fail with
-#   failed to calculate checksum of ref …: "/tsconfig.behaviors.json": not found
-# even though the file exists and is git-tracked. Two look-alike bugs share that
-# message:
-#   1. apple/container#366 — a single COPY with *multiple sources*. If that is
-#      your case, split it into one `COPY <file> ./` per line.
-#   2. A per-Dockerfile-PATH context-manifest freeze (what bit this repo when
-#      tsconfig.behaviors.json was first added to this COPY): the cached "files
-#      to send" for the path `Dockerfile.prod` goes stale and is NOT refreshed by
-#      editing the COPY, `--no-cache`, `container builder delete --force`,
-#      `container system stop/start`, or even splitting the COPY. Only a
-#      *different Dockerfile filename* clears it. Workaround — build via a renamed
-#      copy, then start without rebuilding (no `-b`):
-#        cp Dockerfile.prod Dockerfile.build.tmp
-#        container build --build-arg GIT_REV=$(git rev-parse --short HEAD) \
-#          -t browserhive:latest -f Dockerfile.build.tmp . && rm Dockerfile.build.tmp
-#        container-compose up -d browserhive
-# See private-note research + apple/container issues; worth an upstream report.
+# INVARIANT — this file has a partner. Dockerfile.prod.dockerignore is a
+# WHITELIST (`*`, then `!` rules), and BuildKit pairs it to this Dockerfile BY
+# NAME. A source added below with no matching `!` rule there never reaches the
+# build context, and the build fails with
+#   failed to calculate checksum of ref …: "/<file>": not found
+# for a file that is plainly on disk and git-tracked. Nothing checks the
+# pairing — CI builds on the host and never builds this image — so the two
+# files have to be edited together. Do NOT work around it by building from a
+# renamed copy of this Dockerfile: that unpairs the whitelist and ships the
+# whole repo instead of fixing anything.
 COPY tsconfig.json tsconfig.build.json tsconfig.generated.json tsconfig.behaviors.json redocly.yaml openapi-ts.config.ts ./
 COPY src ./src
 COPY bin ./bin

@@ -2,8 +2,13 @@
 # WHITELIST dockerignore for Dockerfile.prod
 #
 # BuildKit picks `<Dockerfile>.dockerignore` over a root .dockerignore
-# when both exist, so this file applies only to `Dockerfile.prod`
-# builds. Dev builds use `Dockerfile.dev.dockerignore` separately.
+# when both exist, so this file applies only to `Dockerfile.prod` builds.
+#
+# The pairing is BY FILENAME, which has a sharp edge: building from a renamed
+# copy of Dockerfile.prod unpairs this file, and since there is no root
+# .dockerignore to fall back to, ALL filtering disappears — the whole 2.4 GB
+# repo goes into the context, certs/*.key included. Never rename your way out
+# of a COPY that reports "not found"; add the missing `!` rule below instead.
 #
 # Refs:
 #   https://docs.docker.com/build/concepts/context/#filename-and-location
@@ -30,10 +35,10 @@
 !.npmrc
 !.puppeteerrc.json
 
-# 3. Re-include build configuration files
-!tsconfig.json
-!tsconfig.build.json
-!tsconfig.generated.json
+# 3. Re-include build configuration files.
+#    One glob for the tsconfigs: they are a family, and listing them one by one
+#    is exactly how tsconfig.behaviors.json got left out when it was added.
+!tsconfig*.json
 !redocly.yaml
 !openapi-ts.config.ts
 
