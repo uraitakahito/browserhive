@@ -46,6 +46,19 @@ BrowserHive は Fastify + Puppeteer で動く HTTP キャプチャサーバで�
 | 再生可能アーカイブ | `wacz` | WARC + インデックス (ReplayWeb.page で再生可) |
 | リンク一覧 | `links` | ページ内リンクの JSON |
 
+## WACZ のデバッグ
+
+出力した WACZ が壊れていないか調べるには
+[waxlens](https://github.com/uraitakahito/waxlens) が使える。producer 非依存の
+WACZ validator で、ターミナル UI から中身を検査できる。BrowserHive 向けの
+プロファイルがあり、S3 上のアーカイブを直接読める:
+
+```sh
+waxlens --profile browserhive s3://browserhive/<taskId>_<labels>.wacz
+```
+
+CI 用に機械可読な JSON レポートが欲しい場合は `waxlens-validate` を使う。
+
 ## さらに詳しく
 
 - [クイックスタート](/quickstart/) — Apple Container 起動から最初のキャプチャまで 5 ステップ
