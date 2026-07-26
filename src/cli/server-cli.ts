@@ -22,6 +22,7 @@ import type {
 } from "../config/index.js";
 import {
   DEFAULT_BROWSERHIVE_CONFIG,
+  DEFAULT_BROWSER_SLOW_MO_MS,
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_WACZ_CONFIG,
 } from "../config/index.js";
@@ -147,6 +148,11 @@ interface ParsedOptions {
   discoveryInitRetryAttempts: number;
   /** Base backoff (ms) for the boot-time retry. Env BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS. */
   discoveryInitRetryDelayMs: number;
+  /**
+   * Delay applied to every CDP operation, so a headless capture can be watched
+   * live over the DevTools screencast. Connect-time. Env BROWSERHIVE_SLOW_MO_MS.
+   */
+  slowMo: number;
   /** How many passes a capture makes over the page. Env BROWSERHIVE_ARCHIVE_MODE. */
   archiveMode: ArchiveMode;
   viewportWidth: number;
@@ -281,7 +287,11 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       ...(tls && { tls }),
     },
     coordinator: {
-      browserProfiles: opts.browserUrl.map((url) => ({ browserURL: url, capture })),
+      browserProfiles: opts.browserUrl.map((url) => ({
+        browserURL: url,
+        slowMo: opts.slowMo,
+        capture,
+      })),
       storage: opts.storage,
       maxRetryCount: opts.maxRetryCount,
       queuePollIntervalMs: opts.queuePollIntervalMs,
@@ -316,6 +326,15 @@ export const createProgram = (): Command => {
         "--browser-url <urls...>",
         "Browser URLs (env: BROWSERHIVE_BROWSER_URLS, comma-separated). Required.",
       ),
+    )
+    .addOption(
+      new Option(
+        "--slow-mo <ms>",
+        "Delay every CDP operation by this many ms so a headless capture can be watched live (chrome://inspect screencast). Connect-time: applies to every worker and needs a restart to change. 0 = off.",
+      )
+        .env("BROWSERHIVE_SLOW_MO_MS")
+        .default(DEFAULT_BROWSER_SLOW_MO_MS)
+        .argParser(parseNonNegativeInt),
     )
     .addOption(
       new Option(
@@ -842,6 +861,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
         ? { enabled: true, certPath: config.http.tls.certPath }
         : { enabled: false },
       browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL.href),
+      slowMo: coordinator.browserProfiles[0]?.slowMo ?? 0,
       storage: logSafeStorage(coordinator.storage),
       timeouts: {
         pageLoadMs: capture.timeouts.pageLoadMs,

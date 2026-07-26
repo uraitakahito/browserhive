@@ -85,6 +85,35 @@ chromium-server 側のドキュメント
 [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/ja/getting-started/verify/)
 を参照。ワンショットの CDP 確認は `./chromium-server-docker/bin/cdp.sh smoke`。
 
+### 速すぎて見えないとき — `--slow-mo`
+
+既定ではキャプチャが数秒で終わる(example.com で約 6 秒)ため、スクリーンキャストを
+開くころには完了している。`--slow-mo` を付けて起動すると **puppeteer の各 CDP 操作の
+間に遅延が入り**、1 手ずつ進む様子を追える:
+
+```yaml
+# docker-compose.yml の browserhive サービスに追加して再作成
+environment:
+  - BROWSERHIVE_SLOW_MO_MS=250
+```
+
+起動ログの `slowMo` フィールドで効いているか確認できる。実測(example.com、
+PNG 1 枚):
+
+| `slowMo` | 1 キャプチャの所要時間 |
+|---|---|
+| `0`(既定) | 約 6 秒 |
+| `250` | 約 10 秒 |
+| `1000` | 約 33 秒 |
+
+- **接続時オプション**なので全 worker に効き、値の変更には browserhive の再作成が
+  必要(リクエスト単位では切り替えられない)。
+- 遅くなるのは **puppeteer の操作の間隔**であって、ページ自身の描画やスクロール
+  速度ではない。スクロールをゆっくり見たいならリクエストの
+  `behaviors.options.autoscroll.stepDelayMs` を上げる。
+- 大きすぎる値は `--task-timeout`(既定 130 秒)に当たってタスクが失敗する。
+  上の実測なら `1000` でも収まるが、重いページでは余裕が縮む。
+
 ## SeaweedFS 内の成果物を閲覧する
 
 Filer UI は SeaweedFS コンテナで待ち受ける(ホストポートへの公開は無く、
