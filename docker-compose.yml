@@ -87,6 +87,10 @@ services:
       - BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive
       - BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive
       - BROWSERHIVE_S3_FORCE_PATH_STYLE=true
+      # Accept client-supplied behaviors.custom (the example client attaches
+      # per-host custom behaviors from examples/behaviors/<version>/). Dev stack
+      # only — the server is published on 127.0.0.1.
+      - BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS=true
       - LOG_LEVEL=info
       # The entrypoint shim polls this URL before starting the server —
       # depends_on is start order only, and the boot HeadBucket is fatal.
