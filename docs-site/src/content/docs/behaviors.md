@@ -155,7 +155,9 @@ node dist/examples/data-client.js --data data/apple.yaml --wacz --device-scale-f
 ```
 
 Hitting the HTTP API directly, pass `deviceScaleFactor: 2` in the request (and
-keep `captureFormats.wacz` true so the archive is written):
+keep `captureFormats.wacz` true so the archive is written). `operationDelayMs` is
+there because **without it the capture is over in seconds and there is nothing to
+watch** in `chrome://inspect` — drop it if you are not observing:
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/captures \
@@ -164,6 +166,7 @@ curl -s -X POST http://localhost:8080/v1/captures \
     "url": "https://www.apple.com/jp/",
     "labels": ["apple-jp"],
     "deviceScaleFactor": 2,
+    "operationDelayMs": 250,
     "captureFormats": {
       "png": false, "webp": false, "html": false,
       "links": false, "mhtml": false,
