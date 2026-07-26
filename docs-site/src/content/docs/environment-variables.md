@@ -32,6 +32,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--behaviors <list>`<code class="env">BROWSERHIVE_BEHAVIORS</code> | comma-separated behavior ids (default `autoscroll,autofetch`); an empty string disables all built-ins |
 | `--behavior-timeout <ms>`<code class="env">BROWSERHIVE_BEHAVIOR_TIMEOUT_MS</code> | positive integer (default `30000`) — wall-clock budget for the whole behavior pass |
 | `--allow-custom-behaviors`<code class="env">BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS</code> | `"true"`/`"1"` or `"false"`/`"0"` (default `false`) — accept the request's `behaviors.custom` |
+| `--no-site-behaviors`<code class="env">BROWSERHIVE_SITE_BEHAVIORS</code> | `"true"`/`"1"` or `"false"`/`"0"` (default on) — whether the bundled site behaviors are considered. A request's `behaviors.siteBehaviors` overrides it |
 | `--screenshot-full-page`<code class="env">BROWSERHIVE_SCREENSHOT_FULL_PAGE</code> | `"true"`/`"1"` or `"false"`/`"0"` (server-wide default; per-request `fullPage` overrides) |
 | `--screenshot-quality <n>`<code class="env">BROWSERHIVE_SCREENSHOT_QUALITY</code> | integer (1–100) |
 | `--reject-duplicate-urls`<code class="env">BROWSERHIVE_REJECT_DUPLICATE_URLS</code> | `"true"`/`"1"` or `"false"`/`"0"` |

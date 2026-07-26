@@ -18,6 +18,12 @@ export interface BehaviorConfig {
   timeoutMs: number;
   /** Whether client-supplied `custom` behaviors are accepted. */
   allowCustom: boolean;
+  /**
+   * Whether the site behaviors bundled into the runtime are considered. They
+   * only act on the hosts their `isMatch()` accepts, so leaving this on is the
+   * point of shipping them; turn it off to reproduce a capture without them.
+   */
+  siteBehaviors: boolean;
   /** Per-behavior options, keyed by behavior id. */
   options: Record<string, Record<string, unknown>>;
   /** Best-effort `waitForNetworkIdle` after behaviors so late fetches land. */
@@ -33,6 +39,8 @@ export interface BehaviorRequest {
   options?: Record<string, Record<string, unknown>>;
   /** Client-supplied custom behaviors (only used when `allowCustom`). */
   custom?: CustomBehavior[];
+  /** Per-request override for the bundled site behaviors. */
+  siteBehaviors?: boolean;
 }
 
 /** Report returned from the in-page runner, surfaced in the capture result. */

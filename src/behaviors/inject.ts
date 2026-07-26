@@ -51,6 +51,7 @@ interface InPageRunner {
   register(behaviorClassExpr: unknown): void;
   run(opts: {
     enabled: string[];
+    siteBehaviors: boolean;
     timeoutMs: number;
     options: Record<string, Record<string, unknown>>;
   }): Promise<BehaviorRunReport>;
@@ -63,6 +64,7 @@ interface BehaviorGlobal {
 
 interface ResolvedRun {
   enabled: string[];
+  siteBehaviors: boolean;
   options: Record<string, Record<string, unknown>>;
   custom: CustomBehavior[];
 }
@@ -87,7 +89,8 @@ export const resolveBehaviorRun = (
     options[id] = { ...(config.options[id] ?? {}), ...(request?.options?.[id] ?? {}) };
   }
   const custom = config.allowCustom ? (request?.custom ?? []) : [];
-  return { enabled, options, custom };
+  const siteBehaviors = request?.siteBehaviors ?? config.siteBehaviors;
+  return { enabled, options, custom, siteBehaviors };
 };
 
 /**
@@ -101,7 +104,13 @@ export const runBehaviors = async (
   request?: BehaviorRequest,
 ): Promise<BehaviorRunReport | undefined> => {
   const resolved = resolveBehaviorRun(config, request);
-  if (resolved.enabled.length === 0 && resolved.custom.length === 0) {
+  // Site behaviors alone are reason enough to inject: they are not listed in
+  // `enabled`, so an otherwise-empty run can still have work to do.
+  if (
+    resolved.enabled.length === 0 &&
+    resolved.custom.length === 0 &&
+    !resolved.siteBehaviors
+  ) {
     return undefined;
   }
 
@@ -119,6 +128,7 @@ export const runBehaviors = async (
       (globalThis as unknown as BehaviorGlobal).__bh_behaviors.run(opts),
     {
       enabled: [...resolved.enabled, ...resolved.custom.map((c) => c.id)],
+      siteBehaviors: resolved.siteBehaviors,
       timeoutMs: config.timeoutMs,
       options: resolved.options,
     },

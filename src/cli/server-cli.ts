@@ -178,6 +178,12 @@ interface ParsedOptions {
    */
   allowCustomBehaviors: boolean;
   /**
+   * Whether the site behaviors bundled into the runtime are considered. On by
+   * default; `--no-site-behaviors` (or BROWSERHIVE_SITE_BEHAVIORS=false) skips
+   * them. Env resolved post-parse via `resolveBoolWithEnvDefaultTrue`.
+   */
+  siteBehaviors: boolean;
+  /**
    * Commander auto-generates `--no-reset-cookies` for any boolean option;
    * default `true` flips to `false` when the negation flag is present. Env
    * (`BROWSERHIVE_RESET_COOKIES`) is merged post-parse via
@@ -267,6 +273,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       builtins: parseBehaviorList(opts.behaviors),
       timeoutMs: opts.behaviorTimeout,
       allowCustom: opts.allowCustomBehaviors,
+      siteBehaviors: opts.siteBehaviors,
       options: DEFAULT_CAPTURE_CONFIG.behaviors.options,
       idleTimeMs: DEFAULT_CAPTURE_CONFIG.behaviors.idleTimeMs,
       idleTimeoutMs: DEFAULT_CAPTURE_CONFIG.behaviors.idleTimeoutMs,
@@ -511,6 +518,11 @@ export const createProgram = (): Command => {
     // BROWSERHIVE_RESET_PAGE_CONTEXT) is done in parseCliOptions via
     // `resolveBoolWithEnvDefaultTrue` — env can flip to false when CLI was not
     // explicitly negated; CLI negation takes precedence over env=true.
+    .option(
+      "--no-site-behaviors",
+      "Skip the site-specific behaviors bundled into the runtime (they otherwise run on the hosts their isMatch() accepts). Equivalent to BROWSERHIVE_SITE_BEHAVIORS=false.",
+      true,
+    )
     .option(
       "--no-reset-cookies",
       "Skip the inter-task cookie wipe (CDP Network.clearBrowserCookies). Equivalent to BROWSERHIVE_RESET_COOKIES=false. Default: cookies are cleared between captures.",
@@ -801,6 +813,11 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
       "BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS",
       program,
     ),
+    siteBehaviors: resolveBoolWithEnvDefaultTrue(
+      opts.siteBehaviors,
+      "BROWSERHIVE_SITE_BEHAVIORS",
+      program,
+    ),
     resetCookies: resolveBoolWithEnvDefaultTrue(
       opts.resetCookies,
       "BROWSERHIVE_RESET_COOKIES",
@@ -870,6 +887,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
         builtins: capture.behaviors.builtins,
         timeoutMs: capture.behaviors.timeoutMs,
         allowCustom: capture.behaviors.allowCustom,
+        siteBehaviors: capture.behaviors.siteBehaviors,
       },
       maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,

@@ -116,6 +116,10 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
     builtins: ["autoscroll", "autofetch"],
     timeoutMs: 30000,
     allowCustom: false,
+    // Site behaviors ship with the runtime and only act on the hosts their
+    // isMatch() accepts, so they are on by default — that is the point of
+    // bundling them. Turn off to reproduce a capture without them.
+    siteBehaviors: true,
     options: {
       autoscroll: { stepDelayMs: 250, maxSteps: 40, idleTimeMs: 1000 },
       autofetch: { maxUrls: 2000 },

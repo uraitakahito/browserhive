@@ -48,14 +48,18 @@ describe("DEFAULT_BROWSERHIVE_CONFIG", () => {
 });
 
 describe("createTestCaptureConfig", () => {
-  it("matches the production default except behaviors (built-ins disabled in tests for determinism)", () => {
+  it("matches the production default except behaviors (disabled in tests for determinism)", () => {
     const config = createTestCaptureConfig();
-    // The helper deliberately disables built-in behaviors so capture-integration
-    // tests don't run the behavior pass that would shift their CDP-call
-    // assertions. Tests opt in via overrides.behaviors.builtins.
+    // The helper deliberately runs no behavior pass — neither built-ins nor the
+    // bundled site behaviors — so capture-integration tests don't get their
+    // CDP-call assertions shifted. Tests opt in via overrides.behaviors.
     expect(config).toEqual({
       ...DEFAULT_CAPTURE_CONFIG,
-      behaviors: { ...DEFAULT_CAPTURE_CONFIG.behaviors, builtins: [] },
+      behaviors: {
+        ...DEFAULT_CAPTURE_CONFIG.behaviors,
+        builtins: [],
+        siteBehaviors: false,
+      },
     });
   });
 
