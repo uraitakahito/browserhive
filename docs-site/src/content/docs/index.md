@@ -44,6 +44,19 @@ the page asynchronously and store the results in S3-compatible storage.
 | Replayable archive | `wacz` | WARC + indexes (replayable in ReplayWeb.page) |
 | Link list | `links` | JSON of the links on the page |
 
+## Debugging a WACZ
+
+To check whether a WACZ you produced is sound, use
+[waxlens](https://github.com/uraitakahito/waxlens) — a producer-agnostic WACZ
+validator that inspects an archive from a terminal UI. It ships a BrowserHive
+profile and can read archives straight from S3:
+
+```sh
+waxlens --profile browserhive s3://browserhive/<taskId>_<labels>.wacz
+```
+
+For a machine-readable JSON report (e.g. in CI), use `waxlens-validate`.
+
 ## Learn more
 
 - [Quickstart](/quickstart/) — from Apple Container startup to your first capture in 5 steps
