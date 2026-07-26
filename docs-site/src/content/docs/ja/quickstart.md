@@ -50,11 +50,11 @@ curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].h
 # → { "isRunning": true, "workers": ["ready"] }
 ```
 
-プールには実際に起動している worker だけが入ります: browserhive は
-`BROWSERHIVE_BROWSER_URLS` を DNS で解決し、起動していないホストは除外します
-(起動時に 1 回ログ)。`--profile scale2` / `scale3` で増やすと
-**browserhive を再起動せずにライブで編入**され、`isRunning` は実在する worker を
-反映します。
+上の `workers` が 1 要素なのは、`BROWSERHIVE_BROWSER_URLS` に 3 台書いてあっても
+**起動しているコンテナだけが worker として登録される**からです: browserhive は
+各ホストを DNS で解決し、名前が引けないもの(= そのプロファイルで起動していない
+コンテナ)を除外します(起動時に 1 回ログ)。`--profile scale2` / `scale3` で
+増やすと **browserhive を再起動せずにライブで編入**されます。
 
 ## Step 3 — 最初のキャプチャをリクエストする
 
