@@ -36,17 +36,31 @@ export interface WorkerLoopParentEvent { type: "STOP_LOOP" }
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Cap on the sample of offending URLs logged for an incomplete archive. */
+const BODYLESS_SAMPLE_LIMIT = 5;
+
 /**
  * Emit the structured "Task completed" log line. Extracted from the loop body
  * so the loop reads as pure control flow; each optional artifact location is
  * only logged when the capture actually produced it.
+ *
+ * An archive that failed the completeness invariant is logged at `warn` with a
+ * distinct message: the capture itself succeeded, but the WACZ is missing bodies
+ * a replay will ask for (see `src/storage/wacz/completeness.ts`). Only a bounded
+ * sample of the offending URLs is emitted so a badly cached run cannot flood the
+ * log.
  */
 const logTaskCompleted = (
   client: BrowserClient,
   task: CaptureTask,
   result: CaptureResult,
 ): void => {
-  client.logger.info(
+  const incomplete = result.completeness?.complete === false;
+  const log = incomplete
+    ? client.logger.warn.bind(client.logger)
+    : client.logger.info.bind(client.logger);
+
+  log(
     {
       taskLabels: task.labels,
       taskId: task.taskId,
@@ -56,10 +70,20 @@ const logTaskCompleted = (
       ...(result.mhtmlLocation && { mhtmlLocation: result.mhtmlLocation }),
       ...(result.waczLocation && { waczLocation: result.waczLocation }),
       ...(result.waczStats && { waczStats: result.waczStats }),
+      ...(result.completeness && {
+        completeness: {
+          complete: result.completeness.complete,
+          bodylessCount: result.completeness.bodylessUrls.length,
+          bodylessSample: result.completeness.bodylessUrls.slice(
+            0,
+            BODYLESS_SAMPLE_LIMIT,
+          ),
+        },
+      }),
       ...(result.dismissReport && { dismissReport: result.dismissReport }),
       ...(result.behaviorReport && { behaviorReport: result.behaviorReport }),
     },
-    "Task completed",
+    incomplete ? "Task completed with an incomplete archive" : "Task completed",
   );
 };
 
