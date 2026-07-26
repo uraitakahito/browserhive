@@ -33,6 +33,26 @@ RUN npm ci
 # tests and examples are not shipped). redocly.yaml is required by the
 # `openapi:lint` / `openapi:build-docs` steps; openapi-ts.config.ts and scripts/
 # are required by `openapi:generate`. All run as part of `npm run build`.
+#
+# APPLE CONTAINER BUILD QUIRK (local `container` / `container-compose` only —
+# GitHub CI on standard Docker/buildx is unaffected). This COPY can fail with
+#   failed to calculate checksum of ref …: "/tsconfig.behaviors.json": not found
+# even though the file exists and is git-tracked. Two look-alike bugs share that
+# message:
+#   1. apple/container#366 — a single COPY with *multiple sources*. If that is
+#      your case, split it into one `COPY <file> ./` per line.
+#   2. A per-Dockerfile-PATH context-manifest freeze (what bit this repo when
+#      tsconfig.behaviors.json was first added to this COPY): the cached "files
+#      to send" for the path `Dockerfile.prod` goes stale and is NOT refreshed by
+#      editing the COPY, `--no-cache`, `container builder delete --force`,
+#      `container system stop/start`, or even splitting the COPY. Only a
+#      *different Dockerfile filename* clears it. Workaround — build via a renamed
+#      copy, then start without rebuilding (no `-b`):
+#        cp Dockerfile.prod Dockerfile.build.tmp
+#        container build --build-arg GIT_REV=$(git rev-parse --short HEAD) \
+#          -t browserhive:latest -f Dockerfile.build.tmp . && rm Dockerfile.build.tmp
+#        container-compose up -d browserhive
+# See private-note research + apple/container issues; worth an upstream report.
 COPY tsconfig.json tsconfig.build.json tsconfig.generated.json tsconfig.behaviors.json redocly.yaml openapi-ts.config.ts ./
 COPY src ./src
 COPY bin ./bin
