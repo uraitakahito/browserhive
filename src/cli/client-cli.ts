@@ -44,6 +44,12 @@ export interface ClientOptions {
    * is absent so the server-side default applies.
    */
   fullPage?: boolean;
+  /**
+   * Which `examples/behaviors/<version>/` directory to load client-supplied
+   * custom behaviors from. Attached per-entry by matching the target URL's
+   * host (FQDN then registrable domain). Defaults to `v1.0`.
+   */
+  behaviorsVersion?: string;
 }
 
 const parsePositiveInt = (value: string): number => {
@@ -122,6 +128,12 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
+        "--behaviors-version <v>",
+        "examples/behaviors/<v>/ directory to load custom behaviors from (matched per-entry by host)",
+      ).default("v1.0"),
+    )
+    .addOption(
+      new Option(
         "--tls-ca-cert <path>",
         "CA certificate file path for TLS (enables TLS when specified)",
       ).env("BROWSERHIVE_TLS_CA_CERT"),
@@ -153,6 +165,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     viewportWidth?: number;
     viewportHeight?: number;
     fullPage?: boolean;
+    behaviorsVersion?: string;
   }>();
 
   if ((opts.viewportWidth === undefined) !== (opts.viewportHeight === undefined)) {
@@ -177,6 +190,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.viewportWidth !== undefined && { viewportWidth: opts.viewportWidth }),
     ...(opts.viewportHeight !== undefined && { viewportHeight: opts.viewportHeight }),
     ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
+    ...(opts.behaviorsVersion !== undefined && { behaviorsVersion: opts.behaviorsVersion }),
   };
 };
 
@@ -209,6 +223,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       viewport,
       fullPage: options.fullPage ?? null,
       limit: options.limit ?? null,
+      behaviorsVersion: options.behaviorsVersion ?? "v1.0",
     },
     "Client configuration",
   );

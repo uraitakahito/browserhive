@@ -94,6 +94,41 @@ behavior はページ内で `fetch()` でき、キャプチャブラウザが到
 egress はネットワーク境界で縛り、有効化は「クライアントにコード実行を許すこと」と捉える。
 :::
 
+### サイト（FQDN/ドメイン）ごとに整理する（サンプルクライアント）
+
+同梱のサンプルクライアント（`examples/data-client.ts`）は、カスタム behavior を
+**1 サイト = 1 ディレクトリ**でディスク上に置き、取得先 URL のホストに応じて
+自動で添付する。多くのサイト固有 automation は、ファイルを置くだけで済み、
+リクエスト側の記述は要らない:
+
+```
+examples/behaviors/
+└─ <version>/                    # ランタイム契約のバージョン（例 v1.0）
+   ├─ www.apple.com/             # FQDN — 最も具体的
+   │  └─ tv-gallery.js
+   └─ apple.com/                 # 登録可能ドメイン — 全サブドメイン
+      └─ promo-carousel.js
+```
+
+各 `<name>.js` は上と同じ形の**素の class 式**。規約として `static id` は
+`"<dir>:<basename>"`（例 `www.apple.com:tv-gallery`）と一致させる — クライアントは
+その id を送り、runner は enabled の id と登録クラスを `static id` で突き合わせる。
+
+バージョンディレクトリは `--behaviors-version`（既定 `v1.0`）で選ぶ。エントリごとに
+FQDN ディレクトリ → 登録可能ドメインディレクトリの順で読み、`behaviors.custom` として送る:
+
+```sh
+# サーバはカスタム behavior を許可して起動
+node dist/bin/main.js server --allow-custom-behaviors
+# クライアントは base URL を --server / BROWSERHIVE_SERVER / SDK 既定 から解決し
+#（URL のハードコードなし）、ホストに応じて behavior を添付する
+node dist/examples/data-client.js --data data/apple.yaml --wacz --behaviors-version v1.0
+```
+
+送るのは `custom` のみで `builtins` は送らない: 組み込みセット（`autoscroll`・
+`autofetch` 等）はサーバ自身の `--behaviors` 設定に委ね、クライアントが誤って
+無効化しないようにする。
+
 ## behavior レポート
 
 behavior が 1 つでも実行されると、完了タスクのサーバログ行に `behaviorReport` が入る:
