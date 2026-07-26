@@ -126,6 +126,41 @@ aws --endpoint-url "http://seaweedfs.browserhive:8333" \
 2. "Choose File" → select `capture.wacz`
 3. When the page list appears, click a URL to replay it
 
+## Developing: rebuild from the latest source
+
+The BrowserHive image bakes the source in at build time (`Dockerfile.prod`), so
+after changing code you must **rebuild the image** and recreate the container.
+A plain `up -d` (without `-b`, build) reuses the old image and your changes will
+not take effect.
+
+```bash
+# Rebuild and recreate just browserhive (chromium / SeaweedFS keep running)
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
+```
+
+`GIT_REV` bakes the commit into the `build` field of `/v1/status`, so you can
+confirm you are running the latest:
+
+```bash
+curl -s http://localhost:8080/v1/status | jq '.build'
+# → { "version": …, "revision": …, "buildTime": … }
+# revision matches your HEAD (git rev-parse --short HEAD) when up to date
+```
+
+To rebuild the whole stack, omit the service name:
+
+```bash
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
+```
+
+If you only changed environment variables (`docker-compose.yml`) no rebuild is
+needed, but recreate the container to be sure they apply:
+
+```bash
+container stop browserhive.browserhive && container rm browserhive.browserhive
+container-compose up -d browserhive
+```
+
 ## Tear down
 
 ```bash

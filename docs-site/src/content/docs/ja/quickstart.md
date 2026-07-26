@@ -124,6 +124,40 @@ aws --endpoint-url "http://seaweedfs.browserhive:8333" \
 2. "Choose File" → `capture.wacz` を選択
 3. ページ一覧が表示されたら URL をクリックして再生
 
+## 開発中: ソースを変更したら作り直す
+
+BrowserHive のイメージはビルド時にソースを取り込む(`Dockerfile.prod`)ため、
+コードを変更したら**イメージを作り直して**コンテナを再作成します。`-b`(build)
+を付けずに `up -d` すると古いイメージが再利用され、変更が反映されません。
+
+```bash
+# browserhive だけ作り直して再作成 (chromium / SeaweedFS はそのまま)
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
+```
+
+`GIT_REV` はコミットを `/v1/status` レスポンスの `build` に焼き込みます。最新で
+動いているか確認:
+
+```bash
+curl -s http://localhost:8080/v1/status | jq '.build'
+# → { "version": …, "revision": …, "buildTime": … }
+# revision が HEAD (git rev-parse --short HEAD) と一致していれば最新
+```
+
+スタック全体を作り直すなら service 名を省略します:
+
+```bash
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
+```
+
+環境変数(`docker-compose.yml`)だけを変えた場合は再ビルド不要ですが、確実に
+反映するにはコンテナを削除してから起動します:
+
+```bash
+container stop browserhive.browserhive && container rm browserhive.browserhive
+container-compose up -d browserhive
+```
+
 ## 片付け
 
 ```bash
