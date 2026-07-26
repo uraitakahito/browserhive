@@ -148,6 +148,35 @@ Capture at **DPR 2** so the browser fetches the `2x` itself:
 node dist/examples/data-client.js --data data/apple.yaml --wacz --device-scale-factor 2
 ```
 
+Hitting the HTTP API directly, pass `deviceScaleFactor: 2` in the request (and
+keep `captureFormats.wacz` true so the archive is written):
+
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'content-type: application/json' \
+  -d '{
+    "url": "https://www.apple.com/jp/",
+    "labels": ["apple-jp"],
+    "deviceScaleFactor": 2,
+    "captureFormats": {
+      "png": false, "webp": false, "html": false,
+      "links": false, "mhtml": false,
+      "wacz": true
+    }
+  }' | jq .
+```
+
+To confirm the `2x` really landed, look at the finished WACZ's CDXJ (apple's
+slides should show `1960x1044` rather than the 1x `980x522`):
+
+```bash
+# the artifact key is <taskId>_<labels>.wacz (plus correlationId when you send one)
+curl -s -o out.wacz \
+  "http://seaweedfs.browserhive:8888/buckets/browserhive/92fc7fb0-…_apple-jp.wacz"
+unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sort | uniq -c
+#   18 1960x1044   ← the 2x is present (a DPR-1 capture shows 980x522)
+```
+
 or set the server default with `BROWSERHIVE_DEVICE_SCALE_FACTOR=2` /
 `--device-scale-factor 2`. Note DPR 2 also doubles the pixel dimensions of any
 PNG / WebP screenshot. Because each variant is DPR-specific and dropped from the
