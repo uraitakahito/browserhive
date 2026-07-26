@@ -50,11 +50,12 @@ curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].h
 # → { "isRunning": true, "workers": ["ready"] }
 ```
 
-The pool contains exactly the workers that are running: browserhive resolves
-`BROWSERHIVE_BROWSER_URLS` against DNS and drops any host that is not started
-(logged once at boot). Start more with `--profile scale2` / `scale3` — they
-are **picked up live, without restarting browserhive** — and `isRunning`
-reflects the workers that actually exist.
+`workers` above has a single entry even though `BROWSERHIVE_BROWSER_URLS` lists
+three, because **only containers that are actually running get registered as
+workers**: browserhive resolves each host against DNS and drops the ones whose
+name does not resolve (i.e. not started by the active profile), logged once at
+boot. Start more with `--profile scale2` / `scale3` — they are **picked up live,
+without restarting browserhive**.
 
 ## Step 3 — Request your first capture
 
