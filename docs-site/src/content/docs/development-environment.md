@@ -1,6 +1,6 @@
 ---
 title: Development environment
-description: Host-side development against the Apple Container stack — dev loop, watching workers, browsing and wiping artifacts
+description: Host-side development against the Apple Container stack — dev loop, watching workers, browsing artifacts
 ---
 
 The stack (SeaweedFS + chromium workers + the server) runs on
@@ -100,28 +100,3 @@ From inside the SeaweedFS container:
 container exec seaweedfs.browserhive sh -c \
   'echo "fs.ls /buckets/browserhive" | weed shell -master=127.0.0.1:9333'
 ```
-
-## Wiping captured artifacts
-
-### Wipe every artifact, keep the bucket (Filer HTTP API)
-
-```sh
-SW=seaweedfs.browserhive
-curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true" && \
-  curl -X PUT  "http://${SW}:8888/buckets/browserhive/.keep" --data '' && \
-  curl -X DELETE "http://${SW}:8888/buckets/browserhive/.keep"
-```
-
-### Reset the SeaweedFS state too
-
-```sh
-container-compose down
-container volume rm browserhive_seaweedfs-data
-container-compose up -d
-```
-
-Drops the `browserhive_seaweedfs-data` volume, taking the bucket and all
-SeaweedFS metadata with it; the next `up` recreates the volume, and the
-seaweedfs entrypoint recreates the bucket.
-Reach for this when the SeaweedFS state itself looks wrong (corrupt
-metadata, mismatched credentials), not for routine artifact cleanup.
