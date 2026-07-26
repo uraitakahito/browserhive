@@ -138,6 +138,7 @@ describe("server-cli parseCliOptions", () => {
       vi.stubEnv("BROWSERHIVE_DISCOVERY_REFRESH_MS", "3000");
       vi.stubEnv("BROWSERHIVE_VIEWPORT_WIDTH", "1920");
       vi.stubEnv("BROWSERHIVE_VIEWPORT_HEIGHT", "1080");
+      vi.stubEnv("BROWSERHIVE_DEVICE_SCALE_FACTOR", "2");
       vi.stubEnv("BROWSERHIVE_SCREENSHOT_QUALITY", "85");
       vi.stubEnv("BROWSERHIVE_USER_AGENT", "TestBot/1.0");
 
@@ -148,7 +149,7 @@ describe("server-cli parseCliOptions", () => {
       expect(config.coordinator.queuePollIntervalMs).toBe(200);
       expect(config.discovery.refreshMs).toBe(3000);
       const capture = config.coordinator.browserProfiles[0]?.capture;
-      expect(capture?.viewport).toEqual({ width: 1920, height: 1080 });
+      expect(capture?.viewport).toEqual({ width: 1920, height: 1080, deviceScaleFactor: 2 });
       expect(capture?.screenshot.quality).toBe(85);
       expect(capture?.userAgent).toBe("TestBot/1.0");
     });

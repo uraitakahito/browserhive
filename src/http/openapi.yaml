@@ -564,6 +564,25 @@ components:
             only as a sanity guard against runaway memory use in
             Chromium — typical values are `1280 × 800` (desktop default),
             `1920 × 1080` (Full HD), or `375 × 667` (iPhone SE).
+        deviceScaleFactor:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: |
+            Device pixel ratio (`window.devicePixelRatio`) the capture browser
+            renders at. `1` is a normal display; `2` is Retina.
+
+            Set to `2` to capture a **Retina-faithful WACZ**: the page then
+            requests the `2x` responsive-image candidates. This is the fix for
+            JS carousels (e.g. apple.com TV+) whose slides carry no `srcset` and
+            derive their image URL from the DPR — at DPR 1 the `2x` variant is
+            never referenced, so it cannot be archived; a Retina replay then
+            shows black slides. Note that DPR 2 also doubles the pixel
+            dimensions (and size) of any PNG / WebP screenshot.
+
+            When omitted, the server-side default applies (configured via
+            `--device-scale-factor` / `BROWSERHIVE_DEVICE_SCALE_FACTOR`; the
+            built-in default is `1`).
         fullPage:
           type: boolean
           description: |

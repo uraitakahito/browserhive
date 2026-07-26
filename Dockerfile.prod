@@ -33,7 +33,7 @@ RUN npm ci
 # tests and examples are not shipped). redocly.yaml is required by the
 # `openapi:lint` / `openapi:build-docs` steps; openapi-ts.config.ts and scripts/
 # are required by `openapi:generate`. All run as part of `npm run build`.
-COPY tsconfig.json tsconfig.build.json tsconfig.generated.json redocly.yaml openapi-ts.config.ts ./
+COPY tsconfig.json tsconfig.build.json tsconfig.generated.json tsconfig.behaviors.json redocly.yaml openapi-ts.config.ts ./
 COPY src ./src
 COPY bin ./bin
 COPY scripts ./scripts

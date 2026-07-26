@@ -11,4 +11,4 @@ See `../README.md` for the directory convention and the behavior file contract.
 
 | Directory / file                | id                          | What it does |
 | ------------------------------- | --------------------------- | ------------ |
-| `www.apple.com/tv-gallery.js`   | `www.apple.com:tv-gallery`  | Advances the Apple TV+ gallery carousel and fetches every candidate URL (incl. `_2x`) of each revealed slide, so JS-carousel slides survive Retina replay (autofetch alone only reaches static `<picture>` variants). |
+| `www.apple.com/tv-gallery.js`   | `www.apple.com:tv-gallery`  | Retina fidelity for the Apple TV+ gallery. apple renders exactly one slide variant per DPR (the `<img>` carries no `srcset`), so a DPR-1 capture misses the `2x` and a Retina replay shows black slides. **The fix is to capture at DPR 2** (`--device-scale-factor 2`): the browser then loads and archives the `1960x1044` 2x itself. This behavior is a **best-effort** back-fill of the complementary 1x for DPR-1 replay — see the file header for the verified limits (the 1x is not reliably reachable at behavior time). |

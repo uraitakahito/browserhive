@@ -135,6 +135,25 @@ Only `custom` is sent, never `builtins`: the built-in set (`autoscroll`,
 `autofetch`, …) is left to the server's own `--behaviors` configuration so the
 client cannot accidentally disable it.
 
+### Retina (2x) fidelity — capture at DPR 2
+
+Some sites (e.g. `apple.com`) render **one image variant per device pixel
+ratio**: the slide `<img>` carries no `srcset`, and its URL is chosen from
+`window.devicePixelRatio`. A default DPR-1 capture then only fetches the 1x, so
+the `2x` a Retina replay requests is missing and the image renders black.
+
+Capture at **DPR 2** so the browser fetches the `2x` itself:
+
+```sh
+node dist/examples/data-client.js --data data/apple.yaml --wacz --device-scale-factor 2
+```
+
+or set the server default with `BROWSERHIVE_DEVICE_SCALE_FACTOR=2` /
+`--device-scale-factor 2`. Note DPR 2 also doubles the pixel dimensions of any
+PNG / WebP screenshot. Because each variant is DPR-specific and dropped from the
+DOM after hydration, a single capture cannot reliably hold **both** the 1x and
+2x — capture the URL twice (once per DPR) if you need both.
+
 ## The behavior report
 
 When at least one behavior runs, the completed-task server log line includes a

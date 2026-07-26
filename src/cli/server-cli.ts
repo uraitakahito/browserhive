@@ -148,6 +148,8 @@ interface ParsedOptions {
   discoveryInitRetryDelayMs: number;
   viewportWidth: number;
   viewportHeight: number;
+  /** Device pixel ratio the capture browser renders at. Env BROWSERHIVE_DEVICE_SCALE_FACTOR. */
+  deviceScaleFactor: number;
   screenshotFullPage: boolean;
   screenshotQuality?: number;
   rejectDuplicateUrls: boolean;
@@ -244,6 +246,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     viewport: {
       width: opts.viewportWidth,
       height: opts.viewportHeight,
+      deviceScaleFactor: opts.deviceScaleFactor,
     },
     // Enabled built-in set + timeout + allowCustom come from CLI+env; the
     // per-behavior tuning params (autoscroll steps, autofetch maxUrls) and the
@@ -425,6 +428,15 @@ export const createProgram = (): Command => {
       new Option("--viewport-height <px>", "Viewport height in pixels")
         .env("BROWSERHIVE_VIEWPORT_HEIGHT")
         .default(defaultCapture.viewport.height)
+        .argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--device-scale-factor <n>",
+        "Device pixel ratio for capture (1 = normal, 2 = Retina — makes pages fetch 2x responsive-image candidates)",
+      )
+        .env("BROWSERHIVE_DEVICE_SCALE_FACTOR")
+        .default(defaultCapture.viewport.deviceScaleFactor)
         .argParser(parsePositiveInt),
     )
     .option(
@@ -833,6 +845,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       viewport: {
         width: capture.viewport.width,
         height: capture.viewport.height,
+        deviceScaleFactor: capture.viewport.deviceScaleFactor,
       },
       screenshot: {
         fullPage: capture.screenshot.fullPage,

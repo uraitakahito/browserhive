@@ -48,6 +48,14 @@ export interface CaptureTask {
     height: number;
   };
   /**
+   * Per-request device-pixel-ratio override. When defined, takes precedence
+   * over `CaptureConfig.viewport.deviceScaleFactor` for this task only — e.g.
+   * `2` to capture a Retina-faithful WACZ of a site whose responsive images
+   * only expose their `2x` variant at DPR 2. Bounds (1–3) are enforced by the
+   * OpenAPI schema. Independent of the `viewport` size override above.
+   */
+  deviceScaleFactor?: number;
+  /**
    * Per-request override for `screenshot.fullPage`. When defined, takes
    * precedence over `CaptureConfig.screenshot.fullPage` for this task only.
    * Has no effect on HTML / links formats.

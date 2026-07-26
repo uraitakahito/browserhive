@@ -39,6 +39,12 @@ export interface ClientOptions {
   viewportWidth?: number;
   viewportHeight?: number;
   /**
+   * When set, sent as the request's `deviceScaleFactor` so the server captures
+   * at that DPR — e.g. `2` for a Retina-faithful WACZ (the page then fetches
+   * the `2x` responsive-image candidates). Omitted → server default (1).
+   */
+  deviceScaleFactor?: number;
+  /**
    * When `true`, sent as the request's `fullPage: true` to extend
    * PNG / WebP screenshots beyond the viewport. Omitted when the flag
    * is absent so the server-side default applies.
@@ -122,6 +128,12 @@ export const createProgram = (): Command => {
         "Per-request viewport height (must be paired with --viewport-width; overrides the server default)",
       ).argParser(parsePositiveInt),
     )
+    .addOption(
+      new Option(
+        "--device-scale-factor <n>",
+        "Per-request device pixel ratio (2 = Retina — captures the 2x responsive-image candidates; overrides the server default)",
+      ).argParser(parsePositiveInt),
+    )
     .option(
       "--full-page",
       "Capture the full document height (overrides the server default for PNG / WebP)",
@@ -164,6 +176,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     acceptLanguage?: string;
     viewportWidth?: number;
     viewportHeight?: number;
+    deviceScaleFactor?: number;
     fullPage?: boolean;
     behaviorsVersion?: string;
   }>();
@@ -189,6 +202,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.acceptLanguage !== undefined && { acceptLanguage: opts.acceptLanguage }),
     ...(opts.viewportWidth !== undefined && { viewportWidth: opts.viewportWidth }),
     ...(opts.viewportHeight !== undefined && { viewportHeight: opts.viewportHeight }),
+    ...(opts.deviceScaleFactor !== undefined && { deviceScaleFactor: opts.deviceScaleFactor }),
     ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
     ...(opts.behaviorsVersion !== undefined && { behaviorsVersion: opts.behaviorsVersion }),
   };
@@ -221,6 +235,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       dismissBanners: options.dismissBanners ?? false,
       acceptLanguage: options.acceptLanguage ?? null,
       viewport,
+      deviceScaleFactor: options.deviceScaleFactor ?? null,
       fullPage: options.fullPage ?? null,
       limit: options.limit ?? null,
       behaviorsVersion: options.behaviorsVersion ?? "v1.0",

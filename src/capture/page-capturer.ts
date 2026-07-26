@@ -371,11 +371,17 @@ export const generateFilename = (
 
 const configureViewport = async (
   page: Page,
-  viewport: CaptureConfig["viewport"],
+  viewport: { width: number; height: number },
+  deviceScaleFactor: number,
 ): Promise<void> => {
   await page.setViewport({
     width: viewport.width,
     height: viewport.height,
+    // DPR the page renders at. At 2 the browser resolves responsive images to
+    // their 2x candidate, so Retina-only variants (e.g. apple.com TV+ carousel
+    // slides, which carry no srcset and derive their URL from the DPR) get
+    // fetched during capture and land in the WACZ.
+    deviceScaleFactor,
   });
 };
 
@@ -640,7 +646,11 @@ export class PageCapturer {
     }
 
     try {
-      await configureViewport(page, task.viewport ?? this.config.viewport);
+      await configureViewport(
+        page,
+        task.viewport ?? this.config.viewport,
+        task.deviceScaleFactor ?? this.config.viewport.deviceScaleFactor,
+      );
       await setUserAgent(page, this.config.userAgent);
       await setAcceptLanguage(page, task.acceptLanguage);
 

@@ -104,6 +104,10 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   viewport: {
     width: 1280,
     height: 800,
+    // DPR 1 by default (matches a normal display). Set to 2 for Retina-faithful
+    // WACZ — the page then requests the 2x responsive-image candidates. See the
+    // `deviceScaleFactor` doc on CaptureConfig.viewport.
+    deviceScaleFactor: 1,
   },
   // Behavior defaults. autoscroll (lazy-load) + autofetch (srcset/data-*
   // completeness for DPR/viewport-correct replay) run by default. Bounded by
