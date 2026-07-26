@@ -142,6 +142,35 @@ Retina 再生が要求する `2x` がアーカイブに無いため画像が黒�
 node dist/examples/data-client.js --data data/apple.yaml --wacz --device-scale-factor 2
 ```
 
+HTTP API を直に叩くなら、リクエストに `deviceScaleFactor: 2` を付ける
+（WACZ を残すので `captureFormats.wacz` も `true` にする）:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'content-type: application/json' \
+  -d '{
+    "url": "https://www.apple.com/jp/",
+    "labels": ["apple-jp"],
+    "deviceScaleFactor": 2,
+    "captureFormats": {
+      "png": false, "webp": false, "html": false,
+      "links": false, "mhtml": false,
+      "wacz": true
+    }
+  }' | jq .
+```
+
+`2x` が実際にアーカイブされたかは、出来上がった WACZ の CDXJ を見れば確認できる
+（apple のスライドなら 1x の `980x522` ではなく `1960x1044` が並ぶ）:
+
+```bash
+# 成果物キーは <taskId>_<labels>.wacz（correlationId を送った場合はそれも入る）
+curl -s -o out.wacz \
+  "http://seaweedfs.browserhive:8888/buckets/browserhive/92fc7fb0-…_apple-jp.wacz"
+unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sort | uniq -c
+#   18 1960x1044   ← 2x が入っている（DPR 1 だと 980x522 になる）
+```
+
 またはサーバ既定を `BROWSERHIVE_DEVICE_SCALE_FACTOR=2` /
 `--device-scale-factor 2` にする。DPR 2 では PNG / WebP スクリーンショットの画素
 寸法も 2 倍になる点に注意。各変種は DPR 固有でハイドレーション後に DOM から
