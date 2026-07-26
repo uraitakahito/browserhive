@@ -21,6 +21,25 @@ description: キャプチャ中にページへ注入する自動操作スクリ�
 
 既定の有効セットは `autoscroll,autofetch`。behavior は記載順に実行される。
 
+## サイト別 behavior（サーバ同梱）
+
+一部のサイトは、組み込み behavior だけでは取りこぼす作りをしている。BrowserHive は
+そうしたサイト向けの behavior を**ランタイムに同梱**しており、**クライアントは何も
+送らなくてよい**（`behaviors.custom` も `--allow-custom-behaviors` も不要）。
+
+| id | 対象 | 何をするか |
+|----|------|-----------|
+| `site:apple.com/gallery-variants` | `*.apple.com` | TV+ ギャラリーのスライドは `srcset` を持たず URL を DPR から計算するため、撮影した DPR の変種しか録れない。SSR HTML と live DOM から mzstatic の画像 URL を集め、**2 倍・1/2 のきょうだい URL も取得**して変種を埋める。 |
+
+- **組み込み built-in とは有効化の仕方が違う**: `--behaviors` に id を書く必要はなく、
+  **常に候補**に入る。実際に走るかは各 behavior の `isMatch()`（ホスト判定）が決めるので、
+  **対象外のサイトでは一切動かない**。
+- 実行順は**組み込み built-in の後**（`autoscroll` / `autofetch` がページを整えた後に効かせるため）。
+- 走ったかどうかは `behaviorReport.ran[].id` で分かる（`site:` 接頭辞が目印）。
+- 止めたいときはサーバを `--no-site-behaviors`（`BROWSERHIVE_SITE_BEHAVIORS=false`）で起動するか、
+  リクエストで `"behaviors": { "siteBehaviors": false }` を指定する。比較検証や、
+  過去のアーカイブを再現したいときに使う。
+
 ## behavior を有効にする
 
 ### サーバ全体（フラグ／env）

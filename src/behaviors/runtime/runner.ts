@@ -14,7 +14,7 @@ import type {
 } from "./types";
 import { Lib } from "./lib";
 
-class BehaviorRunner {
+export class BehaviorRunner {
   private readonly registry: BehaviorClass[] = [];
 
   register(behavior: BehaviorClass): void {
@@ -33,8 +33,18 @@ class BehaviorRunner {
     const report: BehaviorRunReport = { ran: [], timedOut: false };
 
     // Resolve in the caller's requested order, honouring isMatch().
+    //
+    // Site behaviors are not opted into by id — they are always considered and
+    // isMatch() (a host check) decides. They go last so the built-ins have
+    // already primed the page: a site behavior typically acts on what
+    // autoscroll / autofetch surfaced.
+    const siteIds =
+      opts.siteBehaviors === false
+        ? []
+        : this.registry.filter((b) => b.siteSpecific === true).map((b) => b.id);
+
     const active: BehaviorClass[] = [];
-    for (const id of opts.enabled) {
+    for (const id of [...opts.enabled, ...siteIds]) {
       const behavior = this.registry.find((b) => b.id === id);
       if (behavior && this.safeIsMatch(behavior)) active.push(behavior);
     }

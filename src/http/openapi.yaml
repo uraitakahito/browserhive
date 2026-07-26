@@ -700,6 +700,21 @@ components:
               description: |
                 Per-behavior option overrides, keyed by behavior id, merged over
                 the server options — e.g. `{ "autoscroll": { "maxSteps": 60 } }`.
+            siteBehaviors:
+              type: boolean
+              description: |
+                Whether the site-specific behaviors bundled into the server's
+                runtime are considered for this capture. They only act on the
+                hosts their own `isMatch()` accepts, so leaving this alone is
+                normally right; set `false` to capture with the built-ins (and
+                any client `custom` behaviors) only — useful when comparing runs
+                or reproducing an older archive.
+
+                When omitted, the server-side default applies (configured via
+                `--no-site-behaviors` / `BROWSERHIVE_SITE_BEHAVIORS`; the
+                built-in default is on). Behaviors that run are listed in the
+                completed-task log's `behaviorReport`, where bundled ones carry a
+                `site:` id prefix.
             custom:
               type: array
               description: |

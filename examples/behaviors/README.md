@@ -1,5 +1,9 @@
 # Custom behaviors (example client)
 
+> **Note.** Site behaviors for hosts BrowserHive already supports are **bundled
+> into the server** (`src/behaviors/runtime/site/`) and need nothing from the
+> client. This directory is for sites the server does not cover yet.
+
 Client-supplied **custom behaviors** that the example client
 (`examples/data-client.ts`) attaches to a capture request based on the target
 URL's host. The server runs them alongside the built-ins (`autoscroll`,

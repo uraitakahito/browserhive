@@ -23,6 +23,28 @@ Enabled by **flag or config — no client JavaScript required**.
 The default enabled set is `autoscroll,autofetch`. Behaviors run in the order
 listed.
 
+## Site behaviors (bundled with the server)
+
+Some sites are built in a way the built-ins alone cannot cover. BrowserHive
+**bundles behaviors for those sites into the runtime**, so **clients send
+nothing** — no `behaviors.custom`, no `--allow-custom-behaviors`.
+
+| id | applies to | what it does |
+|----|------------|--------------|
+| `site:apple.com/gallery-variants` | `*.apple.com` | TV+ gallery slides carry no `srcset` and derive their URL from the DPR, so only the variant for the captured DPR is referenced. Collects mzstatic image URLs from the SSR HTML and the live DOM and **also fetches the doubled and halved siblings**, filling in the variants. |
+
+- **Enabled differently from built-ins**: they need no id in `--behaviors` —
+  they are **always considered**, and each behavior's own `isMatch()` (a host
+  check) decides whether it runs. On other sites they do nothing at all.
+- They run **after** the built-ins, so `autoscroll` / `autofetch` have already
+  primed the page.
+- Whether one ran is visible in `behaviorReport.ran[].id` — bundled ones carry
+  the `site:` prefix.
+- To switch them off, start the server with `--no-site-behaviors`
+  (`BROWSERHIVE_SITE_BEHAVIORS=false`) or send
+  `"behaviors": { "siteBehaviors": false }` on the request — useful when
+  comparing runs or reproducing an older archive.
+
 ## Enabling behaviors
 
 ### Server-wide (flags / env)

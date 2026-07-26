@@ -133,6 +133,9 @@ export const captureRequestToTask = (
         ...(request.behaviors.custom !== undefined && {
           custom: request.behaviors.custom,
         }),
+        ...(request.behaviors.siteBehaviors !== undefined && {
+          siteBehaviors: request.behaviors.siteBehaviors,
+        }),
       },
     }),
   };

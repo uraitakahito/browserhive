@@ -40,6 +40,15 @@ export interface Behavior {
 export interface BehaviorClass {
   id: string;
   isMatch(): boolean;
+  /**
+   * Site behaviors are considered on every capture without being listed in
+   * `enabled` — `isMatch()`, which gates on the host, is what decides whether
+   * they run. Built-ins are the opposite: opted into by id via `--behaviors`.
+   *
+   * That difference is why this is a flag on the class rather than a naming
+   * convention on `id`: the runner needs to know the kind, not parse a prefix.
+   */
+  siteSpecific?: boolean;
   new (): Behavior;
 }
 
@@ -47,6 +56,12 @@ export interface BehaviorClass {
 export interface RunOpts {
   /** Behavior ids to run, in execution order. */
   enabled: string[];
+  /**
+   * Whether the bundled site behaviors are considered. Defaults to on when
+   * omitted; set false to capture with built-ins (and client custom behaviors)
+   * only — useful when comparing runs or reproducing an older archive.
+   */
+  siteBehaviors?: boolean;
   /** Overall wall-clock budget; enforced at yield boundaries. */
   timeoutMs: number;
   /** Per-behavior options, keyed by behavior id. */

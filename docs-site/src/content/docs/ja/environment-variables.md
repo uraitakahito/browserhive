@@ -32,6 +32,7 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--behaviors <list>`<code class="env">BROWSERHIVE_BEHAVIORS</code> | カンマ区切りの behavior id(既定 `autoscroll,autofetch`)。空文字で全 built-in を無効化 |
 | `--behavior-timeout <ms>`<code class="env">BROWSERHIVE_BEHAVIOR_TIMEOUT_MS</code> | 正の整数(既定 `30000`) — behavior パス全体の上限 |
 | `--allow-custom-behaviors`<code class="env">BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS</code> | `"true"`/`"1"` または `"false"`/`"0"`(既定 `false`) — リクエストの `behaviors.custom` を受理する |
+| `--no-site-behaviors`<code class="env">BROWSERHIVE_SITE_BEHAVIORS</code> | `"true"`/`"1"` または `"false"`/`"0"`(既定 有効) — サーバ同梱のサイト別 behavior を使うか。リクエストの `behaviors.siteBehaviors` が優先 |
 | `--screenshot-full-page`<code class="env">BROWSERHIVE_SCREENSHOT_FULL_PAGE</code> | `"true"`/`"1"` または `"false"`/`"0"`(サーバ既定。リクエストの `fullPage` が優先) |
 | `--screenshot-quality <n>`<code class="env">BROWSERHIVE_SCREENSHOT_QUALITY</code> | 整数(1–100) |
 | `--reject-duplicate-urls`<code class="env">BROWSERHIVE_REJECT_DUPLICATE_URLS</code> | `"true"`/`"1"` または `"false"`/`"0"` |

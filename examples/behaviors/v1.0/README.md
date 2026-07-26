@@ -9,6 +9,10 @@ See `../README.md` for the directory convention and the behavior file contract.
 
 ## Behaviors in this version
 
-| Directory / file                | id                          | What it does |
-| ------------------------------- | --------------------------- | ------------ |
-| `www.apple.com/tv-gallery.js`   | `www.apple.com:tv-gallery`  | Retina fidelity for the Apple TV+ gallery. apple renders exactly one slide variant per DPR (the `<img>` carries no `srcset`), so a DPR-1 capture misses the `2x` and a Retina replay shows black slides. **The fix is to capture at DPR 2** (`--device-scale-factor 2`): the browser then loads and archives the `1960x1044` 2x itself. This behavior is a **best-effort** back-fill of the complementary 1x for DPR-1 replay — see the file header for the verified limits (the 1x is not reliably reachable at behavior time). |
+None. The Apple TV+ gallery behavior that used to live here is now **bundled
+into the server** (`src/behaviors/runtime/site/apple.ts`) and runs automatically
+on matching hosts — no client JavaScript, and no `--allow-custom-behaviors`.
+
+This directory stays as the place for behaviors the **server does not ship**:
+drop a `<host>/<name>.js` here and the example client attaches it to captures of
+that host. See `../README.md` for the convention and the file contract.

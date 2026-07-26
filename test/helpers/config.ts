@@ -71,6 +71,10 @@ export const createTestCaptureConfig = (
     // if the behavior pass ran. Tests that want behaviors opt in via
     // overrides.behaviors.builtins.
     builtins: [],
+    // Same reasoning for the bundled site behaviors: they are on in production
+    // (that is the point of shipping them) but would inject the runtime here and
+    // move the same counts. Opt in via overrides.behaviors.siteBehaviors.
+    siteBehaviors: false,
     ...overrides.behaviors,
   },
   screenshot: {
