@@ -564,6 +564,34 @@ components:
             only as a sanity guard against runaway memory use in
             Chromium — typical values are `1280 × 800` (desktop default),
             `1920 × 1080` (Full HD), or `375 × 667` (iPhone SE).
+        archiveMode:
+          type: string
+          enum: [single-pass, multipass]
+          description: |
+            How many passes the capture makes over the page.
+
+            - `single-pass` (default) — load the page once, at the configured
+              device pixel ratio, with the browser cache in play.
+            - `multipass` — load the same page once per device pixel ratio
+              (1 and 2) into a **single WACZ**, so replay is correct on both
+              normal and Retina displays. Each pass is fetched with the
+              **browser cache disabled**: a pass served from cache would defeat
+              the point, and a revalidated `304` carries no body, which would
+              leave holes in the archive.
+
+            `multipass` roughly doubles capture time and archive size, and
+            `deviceScaleFactor` is ignored (the mode sweeps its own DPR set).
+            PNG / WebP screenshots come from the last pass, i.e. at DPR 2.
+
+            Worth it for sites that *compute* image URLs from
+            `devicePixelRatio` (the variant for the DPR you did not capture at
+            appears nowhere in the DOM). Sites that declare every candidate in
+            `srcset` are already covered at any single DPR by the `autofetch`
+            behavior.
+
+            When omitted, the server-side default applies (configured via
+            `--archive-mode` / `BROWSERHIVE_ARCHIVE_MODE`; the built-in default
+            is `single-pass`).
         deviceScaleFactor:
           type: integer
           minimum: 1
@@ -571,6 +599,7 @@ components:
           description: |
             Device pixel ratio (`window.devicePixelRatio`) the capture browser
             renders at. `1` is a normal display; `2` is Retina.
+            Ignored when `archiveMode` is `multipass`.
 
             Set to `2` to capture a **Retina-faithful WACZ**: the page then
             requests the `2x` responsive-image candidates. This is the fix for

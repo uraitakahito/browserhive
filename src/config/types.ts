@@ -103,7 +103,23 @@ export interface WaczConfig {
   fuzzyParams: string[];
 }
 
+/**
+ * How many passes a capture makes over the page.
+ *
+ * - `single-pass` — the default: load the page once, at the configured device
+ *   pixel ratio, with the browser cache in play.
+ * - `multipass` — load the same page once per device pixel ratio (currently 1
+ *   and 2) into a single WACZ, so replay is correct on both normal and Retina
+ *   displays. Each pass is fetched with the **browser cache disabled**: a second
+ *   pass served from cache would defeat the point of multiple passes, and a
+ *   revalidated (`304`) response carries no body, which would leave holes in the
+ *   archive. Costs roughly twice the time and bytes.
+ */
+export type ArchiveMode = "single-pass" | "multipass";
+
 export interface CaptureConfig {
+  /** Server-wide default archive mode. Overridable per request. */
+  archiveMode: ArchiveMode;
   timeouts: {
     /** Page load timeout. */
     pageLoadMs: number;

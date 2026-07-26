@@ -50,6 +50,7 @@ const TEST_DEFAULT_DISMISS_OPTIONS: DismissOptions = {
 
 interface MockPage {
   setViewport: ReturnType<typeof vi.fn>;
+  setCacheEnabled: ReturnType<typeof vi.fn>;
   setUserAgent: ReturnType<typeof vi.fn>;
   setExtraHTTPHeaders: ReturnType<typeof vi.fn>;
   goto: ReturnType<typeof vi.fn>;
@@ -70,6 +71,7 @@ const buildMockCDPSession = (): {
 
 const buildMockPage = (): MockPage => ({
   setViewport: vi.fn().mockResolvedValue(undefined),
+  setCacheEnabled: vi.fn().mockResolvedValue(undefined),
   setUserAgent: vi.fn().mockResolvedValue(undefined),
   setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
   goto: vi.fn().mockResolvedValue({

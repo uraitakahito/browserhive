@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type {
+  ArchiveMode,
   BrowserHiveConfig,
   CaptureConfig,
   StorageConfig,
@@ -146,6 +147,8 @@ interface ParsedOptions {
   discoveryInitRetryAttempts: number;
   /** Base backoff (ms) for the boot-time retry. Env BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS. */
   discoveryInitRetryDelayMs: number;
+  /** How many passes a capture makes over the page. Env BROWSERHIVE_ARCHIVE_MODE. */
+  archiveMode: ArchiveMode;
   viewportWidth: number;
   viewportHeight: number;
   /** Device pixel ratio the capture browser renders at. Env BROWSERHIVE_DEVICE_SCALE_FACTOR. */
@@ -238,6 +241,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
   };
 
   const capture: CaptureConfig = {
+    archiveMode: opts.archiveMode,
     timeouts: {
       pageLoadMs: opts.pageLoadTimeout,
       captureMs: opts.captureTimeout,
@@ -432,8 +436,17 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
+        "--archive-mode <mode>",
+        "single-pass (default) or multipass. multipass loads the page once per device pixel ratio (1 and 2) into one WACZ with the browser cache disabled — roughly double the time and bytes",
+      )
+        .env("BROWSERHIVE_ARCHIVE_MODE")
+        .choices(["single-pass", "multipass"])
+        .default(defaultCapture.archiveMode),
+    )
+    .addOption(
+      new Option(
         "--device-scale-factor <n>",
-        "Device pixel ratio for capture (1 = normal, 2 = Retina — makes pages fetch 2x responsive-image candidates)",
+        "Device pixel ratio for capture (1 = normal, 2 = Retina — makes pages fetch 2x responsive-image candidates). Ignored under --archive-mode multipass",
       )
         .env("BROWSERHIVE_DEVICE_SCALE_FACTOR")
         .default(defaultCapture.viewport.deviceScaleFactor)
@@ -842,6 +855,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       },
       maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,
+      archiveMode: capture.archiveMode,
       viewport: {
         width: capture.viewport.width,
         height: capture.viewport.height,

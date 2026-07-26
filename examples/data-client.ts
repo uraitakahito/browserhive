@@ -47,6 +47,7 @@ import {
   type CaptureRequest,
 } from "../src/http/generated/index.js";
 import type { CaptureFormats } from "../src/capture/index.js";
+import type { ArchiveMode } from "../src/config/index.js";
 import { logger } from "../src/logger.js";
 import { parseDataFile, type DataEntry } from "./data-file.js";
 import {
@@ -95,6 +96,7 @@ const submitRequest = async (
   acceptLanguage: string | undefined,
   viewport: { width: number; height: number } | undefined,
   deviceScaleFactor: number | undefined,
+  archiveMode: ArchiveMode | undefined,
   fullPage: boolean | undefined,
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult> => {
@@ -113,6 +115,7 @@ const submitRequest = async (
     ...(acceptLanguage !== undefined && { acceptLanguage }),
     ...(viewport !== undefined && { viewport }),
     ...(deviceScaleFactor !== undefined && { deviceScaleFactor }),
+    ...(archiveMode !== undefined && { archiveMode }),
     ...(fullPage !== undefined && { fullPage }),
     ...(custom.length > 0 && { behaviors: { custom } }),
   };
@@ -159,6 +162,7 @@ const submitAll = async (
   acceptLanguage: string | undefined,
   viewport: { width: number; height: number } | undefined,
   deviceScaleFactor: number | undefined,
+  archiveMode: ArchiveMode | undefined,
   fullPage: boolean | undefined,
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult[]> => {
@@ -173,6 +177,7 @@ const submitAll = async (
       acceptLanguage,
       viewport,
       deviceScaleFactor,
+      archiveMode,
       fullPage,
       selectBehaviors,
     );
@@ -251,6 +256,7 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     options.acceptLanguage,
     viewport,
     options.deviceScaleFactor,
+    options.archiveMode,
     options.fullPage,
     (host) => selectForHost(registry, host),
   );
