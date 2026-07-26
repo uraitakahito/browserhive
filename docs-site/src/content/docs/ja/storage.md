@@ -1,6 +1,6 @@
 ---
 title: ストレージ
-description: S3 互換の成果物ストア — 同梱 SeaweedFS・外部 S3・アドレッシング方式
+description: S3 互換の成果物ストア — 同梱 SeaweedFS・成果物の削除・外部 S3・アドレッシング方式
 ---
 
 キャプチャ成果物(PNG / WebP / HTML / links JSON / MHTML / WACZ)は
@@ -21,6 +21,32 @@ compose スタック(`docker-compose.yml`)は自己ホストの SeaweedFS サー
 ホストへのポート公開は無い: S3 API(`:8333`)と Filer UI(`:8888`)は
 SeaweedFS コンテナで待ち受け、この Mac からはプラットフォーム DNS 名で到達する
 (成果物の閲覧は `http://seaweedfs.browserhive:8888/buckets/browserhive/`)。
+
+## 成果物を削除する
+
+同梱 SeaweedFS 上の成果物を消す方法。初回は成果物が無いので、掃除が要るときだけ使う。
+
+### 全成果物を消して bucket は残す(Filer HTTP API)
+
+```sh
+SW=seaweedfs.browserhive
+curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true" && \
+  curl -X PUT  "http://${SW}:8888/buckets/browserhive/.keep" --data '' && \
+  curl -X DELETE "http://${SW}:8888/buckets/browserhive/.keep"
+```
+
+### SeaweedFS の状態ごとリセットする
+
+```sh
+container-compose down
+container volume rm browserhive_seaweedfs-data
+container-compose up -d
+```
+
+`browserhive_seaweedfs-data` volume を落とし、bucket と SeaweedFS のメタデータごと
+消す。次回の `up` が volume を、seaweedfs の entrypoint が bucket を作り直す。
+SeaweedFS の状態自体が怪しいとき
+(メタデータ破損・資格情報の不一致)の手段であり、日常の成果物掃除には使わない。
 
 ## 外部 S3
 

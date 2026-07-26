@@ -1,6 +1,6 @@
 ---
 title: 開発環境
-description: Apple Container スタックに対するホスト側開発 — 開発ループ・worker の観察・成果物の閲覧と削除
+description: Apple Container スタックに対するホスト側開発 — 開発ループ・worker の観察・成果物の閲覧
 ---
 
 スタック(SeaweedFS + chromium worker + サーバ)は
@@ -97,27 +97,3 @@ SeaweedFS コンテナ内から:
 container exec seaweedfs.browserhive sh -c \
   'echo "fs.ls /buckets/browserhive" | weed shell -master=127.0.0.1:9333'
 ```
-
-## 成果物を削除する
-
-### 全成果物を消して bucket は残す(Filer HTTP API)
-
-```sh
-SW=seaweedfs.browserhive
-curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true" && \
-  curl -X PUT  "http://${SW}:8888/buckets/browserhive/.keep" --data '' && \
-  curl -X DELETE "http://${SW}:8888/buckets/browserhive/.keep"
-```
-
-### SeaweedFS の状態ごとリセットする
-
-```sh
-container-compose down
-container volume rm browserhive_seaweedfs-data
-container-compose up -d
-```
-
-`browserhive_seaweedfs-data` volume を落とし、bucket と SeaweedFS のメタデータごと
-消す。次回の `up` が volume を、seaweedfs の entrypoint が bucket を作り直す。
-SeaweedFS の状態自体が怪しいとき
-(メタデータ破損・資格情報の不一致)の手段であり、日常の成果物掃除には使わない。

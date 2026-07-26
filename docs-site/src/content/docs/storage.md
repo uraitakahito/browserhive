@@ -1,6 +1,6 @@
 ---
 title: Storage
-description: The S3-compatible artifact store — bundled SeaweedFS, external S3, and addressing styles
+description: The S3-compatible artifact store — bundled SeaweedFS, wiping artifacts, external S3, and addressing styles
 ---
 
 Captured artifacts (PNG / WebP / HTML / links JSON / MHTML / WACZ) are uploaded
@@ -23,6 +23,34 @@ Nothing is published to host ports: the S3 API (`:8333`) and the Filer UI
 through its platform DNS name — open
 `http://seaweedfs.browserhive:8888/buckets/browserhive/` to inspect
 captured artifacts.
+
+## Wiping captured artifacts
+
+How to clear artifacts from the bundled SeaweedFS. There are none to start
+with, so reach for this only when you actually need to clean up.
+
+### Wipe every artifact, keep the bucket (Filer HTTP API)
+
+```sh
+SW=seaweedfs.browserhive
+curl -X DELETE "http://${SW}:8888/buckets/browserhive/?recursive=true&ignoreRecursiveError=true" && \
+  curl -X PUT  "http://${SW}:8888/buckets/browserhive/.keep" --data '' && \
+  curl -X DELETE "http://${SW}:8888/buckets/browserhive/.keep"
+```
+
+### Reset the SeaweedFS state too
+
+```sh
+container-compose down
+container volume rm browserhive_seaweedfs-data
+container-compose up -d
+```
+
+Drops the `browserhive_seaweedfs-data` volume, taking the bucket and all
+SeaweedFS metadata with it; the next `up` recreates the volume, and the
+seaweedfs entrypoint recreates the bucket.
+Reach for this when the SeaweedFS state itself looks wrong (corrupt
+metadata, mismatched credentials), not for routine artifact cleanup.
 
 ## External S3
 
