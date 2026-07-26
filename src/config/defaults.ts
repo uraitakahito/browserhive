@@ -7,15 +7,6 @@ import type {
 } from "./types.js";
 
 /**
- * Default slowMo value for browser connections.
- *
- * Slows down Puppeteer operations by the specified amount of milliseconds to aid debugging.
- *
- * @see https://pptr.dev/api/puppeteer.connectoptions
- */
-export const DEFAULT_BROWSER_SLOW_MO_MS = 0;
-
-/**
  * Default wait time for dynamic content to load (ms).
  *
  * Used with page.evaluate() to wait for dynamic content after page load.
@@ -79,6 +70,9 @@ export const DEFAULT_WACZ_CONFIG: WaczConfig = {
 };
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
+  // No artificial delay. Raise it (or send `operationDelayMs` on a request) only
+  // to watch a headless capture render — see capture/capture-page.ts.
+  operationDelayMs: 0,
   // One pass, browser cache in play. `multipass` (DPR 1 + 2, cache disabled) is
   // opt-in because it roughly doubles capture time and archive size, and only
   // pays off on sites that derive image URLs from devicePixelRatio rather than

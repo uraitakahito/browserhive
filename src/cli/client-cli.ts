@@ -46,6 +46,12 @@ export interface ClientOptions {
    */
   deviceScaleFactor?: number;
   /**
+   * When set, sent as the request's `operationDelayMs`: the server paces each
+   * browser operation by this many ms for that one capture, so a headless run
+   * can be watched live. Not puppeteer's `slowMo` — see capture/capture-page.ts.
+   */
+  operationDelayMs?: number;
+  /**
    * When set, sent as the request's `archiveMode`. `"multipass"` makes the
    * server load the page once per device pixel ratio into one WACZ, with the
    * browser cache disabled. Omitted → server default (`single-pass`).
@@ -76,6 +82,15 @@ const parsePositiveInt = (value: string): number => {
 // Reject empty / whitespace-only values up front; length and printable-ASCII
 // constraints are enforced server-side by Ajv via the OpenAPI schema
 // (`minLength:1` / `maxLength:200` / `pattern:^[\x20-\x7e]+$`).
+/** Like `parsePositiveInt` but admits `0` — the "off" value for delays. */
+const parseNonNegativeInt = (value: string): number => {
+  const num = parseInt(value, 10);
+  if (isNaN(num) || num < 0) {
+    throw new InvalidArgumentError("Must be a non-negative integer");
+  }
+  return num;
+};
+
 const parseNonEmpty = (value: string): string => {
   const trimmed = value.trim();
   if (trimmed === "") {
@@ -137,6 +152,12 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
+        "--operation-delay-ms <ms>",
+        "Per-request delay (ms) before each browser operation, so this capture can be watched live via chrome://inspect. 0 = off",
+      ).argParser(parseNonNegativeInt),
+    )
+    .addOption(
+      new Option(
         "--archive-mode <mode>",
         "Per-request archive mode: single-pass (default) or multipass (one pass per DPR into a single WACZ, browser cache disabled)",
       ).choices(["single-pass", "multipass"]),
@@ -190,6 +211,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     viewportWidth?: number;
     viewportHeight?: number;
     deviceScaleFactor?: number;
+    operationDelayMs?: number;
     archiveMode?: ArchiveMode;
     fullPage?: boolean;
     behaviorsVersion?: string;
@@ -217,6 +239,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.viewportWidth !== undefined && { viewportWidth: opts.viewportWidth }),
     ...(opts.viewportHeight !== undefined && { viewportHeight: opts.viewportHeight }),
     ...(opts.deviceScaleFactor !== undefined && { deviceScaleFactor: opts.deviceScaleFactor }),
+    ...(opts.operationDelayMs !== undefined && { operationDelayMs: opts.operationDelayMs }),
     ...(opts.archiveMode !== undefined && { archiveMode: opts.archiveMode }),
     ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
     ...(opts.behaviorsVersion !== undefined && { behaviorsVersion: opts.behaviorsVersion }),
@@ -251,6 +274,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       acceptLanguage: options.acceptLanguage ?? null,
       viewport,
       deviceScaleFactor: options.deviceScaleFactor ?? null,
+      operationDelayMs: options.operationDelayMs ?? "(server default)",
       archiveMode: options.archiveMode ?? "(server default)",
       fullPage: options.fullPage ?? null,
       limit: options.limit ?? null,

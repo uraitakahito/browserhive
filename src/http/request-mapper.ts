@@ -110,6 +110,10 @@ export const captureRequestToTask = (
     ...(request.deviceScaleFactor !== undefined && {
       deviceScaleFactor: request.deviceScaleFactor,
     }),
+    // Bounds (0–5000) enforced by Ajv at the OpenAPI boundary; pass through.
+    ...(request.operationDelayMs !== undefined && {
+      operationDelayMs: request.operationDelayMs,
+    }),
     // Enum ("single-pass" | "multipass") enforced by Ajv; pass through.
     ...(request.archiveMode !== undefined && {
       archiveMode: request.archiveMode,

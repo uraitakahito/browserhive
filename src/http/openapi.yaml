@@ -564,6 +564,25 @@ components:
             only as a sanity guard against runaway memory use in
             Chromium — typical values are `1280 × 800` (desktop default),
             `1920 × 1080` (Full HD), or `375 × 667` (iPhone SE).
+        operationDelayMs:
+          type: integer
+          minimum: 0
+          maximum: 5000
+          description: |
+            Delay (ms) inserted before each browser operation for this capture,
+            so a headless run can be watched live over the DevTools screencast
+            (`chrome://inspect`). The browser connection is not re-made, so no
+            other request is affected.
+
+            Not puppeteer's `slowMo`: that is fixed at connect time and also
+            paces puppeteer's own internal CDP commands, whereas this paces only
+            the operations the server issues, per request. The behaviour differs,
+            so the name does too.
+
+            When omitted, the server-side default applies (configured via
+            `--operation-delay-ms` / `BROWSERHIVE_OPERATION_DELAY_MS`; the
+            built-in default is `0`, i.e. no delay). A large value eats into
+            `--task-timeout` (130s by default) and can fail the task.
         archiveMode:
           type: string
           enum: [single-pass, multipass]

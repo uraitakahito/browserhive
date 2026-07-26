@@ -129,6 +129,11 @@ node dist/examples/data-client.js --data data/apple.yaml --wacz --behaviors-vers
 `autofetch` 等）はサーバ自身の `--behaviors` 設定に委ね、クライアントが誤って
 無効化しないようにする。
 
+:::tip[観察したいとき]
+キャプチャが速すぎて描画を追えない場合は、リクエストに `operationDelayMs` を付けると
+そのキャプチャだけ 1 操作ずつ遅くなる —— [開発環境](/ja/development-environment/) を参照。
+:::
+
 ### Retina（2x）忠実度 — DPR 2 で撮る
 
 一部のサイト（例: `apple.com`）は**デバイスピクセル比ごとに 1 変種だけ**を

@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import type { Page } from "puppeteer";
+import { withOperationDelay, type CapturePage } from "./capture-page.js";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
@@ -266,7 +267,7 @@ const MULTIPASS_DEVICE_PIXEL_RATIOS = [1, 2] as const;
  * is therefore intentionally swallowed at the dismisser level, not here.
  */
 export const runOnStableContext = async <T>(
-  page: Page,
+  page: CapturePage,
   operation: () => Promise<T>,
   description: string,
   perAttemptMs: number,
@@ -384,7 +385,7 @@ export const generateFilename = (
 };
 
 const configureViewport = async (
-  page: Page,
+  page: CapturePage,
   viewport: { width: number; height: number },
   deviceScaleFactor: number,
 ): Promise<void> => {
@@ -403,7 +404,7 @@ const configureViewport = async (
  * Set custom User-Agent if configured
  */
 export const setUserAgent = async (
-  page: Page,
+  page: CapturePage,
   userAgent: string | undefined
 ): Promise<void> => {
   if (userAgent !== undefined) {
@@ -412,7 +413,7 @@ export const setUserAgent = async (
 };
 
 export const setAcceptLanguage = async (
-  page: Page,
+  page: CapturePage,
   acceptLanguage: string | undefined
 ): Promise<void> => {
   if (acceptLanguage !== undefined) {
@@ -425,7 +426,7 @@ export const setAcceptLanguage = async (
 /**
  * Hide scrollbars by injecting CSS
  */
-export const hideScrollbars = async (page: Page): Promise<void> => {
+export const hideScrollbars = async (page: CapturePage): Promise<void> => {
   await page.addStyleTag({ content: HIDE_SCROLLBAR_CSS });
 };
 
@@ -494,7 +495,7 @@ export const hideScrollbars = async (page: Page): Promise<void> => {
  * gets surfaced as `CONNECTION_LOST` rather than silently leaking warnings.
  */
 export const resetPageState = async (
-  page: Page,
+  page: CapturePage,
   workerIndex: number,
   options: ResetStateOptions,
 ): Promise<void> => {
@@ -612,10 +613,19 @@ export class PageCapturer {
    * catches anything that slips through here.
    */
   async capture(
-    page: Page,
+    rawPage: Page,
     task: CaptureTask,
     workerIndex: number
   ): Promise<CaptureResult> {
+    // Pace every browser operation this capture performs when asked to, so a
+    // headless run can be watched live. Request first, then the server default;
+    // `0` hands back the raw page, so the normal path carries no wrapper. The
+    // recorder deliberately keeps `rawPage` — delaying the CDP attach buys
+    // nothing and would only muddy what the setting means.
+    const page = withOperationDelay(
+      rawPage,
+      task.operationDelayMs ?? this.config.operationDelayMs,
+    );
     const startTime = Date.now();
     const capturedAt = new Date(startTime).toISOString();
 
@@ -656,7 +666,7 @@ export class PageCapturer {
         limits: this.waczConfig.limits,
         description: `Capture of ${task.url}`,
       });
-      await recorder.start(page);
+      await recorder.start(rawPage);
     }
 
     try {
@@ -910,7 +920,7 @@ export class PageCapturer {
   }
 
   private async captureScreenshot(
-    page: Page,
+    page: CapturePage,
     task: CaptureTask,
     type: "png" | "webp"
   ): Promise<string> {
@@ -944,7 +954,7 @@ export class PageCapturer {
     );
   }
 
-  private async captureHtml(page: Page, task: CaptureTask): Promise<string> {
+  private async captureHtml(page: CapturePage, task: CaptureTask): Promise<string> {
     const filename = generateFilename(task, "html");
 
     // JS-redirect-aware. `page.content` serialises the document, which
@@ -973,7 +983,7 @@ export class PageCapturer {
    * absolutised against the page's base URL): drop non-http(s) schemes
    * (mailto:, javascript:, tel:, blob:, ...) and dedupe by exact href.
    */
-  private async captureLinks(page: Page, task: CaptureTask): Promise<string> {
+  private async captureLinks(page: CapturePage, task: CaptureTask): Promise<string> {
     const filename = generateFilename(task, "links.json");
 
     const raw = await runOnStableContext(
@@ -1040,7 +1050,7 @@ export class PageCapturer {
    * worker-loop cleanup — every call site that opens a session in this
    * module follows the same pattern (see `resetPageState`).
    */
-  private async captureMhtml(page: Page, task: CaptureTask): Promise<string> {
+  private async captureMhtml(page: CapturePage, task: CaptureTask): Promise<string> {
     const filename = generateFilename(task, "mhtml");
     const session = await page.createCDPSession();
     try {
