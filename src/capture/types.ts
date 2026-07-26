@@ -2,7 +2,7 @@
  * Capture Task and Result Types
  */
 
-import type { BrowserProfile } from "../config/index.js";
+import type { ArchiveMode, BrowserProfile } from "../config/index.js";
 import type { WorkerHealth } from "./capture-worker.js";
 import type { CaptureFormats } from "./capture-formats.js";
 import type { CaptureStatus } from "./capture-status.js";
@@ -53,8 +53,16 @@ export interface CaptureTask {
    * `2` to capture a Retina-faithful WACZ of a site whose responsive images
    * only expose their `2x` variant at DPR 2. Bounds (1–3) are enforced by the
    * OpenAPI schema. Independent of the `viewport` size override above.
+   *
+   * Ignored under `archiveMode: "multipass"`, which sweeps its own DPR set.
    */
   deviceScaleFactor?: number;
+  /**
+   * Per-request archive-mode override (see `CaptureConfig.archiveMode`).
+   * `"multipass"` loads the page once per device pixel ratio into one WACZ,
+   * with the browser cache disabled. Undefined means "use the server default".
+   */
+  archiveMode?: ArchiveMode;
   /**
    * Per-request override for `screenshot.fullPage`. When defined, takes
    * precedence over `CaptureConfig.screenshot.fullPage` for this task only.

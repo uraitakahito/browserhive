@@ -25,6 +25,7 @@ import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 interface MockPage {
   setViewport: ReturnType<typeof vi.fn>;
+  setCacheEnabled: ReturnType<typeof vi.fn>;
   setUserAgent: ReturnType<typeof vi.fn>;
   setExtraHTTPHeaders: ReturnType<typeof vi.fn>;
   goto: ReturnType<typeof vi.fn>;
@@ -46,6 +47,7 @@ const buildMockCDPSession = (): {
 
 const buildMockPage = (): MockPage => ({
   setViewport: vi.fn().mockResolvedValue(undefined),
+  setCacheEnabled: vi.fn().mockResolvedValue(undefined),
   setUserAgent: vi.fn().mockResolvedValue(undefined),
   setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
   goto: vi.fn().mockResolvedValue({
@@ -61,6 +63,15 @@ const buildMockPage = (): MockPage => ({
 });
 
 const asPage = (page: MockPage): Page => page as unknown as Page;
+
+/**
+ * Navigations to the capture target. `page.goto` also serves the post-capture
+ * `about:blank` reset, which would otherwise inflate the count.
+ */
+const gotoTargetCount = (page: MockPage): number =>
+  page.goto.mock.calls.filter(
+    ([url]: [string]) => !url.startsWith("about:"),
+  ).length;
 
 const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-task-id",
@@ -152,6 +163,83 @@ describe("PageCapturer.capture — viewport override", () => {
       height: 800,
       deviceScaleFactor: 2,
     });
+  });
+});
+
+describe("PageCapturer.capture — archiveMode", () => {
+  let store: FakeArtifactStore;
+
+  beforeEach(() => {
+    store = createTestArtifactStore("/tmp/out");
+  });
+
+  it("single-pass loads the page once, with the browser cache left on", async () => {
+    const capturer = new PageCapturer(createTestCaptureConfig(), store);
+    const page = buildMockPage();
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
+    // `page.goto` is also used for the post-capture about:blank reset, so count
+    // only the navigations to the target URL.
+    expect(gotoTargetCount(page)).toBe(1);
+    expect(page.setViewport).toHaveBeenCalledTimes(1);
+    expect(page.setCacheEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("multipass loads the page once per DPR (1 then 2) with the cache disabled", async () => {
+    const config = createTestCaptureConfig({
+      viewport: { width: 1280, height: 800, deviceScaleFactor: 1 },
+    });
+    const capturer = new PageCapturer(config, store);
+    const page = buildMockPage();
+
+    await capturer.capture(
+      asPage(page),
+      buildTask({ archiveMode: "multipass" }),
+      0,
+    );
+
+    expect(page.setCacheEnabled).toHaveBeenCalledWith(false);
+    expect(gotoTargetCount(page)).toBe(2);
+    expect(page.setViewport).toHaveBeenNthCalledWith(1, {
+      width: 1280,
+      height: 800,
+      deviceScaleFactor: 1,
+    });
+    expect(page.setViewport).toHaveBeenNthCalledWith(2, {
+      width: 1280,
+      height: 800,
+      deviceScaleFactor: 2,
+    });
+  });
+
+  it("multipass ignores task.deviceScaleFactor (the mode sweeps its own DPRs)", async () => {
+    const capturer = new PageCapturer(createTestCaptureConfig(), store);
+    const page = buildMockPage();
+
+    await capturer.capture(
+      asPage(page),
+      buildTask({ archiveMode: "multipass", deviceScaleFactor: 3 }),
+      0,
+    );
+
+    const ratios = page.setViewport.mock.calls.map(
+      ([viewport]: [{ deviceScaleFactor: number }]) => viewport.deviceScaleFactor,
+    );
+    expect(ratios).toEqual([1, 2]);
+  });
+
+  it("captures screenshots once, from the state left by the last pass", async () => {
+    const capturer = new PageCapturer(createTestCaptureConfig(), store);
+    const page = buildMockPage();
+
+    await capturer.capture(
+      asPage(page),
+      buildTask({ archiveMode: "multipass" }),
+      0,
+    );
+
+    expect(page.screenshot).toHaveBeenCalledTimes(1);
   });
 });
 

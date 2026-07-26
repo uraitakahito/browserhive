@@ -179,9 +179,44 @@ unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sor
 
 or set the server default with `BROWSERHIVE_DEVICE_SCALE_FACTOR=2` /
 `--device-scale-factor 2`. Note DPR 2 also doubles the pixel dimensions of any
-PNG / WebP screenshot. Because each variant is DPR-specific and dropped from the
-DOM after hydration, a single capture cannot reliably hold **both** the 1x and
-2x — capture the URL twice (once per DPR) if you need both.
+PNG / WebP screenshot.
+
+### Both 1x and 2x in one WACZ — `archiveMode: multipass`
+
+Because each variant is DPR-specific and dropped from the DOM after hydration,
+**a single pass cannot hold both** the 1x and the 2x (capture at DPR 2 and you
+get only the 2x; at DPR 1 only the 1x). When you need both, set `archiveMode` to
+`multipass` — it loads the same page **once per device pixel ratio (1 and 2) into
+a single WACZ**:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'content-type: application/json' \
+  -d '{
+    "url": "https://www.apple.com/jp/",
+    "labels": ["apple-jp"],
+    "archiveMode": "multipass",
+    "captureFormats": {
+      "png": false, "webp": false, "html": false,
+      "links": false, "mhtml": false, "wacz": true
+    }
+  }' | jq .
+```
+
+Each pass is fetched with the **browser cache disabled**: a pass served from
+cache would defeat the point, and a revalidated `304` carries no body, which
+would leave holes in the archive.
+
+Measured on apple.com/jp: single-pass archived only `1960x1044` ×9, while
+**multipass archived `980x522` ×9 *and* `1960x1044` ×9**. The cost is roughly
+double — 409 → 751 records, 77MB → 123MB, and about twice the wall time.
+`deviceScaleFactor` is ignored (the mode sweeps its own ratios), and PNG / WebP
+screenshots come from the last pass, i.e. at DPR 2.
+
+Server-wide: `--archive-mode multipass` / `BROWSERHIVE_ARCHIVE_MODE=multipass`.
+Sites that declare their candidates in `srcset` are already covered in one pass
+by `autofetch`, so multipass only pays off for sites that **compute** image URLs
+from the DPR.
 
 ## The behavior report
 

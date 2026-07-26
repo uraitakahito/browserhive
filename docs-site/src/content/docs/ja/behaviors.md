@@ -173,9 +173,41 @@ unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sor
 
 またはサーバ既定を `BROWSERHIVE_DEVICE_SCALE_FACTOR=2` /
 `--device-scale-factor 2` にする。DPR 2 では PNG / WebP スクリーンショットの画素
-寸法も 2 倍になる点に注意。各変種は DPR 固有でハイドレーション後に DOM から
-消えるため、1 回のキャプチャで **1x と 2x の両方**を確実に保持することはできない
-— 両方必要なら DPR ごとに 2 回撮ること。
+寸法も 2 倍になる点に注意。
+
+### 1x と 2x の両方を 1 つの WACZ に — `archiveMode: multipass`
+
+各変種は DPR 固有でハイドレーション後に DOM から消えるため、**1 パスでは
+1x と 2x の両方を保持できない**（DPR 2 で撮れば 2x のみ、DPR 1 なら 1x のみ）。
+両方必要なら `archiveMode` を `multipass` にする —— 同じページを **DPR 1 と 2 で
+1 回ずつ読み込み、1 つの WACZ にまとめる**:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'content-type: application/json' \
+  -d '{
+    "url": "https://www.apple.com/jp/",
+    "labels": ["apple-jp"],
+    "archiveMode": "multipass",
+    "captureFormats": {
+      "png": false, "webp": false, "html": false,
+      "links": false, "mhtml": false, "wacz": true
+    }
+  }' | jq .
+```
+
+各パスは**ブラウザキャッシュを使わず**取得する（キャッシュ済みの応答で済ませては
+複数パスの意味がなく、再検証の `304` は本文を持たないためアーカイブに穴が空く）。
+
+実測（apple.com/jp）: single-pass は `1960x1044` ×9 のみ、**multipass は
+`980x522` ×9 と `1960x1044` ×9 の両方**。代償として記録数 409→751、
+容量 77MB→123MB とほぼ 2 倍になり、所要時間も約 2 倍。
+`deviceScaleFactor` は無視され（モードが自前で DPR を切り替えるため）、
+PNG / WebP は最後のパス（DPR 2）の状態で撮られる。
+
+サーバ既定は `--archive-mode multipass` / `BROWSERHIVE_ARCHIVE_MODE=multipass`。
+`srcset` で候補を宣言するサイトは `autofetch` が 1 パスで両変種を取得済みなので、
+multipass が要るのは **URL を DPR から計算する型のサイト**だけ。
 
 ## behavior レポート
 

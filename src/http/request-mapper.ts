@@ -110,6 +110,10 @@ export const captureRequestToTask = (
     ...(request.deviceScaleFactor !== undefined && {
       deviceScaleFactor: request.deviceScaleFactor,
     }),
+    // Enum ("single-pass" | "multipass") enforced by Ajv; pass through.
+    ...(request.archiveMode !== undefined && {
+      archiveMode: request.archiveMode,
+    }),
     ...(request.fullPage !== undefined && { fullPage: request.fullPage }),
     ...(request.behaviors !== undefined && {
       behaviors: {

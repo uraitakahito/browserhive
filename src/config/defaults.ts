@@ -79,6 +79,11 @@ export const DEFAULT_WACZ_CONFIG: WaczConfig = {
 };
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
+  // One pass, browser cache in play. `multipass` (DPR 1 + 2, cache disabled) is
+  // opt-in because it roughly doubles capture time and archive size, and only
+  // pays off on sites that derive image URLs from devicePixelRatio rather than
+  // declaring every candidate in `srcset` (autofetch already covers the latter).
+  archiveMode: "single-pass",
   timeouts: {
     pageLoadMs: 30000,
     captureMs: 10000,

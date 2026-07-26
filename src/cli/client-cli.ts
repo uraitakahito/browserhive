@@ -14,6 +14,7 @@
  */
 import { Command, InvalidArgumentError, Option } from "commander";
 import { type CaptureFormats } from "../capture/index.js";
+import type { ArchiveMode } from "../config/index.js";
 import { logger } from "../logger.js";
 
 export interface ClientOptions {
@@ -44,6 +45,12 @@ export interface ClientOptions {
    * the `2x` responsive-image candidates). Omitted → server default (1).
    */
   deviceScaleFactor?: number;
+  /**
+   * When set, sent as the request's `archiveMode`. `"multipass"` makes the
+   * server load the page once per device pixel ratio into one WACZ, with the
+   * browser cache disabled. Omitted → server default (`single-pass`).
+   */
+  archiveMode?: ArchiveMode;
   /**
    * When `true`, sent as the request's `fullPage: true` to extend
    * PNG / WebP screenshots beyond the viewport. Omitted when the flag
@@ -130,6 +137,12 @@ export const createProgram = (): Command => {
     )
     .addOption(
       new Option(
+        "--archive-mode <mode>",
+        "Per-request archive mode: single-pass (default) or multipass (one pass per DPR into a single WACZ, browser cache disabled)",
+      ).choices(["single-pass", "multipass"]),
+    )
+    .addOption(
+      new Option(
         "--device-scale-factor <n>",
         "Per-request device pixel ratio (2 = Retina — captures the 2x responsive-image candidates; overrides the server default)",
       ).argParser(parsePositiveInt),
@@ -177,6 +190,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     viewportWidth?: number;
     viewportHeight?: number;
     deviceScaleFactor?: number;
+    archiveMode?: ArchiveMode;
     fullPage?: boolean;
     behaviorsVersion?: string;
   }>();
@@ -203,6 +217,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.viewportWidth !== undefined && { viewportWidth: opts.viewportWidth }),
     ...(opts.viewportHeight !== undefined && { viewportHeight: opts.viewportHeight }),
     ...(opts.deviceScaleFactor !== undefined && { deviceScaleFactor: opts.deviceScaleFactor }),
+    ...(opts.archiveMode !== undefined && { archiveMode: opts.archiveMode }),
     ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
     ...(opts.behaviorsVersion !== undefined && { behaviorsVersion: opts.behaviorsVersion }),
   };
@@ -236,6 +251,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       acceptLanguage: options.acceptLanguage ?? null,
       viewport,
       deviceScaleFactor: options.deviceScaleFactor ?? null,
+      archiveMode: options.archiveMode ?? "(server default)",
       fullPage: options.fullPage ?? null,
       limit: options.limit ?? null,
       behaviorsVersion: options.behaviorsVersion ?? "v1.0",

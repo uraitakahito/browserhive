@@ -53,6 +53,7 @@ const buildMockPage = (overrides: MockPageOverrides = {}): Page => {
 
   return {
     setViewport: vi.fn().mockResolvedValue(undefined),
+  setCacheEnabled: vi.fn().mockResolvedValue(undefined),
     setUserAgent: vi.fn().mockResolvedValue(undefined),
     setExtraHTTPHeaders: vi.fn().mockResolvedValue(undefined),
     goto: vi.fn().mockResolvedValue(successResponse),

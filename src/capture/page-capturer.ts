@@ -17,6 +17,7 @@ import type { ArtifactStore } from "../storage/index.js";
 import { WaczPackager, analyzeCompleteness } from "../storage/wacz/index.js";
 import type { CompletenessReport } from "../storage/wacz/index.js";
 import { runBehaviors } from "../behaviors/index.js";
+import type { BehaviorRunReport } from "../behaviors/types.js";
 import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
 import { captureStatus } from "./capture-status.js";
 import {
@@ -169,6 +170,18 @@ const STABLE_CONTEXT_SETTLE_TIMEOUT_MS = 3_000;
  * with these defaults is documented on `runOnStableContext` itself.
  */
 const STABLE_CONTEXT_MAX_RETRIES = 2;
+
+/**
+ * Device pixel ratios swept by `archiveMode: "multipass"`.
+ *
+ * 1 and 2 are the ratios that matter in practice: 1 for a normal display, 2 for
+ * Retina. Sites that declare every candidate in `srcset` are already covered at
+ * any single DPR by the `autofetch` behavior; this sweep exists for the ones
+ * that *compute* the image URL from `devicePixelRatio` (apple.com's carousel
+ * being the case that motivated it), where the variant for the DPR you did not
+ * capture at is unreachable — it appears nowhere in the DOM.
+ */
+const MULTIPASS_DEVICE_PIXEL_RATIOS = [1, 2] as const;
 
 /**
  * Run a puppeteer operation that requires a live execution context, retrying
@@ -647,89 +660,123 @@ export class PageCapturer {
     }
 
     try {
-      await configureViewport(
-        page,
-        task.viewport ?? this.config.viewport,
-        task.deviceScaleFactor ?? this.config.viewport.deviceScaleFactor,
-      );
+      const archiveMode = task.archiveMode ?? this.config.archiveMode;
+      // One pass per device pixel ratio. `multipass` sweeps DPR 1 and 2 so both
+      // variant sets land in the same WACZ; `single-pass` keeps the historical
+      // behaviour of a single load at the configured (or per-request) DPR.
+      const devicePixelRatios =
+        archiveMode === "multipass"
+          ? MULTIPASS_DEVICE_PIXEL_RATIOS
+          : [task.deviceScaleFactor ?? this.config.viewport.deviceScaleFactor];
+
+      // The recorder only enables the CDP `Network` domain — it does not
+      // intercept requests — so the browser's HTTP cache is live by default and
+      // a revalidated resource comes back as a bodyless `304` that cannot be
+      // archived. Under `multipass` that would also make the second pass a
+      // no-op. Set it explicitly every capture (not just for multipass): the
+      // page is reused across tasks, so the previous task's choice would
+      // otherwise leak into this one.
+      await page.setCacheEnabled(archiveMode !== "multipass");
+
       await setUserAgent(page, this.config.userAgent);
       await setAcceptLanguage(page, task.acceptLanguage);
 
-      const response = await withTimeout(
-        page.goto(task.url, {
-          waitUntil: "domcontentloaded",
-          timeout: this.config.timeouts.pageLoadMs,
-        }),
-        this.config.timeouts.pageLoadMs,
-        `Navigation to ${task.url}`
-      );
-
-      const httpStatusCode = response?.status() ?? 0;
-
-      if (!isSuccessHttpStatus(httpStatusCode)) {
-        const captureProcessingTimeMs = Date.now() - startTime;
-        const statusText = response?.statusText();
-        return {
-          task,
-          status: captureStatus.httpError,
-          httpStatusCode,
-          errorDetails: createHttpError(httpStatusCode, statusText),
-          captureProcessingTimeMs,
-          timestamp: new Date().toISOString(),
-          workerIndex,
-        };
-      }
-
-      // JS-redirect-aware. The original frame's execution context is gone by
-      // the time we get here for sites like imhds.co.jp / itochu.co.jp /
-      // daiwahouse.com — see runOnStableContext for the recovery contract.
-      await runOnStableContext(
-        page,
-        () =>
-          page.evaluate(
-            (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
-            DEFAULT_DYNAMIC_CONTENT_WAIT_MS,
-          ),
-        `Dynamic content wait for ${task.url}`,
-        EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS,
-      );
-
-      // Same redirect hazard as the dynamic-content wait above —
-      // `addStyleTag` runs `evaluateHandle` internally and rejects with
-      // destroyed-context if the redirect lands during the call.
-      await runOnStableContext(
-        page,
-        () => hideScrollbars(page),
-        `hideScrollbars for ${task.url}`,
-        STYLE_INJECTION_TIMEOUT_MS,
-      );
-
+      let httpStatusCode = 0;
       let dismissReport: DismissReport | undefined;
-      if (task.dismissOptions) {
-        dismissReport = await dismissBanners(page, task.dismissOptions);
-      }
+      let behaviorReport: BehaviorRunReport | undefined;
 
-      // Behaviors AFTER banner dismissal (so sticky overlays are gone) and
-      // BEFORE any format capture (so lazy/srcset resources are in the WARC and
-      // the page is scrolled back to the top for screenshots). The injected
-      // runtime runs the enabled built-ins (autoscroll, autofetch) plus any
-      // client custom behaviors. The NetworkRecorder is already attached, so
-      // behavior-triggered fetches are recorded as-is. Same redirect/SPA hazard
-      // as the other awaits — route through runOnStableContext. In-page work is
-      // bounded by behaviors.timeoutMs; the network-idle settle by idleTimeoutMs.
-      const behaviorBudgetMs =
-        this.config.behaviors.timeoutMs + this.config.behaviors.idleTimeoutMs;
-      const behaviorReport = await runOnStableContext(
-        page,
-        () =>
-          withTimeout(
-            runBehaviors(page, this.config.behaviors, task.behaviors),
-            behaviorBudgetMs,
-            `behaviors for ${task.url}`,
-          ),
-        `behaviors for ${task.url}`,
-        behaviorBudgetMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
-      );
+      for (const [passIndex, deviceScaleFactor] of devicePixelRatios.entries()) {
+        await configureViewport(
+          page,
+          task.viewport ?? this.config.viewport,
+          deviceScaleFactor,
+        );
+
+        const response = await withTimeout(
+          page.goto(task.url, {
+            waitUntil: "domcontentloaded",
+            timeout: this.config.timeouts.pageLoadMs,
+          }),
+          this.config.timeouts.pageLoadMs,
+          `Navigation to ${task.url} (dpr=${String(deviceScaleFactor)})`
+        );
+
+        // The first pass decides the task's HTTP verdict. A later pass failing
+        // does not void the archive — the earlier pass's bytes are already in the
+        // WARC and are worth keeping.
+        if (passIndex === 0) {
+          httpStatusCode = response?.status() ?? 0;
+
+          if (!isSuccessHttpStatus(httpStatusCode)) {
+            const captureProcessingTimeMs = Date.now() - startTime;
+            const statusText = response?.statusText();
+            return {
+              task,
+              status: captureStatus.httpError,
+              httpStatusCode,
+              errorDetails: createHttpError(httpStatusCode, statusText),
+              captureProcessingTimeMs,
+              timestamp: new Date().toISOString(),
+              workerIndex,
+            };
+          }
+        }
+
+        // JS-redirect-aware. The original frame's execution context is gone by
+        // the time we get here for sites like imhds.co.jp / itochu.co.jp /
+        // daiwahouse.com — see runOnStableContext for the recovery contract.
+        await runOnStableContext(
+          page,
+          () =>
+            page.evaluate(
+              (waitMs) => new Promise((resolve) => setTimeout(resolve, waitMs)),
+              DEFAULT_DYNAMIC_CONTENT_WAIT_MS,
+            ),
+          `Dynamic content wait for ${task.url}`,
+          EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS,
+        );
+
+        // Same redirect hazard as the dynamic-content wait above —
+        // `addStyleTag` runs `evaluateHandle` internally and rejects with
+        // destroyed-context if the redirect lands during the call.
+        await runOnStableContext(
+          page,
+          () => hideScrollbars(page),
+          `hideScrollbars for ${task.url}`,
+          STYLE_INJECTION_TIMEOUT_MS,
+        );
+
+        if (task.dismissOptions) {
+          dismissReport = await dismissBanners(page, task.dismissOptions);
+        }
+
+        // Behaviors AFTER banner dismissal (so sticky overlays are gone) and
+        // BEFORE any format capture (so lazy/srcset resources are in the WARC and
+        // the page is scrolled back to the top for screenshots). The injected
+        // runtime runs the enabled built-ins (autoscroll, autofetch) plus any
+        // client custom behaviors. The NetworkRecorder is already attached, so
+        // behavior-triggered fetches are recorded as-is. Same redirect/SPA hazard
+        // as the other awaits — route through runOnStableContext. In-page work is
+        // bounded by behaviors.timeoutMs; the network-idle settle by idleTimeoutMs.
+        //
+        // Runs once per pass: under `multipass` the DPR-2 pass is what pulls the
+        // 2x image variants into the WARC.
+        const behaviorBudgetMs =
+          this.config.behaviors.timeoutMs + this.config.behaviors.idleTimeoutMs;
+        behaviorReport = await runOnStableContext(
+          page,
+          () =>
+            withTimeout(
+              runBehaviors(page, this.config.behaviors, task.behaviors),
+              behaviorBudgetMs,
+              `behaviors for ${task.url}`,
+            ),
+          `behaviors for ${task.url}`,
+          behaviorBudgetMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+        );
+      }
+      // Formats below are captured once, from the state left by the LAST pass
+      // (under `multipass` that is DPR 2, so PNG/WebP come out at 2x).
 
       let pngLocation: string | undefined;
       let webpLocation: string | undefined;
