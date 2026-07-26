@@ -48,9 +48,36 @@ object summarising what landed in the WARC:
     "totalFailed": 0,
     "totalIncomplete": 0,
     "totalBodyBytes": 348201
+  },
+  "completeness": { "complete": true, "bodylessCount": 0, "bodylessSample": [] }
+}
+```
+
+### Archive completeness (`completeness`)
+
+Where `waczStats` counts *what was recorded*, `completeness` judges whether the
+archive **actually holds the bytes a replay will ask for**. It currently flags one
+pattern: **a URL that has a `304 Not Modified` but no `200`**. That means the
+browser only revalidated a cached copy — **no body crossed the wire** — so replay
+cannot fetch that resource (when it happens to core JS/CSS, the page falls apart).
+
+For an incomplete archive the log line is raised to `warn` with the message
+`Task completed with an incomplete archive`, carrying the count and a sample:
+
+```json
+{
+  "level": 40,
+  "msg": "Task completed with an incomplete archive",
+  "completeness": {
+    "complete": false,
+    "bodylessCount": 16,
+    "bodylessSample": ["https://www.example.com/v/home/a/scripts/home.built.js"]
   }
 }
 ```
+
+Redirects, `204`s, and bodies omitted **on purpose** by the content-type filter or
+the size caps are not treated as incomplete (those are counted in `waczStats`).
 
 ## Opening a WACZ in ReplayWeb.page
 
@@ -139,6 +166,10 @@ form is comma-separated.
 - **`waczStats.totalTruncatedTaskCap > 0`** — The cumulative body cap
   was hit. Raise `--wacz-max-task-bytes` if the page legitimately has
   hundreds of MB of resources.
+- **`completeness.complete === false`** — The archive holds URLs with no
+  body (see `bodylessSample`). Capturing the same site repeatedly lets the
+  browser cache kick in, so a revalidated resource's body is never
+  recorded. Re-capture, or capture with the browser cache disabled.
 - **Replay shows "no matching response"** — Some resource fetched at
   replay time has no recorded counterpart, often because of a fresh
   cache-buster value the fuzzy match didn't catch. Add the parameter

@@ -48,9 +48,36 @@ worker の `Task completed` ログ行が `s3://` URI と、WARC に何が入っ�
     "totalFailed": 0,
     "totalIncomplete": 0,
     "totalBodyBytes": 348201
+  },
+  "completeness": { "complete": true, "bodylessCount": 0, "bodylessSample": [] }
+}
+```
+
+### アーカイブ完全性(`completeness`)
+
+`waczStats` が「何件録ったか」なのに対し、`completeness` は
+**「再生に必要なバイト列が実際に入っているか」**を判定する。現状で見ているのは
+1 つのパターン —— **同じ URL に `304 Not Modified` はあるが `200` が無い**ケース。
+これはブラウザがキャッシュ済みのコピーを再検証しただけで**本文が回線を流れておらず**、
+再生時にそのリソースを取得できないことを意味する(中核 JS/CSS で起きるとページが崩れる)。
+
+不完全なアーカイブでは、ログ行が `warn` レベルの
+`Task completed with an incomplete archive` になり、該当 URL の件数と先頭数件が付く:
+
+```json
+{
+  "level": 40,
+  "msg": "Task completed with an incomplete archive",
+  "completeness": {
+    "complete": false,
+    "bodylessCount": 16,
+    "bodylessSample": ["https://www.example.com/v/home/a/scripts/home.built.js"]
   }
 }
 ```
+
+リダイレクト・`204`・content-type フィルタやサイズ上限による**意図的な**本文省略は
+不完全とみなさない(後者は `waczStats` が別途カウントしている)。
 
 ## WACZ を ReplayWeb.page で開く
 
@@ -135,6 +162,10 @@ env ではカンマ区切り。
   当たった印。パターンを絞るか、`--wacz-block-pattern ""` で既定なしから始める。
 - **`waczStats.totalTruncatedTaskCap > 0`** — 累計 body 上限に到達。ページが
   正当に数百 MB のリソースを持つなら `--wacz-max-task-bytes` を上げる。
+- **`completeness.complete === false`** — アーカイブに本文の無い URL がある
+  (`bodylessSample` を参照)。同じサイトを繰り返し撮るとブラウザのキャッシュが効き、
+  再検証だけで済んだリソースの本文が記録されない。撮り直すか、キャッシュを使わない
+  設定で取得する。
 - **再生で「no matching response」** — 再生時に fetch されたリソースに記録済みの
   対応が無い。多くはファジーマッチが拾えなかった新しいキャッシュバスター値が
   原因。そのパラメータ名を `--wacz-fuzzy-param` に足す。

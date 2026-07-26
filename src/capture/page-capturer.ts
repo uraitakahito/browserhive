@@ -14,7 +14,8 @@ import type { Page } from "puppeteer";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
-import { WaczPackager } from "../storage/wacz/index.js";
+import { WaczPackager, analyzeCompleteness } from "../storage/wacz/index.js";
+import type { CompletenessReport } from "../storage/wacz/index.js";
 import { runBehaviors } from "../behaviors/index.js";
 import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
 import { captureStatus } from "./capture-status.js";
@@ -761,10 +762,13 @@ export class PageCapturer {
       // additional resource fetches via render layouts; rare but possible).
       let waczLocation: string | undefined;
       let waczStats: RecordingStats | undefined;
+      let completeness: CompletenessReport | undefined;
       if (recorder !== null && waczTempDir !== null && this.waczConfig) {
         const stopResult = await recorder.stop();
         recorder = null;
         waczStats = stopResult.stats;
+        // Same records the CDXJ is built from — no need to re-read the archive.
+        completeness = analyzeCompleteness(stopResult.responses);
         const pageTitle = await page.title().catch(() => "");
         const waczFilename = generateFilename(task, "wacz");
         const localWaczPath = join(waczTempDir, waczFilename);
@@ -805,6 +809,7 @@ export class PageCapturer {
         ...(mhtmlLocation !== undefined && { mhtmlLocation }),
         ...(waczLocation !== undefined && { waczLocation }),
         ...(waczStats !== undefined && { waczStats }),
+        ...(completeness !== undefined && { completeness }),
         ...(dismissReport !== undefined && { dismissReport }),
         ...(behaviorReport !== undefined && { behaviorReport }),
       };
