@@ -88,35 +88,43 @@ wrong-port pitfall) in the chromium-server docs:
 [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/).
 One-shot CDP checks: `./chromium-server-docker/bin/cdp.sh smoke`.
 
-### When it finishes too fast to watch — `--slow-mo`
+### When it finishes too fast to watch — `operationDelayMs`
 
 A capture takes only a few seconds by default (about 6s for example.com), so it
-is usually over before the screencast is open. Start with `--slow-mo` and
-**every CDP operation is spaced out**, letting you follow it step by step:
+is usually over before the screencast is open. Add `operationDelayMs` to the
+request and **each browser operation is preceded by that delay**, letting you
+follow it step by step:
 
-```yaml
-# add to the browserhive service in docker-compose.yml, then recreate
-environment:
-  - BROWSERHIVE_SLOW_MO_MS=250
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'content-type: application/json' \
+  -d '{
+    "url": "https://www.example.com/",
+    "operationDelayMs": 250,
+    "captureFormats": {
+      "png": true, "webp": false, "html": false,
+      "links": false, "mhtml": false, "wacz": false
+    }
+  }' | jq .
 ```
 
-The `slowMo` field in the startup log confirms it took effect. Measured
-(example.com, one PNG):
+It applies to **that request only** — the browser connection is not re-made, so
+other captures stay fast. Measured (example.com, one PNG):
 
-| `slowMo` | Time for one capture |
+| `operationDelayMs` | Time for one capture |
 |---|---|
-| `0` (default) | ~6s |
+| omitted (default `0`) | ~6s |
 | `250` | ~10s |
-| `1000` | ~33s |
+| `1000` | ~19s |
 
-- It is a **connect-time** option: it applies to every worker and changing it
-  needs browserhive recreated (it cannot be switched per request).
-- What slows down is the **gap between puppeteer operations**, not the page's
-  own rendering or scrolling. To watch scrolling itself, raise
-  `behaviors.options.autoscroll.stepDelayMs` on the request.
+- To slow every request instead, set the server-wide default with
+  `--operation-delay-ms` / `BROWSERHIVE_OPERATION_DELAY_MS` (a request's value
+  wins).
+- What slows down is the **gap between the browser operations BrowserHive
+  issues**, not the page's own rendering or scrolling. To watch scrolling
+  itself, raise `behaviors.options.autoscroll.stepDelayMs` on the request.
 - Too large a value runs into `--task-timeout` (130s by default) and the task
-  fails. The numbers above leave room even at `1000`, but a heavy page eats
-  into that margin.
+  fails.
 
 ## Browsing captured artifacts in SeaweedFS
 

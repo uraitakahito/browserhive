@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import type { Page } from "puppeteer";
+import type { CapturePage } from "../capture/capture-page.js";
 import type {
   BehaviorConfig,
   BehaviorRequest,
@@ -96,7 +96,7 @@ export const resolveBehaviorRun = (
  * individual behavior — errors are captured per behavior in the report.
  */
 export const runBehaviors = async (
-  page: Page,
+  page: CapturePage,
   config: BehaviorConfig,
   request?: BehaviorRequest,
 ): Promise<BehaviorRunReport | undefined> => {

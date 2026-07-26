@@ -9,7 +9,7 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 |---|---|
 | `--port <port>`<code class="env">BROWSERHIVE_PORT</code> | 整数(1–65535) |
 | `--browser-url <urls...>`<code class="env">BROWSERHIVE_BROWSER_URLS</code> | カンマ区切りリスト(必須) |
-| `--slow-mo <ms>`<code class="env">BROWSERHIVE_SLOW_MO_MS</code> | 0 以上の整数(既定 `0`) — 各 CDP 操作の間に入れる遅延。headless の描画を観察するとき用。接続時に決まるため変更には再作成が必要 |
+| `--operation-delay-ms <ms>`<code class="env">BROWSERHIVE_OPERATION_DELAY_MS</code> | 0 以上の整数(既定 `0`) — 各ブラウザ操作の前に入れる遅延。headless の描画を観察するとき用。リクエストの `operationDelayMs` が優先 |
 | `--s3-endpoint <url>`<code class="env">BROWSERHIVE_S3_ENDPOINT</code> | URL(必須) |
 | `--s3-region <region>`<code class="env">BROWSERHIVE_S3_REGION</code> | 文字列(既定 `us-east-1`) |
 | `--s3-bucket <name>`<code class="env">BROWSERHIVE_S3_BUCKET</code> | 文字列(必須) |
@@ -47,4 +47,4 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--tls-cert <path>`<code class="env">BROWSERHIVE_TLS_CERT</code> | パス |
 | `--tls-key <path>`<code class="env">BROWSERHIVE_TLS_KEY</code> | パス |
 
-`data-client` の例は 2 つの環境変数を受け付ける: `BROWSERHIVE_SERVER`(既定 `http://localhost:8080`)と `BROWSERHIVE_TLS_CA_CERT`(情報提供用。実際の CA ピン留めは `NODE_EXTRA_CA_CERTS` を使う)。ジョブ単位のフラグ(`--data`、`--png`、`--webp`、`--html`、`--links`、`--mhtml`、`--wacz`、`--limit`、`--dismiss-banners`、`--accept-language`、`--viewport-width`、`--viewport-height`、`--full-page`、`--device-scale-factor`、`--archive-mode`、`--behaviors-version`)には意図的に env 版が無い。
+`data-client` の例は 2 つの環境変数を受け付ける: `BROWSERHIVE_SERVER`(既定 `http://localhost:8080`)と `BROWSERHIVE_TLS_CA_CERT`(情報提供用。実際の CA ピン留めは `NODE_EXTRA_CA_CERTS` を使う)。ジョブ単位のフラグ(`--data`、`--png`、`--webp`、`--html`、`--links`、`--mhtml`、`--wacz`、`--limit`、`--dismiss-banners`、`--accept-language`、`--viewport-width`、`--viewport-height`、`--full-page`、`--device-scale-factor`、`--archive-mode`、`--behaviors-version`、`--operation-delay-ms`)には意図的に env 版が無い。

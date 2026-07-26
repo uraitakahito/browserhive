@@ -166,6 +166,44 @@ describe("PageCapturer.capture — viewport override", () => {
   });
 });
 
+describe("PageCapturer.capture — operationDelayMs", () => {
+  let store: FakeArtifactStore;
+
+  beforeEach(() => {
+    store = createTestArtifactStore("/tmp/out");
+  });
+
+  it("paces each browser operation when the task asks for it", async () => {
+    vi.useFakeTimers();
+    const capturer = new PageCapturer(createTestCaptureConfig(), store);
+    const page = buildMockPage();
+
+    const pending = capturer.capture(
+      asPage(page),
+      buildTask({ operationDelayMs: 50 }),
+      0,
+    );
+    // The very first operation waits, so nothing has been issued yet.
+    expect(page.setViewport).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await pending;
+
+    expect(page.setViewport).toHaveBeenCalled();
+    expect(gotoTargetCount(page)).toBe(1);
+    vi.useRealTimers();
+  });
+
+  it("adds no delay by default (config default is 0)", async () => {
+    const capturer = new PageCapturer(createTestCaptureConfig(), store);
+    const page = buildMockPage();
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
+    expect(gotoTargetCount(page)).toBe(1);
+  });
+});
+
 describe("PageCapturer.capture — archiveMode", () => {
   let store: FakeArtifactStore;
 

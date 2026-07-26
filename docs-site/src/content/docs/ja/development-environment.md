@@ -85,34 +85,41 @@ chromium-server 側のドキュメント
 [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/ja/getting-started/verify/)
 を参照。ワンショットの CDP 確認は `./chromium-server-docker/bin/cdp.sh smoke`。
 
-### 速すぎて見えないとき — `--slow-mo`
+### 速すぎて見えないとき — `operationDelayMs`
 
 既定ではキャプチャが数秒で終わる(example.com で約 6 秒)ため、スクリーンキャストを
-開くころには完了している。`--slow-mo` を付けて起動すると **puppeteer の各 CDP 操作の
-間に遅延が入り**、1 手ずつ進む様子を追える:
+開くころには完了している。リクエストに `operationDelayMs` を付けると
+**各ブラウザ操作の前に遅延が入り**、1 手ずつ進む様子を追える:
 
-```yaml
-# docker-compose.yml の browserhive サービスに追加して再作成
-environment:
-  - BROWSERHIVE_SLOW_MO_MS=250
+```bash
+curl -s -X POST http://localhost:8080/v1/captures \
+  -H 'content-type: application/json' \
+  -d '{
+    "url": "https://www.example.com/",
+    "operationDelayMs": 250,
+    "captureFormats": {
+      "png": true, "webp": false, "html": false,
+      "links": false, "mhtml": false, "wacz": false
+    }
+  }' | jq .
 ```
 
-起動ログの `slowMo` フィールドで効いているか確認できる。実測(example.com、
-PNG 1 枚):
+**そのリクエストにだけ**効く(ブラウザ接続は張り替えないので、他のキャプチャは
+速いまま)。実測(example.com、PNG 1 枚):
 
-| `slowMo` | 1 キャプチャの所要時間 |
+| `operationDelayMs` | 1 キャプチャの所要時間 |
 |---|---|
-| `0`(既定) | 約 6 秒 |
+| 省略(既定 `0`) | 約 6 秒 |
 | `250` | 約 10 秒 |
-| `1000` | 約 33 秒 |
+| `1000` | 約 19 秒 |
 
-- **接続時オプション**なので全 worker に効き、値の変更には browserhive の再作成が
-  必要(リクエスト単位では切り替えられない)。
-- 遅くなるのは **puppeteer の操作の間隔**であって、ページ自身の描画やスクロール
-  速度ではない。スクロールをゆっくり見たいならリクエストの
+- 全リクエストを遅くしたいときは、サーバ既定を
+  `--operation-delay-ms` / `BROWSERHIVE_OPERATION_DELAY_MS` で設定する
+  (リクエストの値が優先)。
+- 遅くなるのは **BrowserHive が出すブラウザ操作の間隔**であって、ページ自身の
+  描画やスクロール速度ではない。スクロールをゆっくり見たいならリクエストの
   `behaviors.options.autoscroll.stepDelayMs` を上げる。
 - 大きすぎる値は `--task-timeout`(既定 130 秒)に当たってタスクが失敗する。
-  上の実測なら `1000` でも収まるが、重いページでは余裕が縮む。
 
 ## SeaweedFS 内の成果物を閲覧する
 

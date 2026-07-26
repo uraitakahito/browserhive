@@ -54,7 +54,6 @@ import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import type { Browser } from "puppeteer";
 import type { BrowserConnectOptions } from "./config/index.js";
-import { DEFAULT_BROWSER_SLOW_MO_MS } from "./config/index.js";
 
 // Apply stealth plugin to avoid bot detection
 // Disable user-agent-override evasion: BrowserHive sets User-Agent via page.setUserAgent(),
@@ -223,13 +222,19 @@ const fetchWebSocketEndpoint = async (browserURL: URL): Promise<string> => {
   return resolveWsUrlHost(wsUrl, targetHost);
 };
 
+/**
+ * No `slowMo` here on purpose. puppeteer's slowMo is fixed when the connection
+ * is made, and a worker reuses one connection for every task, so it can never be
+ * a per-request setting. Pacing is done instead by the `operationDelayMs`
+ * adapter in `capture/capture-page.ts`, which wraps the Page for a single
+ * capture. Do not re-add it — two delay knobs would stack.
+ */
 const connectBrowser = async (options: BrowserConnectOptions): Promise<Browser> => {
-  const { browserURL, slowMo = DEFAULT_BROWSER_SLOW_MO_MS } = options;
+  const { browserURL } = options;
   const wsEndpoint = await fetchWebSocketEndpoint(browserURL);
 
   return puppeteer.connect({
     browserWSEndpoint: wsEndpoint,
-    slowMo,
   });
 };
 

@@ -18,7 +18,7 @@
  * with the page's own document/window. The algorithm therefore must
  * remain self-contained — it cannot reference any closure variables.
  */
-import type { Page } from "puppeteer";
+import type { CapturePage } from "./capture-page.js";
 import { withTimeout } from "./page-capturer.js";
 
 /**
@@ -317,7 +317,7 @@ export const runDismissalInDocument = (
  * default best-effort path.
  */
 export const dismissBanners = async (
-  page: Page,
+  page: CapturePage,
   opts: DismissOptions = DEFAULT_DISMISS_OPTIONS,
   onError?: (error: unknown) => void,
 ): Promise<DismissReport> => {

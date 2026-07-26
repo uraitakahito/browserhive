@@ -58,6 +58,13 @@ export interface CaptureTask {
    */
   deviceScaleFactor?: number;
   /**
+   * Per-request delay (ms) inserted before each browser operation, so this one
+   * capture can be watched live over the DevTools screencast. Overrides
+   * `CaptureConfig.operationDelayMs`; bounds (0–5000) are enforced by the
+   * OpenAPI schema. Not puppeteer's `slowMo` — see `capture/capture-page.ts`.
+   */
+  operationDelayMs?: number;
+  /**
    * Per-request archive-mode override (see `CaptureConfig.archiveMode`).
    * `"multipass"` loads the page once per device pixel ratio into one WACZ,
    * with the browser cache disabled. Undefined means "use the server default".

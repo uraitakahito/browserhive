@@ -118,6 +118,17 @@ export interface WaczConfig {
 export type ArchiveMode = "single-pass" | "multipass";
 
 export interface CaptureConfig {
+  /**
+   * Server-wide default delay (ms) inserted before each browser operation, for
+   * watching a headless capture render over the DevTools screencast. A
+   * request's `operationDelayMs` overrides it; `0` disables it.
+   *
+   * Named for what it does rather than after puppeteer's `slowMo`: this is our
+   * own adapter (see `capture/capture-page.ts`), it paces only the operations
+   * we issue, and it applies per capture. The connect-time `slowMo` was removed
+   * so exactly one knob controls this.
+   */
+  operationDelayMs: number;
   /** Server-wide default archive mode. Overridable per request. */
   archiveMode: ArchiveMode;
   timeouts: {
@@ -232,8 +243,6 @@ export interface BrowserHiveConfig {
 export interface BrowserConnectOptions {
   /** Remote browser URL, parsed & validated to http(s) at the CLI boundary. */
   browserURL: URL;
-  /** Slow down Puppeteer operations by the specified milliseconds */
-  slowMo?: number;
 }
 
 /** Browser profile configuration (connection settings + capture settings) */

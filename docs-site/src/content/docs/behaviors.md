@@ -135,6 +135,12 @@ Only `custom` is sent, never `builtins`: the built-in set (`autoscroll`,
 `autofetch`, …) is left to the server's own `--behaviors` configuration so the
 client cannot accidentally disable it.
 
+:::tip[Want to watch it happen?]
+If a capture finishes too fast to follow, add `operationDelayMs` to the request and
+that capture alone is paced one operation at a time — see
+[Development environment](/development-environment/).
+:::
+
 ### Retina (2x) fidelity — capture at DPR 2
 
 Some sites (e.g. `apple.com`) render **one image variant per device pixel

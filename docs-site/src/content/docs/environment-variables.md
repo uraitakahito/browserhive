@@ -9,7 +9,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 |---|---|
 | `--port <port>`<code class="env">BROWSERHIVE_PORT</code> | integer (1–65535) |
 | `--browser-url <urls...>`<code class="env">BROWSERHIVE_BROWSER_URLS</code> | comma-separated list (required) |
-| `--slow-mo <ms>`<code class="env">BROWSERHIVE_SLOW_MO_MS</code> | integer ≥ 0 (default `0`) — delay inserted between CDP operations, for watching a headless capture. Connect-time: changing it needs a recreate |
+| `--operation-delay-ms <ms>`<code class="env">BROWSERHIVE_OPERATION_DELAY_MS</code> | integer ≥ 0 (default `0`) — delay inserted before each browser operation, for watching a headless capture. A request's `operationDelayMs` overrides it |
 | `--s3-endpoint <url>`<code class="env">BROWSERHIVE_S3_ENDPOINT</code> | URL (required) |
 | `--s3-region <region>`<code class="env">BROWSERHIVE_S3_REGION</code> | string (default `us-east-1`) |
 | `--s3-bucket <name>`<code class="env">BROWSERHIVE_S3_BUCKET</code> | string (required) |
@@ -47,4 +47,4 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--tls-cert <path>`<code class="env">BROWSERHIVE_TLS_CERT</code> | path |
 | `--tls-key <path>`<code class="env">BROWSERHIVE_TLS_KEY</code> | path |
 
-The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--webp`, `--html`, `--links`, `--mhtml`, `--wacz`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`, `--device-scale-factor`, `--archive-mode`, `--behaviors-version`) intentionally have no env equivalents.
+The `data-client` example accepts two env vars: `BROWSERHIVE_SERVER` (default `http://localhost:8080`) and `BROWSERHIVE_TLS_CA_CERT` (informational; for actual CA pinning use `NODE_EXTRA_CA_CERTS`). Per-job flags (`--data`, `--png`, `--webp`, `--html`, `--links`, `--mhtml`, `--wacz`, `--limit`, `--dismiss-banners`, `--accept-language`, `--viewport-width`, `--viewport-height`, `--full-page`, `--device-scale-factor`, `--archive-mode`, `--behaviors-version`, `--operation-delay-ms`) intentionally have no env equivalents.
