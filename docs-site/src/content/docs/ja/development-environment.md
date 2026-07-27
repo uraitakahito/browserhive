@@ -92,7 +92,7 @@ chromium-server 側のドキュメント
 **各ブラウザ操作の前に遅延が入り**、1 手ずつ進む様子を追える:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.example.com/",

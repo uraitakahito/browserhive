@@ -16,7 +16,7 @@ resources triggered by user interaction.
 Send a request with `captureFormats.wacz: true`:
 
 ```sh
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.example.com/",

@@ -172,7 +172,7 @@ HTTP API を直に叩くなら、リクエストに `deviceScaleFactor: 2` を�
 `chrome://inspect` で描画を観察できない**ため（観察が不要なら外してよい）:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.apple.com/jp/",
@@ -192,7 +192,7 @@ curl -s -X POST http://localhost:8080/v1/captures \
 
 ```bash
 # 成果物キーは <taskId>_<labels>.wacz（correlationId を送った場合はそれも入る）
-curl -s -o out.wacz \
+curl -fsS -o out.wacz \
   "http://seaweedfs.browserhive:8888/buckets/browserhive/92fc7fb0-…_apple-jp.wacz"
 unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sort | uniq -c
 #   18 1960x1044   ← 2x が入っている（DPR 1 だと 980x522 になる）
@@ -210,7 +210,7 @@ unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sor
 1 回ずつ読み込み、1 つの WACZ にまとめる**:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.apple.com/jp/",

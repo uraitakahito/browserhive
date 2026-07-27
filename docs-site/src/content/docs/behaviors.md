@@ -182,7 +182,7 @@ there because **without it the capture is over in seconds and there is nothing t
 watch** in `chrome://inspect` — drop it if you are not observing:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.apple.com/jp/",
@@ -202,7 +202,7 @@ slides should show `1960x1044` rather than the 1x `980x522`):
 
 ```bash
 # the artifact key is <taskId>_<labels>.wacz (plus correlationId when you send one)
-curl -s -o out.wacz \
+curl -fsS -o out.wacz \
   "http://seaweedfs.browserhive:8888/buckets/browserhive/92fc7fb0-…_apple-jp.wacz"
 unzip -p out.wacz indexes/index.cdxj | grep -o '[0-9]\{3,4\}x[0-9]\{3,4\}' | sort | uniq -c
 #   18 1960x1044   ← the 2x is present (a DPR-1 capture shows 980x522)
@@ -221,7 +221,7 @@ get only the 2x; at DPR 1 only the 1x). When you need both, set `archiveMode` to
 a single WACZ**:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.apple.com/jp/",

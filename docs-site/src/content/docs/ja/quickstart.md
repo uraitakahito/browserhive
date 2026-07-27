@@ -46,7 +46,7 @@ DNS 名で配線されます。ホストに公開されるのは BrowserHive の
 
 ```bash
 until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
-curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready"] }
 ```
 
@@ -62,7 +62,7 @@ curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].h
 (実際のキャプチャは非同期で実行されます)。
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'Content-Type: application/json' \
   -d '{
     "url": "https://example.com",
@@ -88,10 +88,21 @@ curl -s -X POST http://localhost:8080/v1/captures \
 
 `taskId` を手元に控えておきます。
 
+:::tip[`--fail-with-body` を付ける理由]
+リクエストが拒否されると **400** と RFC 7807 の
+`application/problem+json` が返り、その `detail` が問題のフィールドを名指しします
+(例: `/captureFormats must be object`。`captureFormats` を部分的にしか送らなかった場合は
+不足キーが一度に全部列挙されます)。ところが `curl -s` だけだと本文は表示されるものの
+**終了コードは 0** のままなので、`taskId` の無いレスポンスを受け取ったまま処理が進み、
+作られてもいないタスクをポーリングし始めます。`--fail-with-body` は本文を残したまま
+非ゼロで終了します (curl 7.76 以降)。`jq` のフィルタに流す場合は stderr も見てください
+— フィルタはエラー本文を `null` に変えてしまい、理由が見えなくなります。
+:::
+
 ## Step 4 — 処理状況を確認する
 
 ```bash
-curl -s http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
 ```
 
 `completed` が増え、worker の `processedCount` が上がっていればキャプチャ完了です。
@@ -139,7 +150,7 @@ GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
 動いているか確認:
 
 ```bash
-curl -s http://localhost:8080/v1/status | jq '.build'
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
 # → { "version": …, "revision": …, "buildTime": … }
 # revision が HEAD (git rev-parse --short HEAD) と一致していれば最新
 ```

@@ -46,7 +46,7 @@ Wait until it is up, then check:
 
 ```bash
 until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
-curl -s http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready"] }
 ```
 
@@ -63,7 +63,7 @@ without restarting browserhive**.
 (the capture itself runs asynchronously).
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'Content-Type: application/json' \
   -d '{
     "url": "https://example.com",
@@ -89,10 +89,21 @@ Example response:
 
 Keep the `taskId` handy.
 
+:::tip[Why `--fail-with-body`]
+A rejected request answers **400** with an RFC 7807
+`application/problem+json` body whose `detail` names the offending field —
+e.g. `/captureFormats must be object`, or every missing key at once when you
+send a partial `captureFormats`. Plain `curl -s` prints that body but still
+**exits 0**, so a pipeline reads a response with no `taskId` in it and moves on
+to poll a task that was never created. `--fail-with-body` keeps the body and
+exits non-zero (curl 7.76+). If you pipe into a `jq` filter, read stderr too:
+the filter turns the problem body into `null`s and hides the reason.
+:::
+
 ## Step 4 — Check progress
 
 ```bash
-curl -s http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
 ```
 
 When `completed` increments and a worker's `processedCount` goes up, the
@@ -143,7 +154,7 @@ GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
 confirm you are running the latest:
 
 ```bash
-curl -s http://localhost:8080/v1/status | jq '.build'
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
 # → { "version": …, "revision": …, "buildTime": … }
 # revision matches your HEAD (git rev-parse --short HEAD) when up to date
 ```
