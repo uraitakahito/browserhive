@@ -9,15 +9,17 @@ export default defineConfig(
   // Global ignores
   //
   {
-    // chromium-server-docker/ is a git submodule with its own lint setup and
-    // CI — since 0.5.0 it ships TypeScript (docs-site) that this repo's rules
-    // must not police.
+    // chromium-server-docker/ and meadow/ are git submodules with their own
+    // lint setups and CI; this repo's rules must not police their source. The
+    // rule versions differ too: linting meadow from here judged its code with
+    // whichever typescript-eslint happened to hoist to the root, which passed
+    // locally and failed in CI on the same commit.
     // src/behaviors/runtime/** is browser code bundled by esbuild and excluded
     // from the tsc project, so the type-aware ESLint rules cannot parse it.
     // examples/behaviors/** and the behavior fixtures are bare class-expression
     // templates (injected as `register(<source>)`), not modules — parsing them
     // as source would be a syntax error, so they are excluded like the runtime.
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**'],
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**', 'meadow/**'],
   },
 
   //

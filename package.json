@@ -122,9 +122,15 @@
       "Kept on 4.x — 5.x is a major hey-api/swagger-parser do not expect; 4.3.0",
       "is API-compatible and clears the advisory (verified: build + tests pass).",
       "Remove this once @hey-api ships json-schema-ref-parser with a fixed js-yaml."
+    ],
+    "brace-expansion": [
+      "Reached through several tool chains (minimatch, glob). <=5.0.7 has an",
+      "unbounded-expansion DoS; 5.0.8 fixes it and is API-compatible.",
+      "Remove once the parents depend on the fixed range themselves."
     ]
   },
   "overrides": {
+    "brace-expansion": "^5.0.8",
     "js-yaml": "^4.3.0",
     "puppeteer-extra-plugin-user-data-dir": {
       "rimraf": "$rimraf"
