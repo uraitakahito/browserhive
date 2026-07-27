@@ -96,7 +96,7 @@ request and **each browser operation is preceded by that delay**, letting you
 follow it step by step:
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.example.com/",

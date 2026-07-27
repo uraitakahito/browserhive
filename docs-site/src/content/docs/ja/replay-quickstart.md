@@ -16,7 +16,7 @@ API 呼び出しの全て)を 1 つの
 `captureFormats.wacz: true` でリクエストを送る:
 
 ```sh
-curl -s -X POST http://localhost:8080/v1/captures \
+curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
     "url": "https://www.example.com/",
