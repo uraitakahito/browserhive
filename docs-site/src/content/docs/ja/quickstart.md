@@ -42,10 +42,9 @@ DNS 名で配線されます。ホストに公開されるのは BrowserHive の
 | SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | 成果物の保存先 |
 | chromium worker | `http://chromium-N.browserhive:9222` | CDP。目視は `chrome://inspect` |
 
-起動を待ってから確認:
+状態を確認します(まだ起動していなければ curl がそのまま失敗を報告します):
 
 ```bash
-until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready"] }
 ```

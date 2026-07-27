@@ -42,10 +42,9 @@ published to the host. The default is one chromium worker; add more with
 | SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | Artifact store |
 | chromium workers | `http://chromium-N.browserhive:9222` | CDP; watch via `chrome://inspect` |
 
-Wait until it is up, then check:
+Check the state (until the stack is up, curl reports the failure itself):
 
 ```bash
-until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{isRunning, workers: [.workers[].health]}'
 # → { "isRunning": true, "workers": ["ready"] }
 ```
