@@ -144,13 +144,19 @@ after changing code you must **rebuild the image** and recreate the container.
 A plain `up -d` (without `-b`, build) reuses the old image and your changes will
 not take effect.
 
+Mid-development the stack is usually still up, so **take it down first**.
+Containers left over from the previous run are not reliably replaced by the new
+image, and when that happens the build succeeds while the server keeps serving
+the old code — the confusing failure this section exists to avoid.
+
 ```bash
-# Rebuild and recreate just browserhive (chromium / SeaweedFS keep running)
-GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
+container-compose down     # artifacts survive in the volume
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
 ```
 
-`GIT_REV` bakes the commit into the `build` field of `/v1/status`, so you can
-confirm you are running the latest:
+`GIT_REV` bakes the commit into the `build` field of `/v1/status`. **Check it
+every time** — it is the only thing that tells you the running server is the
+code you just built:
 
 ```bash
 curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
@@ -158,19 +164,20 @@ curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
 # revision matches your HEAD (git rev-parse --short HEAD) when up to date
 ```
 
-To rebuild the whole stack, omit the service name:
+If `revision` is not your HEAD, the container is stale: `container-compose down`
+and build again.
 
-```bash
-GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
-```
-
-If you only changed environment variables (`docker-compose.yml`) no rebuild is
-needed, but recreate the container to be sure they apply:
+To rebuild only browserhive and leave chromium / SeaweedFS running, remove that
+one container instead of taking the stack down:
 
 ```bash
 container stop browserhive.browserhive && container rm browserhive.browserhive
-container-compose up -d browserhive
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
 ```
+
+If you only changed environment variables (`docker-compose.yml`) no rebuild is
+needed, but the container still has to be recreated for them to apply — same
+`stop` + `rm`, then `container-compose up -d browserhive`.
 
 ## Tear down
 

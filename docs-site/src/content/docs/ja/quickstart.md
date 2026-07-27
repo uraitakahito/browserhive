@@ -140,13 +140,19 @@ BrowserHive のイメージはビルド時にソースを取り込む(`Dockerfil
 コードを変更したら**イメージを作り直して**コンテナを再作成します。`-b`(build)
 を付けずに `up -d` すると古いイメージが再利用され、変更が反映されません。
 
+開発中はスタックが起動したままのことがほとんどなので、**まず落としてから**
+作り直します。前回の実行から残っているコンテナは新しいイメージで確実に
+置き換わるとは限らず、そうなると**ビルドは成功しているのにサーバは古いコードを
+返し続ける**という、いちばん気付きにくい状態になります。
+
 ```bash
-# browserhive だけ作り直して再作成 (chromium / SeaweedFS はそのまま)
-GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
+container-compose down     # 成果物は volume に残る
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
 ```
 
-`GIT_REV` はコミットを `/v1/status` レスポンスの `build` に焼き込みます。最新で
-動いているか確認:
+`GIT_REV` はコミットを `/v1/status` レスポンスの `build` に焼き込みます。
+**毎回確認してください** — 動いているサーバがいま作ったコードかどうかを
+教えてくれるのはこれだけです:
 
 ```bash
 curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
@@ -154,19 +160,20 @@ curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
 # revision が HEAD (git rev-parse --short HEAD) と一致していれば最新
 ```
 
-スタック全体を作り直すなら service 名を省略します:
+`revision` が HEAD と違っていればコンテナが古いので、`container-compose down`
+してからビルドし直します。
 
-```bash
-GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
-```
-
-環境変数(`docker-compose.yml`)だけを変えた場合は再ビルド不要ですが、確実に
-反映するにはコンテナを削除してから起動します:
+chromium / SeaweedFS は動かしたまま browserhive だけ作り直したい場合は、
+スタックを落とす代わりにそのコンテナだけ削除します:
 
 ```bash
 container stop browserhive.browserhive && container rm browserhive.browserhive
-container-compose up -d browserhive
+GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
 ```
+
+環境変数(`docker-compose.yml`)だけを変えた場合は再ビルド不要ですが、反映には
+コンテナの再作成が必要です。同じく `stop` + `rm` してから
+`container-compose up -d browserhive` します。
 
 ## 片付け
 
