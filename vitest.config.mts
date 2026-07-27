@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 // Two Vitest projects (https://vitest.dev/guide/projects):
 //   - unit: the fast default. `npm test` runs ONLY this — e2e is never collected.
 //   - e2e:  black-box tests against a running stack (container-compose
-//           --profile e2e up -d -b). Opt in with `npm run test:e2e`; its
+//           --profile meadow up -d -b). Opt in with `npm run test:e2e`; its
 //           globalSetup waits (bounded) for the stack and fails loudly if it
 //           never comes up, instead of silently skipping.
 export default defineConfig({

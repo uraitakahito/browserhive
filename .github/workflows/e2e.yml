@@ -42,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Bring up the stack
-        run: container-compose --profile e2e up -d -b
+        run: container-compose --profile meadow up -d -b
 
       - name: Run E2E (readiness handled by the suite's globalSetup retry)
         run: npm run test:e2e
@@ -50,4 +50,4 @@ jobs:
       - name: Tear down
         if: always()
         # down only covers services active under the given profiles.
-        run: container-compose --profile e2e down
+        run: container-compose --profile meadow down
