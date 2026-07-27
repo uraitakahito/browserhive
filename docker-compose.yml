@@ -4,7 +4,7 @@
 #   container-compose up -d -b                     # 1 worker
 #   container-compose --profile scale2 up -d -b    # 2 workers
 #   container-compose --profile scale3 up -d -b    # 3 workers
-#   container-compose --profile e2e up -d -b       # + meadow (E2E fixture)
+#   container-compose --profile meadow up -d -b    # + meadow (fixture origin)
 #   container-compose down                         # stop everything
 #
 # One-time machine setup (also required on a CI runner):
@@ -109,7 +109,7 @@ services:
   # for /__reset and /__hits — no port publishing needed.
   meadow:
     build: ./meadow
-    profiles: ["e2e"]
+    profiles: ["meadow"]
 
 volumes:
   seaweedfs-data:

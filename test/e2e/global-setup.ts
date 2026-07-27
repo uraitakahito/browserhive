@@ -2,7 +2,7 @@
  * E2E global setup (runs once, only for the `e2e` Vitest project).
  *
  * It does NOT start anything — the stack is brought up out of band by
- * `container-compose --profile e2e up -d -b`. Endpoints are static by
+ * `container-compose --profile meadow up -d -b`. Endpoints are static by
  * design: the API is published on localhost, and meadow is reached through
  * the platform DNS name (<service>.browserhive), which resolves from both
  * the host and the Chromium workers. Override with E2E_API_URL /
@@ -45,7 +45,7 @@ export default async function setup({ provide }: GlobalSetupApi): Promise<void> 
   if (!reachable) {
     throw new Error(
       `E2E stack not reachable at ${endpoints.api} after ${String(READY_ATTEMPTS)}s — ` +
-        "bring it up first: container-compose --profile e2e up -d -b",
+        "bring it up first: container-compose --profile meadow up -d -b",
     );
   }
 
