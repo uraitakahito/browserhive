@@ -9,13 +9,19 @@ description: Apple Container スタックに対するホスト側開発 — 開�
 
 ## フルスタック(動く BrowserHive が欲しいだけのとき)
 
-```sh
-container-compose up -d -b                   # SeaweedFS + worker 1 台 + browserhive:prod
-container-compose --profile scale3 up -d -b  # …worker 3 台で立てる場合
-container-compose down                       # 停止(up と同じ --profile を渡すこと。
-                                             #  成果物は volume に残る)
+```sh title="SeaweedFS + worker 1 台 + browserhive:prod"
+container-compose up -d -b
+```
 
-# readiness の確認は利用側の仕事(compose は待たない):
+```sh title="…worker 3 台で立てる場合"
+container-compose --profile scale3 up -d -b
+```
+
+```sh title="停止 — up と同じ --profile を渡すこと。成果物は volume に残る"
+container-compose down
+```
+
+```sh title="readiness の確認は利用側の仕事 — compose は待たない"
 until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 ```
 
