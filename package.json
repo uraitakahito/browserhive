@@ -67,7 +67,7 @@
     "prebuild:examples": "pnpm run prep",
     "pretest": "pnpm run prep",
     "pretest:all": "pnpm run prep",
-    "prelint:source": "pnpm run prep"
+    "prelint:source": "pnpm run prep && pnpm --filter meadow build"
   },
   "keywords": [],
   "author": "",
