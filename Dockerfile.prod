@@ -25,9 +25,17 @@ FROM node:${NODE_VERSION}-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install all deps (including build-time tools like openapi-typescript, typescript)
-COPY package.json package-lock.json .npmrc .puppeteerrc.json ./
-RUN npm ci
+# Install all deps (including build-time tools like openapi-typescript, typescript).
+# meadow's manifest comes along because it is a workspace member — the lockfile
+# covers it, so the install would fail without it.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json .puppeteerrc.json ./
+COPY meadow/package.json meadow/
+
+# After the COPY, not before: `corepack prepare --activate` with no argument
+# reads package.json#packageManager, so it needs the manifest on disk. Passing
+# the version here instead would duplicate the pin.
+RUN corepack enable && corepack prepare --activate
+RUN pnpm install --frozen-lockfile
 
 # Sources the production build compiles (tsconfig.build.json = src + bin only;
 # tests and examples are not shipped). redocly.yaml is required by the
@@ -56,7 +64,16 @@ ARG GIT_REV=dev
 ENV GIT_REV=$GIT_REV
 
 # prep (openapi:generate + generate:version) via the prebuild hook + tsc -> ./dist
-RUN npm run build
+# (pnpm needs enablePrePostScripts in pnpm-workspace.yaml for that hook to fire)
+RUN pnpm run build
+
+# Collect exactly this package's production dependencies into one directory.
+# This is what keeps the runtime image honest: a sibling workspace package's
+# deps cannot end up here, because only browserhive's own prod graph is
+# resolved. `--legacy` because pnpm v10+ otherwise wants
+# inject-workspace-packages, which buys nothing here (browserhive depends on no
+# other workspace package at runtime).
+RUN pnpm --filter browserhive deploy --prod --legacy /deploy/app
 
 # ---------- Runtime stage ----------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
@@ -64,9 +81,13 @@ FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Production-only deps
-COPY package.json package-lock.json .npmrc .puppeteerrc.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# No install step here. The runtime used to run `npm ci --omit=dev` against the
+# root manifest, which also materialised the dev-only `meadow` tree and broke
+# when its unrs-resolver stopped being hoisted (its postinstall needs
+# napi-postinstall, which --omit=dev correctly removed). Copying the deploy
+# output removes the whole failure mode: there is nothing left to resolve.
+COPY --from=builder /deploy/app/node_modules ./node_modules
+COPY --from=builder /deploy/app/package.json ./package.json
 
 # Only what the server entry actually needs
 COPY --from=builder /app/dist/src ./dist/src

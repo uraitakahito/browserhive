@@ -11,10 +11,15 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '24'
+          cache: 'pnpm'
+      # safe-chain wraps pnpm as well as npm, so the guard still applies after
+      # the migration. The tool itself is installed with npm because that is
+      # what its own documentation prescribes; it is not a project dependency.
       - name: Setup safe-chain
         run: |
           npm i -g @aikidosec/safe-chain
@@ -22,4 +27,4 @@ jobs:
       - name: Install dependencies
         env:
           SAFE_CHAIN_MINIMUM_PACKAGE_AGE_HOURS: 5
-        run: npm ci
+        run: pnpm install --frozen-lockfile

@@ -150,7 +150,7 @@ NODE_EXTRA_CA_CERTS=./certs/ca.crt node dist/examples/data-client.js --server ht
 To start the server using the pre-prepared sample certificates and private keys:
 
 ```sh
-LOG_LEVEL=info npm run server -- \
+LOG_LEVEL=info pnpm run server -- \
   --browser-url http://192.168.64.x:9222 \
   --browser-url http://192.168.64.y:9222 \
   --s3-endpoint http://192.168.64.z:8333 --s3-bucket browserhive \

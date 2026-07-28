@@ -26,19 +26,20 @@ against the same workers and S3 — the platform DNS names resolve from the
 host too, so the wiring is static:
 
 ```sh
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 BROWSERHIVE_BROWSER_URLS=http://chromium-1.browserhive:9222 \
 BROWSERHIVE_S3_ENDPOINT=http://seaweedfs.browserhive:8333 \
 BROWSERHIVE_S3_BUCKET=browserhive \
 BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive \
 BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive \
 BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
-LOG_LEVEL=info npm run server | pino-pretty
+LOG_LEVEL=info pnpm run server | pino-pretty
 ```
 
-`npm ci` also builds the linked `meadow` fixture dep (`file:./meadow`) via its
-`prepare` script — no separate build step is needed.
+`meadow` is a workspace member, so the install only links it. Its `dist/` is
+built by `pnpm run test:e2e` when the E2E suite needs it — build it by hand with
+`pnpm --filter meadow build` if you want it earlier.
 
 (Stop the containerized server first — `container stop browserhive.browserhive` —
 if you want port 8080 for the host process.)
@@ -50,7 +51,7 @@ passing the equivalent CLI flag (CLI > env > default). See
 CLI flags override env values; mix and match as needed:
 
 ```sh
-LOG_LEVEL=info npm run server -- \
+LOG_LEVEL=info pnpm run server -- \
   --reject-duplicate-urls \
   --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" \
   | pino-pretty
@@ -65,13 +66,13 @@ The client sends requests and receives acceptance confirmations; the
 actual captures are processed asynchronously by the server — check the
 server logs for completion.
 
-The example ships as TypeScript source only, and the production `npm run
+The example ships as TypeScript source only, and the production `pnpm run
 build` compiles just `src` + `bin` — use `build:examples`, which also emits
 `dist/examples/`. Point it at a running server (the host dev loop above, or
 the container stack); by default it targets `localhost:8080`.
 
 ```sh
-npm run build:examples
+pnpm run build:examples
 node dist/examples/data-client.js \
   --data data/smoke-test.yaml --webp --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \

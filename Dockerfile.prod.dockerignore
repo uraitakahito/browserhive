@@ -31,8 +31,10 @@
 
 # 2. Re-include package management files
 !package.json
-!package-lock.json
-!.npmrc
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!meadow
+!meadow/package.json
 !.puppeteerrc.json
 
 # 3. Re-include build configuration files.

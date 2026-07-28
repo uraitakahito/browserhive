@@ -6,7 +6,7 @@ on:
       - 'src/http/openapi.yaml'
       - 'redocly.yaml'
       - 'package.json'
-      - 'package-lock.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/openapi.yml'
 
 jobs:
@@ -17,9 +17,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - run: npx redocly lint --format=github-actions
