@@ -28,17 +28,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       # `build` runs prep (openapi:generate + generate:version), tsc, then
       # build:behaviors (typecheck:behaviors + esbuild) — so the browser runtime
       # is type-checked here.
-      - run: npm run build
+      - run: pnpm run build
       # Guards the tsconfig.examples.json exclude: a browser-only file leaking
       # into tsc fails here.
-      - run: npm run build:examples
-      - run: npm run lint:source
-      - run: npm test
+      - run: pnpm run build:examples
+      - run: pnpm run lint:source
+      - run: pnpm test

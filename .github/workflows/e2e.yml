@@ -31,21 +31,24 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
+          cache: 'pnpm'
 
-      # `npm ci` also builds the linked meadow dep via its `prepare` script,
-      # so `"meadow": "file:./meadow"` resolves its dist/.
+      # meadow is a workspace member (`workspace:*`), so install only links it.
+      # Its dist/ is built explicitly by `test:e2e` — it used to ride along on
+      # `npm ci` via a `prepare` script, which pnpm would also have run during
+      # the image build, where meadow's sources are not present.
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Bring up the stack
         run: container-compose --profile meadow up -d -b
 
       - name: Run E2E (readiness handled by the suite's globalSetup retry)
-        run: npm run test:e2e
+        run: pnpm run test:e2e
 
       - name: Tear down
         if: always()

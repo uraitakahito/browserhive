@@ -151,7 +151,7 @@ NODE_EXTRA_CA_CERTS=./certs/ca.crt node dist/examples/data-client.js --server ht
 同梱のサンプル証明書・秘密鍵でサーバを起動するには:
 
 ```sh
-LOG_LEVEL=info npm run server -- \
+LOG_LEVEL=info pnpm run server -- \
   --browser-url http://192.168.64.x:9222 \
   --browser-url http://192.168.64.y:9222 \
   --s3-endpoint http://192.168.64.z:8333 --s3-bucket browserhive \

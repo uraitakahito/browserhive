@@ -48,12 +48,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: docs-site/package-lock.json
       - name: Install docs-site dependencies
         run: npm ci --prefix docs-site
       - name: Build site and verify doc references
-        run: npm run site:check
+        run: pnpm run site:check

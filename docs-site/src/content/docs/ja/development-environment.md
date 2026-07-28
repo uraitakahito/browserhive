@@ -25,19 +25,20 @@ until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 向ける。プラットフォーム DNS 名はホストからも解決できるため、配線は静的に書ける:
 
 ```sh
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 BROWSERHIVE_BROWSER_URLS=http://chromium-1.browserhive:9222 \
 BROWSERHIVE_S3_ENDPOINT=http://seaweedfs.browserhive:8333 \
 BROWSERHIVE_S3_BUCKET=browserhive \
 BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive \
 BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive \
 BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
-LOG_LEVEL=info npm run server | pino-pretty
+LOG_LEVEL=info pnpm run server | pino-pretty
 ```
 
-`npm ci` は `file:./meadow` の `prepare` により meadow もビルドします —
-追加手順は不要です。
+`meadow` は workspace メンバーなので、install は link するだけです。dist/ は
+E2E が必要とする時点で `pnpm run test:e2e` がビルドします。先に作りたい場合は
+`pnpm --filter meadow build` を実行してください。
 
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive.browserhive` で止める。)
@@ -48,7 +49,7 @@ LOG_LEVEL=info npm run server | pino-pretty
 CLI フラグは env 値より優先される。必要に応じて組み合わせる:
 
 ```sh
-LOG_LEVEL=info npm run server -- \
+LOG_LEVEL=info pnpm run server -- \
   --reject-duplicate-urls \
   --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36" \
   | pino-pretty
@@ -62,13 +63,13 @@ YAML データファイルからキャプチャリクエストを送る例クラ
 にある。クライアントは受理確認を受け取るだけで、実際のキャプチャはサーバが
 非同期に処理する — 完了はサーバログで確認する。
 
-例は TypeScript ソースのみで配布され、本番の `npm run build` は `src` + `bin`
+例は TypeScript ソースのみで配布され、本番の `pnpm run build` は `src` + `bin`
 だけをコンパイルする。`dist/examples/` も出す `build:examples` を使うこと。
 実行先は起動中のサーバ(上のホスト開発ループ、またはコンテナスタック) —
 既定では `localhost:8080` に投げる。
 
 ```sh
-npm run build:examples
+pnpm run build:examples
 node dist/examples/data-client.js \
   --data data/smoke-test.yaml --webp --html --links --limit 30 \
   --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
