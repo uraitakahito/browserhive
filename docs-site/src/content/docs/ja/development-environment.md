@@ -43,8 +43,8 @@ LOG_LEVEL=info pnpm run server | pino-pretty
 ```
 
 `meadow` は workspace メンバーなので、install は link するだけです。dist/ は
-E2E が必要とする時点で `pnpm run test:e2e` がビルドします。先に作りたい場合は
-`pnpm --filter meadow build` を実行してください。
+E2E テストが必要とする時点で `pnpm run test:e2e` がビルドします。先に作りたい
+場合は `pnpm --filter meadow build` を実行してください。
 
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive.browserhive` で止める。)
