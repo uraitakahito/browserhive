@@ -78,3 +78,37 @@ The `s3-access-key-id` and `s3-secret-access-key` values are accepted
 on the command line for completeness, but prefer the
 `BROWSERHIVE_S3_ACCESS_KEY_ID` / `BROWSERHIVE_S3_SECRET_ACCESS_KEY`
 env vars so the secret does not appear in `ps`.
+
+### What the region is actually for
+
+`BROWSERHIVE_S3_REGION` does not choose where to connect —
+`BROWSERHIVE_S3_ENDPOINT` does. The region is one field of the SigV4
+credential scope that every signed request carries:
+
+```
+Credential=browserhive/20260728/us-east-1/s3/aws4_request
+            └ access key ┘ └ date ┘ └ region ┘ └ service ┘
+```
+
+**The bundled SeaweedFS does not check the value.** Signing with
+`moon-base-1` succeeds and lists the bucket exactly the same way. The
+`us-east-1` default is a placeholder, not a location.
+
+It still cannot be left out. The signer needs *some* region, and
+clients disagree about what happens when it is missing: the AWS CLI
+quietly falls back to `us-east-1`, while the AWS SDK for JavaScript —
+which [waxlens](https://github.com/uraitakahito/waxlens) uses to read
+these same objects — fails with `Region is missing`. Setting it
+explicitly makes both behave.
+
+:::caution[It may be coming from `~/.aws/config`]
+The SDK also reads `region` from `~/.aws/config`, so a machine with a
+profile configured works even when nothing sets the variable. The break
+shows up later, on a machine without that file — a CI runner or a
+container. Set it explicitly rather than relying on the ambient profile.
+:::
+
+Against real AWS the region stops being a placeholder: it has to match
+the bucket's region, and without an endpoint override it also selects
+the host (`s3.<region>.amazonaws.com`). "Any string works" is only true
+while an endpoint is pinned at an S3-compatible store.

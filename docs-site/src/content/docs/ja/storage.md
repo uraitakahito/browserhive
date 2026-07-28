@@ -72,3 +72,36 @@ path-style を有効化している。
 `s3-access-key-id` と `s3-secret-access-key` はコマンドラインでも受け付けるが、
 `ps` 経由の漏洩を避けるため `BROWSERHIVE_S3_ACCESS_KEY_ID` /
 `BROWSERHIVE_S3_SECRET_ACCESS_KEY` の環境変数を推奨する。
+
+### region は何に使われるのか
+
+`BROWSERHIVE_S3_REGION` は接続先を決めるものではない。接続先を決めるのは
+`BROWSERHIVE_S3_ENDPOINT` である。region は、署名付きリクエストが必ず運ぶ
+SigV4 の credential scope の 1 フィールドとして載る。
+
+```
+Credential=browserhive/20260728/us-east-1/s3/aws4_request
+            └ access key ┘ └ 日付 ┘ └ region ┘ └ service ┘
+```
+
+**同梱 SeaweedFS はこの値を検証しない。** `moon-base-1` で署名しても成功し、
+bucket の一覧もまったく同じように取れる。既定の `us-east-1` は場所ではなく
+プレースホルダである。
+
+とはいえ省略はできない。署名を作る側は必ず何らかの region を要求し、
+無かった場合の挙動がクライアントによって食い違う — AWS CLI は黙って
+`us-east-1` に落とすが、同じオブジェクトを読む
+[waxlens](https://github.com/uraitakahito/waxlens) が使う AWS SDK for
+JavaScript は `Region is missing` で失敗する。明示しておけば両方揃う。
+
+:::caution[`~/.aws/config` から来ているかもしれない]
+SDK は `~/.aws/config` の `region` も読むため、profile を設定してある
+マシンでは環境変数を何も設定しなくても動いてしまう。破綻するのは、その
+ファイルが無いマシン — CI ランナーやコンテナ — に持って行ったときである。
+周囲の profile に頼らず明示すること。
+:::
+
+本物の AWS に向ける場合、region はプレースホルダではなくなる。bucket の
+region と一致している必要があり、endpoint を上書きしなければ接続先ホスト名
+(`s3.<region>.amazonaws.com`) の決定にも使われる。「どんな文字列でも通る」の
+は、endpoint を S3 互換ストアに固定している間だけの話である。
