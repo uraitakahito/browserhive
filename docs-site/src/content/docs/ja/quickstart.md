@@ -27,8 +27,8 @@ cd browserhive
 
 ## Step 2 — スタックを起動する
 
-```bash
-container-compose up -d -b     # SeaweedFS + chromium worker + BrowserHive
+```bash title="SeaweedFS + chromium worker + BrowserHive"
+container-compose up -d -b
 ```
 
 すべて Apple Container 上のコンテナ(軽量 VM)として起動し、プラットフォーム
@@ -145,8 +145,8 @@ BrowserHive のイメージはビルド時にソースを取り込む(`Dockerfil
 置き換わるとは限らず、そうなると**ビルドは成功しているのにサーバは古いコードを
 返し続ける**という、いちばん気付きにくい状態になります。
 
-```bash
-container-compose down     # 成果物は volume に残る
+```bash title="作り直して入れ替える — 成果物は volume に残る"
+container-compose down
 GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
 ```
 
@@ -177,8 +177,8 @@ GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
 
 ## 片付け
 
-```bash
-container-compose down     # 成果物は volume(browserhive_seaweedfs-data)に残る
+```bash title="成果物は volume (browserhive_seaweedfs-data) に残る"
+container-compose down
 ```
 
 ---

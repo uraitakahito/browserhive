@@ -27,8 +27,8 @@ cd browserhive
 
 ## Step 2 — Bring the stack up
 
-```bash
-container-compose up -d -b     # SeaweedFS + chromium worker + BrowserHive
+```bash title="SeaweedFS + chromium worker + BrowserHive"
+container-compose up -d -b
 ```
 
 Everything starts as Apple Container containers (lightweight VMs), wired
@@ -149,8 +149,8 @@ Containers left over from the previous run are not reliably replaced by the new
 image, and when that happens the build succeeds while the server keeps serving
 the old code — the confusing failure this section exists to avoid.
 
-```bash
-container-compose down     # artifacts survive in the volume
+```bash title="Rebuild and replace — artifacts survive in the volume"
+container-compose down
 GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
 ```
 
@@ -181,8 +181,8 @@ needed, but the container still has to be recreated for them to apply — same
 
 ## Tear down
 
-```bash
-container-compose down     # artifacts survive in the volume (browserhive_seaweedfs-data)
+```bash title="Artifacts survive in the browserhive_seaweedfs-data volume"
+container-compose down
 ```
 
 ---

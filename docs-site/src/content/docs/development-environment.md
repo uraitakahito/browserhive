@@ -9,13 +9,19 @@ are editing runs **on the host**. There is no dev container.
 
 ## Full stack (when you just need a running BrowserHive)
 
-```sh
-container-compose up -d -b                   # SeaweedFS + 1 worker + browserhive:prod
-container-compose --profile scale3 up -d -b  # …or with 3 workers
-container-compose down                       # stop (pass the same --profile flags you used with up;
-                                             #  artifacts survive in the volume)
+```sh title="SeaweedFS + 1 worker + browserhive:prod"
+container-compose up -d -b
+```
 
-# readiness is yours to check (compose does not wait):
+```sh title="…or with 3 workers"
+container-compose --profile scale3 up -d -b
+```
+
+```sh title="Stop — pass the same --profile flags you used with up; artifacts survive in the volume"
+container-compose down
+```
+
+```sh title="Readiness is yours to check — compose does not wait"
 until curl -sf http://localhost:8080/v1/status >/dev/null; do sleep 1; done
 ```
 
