@@ -42,9 +42,12 @@ BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
 LOG_LEVEL=info pnpm run server | pino-pretty
 ```
 
-`meadow` は workspace メンバーなので、install は link するだけです。dist/ は
-E2E テストが必要とする時点で `pnpm run test:e2e` がビルドします。先に作りたい
-場合は `pnpm --filter meadow build` を実行してください。
+[`meadow`](https://uraitakahito.github.io/meadow/ja/)(E2E テストがキャプチャ
+対象にするフィクスチャオリジン)は workspace メンバーなので、install は link
+するだけです。dist/ は E2E テストが必要とする時点で `pnpm run test:e2e` が
+ビルドします。先に作りたい場合は `pnpm --filter meadow build` を実行して
+ください。各ルートが何を再現するのかは
+[シナリオのページ](https://uraitakahito.github.io/meadow/ja/scenarios/)にあります。
 
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive.browserhive` で止める。)
