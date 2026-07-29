@@ -21,7 +21,7 @@ hero:
 ## BrowserHive とは
 
 BrowserHive は Fastify + Puppeteer で動く HTTP キャプチャサーバです。
-`POST /v1/captures` を呼ぶとリクエストをキューに積むと、Chromium ワーカーが非同期で
+`POST /v1/captures` を呼ぶとリクエストをキューに積み、Chromium ワーカーが非同期で
 ページを取得し、結果を S3 互換ストレージに保存します。
 
 ## 特長
