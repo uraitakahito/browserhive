@@ -43,9 +43,12 @@ BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
 LOG_LEVEL=info pnpm run server | pino-pretty
 ```
 
-`meadow` is a workspace member, so the install only links it. Its `dist/` is
-built by `pnpm run test:e2e` when the E2E suite needs it — build it by hand with
-`pnpm --filter meadow build` if you want it earlier.
+[`meadow`](https://uraitakahito.github.io/meadow/) — the fixture origin the E2E
+suite captures against — is a workspace member, so the install only links it.
+Its `dist/` is built by `pnpm run test:e2e` when the E2E suite needs it — build
+it by hand with `pnpm --filter meadow build` if you want it earlier. What each
+of its routes reproduces is on
+[its Scenarios page](https://uraitakahito.github.io/meadow/scenarios/).
 
 (Stop the containerized server first — `container stop browserhive.browserhive` —
 if you want port 8080 for the host process.)
