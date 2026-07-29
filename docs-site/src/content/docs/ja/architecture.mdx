@@ -376,7 +376,7 @@ worker だけを再試行する(degraded モード・上限つきバックオフ
 | membership 発見 | `src/discovery/` | `WorkerRegistry`(Static/Dns): DNS から member を解決し変化を発行 → `reconciling` |
 | 子 machine | `src/capture/capture-worker.ts` | [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine): `disconnected→operational{idle/processing}→error` |
 | ワーカーループ | `src/capture/worker-loop.ts` | [`workerLoop`](/terminology/#g-workerLoop): dequeue→process→イベント送出 |
-| キュー | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing/completed Set |
+| キュー | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing Set + succeeded/failed カウンタ |
 | ブラウザ接続/処理 | `src/capture/browser-client.ts` | [`BrowserClient`](/terminology/#g-BrowserClient): `process`(Layer B), `connect`, 常設タブ保持 |
 | キャプチャ本体 | `src/capture/page-capturer.ts` | `capture()` 全工程 + `withTimeout`/`runOnStableContext` |
 | ネットワーク記録 | `src/capture/network-recorder.ts` | [`NetworkRecorder`](/terminology/#g-NetworkRecorder): CDP→WARC、pending/writeQueue、metadata レコード |

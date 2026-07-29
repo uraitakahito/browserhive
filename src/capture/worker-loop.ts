@@ -9,6 +9,7 @@
 import { fromCallback } from "xstate";
 import type { BrowserClient } from "./browser-client.js";
 import type { TaskQueue } from "./task-queue.js";
+import type { CaptureResultSink } from "./result-sink.js";
 import type { CaptureTask, CaptureResult } from "./types.js";
 import { isSuccessStatus } from "./capture-status.js";
 import { errorDetailsFromException } from "./error-details.js";
@@ -16,6 +17,12 @@ import { errorDetailsFromException } from "./error-details.js";
 export interface WorkerRuntime {
   client: BrowserClient;
   taskQueue: TaskQueue;
+  /**
+   * Where finished results go. Shared with the parent machine, which records
+   * the final-failure path (`markTaskComplete`) — this loop only records
+   * successes, so both halves of the outcome land in the same sink.
+   */
+  resultSink: CaptureResultSink;
   pollIntervalMs: number;
 }
 
@@ -103,7 +110,7 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
     // Destructuring copies the reference, not the object itself.
     // All worker loops share the single TaskQueue instance created
     // by CaptureCoordinator, so no duplicate task processing occurs.
-    const { client, taskQueue, pollIntervalMs } = input;
+    const { client, taskQueue, resultSink, pollIntervalMs } = input;
 
     // #region loop-body
     const loop = async (): Promise<void> => {
@@ -120,7 +127,8 @@ export const workerLoopCallback = fromCallback<WorkerLoopParentEvent, WorkerRunt
           const result = await client.process(task);
 
           if (isSuccessStatus(result.status)) {
-            taskQueue.markComplete(task.taskId);
+            taskQueue.markComplete(task.taskId, "succeeded");
+            resultSink.record(result);
             logTaskCompleted(client, task, result);
             sendBack({ type: "TASK_DONE", task, result });
           } else {

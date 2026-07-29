@@ -22,6 +22,19 @@ export const duplicateUrlProblem = (detail: string): Problem => ({
   detail,
 });
 
+/**
+ * Deliberately conflates "never submitted" with "evicted from the result
+ * cache": once a result ages out, the server no longer holds what it would
+ * need to tell the two apart. Saying so in `detail` keeps a client from
+ * reading 404 as proof the task never existed.
+ */
+export const unknownTaskProblem = (taskId: string): Problem => ({
+  type: "about:blank",
+  title: "Unknown task",
+  status: 404,
+  detail: `No cached result for task ${taskId}. It was never submitted, or its result aged out of the result cache — read the .result.json manifest in the artifact store for the durable record.`,
+});
+
 export const noOperationalWorkersProblem = (): Problem => ({
   type: "about:blank",
   title: "No operational workers available",

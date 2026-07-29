@@ -41,6 +41,7 @@ import {
   watchWorkerHealth,
 } from "./coordinator-actors.js";
 import { TaskQueue } from "./task-queue.js";
+import type { CaptureResultSink } from "./result-sink.js";
 import { BrowserClient } from "./browser-client.js";
 import { CaptureWorker, captureWorkerMachine } from "./capture-worker.js";
 
@@ -48,6 +49,12 @@ export interface CoordinatorMachineContext {
   config: CoordinatorConfig;
   store: ArtifactStore;
   taskQueue: TaskQueue;
+  /**
+   * Where every finished `CaptureResult` goes. Built by the caller (so the
+   * `ArtifactStore` it may write through is the same instance passed as
+   * `store`) and handed to each spawned worker's runtime.
+   */
+  resultSink: CaptureResultSink;
   /**
    * The membership target — the profiles that *should* have a worker. The
    * source of truth for spawning, decoupled from `config.browserProfiles`:
@@ -68,6 +75,7 @@ const workerHost = (worker: CaptureWorker): string =>
 export interface CoordinatorMachineInput {
   config: CoordinatorConfig;
   store: ArtifactStore;
+  resultSink: CaptureResultSink;
 }
 
 /**
@@ -133,6 +141,7 @@ export const coordinatorMachine = setup({
             runtime: {
               client,
               taskQueue: context.taskQueue,
+              resultSink: context.resultSink,
               pollIntervalMs: context.config.queuePollIntervalMs,
             },
           },
@@ -149,6 +158,7 @@ export const coordinatorMachine = setup({
     config: input.config,
     store: input.store,
     taskQueue: new TaskQueue(),
+    resultSink: input.resultSink,
     desiredMembers: input.config.browserProfiles,
     workers: [],
     spawnCount: 0,

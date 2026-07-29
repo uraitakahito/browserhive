@@ -15,11 +15,17 @@ import type {
 import { DEFAULT_CAPTURE_CONFIG } from "../config/index.js";
 import type { WorkerRegistry } from "../discovery/worker-registry.js";
 import { resolveWithInitRetry } from "../discovery/init-retry.js";
-import { logger } from "../logger.js";
-import { S3CompatibleArtifactStore, type ArtifactStore } from "../storage/index.js";
+import { createChildLogger, logger } from "../logger.js";
+import {
+  ManifestWriter,
+  S3CompatibleArtifactStore,
+  type ArtifactStore,
+} from "../storage/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { TaskQueue, TaskCounts } from "./task-queue.js";
-import type { CaptureTask, WorkerInfo } from "./types.js";
+import { compositeSink, type CaptureResultSink } from "./result-sink.js";
+import { InMemoryResultStore } from "./in-memory-result-store.js";
+import type { CaptureResult, CaptureTask, WorkerInfo } from "./types.js";
 import { coordinatorMachine } from "./coordinator-machine.js";
 import type { CaptureWorker } from "./capture-worker.js";
 
@@ -74,6 +80,8 @@ export interface GetStatusOptions {
 export class CaptureCoordinator {
   private lifecycleActor;
   private store: ArtifactStore;
+  private resultCache: InMemoryResultStore;
+  private resultSink: CaptureResultSink;
   private registry: WorkerRegistry;
   private discovery: DiscoveryConfig;
   private unsubscribeMembership: (() => void) | null = null;
@@ -86,8 +94,17 @@ export class CaptureCoordinator {
     this.store = new S3CompatibleArtifactStore(config.storage);
     this.registry = registry;
     this.discovery = discovery;
+    // Two sinks for the same results, with different lifetimes: the cache
+    // backs `GET /v1/captures/{taskId}` and is bounded and volatile (a size
+    // of 0 is a legitimate configuration); the manifest is the durable
+    // record a downstream ledger can reconcile against after an outage.
+    this.resultCache = new InMemoryResultStore(config.resultCacheSize);
+    this.resultSink = compositeSink([
+      this.resultCache,
+      new ManifestWriter(this.store, createChildLogger({ component: "manifest-writer" })),
+    ]);
     this.lifecycleActor = createActor(coordinatorMachine, {
-      input: { config, store: this.store },
+      input: { config, store: this.store, resultSink: this.resultSink },
     });
     this.lifecycleActor.start();
   }
@@ -165,6 +182,22 @@ export class CaptureCoordinator {
     }
     this.taskQueue.enqueue(task);
     return ok();
+  }
+
+  /**
+   * The recorded result for a finished task, if it is still cached.
+   *
+   * `undefined` covers two different situations the caller must distinguish
+   * with {@link isTracking}: the task is still running, or it is unknown /
+   * already evicted.
+   */
+  getResult(taskId: string): CaptureResult | undefined {
+    return this.resultCache.get(taskId);
+  }
+
+  /** Whether the task is still waiting in the queue or held by a worker. */
+  isTracking(taskId: string): boolean {
+    return this.taskQueue.isTracking(taskId);
   }
 
   async shutdown(): Promise<void> {

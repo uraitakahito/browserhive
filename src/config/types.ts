@@ -191,6 +191,13 @@ export interface CoordinatorConfig {
   queuePollIntervalMs: number;
   /** Reject capture requests for URLs already in the queue */
   rejectDuplicateUrls: boolean;
+  /**
+   * How many finished `CaptureResult`s to keep in memory for
+   * `GET /v1/captures/{taskId}`. Oldest are evicted first. `0` disables the
+   * cache entirely — the endpoint then only ever answers 202 or 404, and the
+   * `.result.json` manifest in the artifact store is the sole record.
+   */
+  resultCacheSize: number;
 }
 
 /** Server TLS configuration */

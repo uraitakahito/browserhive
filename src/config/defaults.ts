@@ -155,6 +155,10 @@ export const DEFAULT_COORDINATOR_CONFIG = {
   maxRetryCount: 2,
   queuePollIntervalMs: 50,
   rejectDuplicateUrls: false,
+  // Enough to cover a client that polls minutes behind a burst, while staying
+  // trivially small in memory. The durable record is the `.result.json`
+  // manifest, so eviction loses nothing — it only turns a 200 into a 404.
+  resultCacheSize: 1000,
 } satisfies Omit<CoordinatorConfig, "storage">;
 
 /**

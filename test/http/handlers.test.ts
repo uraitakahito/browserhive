@@ -7,12 +7,15 @@ import { ok, err } from "../../src/result.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 import { DEFAULT_CAPTURE_CONFIG } from "../../src/config/index.js";
 import type { CaptureConfig } from "../../src/config/index.js";
+import type { CaptureResult } from "../../src/capture/types.js";
 
 interface CoordinatorStub {
   isActive: boolean;
   operationalWorkerCount: number;
   enqueueTask: ReturnType<typeof vi.fn>;
   getStatus: (opts?: { pendingLimit?: number }) => CoordinatorStatusReport;
+  getResult: (taskId: string) => CaptureResult | undefined;
+  isTracking: (taskId: string) => boolean;
   captureDefaults: CaptureConfig;
 }
 
@@ -25,8 +28,10 @@ const buildStub = (overrides: Partial<CoordinatorStub> = {}): CoordinatorStub =>
   // the built-in defaults here keeps these existing tests focused on
   // status / 4xx / 5xx behaviour without dragging resetState into them.
   captureDefaults: DEFAULT_CAPTURE_CONFIG,
+  getResult: () => undefined,
+  isTracking: () => false,
   getStatus: (): CoordinatorStatusReport => ({
-    taskCounts: { pending: 0, processing: 0, completed: 0 },
+    taskCounts: { pending: 0, processing: 0, succeeded: 0, failed: 0 },
     operationalWorkers: 1,
     totalWorkers: 1,
     isRunning: true,
@@ -43,6 +48,7 @@ const buildApp = (stub: CoordinatorStub): FastifyInstance => {
   const handlers = createCaptureHandlers(stub as unknown as CaptureCoordinator);
   app.post("/v1/captures", handlers.submitCapture);
   app.get("/v1/status", handlers.getStatus);
+  app.get("/v1/captures/:taskId", handlers.getCapture);
   return app;
 };
 
@@ -214,7 +220,9 @@ describe("submitCapture handler", () => {
 describe("getStatus handler", () => {
   it("returns 200 with the coordinator status", async () => {
     const stub = buildStub({
-      getStatus: (): CoordinatorStatusReport => ({
+      getResult: () => undefined,
+  isTracking: () => false,
+  getStatus: (): CoordinatorStatusReport => ({
         taskCounts: { pending: 5, processing: 2, completed: 10 },
         operationalWorkers: 2,
         totalWorkers: 2,
@@ -235,7 +243,7 @@ describe("getStatus handler", () => {
 
   it("forwards ?pendingLimit to coordinator.getStatus", async () => {
     const getStatus = vi.fn().mockReturnValue({
-      taskCounts: { pending: 0, processing: 0, completed: 0 },
+      taskCounts: { pending: 0, processing: 0, succeeded: 0, failed: 0 },
       operationalWorkers: 1,
       totalWorkers: 1,
       isRunning: true,
@@ -263,7 +271,7 @@ describe("getStatus handler", () => {
 
   it("omits pendingLimit when the query is absent", async () => {
     const getStatus = vi.fn().mockReturnValue({
-      taskCounts: { pending: 0, processing: 0, completed: 0 },
+      taskCounts: { pending: 0, processing: 0, succeeded: 0, failed: 0 },
       operationalWorkers: 1,
       totalWorkers: 1,
       isRunning: true,
@@ -282,7 +290,9 @@ describe("getStatus handler", () => {
   it("includes currentTask on busy workers", async () => {
     const startedAt = new Date(Date.now() - 2_000).toISOString();
     const stub = buildStub({
-      getStatus: (): CoordinatorStatusReport => ({
+      getResult: () => undefined,
+  isTracking: () => false,
+  getStatus: (): CoordinatorStatusReport => ({
         taskCounts: { pending: 0, processing: 1, completed: 0 },
         operationalWorkers: 1,
         totalWorkers: 1,
@@ -349,7 +359,9 @@ describe("getStatus handler", () => {
     const enqueuedAt = new Date(Date.now() - 6_000).toISOString();
     const startedAt = new Date(Date.now() - 1_500).toISOString();
     const stub = buildStub({
-      getStatus: (): CoordinatorStatusReport => ({
+      getResult: () => undefined,
+  isTracking: () => false,
+  getStatus: (): CoordinatorStatusReport => ({
         taskCounts: { pending: 0, processing: 1, completed: 0 },
         operationalWorkers: 1,
         totalWorkers: 1,
@@ -393,5 +405,126 @@ describe("getStatus handler", () => {
     expect(proc?.workerIndex).toBe(0);
     expect(proc?.startedAt).toBe(startedAt);
     expect(proc?.elapsedMs).toBeGreaterThanOrEqual(1_500);
+  });
+});
+
+describe("getCapture handler", () => {
+  const finishedResult = (overrides: Partial<CaptureResult> = {}): CaptureResult => ({
+    task: {
+      taskId: "550e8400-e29b-41d4-a716-446655440000",
+      labels: ["nightly"],
+      url: "https://example.com/",
+      retryCount: 0,
+      captureFormats: { png: false, webp: false, html: false, links: false, mhtml: false, wacz: true },
+      resetState: DEFAULT_RESET_STATE_OPTIONS,
+      correlationId: "abc123de",
+      enqueuedAt: "2024-01-01T00:00:00.000Z",
+    },
+    status: "success",
+    httpStatusCode: 200,
+    waczLocation: "s3://browserhive/550e8400-e29b-41d4-a716-446655440000_abc123de_nightly.wacz",
+    captureProcessingTimeMs: 18422,
+    timestamp: "2024-01-01T00:00:20.000Z",
+    workerIndex: 0,
+    ...overrides,
+  });
+
+  it("returns 200 with the report once the task has finished", async () => {
+    const result = finishedResult();
+    const app = buildApp(buildStub({ getResult: () => result }));
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/captures/550e8400-e29b-41d4-a716-446655440000",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      taskId: string;
+      correlationId: string;
+      status: string;
+      retryCount: number;
+      artifacts: { wacz?: string; png?: string };
+    }>();
+    expect(body.taskId).toBe("550e8400-e29b-41d4-a716-446655440000");
+    expect(body.correlationId).toBe("abc123de");
+    expect(body.status).toBe("success");
+    expect(body.retryCount).toBe(0);
+    expect(body.artifacts.wacz).toBe(
+      "s3://browserhive/550e8400-e29b-41d4-a716-446655440000_abc123de_nightly.wacz",
+    );
+    // Formats that were not requested must not appear as empty keys.
+    expect(body.artifacts.png).toBeUndefined();
+  });
+
+  // The whole point of the endpoint: a failed capture is reported, not
+  // silently indistinguishable from one that never ran.
+  it("returns 200 with the failure detail when the capture failed", async () => {
+    const result = finishedResult({
+      status: "timeout",
+      waczLocation: undefined,
+      errorDetails: { type: "timeout", message: "navigation exceeded 60000ms", timeoutMs: 60_000 },
+    });
+    const app = buildApp(buildStub({ getResult: () => result }));
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/captures/550e8400-e29b-41d4-a716-446655440000",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      status: string;
+      artifacts: Record<string, string>;
+      errorDetails: { type: string; timeoutMs: number };
+    }>();
+    expect(body.status).toBe("timeout");
+    expect(body.artifacts).toEqual({});
+    expect(body.errorDetails.type).toBe("timeout");
+    expect(body.errorDetails.timeoutMs).toBe(60_000);
+  });
+
+  it("returns 202 with an empty body while the task is still in the pipeline", async () => {
+    const app = buildApp(buildStub({ getResult: () => undefined, isTracking: () => true }));
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/captures/550e8400-e29b-41d4-a716-446655440000",
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.body).toBe("");
+  });
+
+  it("returns a 404 Problem for an unknown or evicted task", async () => {
+    const app = buildApp(buildStub({ getResult: () => undefined, isTracking: () => false }));
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/captures/7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    const body = response.json<{ title: string; status: number; detail: string }>();
+    expect(body.title).toBe("Unknown task");
+    expect(body.status).toBe(404);
+    // The message must not claim the task never existed — it may have been evicted.
+    expect(body.detail).toContain("aged out");
+  });
+
+  // A finished task is out of the queue but in the cache. Checking the queue
+  // first would report 404 for exactly the case the endpoint exists to serve.
+  it("prefers the cached result over the queue check", async () => {
+    const app = buildApp(
+      buildStub({ getResult: () => finishedResult(), isTracking: () => true }),
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/captures/550e8400-e29b-41d4-a716-446655440000",
+    });
+
+    expect(response.statusCode).toBe(200);
   });
 });

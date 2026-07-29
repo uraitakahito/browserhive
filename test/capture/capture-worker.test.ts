@@ -12,6 +12,8 @@ import type { CaptureWorkerInput } from "../../src/capture/capture-worker.js";
 import type { WorkerRuntime } from "../../src/capture/worker-loop.js";
 import type { BrowserClient } from "../../src/capture/browser-client.js";
 import { TaskQueue } from "../../src/capture/task-queue.js";
+import type { CaptureResultSink } from "../../src/capture/result-sink.js";
+import type { CaptureResult } from "../../src/capture/types.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 
 const createMockClient = (index = 0): BrowserClient =>
@@ -23,9 +25,16 @@ const createMockClient = (index = 0): BrowserClient =>
     process: vi.fn(),
   }) as unknown as BrowserClient;
 
+/** Sink that keeps what it was handed, so tests can assert on the terminal result. */
+const createRecordingSink = (): CaptureResultSink & { recorded: CaptureResult[] } => {
+  const recorded: CaptureResult[] = [];
+  return { recorded, record: (result) => recorded.push(result) };
+};
+
 const createDefaultRuntime = (index = 0): WorkerRuntime => ({
   client: createMockClient(index),
   taskQueue: new TaskQueue(),
+  resultSink: createRecordingSink(),
   pollIntervalMs: 50,
 });
 
@@ -232,7 +241,8 @@ describe("capture-worker", () => {
         expect(ctx.errorHistory).toHaveLength(1);
         expect(ctx.errorHistory[0]!.message).toBe("Page crashed");
         expect(ctx.errorHistory[0]!.task?.taskId).toBe("t1");
-        expect(taskQueue.completedCount).toBe(1);
+        expect(taskQueue.failedCount).toBe(1);
+        expect(taskQueue.succeededCount).toBe(0);
         // currentTask cleared on terminal failure path
         expect(ctx.currentTask).toBeNull();
       });
@@ -291,10 +301,43 @@ describe("capture-worker", () => {
         expect(ctx.errorHistory).toHaveLength(1);
         expect(ctx.errorHistory[0]!.type).toBe("connection");
         expect(ctx.errorHistory[0]!.task?.taskId).toBe("t1");
-        // markComplete removes the task from processing AND adds to completed.
+        // markComplete removes the task from processing and tallies it as failed.
         expect(taskQueue.processingCount).toBe(0);
-        expect(taskQueue.completedCount).toBe(1);
+        expect(taskQueue.failedCount).toBe(1);
+        expect(taskQueue.succeededCount).toBe(0);
         expect(ctx.currentTask).toBeNull();
+      });
+
+      // CONNECTION_LOST is the one terminal event that carries no CaptureResult.
+      // If the machine forgot to synthesise one, the sink (and therefore the
+      // result manifest) would silently skip exactly these failures.
+      it("should record a synthesised result to the sink on terminal CONNECTION_LOST", async () => {
+        const taskQueue = new TaskQueue();
+        const resultSink = createRecordingSink();
+        const { actor } = await createOperationalActor({ runtime: { taskQueue, resultSink } });
+        const task = { taskId: "t1", labels: ["test"], url: "https://example.com", retryCount: 2, captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false }, resetState: { cookies: true, pageContext: true }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        taskQueue.enqueue(task);
+        taskQueue.dequeue();
+        actor.send({ type: "TASK_STARTED", task });
+        actor.send({ type: "CONNECTION_LOST", task, message: "Connection closed" });
+
+        expect(resultSink.recorded).toHaveLength(1);
+        const recorded = resultSink.recorded[0]!;
+        expect(recorded.status).toBe("failed");
+        expect(recorded.task.taskId).toBe("t1");
+        expect(recorded.errorDetails?.type).toBe("connection");
+        expect(recorded.errorDetails?.message).toBe("Connection closed");
+      });
+
+      it("should record the reported result to the sink on terminal TASK_FAILED", async () => {
+        const resultSink = createRecordingSink();
+        const { actor } = await createOperationalActor({ runtime: { resultSink } });
+        const task = { taskId: "t1", labels: [], url: "https://example.com", retryCount: 2, captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false }, resetState: { cookies: true, pageContext: true }, enqueuedAt: "2024-01-01T00:00:00.000Z" };
+        const result = { task, status: "failed" as const, errorDetails: { type: "internal" as const, message: "Page crashed" }, captureProcessingTimeMs: 10, timestamp: "2024-01-01T00:00:01.000Z", workerIndex: 0 };
+        actor.send({ type: "TASK_STARTED", task });
+        actor.send({ type: "TASK_FAILED", task, result });
+
+        expect(resultSink.recorded).toEqual([result]);
       });
 
       it("should transition to disconnecting on DISCONNECT", async () => {

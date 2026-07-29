@@ -3,16 +3,26 @@
  */
 import type { CaptureTask } from "./types.js";
 
+/** `markComplete` が記録する最終的な行方。 */
+export type TaskOutcome = "succeeded" | "failed";
+
 export interface TaskCounts {
   pending: number;
   processing: number;
-  completed: number;
+  /** 撮れて成果物が上がった数。 */
+  succeeded: number;
+  /** リトライ上限まで使って諦めた数。 */
+  failed: number;
 }
 
 /**
- * 取り込みタスクの共有キュー。FIFO の待機列に加え、処理中 / 完了の集合を持ち、
+ * 取り込みタスクの共有キュー。FIFO の待機列に加え、処理中の集合と完了件数を持ち、
  * 全ワーカーが**同一インスタンス**を参照する(work-stealing)。`dequeue` で
  * 取り出すと同時に `processing` へ移し、完了で `markComplete`・再試行で `requeue` する。
+ *
+ * 完了したタスクは **件数しか残さない**(`succeeded` / `failed` のカウンタ)。
+ * かつては taskId の `Set` を持っていたが、削除する経路が無く走らせるほど
+ * 伸び続けていた。結果そのものを引きたい用途は `CaptureResultSink` が担う。
  *
  * @glossary TaskQueue
  * @category コンポーネント
@@ -21,7 +31,8 @@ export class TaskQueue {
   private queue: CaptureTask[] = [];
   private processing = new Set<string>();
   private processingUrls = new Map<string, string>(); // taskId -> url
-  private completed = new Set<string>();
+  private succeeded = 0;
+  private failed = 0;
 
   enqueue(task: CaptureTask): void {
     this.queue.push(task);
@@ -66,12 +77,25 @@ export class TaskQueue {
   }
 
   // #region markComplete
-  markComplete(taskId: string): void {
+  markComplete(taskId: string, outcome: TaskOutcome): void {
     this.processing.delete(taskId);
     this.processingUrls.delete(taskId);
-    this.completed.add(taskId);
+    if (outcome === "succeeded") this.succeeded += 1;
+    else this.failed += 1;
   }
   // #endregion
+
+  /**
+   * Whether this task is still in the pipeline (waiting or held by a worker).
+   *
+   * `GET /v1/captures/{taskId}` uses it to tell "still running" (202) from
+   * "never heard of it" (404). Unlike `/v1/status`'s `pendingTasks`, this is
+   * not truncated by `pendingLimit`, so it stays correct for a deep queue.
+   */
+  isTracking(taskId: string): boolean {
+    if (this.processing.has(taskId)) return true;
+    return this.queue.some((task) => task.taskId === taskId);
+  }
 
   get remaining(): number {
     return this.queue.length;
@@ -81,8 +105,12 @@ export class TaskQueue {
     return this.processing.size;
   }
 
-  get completedCount(): number {
-    return this.completed.size;
+  get succeededCount(): number {
+    return this.succeeded;
+  }
+
+  get failedCount(): number {
+    return this.failed;
   }
 
   get isDone(): boolean {
@@ -97,7 +125,8 @@ export class TaskQueue {
     return {
       pending: this.queue.length,
       processing: this.processing.size,
-      completed: this.completed.size,
+      succeeded: this.succeeded,
+      failed: this.failed,
     };
   }
 

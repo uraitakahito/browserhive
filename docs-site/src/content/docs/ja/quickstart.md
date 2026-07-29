@@ -100,11 +100,33 @@ curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
 
 ## Step 4 — 処理状況を確認する
 
+Step 3 で得た `taskId` を使って、投げたタスク自身の状態を問い合わせます:
+
 ```bash
-curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
+curl -sS -o /tmp/result.json -w '%{http_code}\n' \
+  http://localhost:8080/v1/captures/550e8400-e29b-41d4-a716-446655440000
 ```
 
-`completed` が増え、worker の `processedCount` が上がっていればキャプチャ完了です。
+- **202** — まだキューにいるか、キャプチャ中です。もう一度問い合わせてください。
+- **200** — 完了です。`/tmp/result.json` に結果が入っています:
+
+```bash
+jq '{status, artifacts, errorDetails}' /tmp/result.json
+```
+
+`status` が `success` のときだけ成果物が作られています。`failed` / `timeout` /
+`httpError` は何もアップロードされておらず、理由は `errorDetails` にあります。
+**404** は「そんなタスクは投げられていない」か「結果がメモリキャッシュから
+溢れた」のどちらかです(`--result-cache-size`、既定 1000)。同じ内容は
+`.result.json` としてバケットにも書かれ、こちらは溢れにもサーバ再起動にも
+耐えます — [キャプチャ結果](/ja/capture-results/)を参照してください。
+
+タスク単位ではなく全体を見たいときは `/v1/status` がキューの深さと
+`succeeded` / `failed` のカウンタを返します:
+
+```bash
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{pending, processing, succeeded, failed}'
+```
 
 ## Step 5 — 成果物を取得する
 

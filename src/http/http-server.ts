@@ -69,7 +69,7 @@ interface ParameterObject {
   schema?: unknown;
 }
 
-interface OperationObject {
+export interface OperationObject {
   operationId?: string;
   parameters?: ParameterObject[];
   requestBody?: { content: Record<string, { schema: unknown }> };
@@ -107,11 +107,47 @@ const extractQuerystringSchema = (
   };
 };
 
+/**
+ * Synthesize a JSON Schema object from the operation's `in: path` parameters,
+ * mirroring {@link extractQuerystringSchema}. Path params are always required
+ * per the OpenAPI spec, so every one lands in `required`.
+ */
+export const extractParamsSchema = (
+  operation: OperationObject,
+): Record<string, unknown> | undefined => {
+  const pathParams = (operation.parameters ?? []).filter((p) => p.in === "path");
+  if (pathParams.length === 0) return undefined;
+  const properties: Record<string, unknown> = {};
+  for (const param of pathParams) {
+    if (param.schema !== undefined) {
+      properties[param.name] = param.schema;
+    }
+  }
+  return {
+    type: "object",
+    properties,
+    required: pathParams.map((p) => p.name),
+    additionalProperties: false,
+  };
+};
+
+/**
+ * Rewrite OpenAPI path templating (`/v1/captures/{taskId}`) into Fastify's
+ * (`/v1/captures/:taskId`).
+ *
+ * Without this the route registers under the literal string `{taskId}` and
+ * every real request 404s — silently, because Fastify has no reason to
+ * complain about a path that contains braces.
+ */
+export const toFastifyPath = (openApiPath: string): string =>
+  openApiPath.replace(/\{([^}]+)\}/g, ":$1");
+
 const extractRouteSchema = (
   operation: OperationObject | undefined,
 ): {
   body?: unknown;
   querystring?: unknown;
+  params?: unknown;
   response: Record<number, unknown>;
 } => {
   const response: Record<number, unknown> = {};
@@ -131,11 +167,13 @@ const extractRouteSchema = (
   const bodySchema =
     operation.requestBody?.content["application/json"]?.schema;
   const querystringSchema = extractQuerystringSchema(operation);
+  const paramsSchema = extractParamsSchema(operation);
 
   return {
     response,
     ...(bodySchema !== undefined && { body: bodySchema }),
     ...(querystringSchema !== undefined && { querystring: querystringSchema }),
+    ...(paramsSchema !== undefined && { params: paramsSchema }),
   };
 };
 
@@ -156,10 +194,11 @@ const registerOperation = (
   const schema = extractRouteSchema(operation);
   app.route({
     method: op.method.toUpperCase(),
-    url: op.path,
+    url: toFastifyPath(op.path),
     schema: {
       ...(schema.body !== undefined && { body: schema.body }),
       ...(schema.querystring !== undefined && { querystring: schema.querystring }),
+      ...(schema.params !== undefined && { params: schema.params }),
       response: schema.response,
     },
     handler: handlers[operationId],

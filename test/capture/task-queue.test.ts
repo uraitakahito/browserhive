@@ -145,18 +145,31 @@ describe("TaskQueue", () => {
   });
 
   describe("markComplete", () => {
-    it("should move task from processing to completed", () => {
+    it("should move task out of processing and count it as succeeded", () => {
       const task = createTask("1");
       queue.enqueue(task);
       queue.dequeue();
 
       expect(queue.processingCount).toBe(1);
-      expect(queue.completedCount).toBe(0);
+      expect(queue.succeededCount).toBe(0);
 
-      queue.markComplete(task.taskId);
+      queue.markComplete(task.taskId, "succeeded");
 
       expect(queue.processingCount).toBe(0);
-      expect(queue.completedCount).toBe(1);
+      expect(queue.succeededCount).toBe(1);
+      expect(queue.failedCount).toBe(0);
+    });
+
+    it("should count a given-up task as failed, not succeeded", () => {
+      const task = createTask("1");
+      queue.enqueue(task);
+      queue.dequeue();
+
+      queue.markComplete(task.taskId, "failed");
+
+      expect(queue.processingCount).toBe(0);
+      expect(queue.succeededCount).toBe(0);
+      expect(queue.failedCount).toBe(1);
     });
   });
 
@@ -190,18 +203,37 @@ describe("TaskQueue", () => {
     });
   });
 
-  describe("completedCount", () => {
-    it("should track completed tasks", () => {
+  describe("succeededCount / failedCount", () => {
+    it("should tally the two outcomes separately", () => {
       queue.enqueue(createTask("1"));
       queue.enqueue(createTask("2"));
 
       queue.dequeue();
-      queue.markComplete("1");
-      expect(queue.completedCount).toBe(1);
+      queue.markComplete("1", "succeeded");
+      expect(queue.succeededCount).toBe(1);
+      expect(queue.failedCount).toBe(0);
 
       queue.dequeue();
-      queue.markComplete("2");
-      expect(queue.completedCount).toBe(2);
+      queue.markComplete("2", "failed");
+      expect(queue.succeededCount).toBe(1);
+      expect(queue.failedCount).toBe(1);
+    });
+  });
+
+  describe("isTracking", () => {
+    it("should report pending and processing tasks, but not finished ones", () => {
+      queue.enqueue(createTask("1"));
+      expect(queue.isTracking("1")).toBe(true); // waiting in the queue
+
+      queue.dequeue();
+      expect(queue.isTracking("1")).toBe(true); // held by a worker
+
+      queue.markComplete("1", "succeeded");
+      expect(queue.isTracking("1")).toBe(false); // left the pipeline
+    });
+
+    it("should return false for an unknown taskId", () => {
+      expect(queue.isTracking("never-submitted")).toBe(false);
     });
   });
 
@@ -285,7 +317,7 @@ describe("TaskQueue", () => {
       const task = createTask("1", { url: "https://example.com/page" });
       queue.enqueue(task);
       queue.dequeue();
-      queue.markComplete(task.taskId);
+      queue.markComplete(task.taskId, "succeeded");
       expect(queue.hasUrl("https://example.com/page")).toBe(false);
     });
 
@@ -315,7 +347,8 @@ describe("TaskQueue", () => {
       expect(status).toEqual({
         pending: 0,
         processing: 0,
-        completed: 0,
+        succeeded: 0,
+        failed: 0,
       });
     });
 
@@ -328,25 +361,30 @@ describe("TaskQueue", () => {
       expect(status).toEqual({
         pending: 2,
         processing: 0,
-        completed: 0,
+        succeeded: 0,
+        failed: 0,
       });
     });
 
-    it("should return correct status with processing and completed tasks", () => {
+    it("should return correct status with processing and finished tasks", () => {
       queue.enqueue(createTask("1"));
       queue.enqueue(createTask("2"));
       queue.enqueue(createTask("3"));
+      queue.enqueue(createTask("4"));
 
       queue.dequeue(); // 1 -> processing
-      queue.markComplete("1"); // 1 -> completed
+      queue.markComplete("1", "succeeded"); // 1 -> succeeded
       queue.dequeue(); // 2 -> processing
+      queue.markComplete("2", "failed"); // 2 -> failed
+      queue.dequeue(); // 3 -> processing
 
       const status = queue.getStatus();
 
       expect(status).toEqual({
         pending: 1,
         processing: 1,
-        completed: 1,
+        succeeded: 1,
+        failed: 1,
       });
     });
   });

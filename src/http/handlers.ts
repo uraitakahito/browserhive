@@ -18,10 +18,12 @@ import type { OperationId } from "./generated/operations.gen.js";
 import {
   duplicateUrlProblem,
   noOperationalWorkersProblem,
+  unknownTaskProblem,
   validationProblem,
 } from "./error-mapper.js";
 import { captureRequestToTask } from "./request-mapper.js";
 import {
+  captureResultToReport,
   coordinatorStatusToResponse,
   taskToAcceptance,
 } from "./response-mapper.js";
@@ -113,5 +115,34 @@ export const createCaptureHandlers = (
       );
   };
 
-  return { submitCapture, getStatus };
+  /**
+   * Three-way answer, because a client reconciling its own records needs to
+   * tell them apart:
+   *   200 — finished; `status` says whether artifacts exist
+   *   202 — still in the pipeline; ask again later
+   *   404 — unknown, or aged out of the bounded cache
+   *
+   * The `isTracking` check must come *after* the cache lookup: a task that
+   * just finished is out of the queue but in the cache, and checking the
+   * queue first would report 404 for it.
+   */
+  const getCapture: RouteHandlerMethod = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): FastifyReply => {
+    const { taskId } = request.params as { taskId: string };
+
+    const result = coordinator.getResult(taskId);
+    if (result) {
+      return reply.code(200).send(captureResultToReport(result));
+    }
+
+    if (coordinator.isTracking(taskId)) {
+      return reply.code(202).send();
+    }
+
+    return sendProblem(reply, unknownTaskProblem(taskId));
+  };
+
+  return { submitCapture, getStatus, getCapture };
 };

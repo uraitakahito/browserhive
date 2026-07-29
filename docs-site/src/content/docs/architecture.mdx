@@ -411,7 +411,7 @@ location of each item.
 | Membership discovery | `src/discovery/` | `WorkerRegistry` (Static/Dns): resolve members from DNS, emit changes → `reconciling` |
 | Child machine | `src/capture/capture-worker.ts` | [`captureWorkerMachine`](/terminology/#g-captureWorkerMachine): `disconnected→operational{idle/processing}→error` |
 | Worker loop | `src/capture/worker-loop.ts` | [`workerLoop`](/terminology/#g-workerLoop): dequeue→process→emit events |
-| Queue | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing/completed sets |
+| Queue | `src/capture/task-queue.ts` | [`TaskQueue`](/terminology/#g-TaskQueue): FIFO + processing set + succeeded/failed counters |
 | Browser connect/process | `src/capture/browser-client.ts` | [`BrowserClient`](/terminology/#g-BrowserClient): `process` (Layer B), `connect`, owns the persistent tab |
 | Capture proper | `src/capture/page-capturer.ts` | the whole `capture()` + `withTimeout`/`runOnStableContext` |
 | Network recording | `src/capture/network-recorder.ts` | [`NetworkRecorder`](/terminology/#g-NetworkRecorder): CDP→WARC, pending/writeQueue, metadata records |
