@@ -82,6 +82,7 @@ export default defineConfig({
             { label: "Storage", slug: "storage" },
             { label: "TLS certificates", slug: "tls-certificates" },
             { label: "Replay quickstart", slug: "replay-quickstart" },
+            { label: "Related projects", slug: "related-projects" },
           ],
         },
         {

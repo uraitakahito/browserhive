@@ -17,7 +17,5 @@ lives on the docs site:
 
 The API reference (Redoc) is at <https://uraitakahito.github.io/browserhive/api/>.
 
-## Related Projects
-
-- [waggle](https://github.com/uraitakahito/waggle) — reads URLs from Postgres and drives BrowserHive.
-- [chromium-server-docker](https://github.com/uraitakahito/chromium-server-docker) — the Chromium backend (git submodule).
+The repositories BrowserHive is built on, driven by, and validated against are
+mapped on [Related projects](https://uraitakahito.github.io/browserhive/related-projects/).
