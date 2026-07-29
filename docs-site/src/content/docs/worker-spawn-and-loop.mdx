@@ -211,18 +211,28 @@ Requeue — remove from `processing`, increment retryCount, append to the tail:
 ```ts file="src/capture/task-queue.ts#requeue"
 ```
 
-Complete — remove from `processing` and add to `completed`:
+Complete — remove from `processing` and tally the outcome:
 
 ```ts file="src/capture/task-queue.ts#markComplete"
 ```
 
-| Set | Meaning | Transitions |
-|-----|---------|-------------|
+| State | Meaning | Transitions |
+|-------|---------|-------------|
 | `queue[]` | Waiting (FIFO) | enqueue appends / dequeue removes the head |
 | `processing` | Taken and in flight | added by dequeue / removed by markComplete · requeue |
-| `completed` | Done (success or given up) | added by markComplete |
+| `succeeded` / `failed` | Counters, not sets | incremented by markComplete |
 
-`/v1/status` reports the sizes of these three sets plus `peekPending` (the
+Finished tasks leave **only a count**. They used to accumulate in a
+`Set<string>` of task ids that nothing ever removed from, so it grew for as
+long as the server ran. The result itself now goes to a `CaptureResultSink`,
+which is what `GET /v1/captures/{taskId}` and the `.result.json` manifest
+read from — see [Capture results](/capture-results/).
+
+The two counters are deliberately separate: `markComplete` is called both
+when a capture succeeded and when the retry budget ran out, so a single
+"completed" number would mean "no longer our problem" rather than "worked".
+
+`/v1/status` reports the queue sizes, both counters, plus `peekPending` (the
 first N entries). Because the design adds to `processing` and always removes
 on completion, it is essential that **failures always call either `requeue`
 or `markComplete`** (= no task squats in `processing`) — which is exactly

@@ -142,6 +142,7 @@ interface ParsedOptions {
   taskTimeout: number;
   maxRetryCount: number;
   queuePollIntervalMs: number;
+  resultCacheSize: number;
   discoveryRefreshMs: number;
   /** Boot-time worker-resolve retry attempts. Env BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS. */
   discoveryInitRetryAttempts: number;
@@ -301,6 +302,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
       maxRetryCount: opts.maxRetryCount,
       queuePollIntervalMs: opts.queuePollIntervalMs,
       rejectDuplicateUrls: opts.rejectDuplicateUrls,
+      resultCacheSize: opts.resultCacheSize,
     },
     discovery: {
       refreshMs: opts.discoveryRefreshMs,
@@ -418,6 +420,15 @@ export const createProgram = (): Command => {
         .env("BROWSERHIVE_QUEUE_POLL_INTERVAL_MS")
         .default(defaultWorker.queuePollIntervalMs)
         .argParser(parsePositiveInt),
+    )
+    .addOption(
+      new Option(
+        "--result-cache-size <n>",
+        "How many finished capture results to keep for GET /v1/captures/{taskId} (0 disables)",
+      )
+        .env("BROWSERHIVE_RESULT_CACHE_SIZE")
+        .default(defaultWorker.resultCacheSize)
+        .argParser(parseNonNegativeInt),
     )
     .addOption(
       new Option(
@@ -891,6 +902,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       },
       maxRetryCount: coordinator.maxRetryCount,
       queuePollIntervalMs: coordinator.queuePollIntervalMs,
+      resultCacheSize: coordinator.resultCacheSize,
       archiveMode: capture.archiveMode,
       viewport: {
         width: capture.viewport.width,

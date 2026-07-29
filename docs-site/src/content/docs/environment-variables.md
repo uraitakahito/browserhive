@@ -22,6 +22,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--task-timeout <ms>`<code class="env">BROWSERHIVE_TASK_TIMEOUT_MS</code> | positive integer (Layer B per-task safety net) |
 | `--max-retry-count <n>`<code class="env">BROWSERHIVE_MAX_RETRY_COUNT</code> | non-negative integer |
 | `--queue-poll-interval-ms <ms>`<code class="env">BROWSERHIVE_QUEUE_POLL_INTERVAL_MS</code> | positive integer |
+| `--result-cache-size <n>`<code class="env">BROWSERHIVE_RESULT_CACHE_SIZE</code> | non-negative integer (default `1000`) — how many finished results `GET /v1/captures/{taskId}` keeps in memory, oldest evicted first; `0` disables the lookup. The durable record is the [`.result.json` manifest](/capture-results/), so eviction only turns a 200 into a 404 |
 | `--discovery-refresh-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_REFRESH_MS</code> | integer ms (default `10000`, min `1000`) — how often worker membership is re-resolved from DNS |
 | `--discovery-init-retry-attempts <n>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS</code> | positive integer (default `6`) — boot-time worker-resolve retries, absorbing the DNS registration race |
 | `--discovery-init-retry-delay-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS</code> | positive integer (default `500`) — base backoff for that retry |

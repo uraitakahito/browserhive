@@ -49,29 +49,51 @@ export async function waitUntil(
   }
 }
 
-interface StatusReport {
-  completed: number;
+export interface CaptureResultReport {
+  taskId: string;
+  correlationId?: string;
+  url: string;
+  status: "success" | "failed" | "timeout" | "httpError";
+  retryCount: number;
+  artifacts: Partial<Record<"png" | "webp" | "html" | "links" | "mhtml" | "wacz", string>>;
+  errorDetails?: { type: string; message: string };
 }
 
 /**
- * Submit a capture and wait for it to reach a terminal state. `POST
- * /v1/captures` is fire-and-forget (202); the API returns no per-task result,
- * so completion is observed by the server's cumulative `completed` count
- * ticking up. Robust across retries (a task re-enters the queue between
- * attempts). Tests run serially (fileParallelism: false), so +1 == this task.
+ * Submit a capture and wait for that specific task to reach a terminal state,
+ * returning what became of it.
+ *
+ * `POST /v1/captures` is fire-and-forget (202), so completion is observed by
+ * polling `GET /v1/captures/{taskId}`: 202 while the task is still queued or
+ * in flight (retries included — it re-enters the queue between attempts), 200
+ * once it is done. Unlike watching a cumulative counter, this tracks *this*
+ * task, so it neither depends on tests running serially nor mistakes another
+ * task's completion for its own.
  */
-export async function submitAndWait(api: string, body: Record<string, unknown>): Promise<void> {
-  const before = (await getJson<StatusReport>(`${api}/v1/status`)).completed;
+export async function submitAndWait(
+  api: string,
+  body: Record<string, unknown>,
+): Promise<CaptureResultReport> {
   const res = await fetch(`${api}/v1/captures`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
   expect(res.status).toBe(202);
+  const { taskId } = (await res.json()) as { taskId: string };
+
+  let report: CaptureResultReport | undefined;
   await waitUntil(async () => {
-    const s = await getJson<StatusReport>(`${api}/v1/status`);
-    return s.completed >= before + 1;
+    const lookup = await fetch(`${api}/v1/captures/${taskId}`);
+    if (lookup.status === 202) return false;
+    // 404 here would mean the result was evicted before we looked, which the
+    // default cache size makes impossible in a test run — surface it loudly
+    // rather than spinning until the timeout.
+    expect(lookup.status).toBe(200);
+    report = (await lookup.json()) as CaptureResultReport;
+    return true;
   });
+  return report!;
 }
 
 /** Zero meadow's per-URL hit counters and flaky state (test isolation). */

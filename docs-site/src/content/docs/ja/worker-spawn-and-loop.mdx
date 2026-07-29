@@ -191,18 +191,27 @@ chromium worker に固定されず、手が空いたワーカーが次を引く�
 ```ts file="src/capture/task-queue.ts#requeue"
 ```
 
-完了 ― `processing` から外し `completed` へ:
+完了 ― `processing` から外し、行方をカウントする:
 
 ```ts file="src/capture/task-queue.ts#markComplete"
 ```
 
-| 集合 | 意味 | 遷移 |
+| 状態 | 意味 | 遷移 |
 |------|------|------|
 | `queue[]` | 待機中(FIFO) | enqueue で末尾追加 / dequeue で先頭除去 |
 | `processing` | 取り出され処理中 | dequeue で追加 / markComplete・requeue で除去 |
-| `completed` | 完了(成功 or 諦め) | markComplete で追加 |
+| `succeeded` / `failed` | 集合ではなくカウンタ | markComplete で加算 |
 
-`/v1/status` はこの 3 集合の数と `peekPending`(先頭 N 件)で全体像を出す。
+完了したタスクは**件数しか残さない**。以前は taskId の `Set` に貯めていたが
+削除する経路が無く、走らせるほど伸び続けていた。結果そのものは
+`CaptureResultSink` が受け取り、`GET /v1/captures/{taskId}` と
+`.result.json` マニフェストはそこから読む ― [キャプチャ結果](/ja/capture-results/)を参照。
+
+カウンタを 2 本に分けているのは意図的で、`markComplete` は**成功時にも
+リトライ上限を使い切った最終失敗時にも**呼ばれる。1 本の「completed」では
+「撮れた数」ではなく「もう扱わない数」になってしまう。
+
+`/v1/status` はキューの数・両カウンタ・`peekPending`(先頭 N 件)で全体像を出す。
 `processing` に入れて完了で必ず除く設計なので、**失敗時に `requeue`/`markComplete` の
 どちらかを必ず呼ぶ**(= タスクが processing に居座らない)ことが重要 ―
 CONNECTION_LOST にも task を載せて機械に裁かせるのはこのため。

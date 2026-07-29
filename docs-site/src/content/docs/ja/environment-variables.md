@@ -22,6 +22,7 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--task-timeout <ms>`<code class="env">BROWSERHIVE_TASK_TIMEOUT_MS</code> | 正の整数(Layer B のタスク単位セーフティネット) |
 | `--max-retry-count <n>`<code class="env">BROWSERHIVE_MAX_RETRY_COUNT</code> | 非負整数 |
 | `--queue-poll-interval-ms <ms>`<code class="env">BROWSERHIVE_QUEUE_POLL_INTERVAL_MS</code> | 正の整数 |
+| `--result-cache-size <n>`<code class="env">BROWSERHIVE_RESULT_CACHE_SIZE</code> | 非負整数(既定 `1000`) ― `GET /v1/captures/{taskId}` がメモリに保持する完了結果の件数。古いものから破棄され、`0` で問い合わせ自体を無効化。耐久性のある記録は[`.result.json` マニフェスト](/ja/capture-results/)なので、破棄されても 200 が 404 になるだけ |
 | `--discovery-refresh-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_REFRESH_MS</code> | ミリ秒の整数(既定 `10000`・最小 `1000`) — worker membership を DNS から再解決する間隔 |
 | `--discovery-init-retry-attempts <n>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_ATTEMPTS</code> | 正の整数(既定 `6`) — 起動時の worker 解決リトライ回数(DNS 登録レースの吸収) |
 | `--discovery-init-retry-delay-ms <ms>`<code class="env">BROWSERHIVE_DISCOVERY_INIT_RETRY_DELAY_MS</code> | 正の整数(既定 `500`) — 同リトライの初回バックオフ |

@@ -152,7 +152,24 @@ export const captureWorkerMachine = setup({
     },
     markTaskComplete: ({ context, event }) => {
       if (event.type !== "TASK_FAILED" && event.type !== "CONNECTION_LOST") return;
-      context.runtime.taskQueue.markComplete(event.task.taskId);
+      context.runtime.taskQueue.markComplete(event.task.taskId, "failed");
+      // `CONNECTION_LOST` is the one terminal event that carries no
+      // `CaptureResult` — the connection dropped before `process()` returned.
+      // Synthesise one in the same shape worker-loop builds for non-connection
+      // exceptions, so every abandoned task reaches the sink. Without this the
+      // manifest would silently skip exactly the failures worth investigating.
+      const result: CaptureResult =
+        event.type === "TASK_FAILED"
+          ? event.result
+          : {
+              task: event.task,
+              status: "failed",
+              errorDetails: createConnectionError(event.message),
+              captureProcessingTimeMs: 0,
+              timestamp: new Date().toISOString(),
+              workerIndex: context.runtime.client.index,
+            };
+      context.runtime.resultSink.record(result);
       const errorMessage =
         event.type === "TASK_FAILED"
           ? event.result.errorDetails?.message ?? "Unknown error"

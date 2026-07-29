@@ -8,6 +8,7 @@
  * satisfy `exactOptionalPropertyTypes`.
  */
 import type {
+  CaptureResult,
   CaptureTask,
   CurrentTaskInfo,
   ErrorRecord,
@@ -19,6 +20,7 @@ import type {
 } from "../capture/capture-coordinator.js";
 import type {
   CaptureAcceptance,
+  CaptureResultReport,
   CurrentTask as CurrentTaskWire,
   ErrorRecord as ErrorRecordWire,
   PendingTask as PendingTaskWire,
@@ -136,6 +138,49 @@ export const taskToProcessing = (
   };
 };
 
+/**
+ * Convert a finished `CaptureResult` to its wire report.
+ *
+ * Not a passthrough: `CaptureResult` carries the whole `CaptureTask`
+ * (dismiss options, reset-state policy, behavior config — server-side
+ * concerns that are not part of the API contract) and spreads artifact
+ * locations across six sibling `*Location` fields. This picks the subset a
+ * consumer needs and folds the locations into `artifacts`.
+ *
+ * `ManifestWriter` serialises the same shape into `.result.json`, so
+ * `GET /v1/captures/{taskId}` and the manifest stay parseable by one
+ * implementation. Changing this changes both — that is the point.
+ */
+export const captureResultToReport = (
+  result: CaptureResult,
+): CaptureResultReport => ({
+  taskId: result.task.taskId,
+  ...(result.task.correlationId !== undefined && {
+    correlationId: result.task.correlationId,
+  }),
+  url: result.task.url,
+  labels: result.task.labels,
+  status: result.status,
+  ...(result.httpStatusCode !== undefined && {
+    httpStatusCode: result.httpStatusCode,
+  }),
+  timestamp: result.timestamp,
+  captureProcessingTimeMs: result.captureProcessingTimeMs,
+  retryCount: result.task.retryCount,
+  workerIndex: result.workerIndex,
+  artifacts: {
+    ...(result.pngLocation !== undefined && { png: result.pngLocation }),
+    ...(result.webpLocation !== undefined && { webp: result.webpLocation }),
+    ...(result.htmlLocation !== undefined && { html: result.htmlLocation }),
+    ...(result.linksLocation !== undefined && { links: result.linksLocation }),
+    ...(result.mhtmlLocation !== undefined && { mhtml: result.mhtmlLocation }),
+    ...(result.waczLocation !== undefined && { wacz: result.waczLocation }),
+  },
+  ...(result.waczStats !== undefined && { waczStats: result.waczStats }),
+  ...(result.completeness !== undefined && { completeness: result.completeness }),
+  ...(result.errorDetails !== undefined && { errorDetails: result.errorDetails }),
+});
+
 export const coordinatorStatusToResponse = (
   status: CoordinatorStatusReport,
 ): StatusResponse => {
@@ -146,7 +191,8 @@ export const coordinatorStatusToResponse = (
   return {
     pending: status.taskCounts.pending,
     processing: status.taskCounts.processing,
-    completed: status.taskCounts.completed,
+    succeeded: status.taskCounts.succeeded,
+    failed: status.taskCounts.failed,
     operationalWorkers: status.operationalWorkers,
     totalWorkers: status.totalWorkers,
     isRunning: status.isRunning,

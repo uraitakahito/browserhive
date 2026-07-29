@@ -159,7 +159,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
   it("converts CoordinatorStatusReport into the OpenAPI shape", () => {
     const profile = createTestBrowserProfile("http://chromium-1:9222");
     const report: CoordinatorStatusReport = {
-      taskCounts: { pending: 2, processing: 1, completed: 5 },
+      taskCounts: { pending: 2, processing: 1, succeeded: 5, failed: 3 },
       operationalWorkers: 1,
       totalWorkers: 1,
       isRunning: true,
@@ -180,7 +180,8 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
     const response = coordinatorStatusToResponse(report);
     expect(response.pending).toBe(2);
     expect(response.processing).toBe(1);
-    expect(response.completed).toBe(5);
+    expect(response.succeeded).toBe(5);
+    expect(response.failed).toBe(3);
     expect(response.operationalWorkers).toBe(1);
     expect(response.isRunning).toBe(true);
     expect(response.isDegraded).toBe(false);
@@ -197,7 +198,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
     const profile = createTestBrowserProfile("http://chromium-1:9222");
     const startedAt = new Date(Date.now() - 5_000).toISOString();
     const report: CoordinatorStatusReport = {
-      taskCounts: { pending: 0, processing: 1, completed: 0 },
+      taskCounts: { pending: 0, processing: 1, succeeded: 0, failed: 0 },
       operationalWorkers: 1,
       totalWorkers: 1,
       isRunning: true,
@@ -360,7 +361,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
     const profile = createTestBrowserProfile("http://chromium-1:9222");
     const enqueuedAt = new Date(Date.now() - 3_000).toISOString();
     const report: CoordinatorStatusReport = {
-      taskCounts: { pending: 1, processing: 0, completed: 0 },
+      taskCounts: { pending: 1, processing: 0, succeeded: 0, failed: 0 },
       operationalWorkers: 1,
       totalWorkers: 1,
       isRunning: true,
@@ -402,7 +403,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
     const enqueuedAt = new Date(Date.now() - 8_000).toISOString();
     const startedAt = new Date(Date.now() - 4_000).toISOString();
     const report: CoordinatorStatusReport = {
-      taskCounts: { pending: 0, processing: 1, completed: 0 },
+      taskCounts: { pending: 0, processing: 1, succeeded: 0, failed: 0 },
       operationalWorkers: 1,
       totalWorkers: 1,
       isRunning: true,

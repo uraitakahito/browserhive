@@ -101,12 +101,33 @@ the filter turns the problem body into `null`s and hides the reason.
 
 ## Step 4 — Check progress
 
+Ask about the task you submitted, using the `taskId` from Step 3:
+
 ```bash
-curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{completed, workers: [.workers[] | {health, processedCount}]}'
+curl -sS -o /tmp/result.json -w '%{http_code}\n' \
+  http://localhost:8080/v1/captures/550e8400-e29b-41d4-a716-446655440000
 ```
 
-When `completed` increments and a worker's `processedCount` goes up, the
-capture is done.
+- **202** — still queued or being captured. Poll again.
+- **200** — finished. `/tmp/result.json` says how it went:
+
+```bash
+jq '{status, artifacts, errorDetails}' /tmp/result.json
+```
+
+`status` is `success` only when artifacts were produced; `failed`, `timeout`
+and `httpError` mean nothing was uploaded and `errorDetails` says why. A
+**404** means the task was never submitted, or its result aged out of the
+in-memory cache (`--result-cache-size`, default 1000) — the same body is
+also written to the bucket as `.result.json`, which survives both eviction
+and a server restart. See [Capture results](/capture-results/).
+
+For a fleet-wide view instead of one task, `/v1/status` reports the queue
+depth and the `succeeded` / `failed` counters:
+
+```bash
+curl -sS --fail-with-body http://localhost:8080/v1/status | jq '{pending, processing, succeeded, failed}'
+```
 
 ## Step 5 — Fetch the artifacts
 
