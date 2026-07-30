@@ -19,7 +19,10 @@ export default defineConfig(
     // examples/behaviors/** and the behavior fixtures are bare class-expression
     // templates (injected as `register(<source>)`), not modules — parsing them
     // as source would be a syntax error, so they are excluded like the runtime.
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**', 'meadow/**'],
+    // html/** and html-e2e/** are @vitest/ui report output (`--reporter=html`).
+    // They are gitignored, but ESLint has its own ignore list and would try to
+    // type-check the bundled Vue app, which no tsconfig project covers.
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**', 'meadow/**', 'html/**', 'html-e2e/**'],
   },
 
   //

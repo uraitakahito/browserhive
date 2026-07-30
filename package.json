@@ -13,6 +13,10 @@
     "build:behaviors": "Type-check the behavior runtime (typecheck:behaviors) then bundle src/behaviors/runtime/ (browser scripts using window/document/self) into a single injectable IIFE at dist/src/behaviors/runtime.js via esbuild. Runs AFTER tsc and writes under dist/src so the Docker runtime stage (which only copies dist/src) ships it. The runtime dir is excluded from the tsc build.",
     "build:examples": "Dev-only build for examples/ (data-client). tsconfig.build.json ships only src + bin, so `npm run build` never emits dist/examples — this compiles src + bin + examples via tsconfig.examples.json so `node dist/examples/data-client.js` resolves its `../src/*.js` imports against dist/src. The `prebuild:examples` hook runs `openapi:prep` first (examples import src/http/generated). Requires a running server (host dev loop or the container stack) to accept requests.",
     "test": "Vitest test runner in single-run mode (see vitest.config.mts for setup). The `pretest` lifecycle hook runs `openapi:prep` first so generated TS is fresh.",
+    "test:ui": "@vitest/ui in watch mode, scoped to the `unit` project. Scoped deliberately: without `--project` Vitest also collects `e2e`, whose globalSetup waits 45s for a running stack and then fails — so a bare `vitest --ui` is unusable unless the stack is up. Use `test:ui:e2e` for that case.",
+    "test:ui:e2e": "@vitest/ui against the `e2e` project. Requires the stack (`container-compose --profile meadow up -d -b`); the globalSetup fails loudly after 45s otherwise. This is where the suite's `annotate()` output is worth looking at — the UI renders it as a Test Annotations panel and inlines it in the Code tab.",
+    "test:report": "Static HTML report for the `unit` project into html/ (needs @vitest/ui). Local convenience only — CI does not build this. Cannot be opened over file://; serve it, e.g. `npx vite preview --outDir html`.",
+    "test:report:e2e": "Static HTML report for the `e2e` project into html-e2e/ — this is what .github/workflows/e2e.yml uploads as the `e2e-report` artifact. Separate output dir so it never mixes with `test:report`. Same file:// caveat: serve it with `npx vite preview --outDir html-e2e`.",
     "lint": "Top-level orchestrator that runs both `lint:source` (ESLint) and `lint:openapi` (Redocly). Has no `prelint` hook — see the `pre*/post*` notes below.",
     "server": "Run the compiled HTTP server entry point (`dist/bin/main.js`). Requires `npm run build` to have produced the dist/ output.",
     "lint:source": "ESLint over the TypeScript sources. Backed by `prelint:source` (= openapi:prep) so the generated `src/http/generated/*` files are fresh before eslint type-checks them via eslint-import-resolver-typescript.",
@@ -37,6 +41,7 @@
     ],
     "prebuild": "npm lifecycle hook for `build` — runs `prep`. Fires automatically; see the `pre*/post* hooks` note.",
     "pretest": "npm lifecycle hook for `test` — runs `prep`. Fires automatically; see the `pre*/post* hooks` note.",
+    "pretest:ui / pretest:report": "npm lifecycle hooks for the two `unit`-scoped UI scripts — both run `prep`, same as `pretest`. The e2e variants deliberately have no hook: like `test:e2e`, they talk to the stack over HTTP only and import no generated TS, so `prep` would be wasted work.",
     "prelint:source": "npm lifecycle hook for `lint:source` — runs `prep`. Fires automatically; see the `pre*/post* hooks` note."
   },
   "scripts": {
@@ -47,6 +52,10 @@
     "test": "vitest run --project unit",
     "test:e2e": "pnpm --filter meadow build && vitest run --project e2e",
     "test:all": "pnpm --filter meadow build && vitest run",
+    "test:ui": "vitest --ui --project unit",
+    "test:ui:e2e": "pnpm --filter meadow build && vitest --ui --project e2e",
+    "test:report": "vitest run --project unit --reporter=html",
+    "test:report:e2e": "pnpm --filter meadow build && vitest run --project e2e --reporter=html --outputFile.html=html-e2e/index.html",
     "lint": "pnpm run lint:source && pnpm run lint:openapi",
     "server": "node dist/bin/main.js",
     "lint:source": "eslint . --max-warnings 0",
@@ -67,6 +76,8 @@
     "prebuild:examples": "pnpm run prep",
     "pretest": "pnpm run prep",
     "pretest:all": "pnpm run prep",
+    "pretest:ui": "pnpm run prep",
+    "pretest:report": "pnpm run prep",
     "prelint:source": "pnpm run prep && pnpm --filter meadow build"
   },
   "keywords": [],
@@ -143,6 +154,7 @@
     "@types/json-schema": "^7.0.15",
     "@types/node": "^25.6.2",
     "@types/yauzl": "^3.4.0",
+    "@vitest/ui": "^4.1.10",
     "aws-sdk-client-mock": "^4.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.2.0",
@@ -155,7 +167,7 @@
     "rimraf": "^6.0.1",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.48.0",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.10"
   },
   "packageManager": "pnpm@11.4.0"
 }

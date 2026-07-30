@@ -2,6 +2,10 @@
 /dist/
 /output/
 
+# Vitest の HTML レポート (--reporter=html / --ui)
+/html/
+/html-e2e/
+
 # Generated OpenAPI types
 src/http/generated/
 
