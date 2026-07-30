@@ -24,6 +24,9 @@ import { resetPageState } from "../../src/capture/page-capturer.js";
 import type { ResetStateOptions } from "../../src/capture/reset-state.js";
 import { logger } from "../../src/logger.js";
 
+/** These tests do not exercise pacing; the ledger stays inert. */
+const noPacing = { injectedMs: 0 };
+
 const FULL_RESET: ResetStateOptions = { cookies: true, pageContext: true };
 
 interface MockSession {
@@ -60,7 +63,7 @@ describe("resetPageState", () => {
     const session = buildSession();
     const page = buildPage(session);
 
-    await resetPageState(page as unknown as Page, 0, FULL_RESET);
+    await resetPageState(page as unknown as Page, 0, FULL_RESET, noPacing);
 
     expect(page.goto).toHaveBeenCalledWith("about:blank");
     expect(session.send).toHaveBeenCalledWith("Network.clearBrowserCookies");
@@ -73,7 +76,7 @@ describe("resetPageState", () => {
     const page = buildPage(session, { gotoFails: true });
 
     await expect(
-      resetPageState(page as unknown as Page, 7, FULL_RESET),
+      resetPageState(page as unknown as Page, 7, FULL_RESET, noPacing),
     ).resolves.toBeUndefined();
 
     expect(warnSpy).toHaveBeenCalled();
@@ -90,7 +93,7 @@ describe("resetPageState", () => {
     const page = buildPage(session);
 
     await expect(
-      resetPageState(page as unknown as Page, 0, FULL_RESET),
+      resetPageState(page as unknown as Page, 0, FULL_RESET, noPacing),
     ).resolves.toBeUndefined();
 
     expect(session.detach).toHaveBeenCalledTimes(1);
@@ -104,7 +107,7 @@ describe("resetPageState", () => {
     });
     const page = buildPage(session);
 
-    await resetPageState(page as unknown as Page, 0, FULL_RESET);
+    await resetPageState(page as unknown as Page, 0, FULL_RESET, noPacing);
 
     // No catch-path failure (send resolved), but detach itself fails →
     // separate warn from the finally branch.
@@ -120,7 +123,7 @@ describe("resetPageState", () => {
       await resetPageState(page as unknown as Page, 0, {
         cookies: false,
         pageContext: false,
-      });
+      }, noPacing);
 
       expect(page.goto).not.toHaveBeenCalled();
       expect(page.createCDPSession).not.toHaveBeenCalled();
@@ -135,7 +138,7 @@ describe("resetPageState", () => {
       await resetPageState(page as unknown as Page, 0, {
         cookies: true,
         pageContext: false,
-      });
+      }, noPacing);
 
       expect(page.goto).not.toHaveBeenCalled();
       expect(session.send).toHaveBeenCalledWith("Network.clearBrowserCookies");
@@ -149,7 +152,7 @@ describe("resetPageState", () => {
       await resetPageState(page as unknown as Page, 0, {
         cookies: false,
         pageContext: true,
-      });
+      }, noPacing);
 
       expect(page.goto).toHaveBeenCalledWith("about:blank");
       // No CDP session opened when cookies-axis is disabled.

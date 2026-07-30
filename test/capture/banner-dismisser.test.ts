@@ -13,6 +13,9 @@ import {
   type DismissOptions,
 } from "../../src/capture/banner-dismisser.js";
 
+/** These tests do not exercise pacing; the ledger stays inert. */
+const noPacing = { injectedMs: 0 };
+
 /** Build a jsdom-backed (document, window) pair for the algorithm under test. */
 const buildDom = (html: string): { doc: Document; win: Window } => {
   const dom = new JSDOM(html);
@@ -509,7 +512,7 @@ describe("dismissBanners — Layer A timeout", () => {
       ),
     } as unknown as Page;
 
-    const reportPromise = dismissBanners(mockPage, DEFAULT_DISMISS_OPTIONS, onError);
+    const reportPromise = dismissBanners(mockPage, noPacing, DEFAULT_DISMISS_OPTIONS, onError);
 
     // DISMISS_EVALUATE_TIMEOUT_MS = 5_000 in banner-dismisser.ts
     await vi.advanceTimersByTimeAsync(5_001);
@@ -536,8 +539,7 @@ describe("dismissBanners — failOnError (strict)", () => {
         ),
       } as unknown as Page;
 
-      const reportPromise = dismissBanners(
-        mockPage,
+      const reportPromise = dismissBanners(mockPage, noPacing,
         { ...DEFAULT_DISMISS_OPTIONS, failOnError: true },
         onError,
       );
@@ -565,8 +567,7 @@ describe("dismissBanners — failOnError (strict)", () => {
     } as unknown as Page;
 
     await expect(
-      dismissBanners(
-        mockPage,
+      dismissBanners(mockPage, noPacing,
         { ...DEFAULT_DISMISS_OPTIONS, failOnError: true },
         onError,
       ),
@@ -582,8 +583,7 @@ describe("dismissBanners — failOnError (strict)", () => {
       evaluate: vi.fn().mockRejectedValue(boom),
     } as unknown as Page;
 
-    const report = await dismissBanners(
-      mockPage,
+    const report = await dismissBanners(mockPage, noPacing,
       DEFAULT_DISMISS_OPTIONS,
       onError,
     );

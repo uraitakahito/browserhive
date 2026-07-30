@@ -3,7 +3,6 @@ import {
   validateFilename,
   validateLabels,
   generateFilename,
-  withTimeout,
   hideScrollbars,
   isSuccessHttpStatus,
   setUserAgent,
@@ -15,6 +14,7 @@ import { TimeoutError } from "../../src/capture/error-details.js";
 import type { CaptureTask } from "../../src/capture/types.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 import type { Page } from "puppeteer";
+import { withWallClockTimeout } from "../../src/capture/timeouts.js";
 
 const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   taskId: "test-uuid-1234",
@@ -244,7 +244,8 @@ describe("generateFilename", () => {
   });
 });
 
-describe("withTimeout", () => {
+// The wall-clock variant: same contract the old `withTimeout` had.
+describe("withWallClockTimeout", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -256,7 +257,7 @@ describe("withTimeout", () => {
   it("should resolve when promise completes before timeout", async () => {
     const promise = Promise.resolve("success");
 
-    const resultPromise = withTimeout(promise, 1000, "test operation");
+    const resultPromise = withWallClockTimeout(promise, 1000, "test operation");
     await vi.runAllTimersAsync();
     const result = await resultPromise;
 
@@ -268,7 +269,7 @@ describe("withTimeout", () => {
       // Never resolves
     });
 
-    const resultPromise = withTimeout(neverResolves, 100, "test operation");
+    const resultPromise = withWallClockTimeout(neverResolves, 100, "test operation");
 
     vi.advanceTimersByTime(100);
 
@@ -280,7 +281,7 @@ describe("withTimeout", () => {
       // Never resolves
     });
 
-    const resultPromise = withTimeout(neverResolves, 250, "test operation");
+    const resultPromise = withWallClockTimeout(neverResolves, 250, "test operation");
     vi.advanceTimersByTime(250);
 
     await expect(resultPromise).rejects.toBeInstanceOf(TimeoutError);
@@ -298,7 +299,7 @@ describe("withTimeout", () => {
       // Never resolves
     });
 
-    const resultPromise = withTimeout(neverResolves, 5000, "navigation");
+    const resultPromise = withWallClockTimeout(neverResolves, 5000, "navigation");
 
     vi.advanceTimersByTime(5000);
 
@@ -309,7 +310,7 @@ describe("withTimeout", () => {
     const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
 
     const promise = Promise.resolve("done");
-    const resultPromise = withTimeout(promise, 1000, "test");
+    const resultPromise = withWallClockTimeout(promise, 1000, "test");
 
     await vi.runAllTimersAsync();
     await resultPromise;
@@ -322,7 +323,7 @@ describe("withTimeout", () => {
     const error = new Error("Original error");
     const failingPromise = Promise.reject(error);
 
-    const resultPromise = withTimeout(failingPromise, 1000, "test");
+    const resultPromise = withWallClockTimeout(failingPromise, 1000, "test");
 
     await expect(resultPromise).rejects.toThrow("Original error");
   });
@@ -330,7 +331,7 @@ describe("withTimeout", () => {
   it("should return correct type", async () => {
     const promise = Promise.resolve({ value: 42 });
 
-    const resultPromise = withTimeout(promise, 1000, "test");
+    const resultPromise = withWallClockTimeout(promise, 1000, "test");
     await vi.runAllTimersAsync();
     const result = await resultPromise;
 

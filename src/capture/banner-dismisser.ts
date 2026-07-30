@@ -19,7 +19,8 @@
  * remain self-contained — it cannot reference any closure variables.
  */
 import type { CapturePage } from "./capture-page.js";
-import { withTimeout } from "./page-capturer.js";
+import { withOperationTimeout } from "./timeouts.js";
+import type { PacingLedger } from "./capture-page.js";
 
 /**
  * Upper bound for the in-page dismissal `page.evaluate`. The serialized
@@ -318,6 +319,7 @@ export const runDismissalInDocument = (
  */
 export const dismissBanners = async (
   page: CapturePage,
+  pacing: PacingLedger,
   opts: DismissOptions = DEFAULT_DISMISS_OPTIONS,
   onError?: (error: unknown) => void,
 ): Promise<DismissReport> => {
@@ -327,10 +329,11 @@ export const dismissBanners = async (
     // mid-navigation, no fresh execution context) is swallowed by the
     // catch below and surfaces as EMPTY_DISMISS_REPORT in best-effort
     // mode, or rethrown as a TimeoutError in strict mode.
-    const result: unknown = await withTimeout(
+    const result: unknown = await withOperationTimeout(
       page.evaluate(source),
       DISMISS_EVALUATE_TIMEOUT_MS,
-      "Banner dismissal evaluate"
+      "Banner dismissal evaluate",
+      pacing,
     );
     return result as DismissReport;
   } catch (error) {
