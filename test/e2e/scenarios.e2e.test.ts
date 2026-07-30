@@ -15,22 +15,22 @@ describe("meadow scenarios through browserhive + chromium-server-docker", () => 
     await resetMeadow(meadow);
   });
 
-  it("flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit", async () => {
+  it("flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit", async ({ annotate }) => {
     // maxRetryCount=2 → attempts 1,2 get 503 (retry), attempt 3 gets 200.
     const path = scenarios.flaky(2, "e2e");
-    await submitAndWait(api, captureRequest(meadow + path));
+    await submitAndWait(api, captureRequest(meadow + path), annotate);
     const hits = await meadowHits(meadow);
     expect(hits[path]).toBe(3);
   });
 
-  it("redirect-page: client-side location.replace is followed to /landed", async () => {
-    await submitAndWait(api, captureRequest(meadow + scenarios.redirectPage));
+  it("redirect-page: client-side location.replace is followed to /landed", async ({ annotate }) => {
+    await submitAndWait(api, captureRequest(meadow + scenarios.redirectPage), annotate);
     const hits = await meadowHits(meadow);
     expect(hits["/landed"]).toBeGreaterThanOrEqual(1);
   });
 
-  it("lazy: autoScroll pulls the below-the-fold image", async () => {
-    await submitAndWait(api, captureRequest(meadow + scenarios.lazy));
+  it("lazy: autoScroll pulls the below-the-fold image", async ({ annotate }) => {
+    await submitAndWait(api, captureRequest(meadow + scenarios.lazy), annotate);
     const hits = await meadowHits(meadow);
     expect(hits["/assets/below.svg"]).toBeGreaterThanOrEqual(1);
   });
