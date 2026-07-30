@@ -73,6 +73,9 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   // No artificial delay. Raise it (or send `operationDelayMs` on a request) only
   // to watch a headless capture render — see capture/capture-page.ts.
   operationDelayMs: 0,
+  // Off: a traced capture writes tens of lines into the page's own console, and
+  // that is only ever wanted while watching one deliberately.
+  trace: false,
   // One pass, browser cache in play. `multipass` (DPR 1 + 2, cache disabled) is
   // opt-in because it roughly doubles capture time and archive size, and only
   // pays off on sites that derive image URLs from devicePixelRatio rather than

@@ -155,6 +155,8 @@ interface ParsedOptions {
    * `slowMo`). Env BROWSERHIVE_OPERATION_DELAY_MS.
    */
   operationDelayMs: number;
+  /** Trace what BrowserHive did into the captured page's console. Env BROWSERHIVE_CAPTURE_TRACE. */
+  captureTrace: boolean;
   /** How many passes a capture makes over the page. Env BROWSERHIVE_ARCHIVE_MODE. */
   archiveMode: ArchiveMode;
   viewportWidth: number;
@@ -256,6 +258,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
 
   const capture: CaptureConfig = {
     operationDelayMs: opts.operationDelayMs,
+    trace: opts.captureTrace,
     archiveMode: opts.archiveMode,
     timeouts: {
       pageLoadMs: opts.pageLoadTimeout,
@@ -342,6 +345,11 @@ export const createProgram = (): Command => {
         .env("BROWSERHIVE_OPERATION_DELAY_MS")
         .default(DEFAULT_CAPTURE_CONFIG.operationDelayMs)
         .argParser(parseNonNegativeInt),
+    )
+    .option(
+      "--capture-trace",
+      "Log what BrowserHive did to the CAPTURED PAGE's console, prefixed `[bh]`, so a run can be read in chrome://inspect next to the live screencast: the interventions it made, what its behaviors decided, and which responses never reached the archive. Timings are not logged \u2014 the Network panel shows them better. Server-wide default; a request's `trace` overrides it (env: BROWSERHIVE_CAPTURE_TRACE). Default: off.",
+      DEFAULT_CAPTURE_CONFIG.trace,
     )
     .addOption(
       new Option(
@@ -824,6 +832,11 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
       "BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS",
       program,
     ),
+    captureTrace: resolveBoolWithEnv(
+      opts.captureTrace,
+      "BROWSERHIVE_CAPTURE_TRACE",
+      program,
+    ),
     siteBehaviors: resolveBoolWithEnvDefaultTrue(
       opts.siteBehaviors,
       "BROWSERHIVE_SITE_BEHAVIORS",
@@ -888,6 +901,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
         : { enabled: false },
       browserProfiles: coordinator.browserProfiles.map((b) => b.browserURL.href),
       operationDelayMs: capture.operationDelayMs,
+      trace: capture.trace,
       storage: logSafeStorage(coordinator.storage),
       timeouts: {
         pageLoadMs: capture.timeouts.pageLoadMs,

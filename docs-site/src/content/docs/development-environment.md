@@ -126,6 +126,11 @@ other captures stay fast. Measured (`www.yahoo.co.jp`, one PNG):
   `behaviors.options.autoscroll.stepDelayMs` on the request.
 - Too large a value runs into `--task-timeout` (130s by default) and the task
   fails.
+- Slowing it down only helps if you can also tell what it is *doing*. Add
+  `"trace": true` to the request and BrowserHive writes what it did — the
+  interventions it made, what its behaviors decided, and which responses never
+  reached the archive — into that same DevTools console. See
+  [Behaviors](/behaviors/#reading-a-capture-live).
 
 ## Browsing captured artifacts in SeaweedFS
 

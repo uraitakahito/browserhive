@@ -9,10 +9,17 @@
 import type {
   BehaviorClass,
   BehaviorCtx,
+  BehaviorDecisions,
   BehaviorRunReport,
   RunOpts,
 } from "./types";
 import { Lib } from "./lib";
+
+/**
+ * Same prefix the Node side uses, duplicated rather than imported: this file is
+ * bundled into the page by esbuild and must not pull in Node-side modules.
+ */
+const TRACE_PREFIX = "[bh]";
 
 export class BehaviorRunner {
   private readonly registry: BehaviorClass[] = [];
@@ -60,16 +67,43 @@ export class BehaviorRunner {
         opts: opts.options[Behavior.id] ?? {},
         getState: (msg, counter) => ({ msg, counter }),
       };
+      // Driven by hand rather than with `for await` because the interesting
+      // part is the generator's RETURN value — what the behavior decided —
+      // and `for await` discards it.
+      //
+      // The cost of doing that is having to close the generator ourselves on
+      // the timeout path: `for await` calls `.return()` when it breaks, which
+      // is what runs a behavior's `finally`. Skipping it would leave the
+      // behavior suspended mid-run forever.
+      let decisions: BehaviorDecisions | undefined;
+      const iterator = new Behavior().run(ctx);
       try {
-        for await (const _state of new Behavior().run(ctx)) {
+        for (;;) {
+          const next = await iterator.next();
+          if (next.done === true) {
+            decisions = next.value ?? undefined;
+            break;
+          }
           steps++;
           if (Date.now() > deadline) {
             report.timedOut = true;
+            await iterator.return(undefined);
             break;
           }
         }
       } catch (e) {
         error = e instanceof Error ? e.message : String(e);
+      }
+
+      // Why the behavior did what it did. Not the same as progress: `steps`
+      // says how far it got, this says what it concluded — and only one of
+      // those tells you whether the page was actually covered.
+      if (opts.trace === true && decisions !== undefined) {
+        console.group(`${TRACE_PREFIX} ${Behavior.id}`);
+        for (const [label, value] of Object.entries(decisions)) {
+          console.log(`${label}: ${String(value)}`);
+        }
+        console.groupEnd();
       }
       report.ran.push({
         id: Behavior.id,

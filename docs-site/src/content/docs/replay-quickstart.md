@@ -175,13 +175,18 @@ the point, is on [Related projects](/related-projects/).
 
 ## Troubleshooting
 
-- **Replayed page is missing images / CSS** — Check `waczStats` in the
-  worker log: `totalBlocked > 0` indicates a block-pattern matched a
-  resource the page actually needed. Tighten the pattern or use
-  `--wacz-block-pattern ""` to start from no defaults.
-- **`waczStats.totalTruncatedTaskCap > 0`** — The cumulative body cap
-  was hit. Raise `--wacz-max-task-bytes` if the page legitimately has
-  hundreds of MB of resources.
+- **Replayed page is missing images / CSS** — Re-capture with `"trace": true`
+  and read the `[bh] archive` group in the page's console over
+  `chrome://inspect`: it names what did not reach the archive and why, with
+  example URLs. `never archived` means a block pattern matched a resource the
+  page actually needed — tighten the pattern or use `--wacz-block-pattern ""`
+  to start from no defaults. (The same counters are in the worker log's
+  `waczStats`, if reading the log is easier than re-capturing.) See
+  [Behaviors](/behaviors/#reading-a-capture-live).
+- **A resource is in the archive but replays empty** — Its body was dropped
+  while the record was kept. The `body omitted` group says which cap did it:
+  `task-cap` (raise `--wacz-max-task-bytes`), `too-large` (raise
+  `--wacz-max-response-bytes`), or `content-type` (a filtered type).
 - **`completeness.complete === false`** — The archive holds URLs with no
   body (see `bodylessSample`). Capturing the same site repeatedly lets the
   browser cache kick in, so a revalidated resource's body is never

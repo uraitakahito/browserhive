@@ -172,11 +172,17 @@ CI などで機械可読な JSON レポートが欲しい場合は `waxlens-vali
 
 ## トラブルシューティング
 
-- **再生ページの画像 / CSS が欠ける** — worker ログの `waczStats` を確認:
-  `totalBlocked > 0` は、ページが実際に必要としたリソースにブロックパターンが
-  当たった印。パターンを絞るか、`--wacz-block-pattern ""` で既定なしから始める。
-- **`waczStats.totalTruncatedTaskCap > 0`** — 累計 body 上限に到達。ページが
-  正当に数百 MB のリソースを持つなら `--wacz-max-task-bytes` を上げる。
+- **再生ページの画像 / CSS が欠ける** — `"trace": true` を付けて撮り直し、
+  `chrome://inspect` でページの console の `[bh] archive` グループを読む。
+  何がアーカイブに入らなかったかを理由と例示 URL つきで出す。`never archived`
+  は、ページが実際に必要としたリソースにブロックパターンが当たった印。パターンを
+  絞るか、`--wacz-block-pattern ""` で既定なしから始める。(同じカウンタは worker
+  ログの `waczStats` にもあるので、撮り直すよりログを読む方が早ければそちらでも。)
+  [Behavior](/behaviors/#キャプチャをライブで読む)を参照。
+- **アーカイブにはあるのに再生すると空** — レコードは残ったまま本文だけ落ちた
+  状態。どの上限に当たったかは `body omitted` グループが示す: `task-cap`
+  (`--wacz-max-task-bytes` を上げる)、`too-large`
+  (`--wacz-max-response-bytes` を上げる)、`content-type` (除外された型)。
 - **`completeness.complete === false`** — アーカイブに本文の無い URL がある
   (`bodylessSample` を参照)。同じサイトを繰り返し撮るとブラウザのキャッシュが効き、
   再検証だけで済んだリソースの本文が記録されない。撮り直すか、キャッシュを使わない

@@ -12,6 +12,12 @@ import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import type { Page } from "puppeteer";
 import { withOperationDelay, type CapturePage } from "./capture-page.js";
+import {
+  pageTrace,
+  archiveTraceLines,
+  line as traceLine,
+  group as traceGroup,
+} from "./page-trace.js";
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
@@ -695,12 +701,11 @@ export class PageCapturer {
       let dismissReport: DismissReport | undefined;
       let behaviorReport: BehaviorRunReport | undefined;
 
+      const traceEnabled = task.trace ?? this.config.trace;
+      const viewport = task.viewport ?? this.config.viewport;
+
       for (const [passIndex, deviceScaleFactor] of devicePixelRatios.entries()) {
-        await configureViewport(
-          page,
-          task.viewport ?? this.config.viewport,
-          deviceScaleFactor,
-        );
+        await configureViewport(page, viewport, deviceScaleFactor);
 
         const response = await withTimeout(
           page.goto(task.url, {
@@ -760,6 +765,41 @@ export class PageCapturer {
           dismissReport = await dismissBanners(page, task.dismissOptions);
         }
 
+        // What was done *to* the page, before the behaviors get their turn.
+        // None of it is visible from DevTools alone: the Elements panel shows
+        // the result, not who caused it, and a reader cannot tell an overlay
+        // BrowserHive removed from one the site never rendered.
+        if (traceEnabled) {
+          await pageTrace(page, "interventions", [
+            traceLine(
+              `viewport ${String(viewport.width)}x${String(viewport.height)} dpr=${String(deviceScaleFactor)}`,
+            ),
+            ...(this.config.userAgent === undefined
+              ? []
+              : [traceLine("user-agent overridden")]),
+            ...(task.acceptLanguage === undefined
+              ? []
+              : [traceLine(`accept-language ${task.acceptLanguage}`)]),
+            traceLine("scrollbars hidden (1 style tag)"),
+            ...(dismissReport === undefined ||
+            (dismissReport.framework === null &&
+              dismissReport.removedSelectors.length === 0 &&
+              dismissReport.removedOverlayCount === 0)
+              ? []
+              : [
+                  traceGroup("dismissBanners", [
+                    `framework ${dismissReport.framework ?? "(heuristic only)"}`,
+                    ...dismissReport.removedSelectors.map((s) => `removed ${s}`),
+                    ...(dismissReport.removedOverlayCount > 0
+                      ? [
+                          `removed ${String(dismissReport.removedOverlayCount)} overlay(s) (heuristic)`,
+                        ]
+                      : []),
+                  ]),
+                ]),
+          ]);
+        }
+
         // Behaviors AFTER banner dismissal (so sticky overlays are gone) and
         // BEFORE any format capture (so lazy/srcset resources are in the WARC and
         // the page is scrolled back to the top for screenshots). The injected
@@ -777,7 +817,7 @@ export class PageCapturer {
           page,
           () =>
             withTimeout(
-              runBehaviors(page, this.config.behaviors, task.behaviors),
+              runBehaviors(page, this.config.behaviors, task.behaviors, traceEnabled),
               behaviorBudgetMs,
               `behaviors for ${task.url}`,
             ),
@@ -826,6 +866,17 @@ export class PageCapturer {
         waczStats = stopResult.stats;
         // Same records the CDXJ is built from — no need to re-read the archive.
         completeness = analyzeCompleteness(stopResult.responses);
+
+        // The one thing DevTools genuinely cannot show. Its Network panel
+        // reports what the *browser* did — a resource can be a green 200 there
+        // and still be absent from the archive, or present with no body at
+        // all, which is exactly how a replay ends up broken for reasons
+        // nothing on screen explains. Until now this was only readable by
+        // grepping `waczStats` out of the server log after the fact.
+        if (traceEnabled) {
+          await pageTrace(page, "archive", archiveTraceLines(waczStats, completeness));
+        }
+
         const pageTitle = await page.title().catch(() => "");
         const waczFilename = generateFilename(task, "wacz");
         const localWaczPath = join(waczTempDir, waczFilename);

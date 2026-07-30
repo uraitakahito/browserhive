@@ -11,7 +11,7 @@
  * Not in the default set — opt in with `--behaviors …,autoplay` or a request
  * `behaviors.builtins`, since pulling media can be large.
  */
-import type { BehaviorCtx } from "../types";
+import type { BehaviorCtx, BehaviorDecisions } from "../types";
 
 const toAbsolute = (url: string): string | null => {
   try {
@@ -27,7 +27,9 @@ export class AutoPlayBehavior {
     return document.querySelector("video, audio") !== null;
   }
 
-  async *run(ctx: BehaviorCtx): AsyncGenerator<{ msg: string; counter?: string }> {
+  async *run(
+    ctx: BehaviorCtx,
+  ): AsyncGenerator<{ msg: string; counter?: string }, BehaviorDecisions> {
     const media = Array.from(
       document.querySelectorAll<HTMLMediaElement>("video, audio"),
     );
@@ -68,5 +70,7 @@ export class AutoPlayBehavior {
     // Give segment fetches a moment to start before the pass ends.
     await ctx.Lib.sleep(Number(ctx.opts.settleMs ?? 1000));
     yield ctx.getState("autoplay-done");
+
+    return { "media elements": media.length };
   }
 }
