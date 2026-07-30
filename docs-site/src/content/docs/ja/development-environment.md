@@ -73,6 +73,10 @@ AssertionError: expected 3 to be 99
 pnpm exec vitest run --project e2e --reporter=verbose
 ```
 
+同じ注釈は `@vitest/ui` の方が読みやすく、パネルにまとめられ、ソース上にも
+インライン展開されます。それも含めたスイート全体 — 2 つの Vitest プロジェクト、
+静的レポート、CI が回すもの — は[テストの実行](/running-tests/)にあります。
+
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive.browserhive` で止める。)
 

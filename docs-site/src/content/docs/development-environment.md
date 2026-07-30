@@ -75,6 +75,11 @@ Passing runs print none of this. Add `--reporter=verbose` to see it anyway:
 pnpm exec vitest run --project e2e --reporter=verbose
 ```
 
+The same annotations read better in `@vitest/ui`, which groups them into a
+panel and inlines them in the source. See
+[Running the tests](/running-tests/) for that and for the rest of the suite —
+the two Vitest projects, the static report, and what CI runs.
+
 (Stop the containerized server first — `container stop browserhive.browserhive` —
 if you want port 8080 for the host process.)
 
