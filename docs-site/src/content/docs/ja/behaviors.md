@@ -257,3 +257,65 @@ behavior が 1 つでも実行されると、完了タスクのサーバログ�
 - `ran` — 実際に走った behavior（有効 ∩ `isMatch`）を実行順に。各 `steps`（yield 回数）・
   実時間 `ms`・throw 時は `error` 文字列。
 - `timedOut` — `--behavior-timeout` に達して残りの behavior をスキップした場合 `true`。
+
+## キャプチャをライブで読む
+
+上の behavior レポートが出るのは**サーバ**のログで、しかも事後。キャプチャを
+見ながら追いたいときは trace を有効にして、`chrome://inspect` で
+**キャプチャ対象ページ自身**の console を読む:
+
+```sh title="サーバ全体"
+node dist/bin/main.js server --behaviors autoscroll,autofetch --capture-trace
+# env: BROWSERHIVE_CAPTURE_TRACE
+```
+
+```json title="…または 1 回のキャプチャだけ"
+{ "url": "https://example.com/", "trace": true, "captureFormats": { "wacz": true } }
+```
+
+折り畳める 3 つのグループが出る:
+
+```
+▾ [bh] interventions
+    viewport 1280x800 dpr=1
+    scrollbars hidden (1 style tag)
+▾ [bh] autoscroll
+    stopped: maxSteps 40 reached — bottom NOT reached
+▾ [bh] autofetch
+    candidates: 345
+    elements: 353
+    never requested by the browser: 1
+▾ [bh] archive
+    in archive 797 (with body 797 / without body 0)
+  ▾ never archived 9 — blocked by pattern
+      https://www.googletagmanager.com/gtm.js?id=…
+      … 4 more
+    failed 1  incomplete 4  body 8.1MB
+    complete = true
+```
+
+ここに出るのは、**DevTools が自力では分からないもの**に絞ってある:
+
+- **`interventions`** — ページに対して何をしたか。Elements タブに見えるのは
+  結果だけで、誰がそうしたかは分からない。BrowserHive が消したオーバーレイと、
+  サイトが最初から出さなかったものは区別できない。
+- **`decisions`** — behavior ごとに 1 グループ。何を結論したかを書く。
+  `autoscroll` が底に着いたのか手数を使い切ったのかは外から見ると同じだが、
+  ページを網羅できたと言えるのは前者だけ。
+- **`archive`** — どの応答が**アーカイブに入らなかったか**。Network タブが
+  報告するのは**ブラウザ**の結果で、そこで緑の `200` でも WACZ に無かったり、
+  レコードはあっても本文が無かったりする。再生が壊れる理由はこのグループに出る。
+  recorder が動くのは `wacz` を要求したときだけなので、それ以外では出ない。
+
+時間は出さない。Network と Performance タブが既に見せているし、ここで繰り返すと
+他では手に入らない行を押し出すだけになる。
+
+:::tip[読みやすくするための設定 2 つ]
+DevTools コンソールの **Filter** に `[bh]` と打てばページ自身の出力が消える。
+**Preserve log** を有効にしておけば、クライアント側リダイレクトでそれまでの
+出力が消えない。`--operation-delay-ms` と併用すると追える速度まで落とせる。
+[開発環境](/development-environment/)を参照。
+:::
+
+trace が書くのはページだけ。**成果物は on/off でバイト単位まで同一**で、
+`behaviorReport` も変わらない。

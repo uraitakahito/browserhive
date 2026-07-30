@@ -273,3 +273,68 @@ When at least one behavior runs, the completed-task server log line includes a
   if it threw.
 - `timedOut` — `true` if the pass hit `--behavior-timeout` and remaining
   behaviors were skipped.
+
+## Reading a capture live
+
+The behavior report above lands in the **server** log, after the fact. To watch
+a capture instead, ask for a trace and read it in the **captured page's** own
+console over `chrome://inspect`:
+
+```sh title="Server-wide"
+node dist/bin/main.js server --behaviors autoscroll,autofetch --capture-trace
+# env: BROWSERHIVE_CAPTURE_TRACE
+```
+
+```json title="…or for one capture"
+{ "url": "https://example.com/", "trace": true, "captureFormats": { "wacz": true } }
+```
+
+Three groups are emitted, each collapsible:
+
+```
+▾ [bh] interventions
+    viewport 1280x800 dpr=1
+    scrollbars hidden (1 style tag)
+▾ [bh] autoscroll
+    stopped: maxSteps 40 reached — bottom NOT reached
+▾ [bh] autofetch
+    candidates: 345
+    elements: 353
+    never requested by the browser: 1
+▾ [bh] archive
+    in archive 797 (with body 797 / without body 0)
+  ▾ never archived 9 — blocked by pattern
+      https://www.googletagmanager.com/gtm.js?id=…
+      … 4 more
+    failed 1  incomplete 4  body 8.1MB
+    complete = true
+```
+
+What is here is deliberately what DevTools cannot work out on its own:
+
+- **`interventions`** — what was done *to* the page. The Elements panel shows
+  the result, not who caused it; you cannot tell an overlay BrowserHive removed
+  from one the site never rendered.
+- **`decisions`** — one group per behavior, naming what it concluded. Whether
+  `autoscroll` reached the bottom or ran out of steps looks identical from
+  outside, but only one of them means the page was fully covered.
+- **`archive`** — which responses did **not** reach the archive. The Network
+  panel reports what the *browser* did: a resource can be a green `200` there
+  and still be missing from the WACZ, or present with no body at all. This is
+  the group that explains a broken replay. It is emitted only when `wacz` was
+  requested, since there is no recorder otherwise.
+
+Timings are not traced. The Network and Performance panels already show them,
+and repeating them here would only crowd out the lines that cannot be got
+anywhere else.
+
+:::tip[Two settings make this readable]
+Type `[bh]` into the DevTools console **Filter** box to hide the page's own
+output, and turn on **Preserve log** so a client-side redirect does not clear
+what has been printed so far. Pair with `--operation-delay-ms` to slow the run
+down enough to follow. See
+[Development environment](/development-environment/).
+:::
+
+The trace writes to the page and nothing else: artifacts are byte-identical
+with it on or off, and the `behaviorReport` is unchanged.

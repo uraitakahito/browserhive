@@ -121,6 +121,10 @@ curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   これだけ重いページでは読み込み自体が支配的になる。スクロールをゆっくり見たい
   ならリクエストの `behaviors.options.autoscroll.stepDelayMs` を上げる。
 - 大きすぎる値は `--task-timeout`(既定 130 秒)に当たってタスクが失敗する。
+- 遅くするだけでは、何を**している**のかは分からない。リクエストに
+  `"trace": true` を付けると、BrowserHive が何をしたか — ページへの介入、
+  behavior が下した判断、アーカイブに入らなかった応答 — が同じ DevTools の
+  console に出る。[Behavior](/behaviors/#キャプチャをライブで読む)を参照。
 
 ## SeaweedFS 内の成果物を閲覧する
 

@@ -10,6 +10,7 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--port <port>`<code class="env">BROWSERHIVE_PORT</code> | 整数(1–65535) |
 | `--browser-url <urls...>`<code class="env">BROWSERHIVE_BROWSER_URLS</code> | カンマ区切りリスト(必須) |
 | `--operation-delay-ms <ms>`<code class="env">BROWSERHIVE_OPERATION_DELAY_MS</code> | 0 以上の整数(既定 `0`) — 各ブラウザ操作の前に入れる遅延。headless の描画を観察するとき用。リクエストの `operationDelayMs` が優先 |
+| `--capture-trace`<code class="env">BROWSERHIVE_CAPTURE_TRACE</code> | `"true"`/`"1"` か `"false"`/`"0"`(既定 `false`) — BrowserHive が何をしたかをキャプチャ対象ページの console に出す。`chrome://inspect` で読むため。リクエストの `trace` が優先。[Behavior](/behaviors/#キャプチャをライブで読む)を参照 |
 | `--s3-endpoint <url>`<code class="env">BROWSERHIVE_S3_ENDPOINT</code> | URL(必須) |
 | `--s3-region <region>`<code class="env">BROWSERHIVE_S3_REGION</code> | 文字列(既定 `us-east-1`) — 接続先ではなく SigV4 署名の 1 フィールド。SeaweedFS は値を見ないが省略はできない。[ストレージ](/browserhive/ja/storage/#region-は何に使われるのか)を参照 |
 | `--s3-bucket <name>`<code class="env">BROWSERHIVE_S3_BUCKET</code> | 文字列(必須) |

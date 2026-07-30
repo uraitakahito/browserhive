@@ -10,6 +10,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--port <port>`<code class="env">BROWSERHIVE_PORT</code> | integer (1–65535) |
 | `--browser-url <urls...>`<code class="env">BROWSERHIVE_BROWSER_URLS</code> | comma-separated list (required) |
 | `--operation-delay-ms <ms>`<code class="env">BROWSERHIVE_OPERATION_DELAY_MS</code> | integer ≥ 0 (default `0`) — delay inserted before each browser operation, for watching a headless capture. A request's `operationDelayMs` overrides it |
+| `--capture-trace`<code class="env">BROWSERHIVE_CAPTURE_TRACE</code> | `"true"`/`"1"` or `"false"`/`"0"` (default `false`) — log what BrowserHive did into the captured page's own console, for reading over `chrome://inspect`. A request's `trace` overrides it. See [Behaviors](/behaviors/#reading-a-capture-live) |
 | `--s3-endpoint <url>`<code class="env">BROWSERHIVE_S3_ENDPOINT</code> | URL (required) |
 | `--s3-region <region>`<code class="env">BROWSERHIVE_S3_REGION</code> | string (default `us-east-1`) — a field of the SigV4 signature, not a connection target. SeaweedFS ignores the value, but it cannot be omitted; see [Storage](/browserhive/storage/#what-the-region-is-actually-for) |
 | `--s3-bucket <name>`<code class="env">BROWSERHIVE_S3_BUCKET</code> | string (required) |
