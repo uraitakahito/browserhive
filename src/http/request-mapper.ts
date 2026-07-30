@@ -114,6 +114,7 @@ export const captureRequestToTask = (
     ...(request.operationDelayMs !== undefined && {
       operationDelayMs: request.operationDelayMs,
     }),
+    ...(request.trace !== undefined && { trace: request.trace }),
     // Enum ("single-pass" | "multipass") enforced by Ajv; pass through.
     ...(request.archiveMode !== undefined && {
       archiveMode: request.archiveMode,

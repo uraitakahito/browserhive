@@ -129,6 +129,17 @@ export interface CaptureConfig {
    * so exactly one knob controls this.
    */
   operationDelayMs: number;
+  /**
+   * Server-wide default for the observability trace written to the *captured
+   * page's* console, for reading over `chrome://inspect` alongside the live
+   * screencast. A request's `trace` overrides it.
+   *
+   * Deliberately limited to what DevTools cannot show by itself: what
+   * BrowserHive did to the page, what its behaviors decided, and which
+   * responses did not make it into the archive. Timings are not traced —
+   * the Network and Performance panels already show them better.
+   */
+  trace: boolean;
   /** Server-wide default archive mode. Overridable per request. */
   archiveMode: ArchiveMode;
   timeouts: {
