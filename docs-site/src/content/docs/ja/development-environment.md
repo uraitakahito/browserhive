@@ -7,6 +7,10 @@ description: Apple Container スタックに対するホスト側開発 — 開�
 [Apple Container](https://github.com/apple/container) 上で動かし、
 編集対象のサーバコードは**ホスト側**で動かす。dev コンテナは無い。
 
+このページはサーバを動かして観察することについて。そのサーバに対してテストを
+走らせる方法 — 2 つの Vitest プロジェクト、E2E が必要とするもの、`@vitest/ui` の
+レポート — は[テストの実行](/running-tests/)にある。
+
 ## フルスタック(動く BrowserHive が欲しいだけのとき)
 
 ```sh title="SeaweedFS + worker 1 台 + browserhive:prod"
@@ -41,41 +45,6 @@ BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive \
 BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
 LOG_LEVEL=info pnpm run server | pino-pretty
 ```
-
-[`meadow`](https://uraitakahito.github.io/meadow/ja/)(E2E テストがキャプチャ
-対象にするフィクスチャオリジン)は workspace メンバーなので、install は link
-するだけです。dist/ は E2E テストが必要とする時点で `pnpm run test:e2e` が
-ビルドします。先に作りたい場合は `pnpm --filter meadow build` を実行して
-ください。各ルートが何を再現するのかは
-[シナリオのページ](https://uraitakahito.github.io/meadow/ja/scenarios/)にあります。
-
-E2E テストが失敗すると、そのキャプチャに対する**サーバ自身の判定**が下に出ます
-— `taskId`、キャプチャが成功したか、何回リトライされたか、成果物がどこに置かれたか。
-
-```
-× flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit
-   ↳ taskId=2805f4ac-… url=http://meadow.browserhive:8080/flaky?fail=2&key=e2e
-   ↳ status=success retryCount=2
-   ↳ {"html":"s3://browserhive/2805f4ac-…_e2e.html"}
-
-AssertionError: expected 3 to be 99
-```
-
-このテスト群のアサーションは meadow のヒットカウンタに対するものなので、
-失敗したとき最初に知りたいのは**そもそもキャプチャが成功したのか**です。
-上の行がそれに答えるので、サーバログを読みに行く必要がありません。
-`taskId` は待機を始める**前**に注釈されるため**タイムアウトしても残ります** ―
-`container logs browserhive.browserhive` でタスクを探すのは、まさにそのときです。
-
-成功した実行では何も出ません。それでも見たい場合は `--reporter=verbose` を付けます。
-
-```sh
-pnpm exec vitest run --project e2e --reporter=verbose
-```
-
-同じ注釈は `@vitest/ui` の方が読みやすく、パネルにまとめられ、ソース上にも
-インライン展開されます。それも含めたスイート全体 — 2 つの Vitest プロジェクト、
-静的レポート、CI が回すもの — は[テストの実行](/running-tests/)にあります。
 
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive.browserhive` で止める。)

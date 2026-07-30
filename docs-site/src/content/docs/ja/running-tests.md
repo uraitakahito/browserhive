@@ -82,25 +82,54 @@ bring it up first: container-compose --profile meadow up -d -b
 Chromium ワーカーからも引けるので、配線は静的で済む。別の場所を指したいときは
 `E2E_API_URL` と `E2E_MEADOW_URL` を使う。
 
-フィクスチャ origin は [meadow](https://uraitakahito.github.io/meadow/ja/)。
-各ルートが何を再現するかは
+フィクスチャ origin は [meadow](https://uraitakahito.github.io/meadow/ja/) で、
+ワークスペースメンバーなので `pnpm install` はリンクを張るだけ。`dist/` は
+スイートが必要になった時点で `pnpm run test:e2e` がビルドする。先に用意したければ
+`pnpm --filter meadow build` を手で叩く。各ルートが何を再現するかは
 [Scenarios のページ](https://uraitakahito.github.io/meadow/ja/scenarios/)にある。
 この周辺の開発ループ — 同じコンテナ群に対してホスト上で作業中のサーバを動かす —
 については[開発環境](/development-environment/)を参照。
 
+### テストが落ちたとき
+
+既定のレポータは、失敗の下にサーバ自身のキャプチャ判定を出す — `taskId`、
+キャプチャが成功したか、何回リトライされたか、成果物がどこに落ちたか:
+
+```
+× flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit
+   ↳ taskId=2805f4ac-… url=http://meadow.browserhive:8080/flaky?fail=2&key=e2e
+   ↳ status=success retryCount=2
+   ↳ {"html":"s3://browserhive/2805f4ac-…_e2e.html"}
+
+AssertionError: expected 3 to be 99
+```
+
+assert はフィクスチャ origin のヒットカウンタについてのものなので、失敗したとき
+最初に知りたいのは「そもそもキャプチャは成功したのか」になる。上の行がサーバの
+ログを開かずにそれに答える。しかも `taskId` は待機を始める**前**に注釈されるので
+タイムアウトしても残る — `container logs browserhive.browserhive` でタスクを探す
+必要があるのは、まさにそのときだ。これらはすべて
+`test/e2e/helpers/capture.ts` の `annotate()` 呼び出しから来ている。
+
+成功した実行では何も出ない。それでも見たい場合は `--reporter=verbose` を付ける:
+
+```sh
+pnpm exec vitest run --project e2e --reporter=verbose
+```
+
 ## UI
 
 `@vitest/ui` は同じ画面を対話的にも静的バンドルとしても提供する。主に効くのは
-E2E スイートで、そこだけがテストが観測した内容を注釈しているから:
+E2E スイートで、上の注釈があるのはそこだけだから:
 
 ```sh
 pnpm run test:ui:e2e
 ```
 
-各キャプチャには `taskId`、サーバ自身の判定（`status`・`retryCount`）、成果物の
-保存先が注釈される（`test/e2e/helpers/capture.ts` を参照）。UI はこれを
-**Test Annotations** パネルとして、type・メッセージ・発生位置に分けて表示し、
-**Code** タブでは注釈を生んだ `annotate()` の行にそれぞれインライン展開する:
+ログに流れる行の代わりに、UI はそれを **Test Annotations** パネルとして
+type・メッセージ・発生位置に分けてまとめ、**Code** タブでは注釈を生んだ
+`annotate()` の行にそれぞれインライン展開する。観測結果を、それを作ったコードの
+隣で読めるということ:
 
 ```
 Test Annotations
@@ -109,11 +138,8 @@ Test Annotations
   artifacts   {"html":"s3://browserhive/156536c8-…_e2e.html"}
 ```
 
-このスイートの assert はフィクスチャ origin のヒットカウンタについてのものなので、
-失敗したとき最初に知りたいのは「そもそもキャプチャは成功したのか」になる。上の
-行がサーバのログを開かずにそれに答える。しかも `taskId` は待機を始める**前**に
-注釈されるのでタイムアウトしても残る — `container logs browserhive.browserhive`
-でタスクを探す必要があるのは、まさにそのときだ。
+既定のレポータと違い、テストが通ったか落ちたかに関係なく表示される —
+`--reporter=verbose` は要らない。
 
 `test:ui` は意図的に `unit` プロジェクトに限定してある。プロジェクトを絞らないと
 Vitest は `e2e` も収集し、その global setup が 45 秒待って throw するので、
