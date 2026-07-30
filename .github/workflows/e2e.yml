@@ -47,8 +47,36 @@ jobs:
       - name: Bring up the stack
         run: container-compose --profile meadow up -d -b
 
+      # Produces the @vitest/ui HTML report into html-e2e/ instead of only
+      # printing to the log. The suite annotates every capture with its taskId,
+      # status and artifact locations (see test/e2e/helpers/capture.ts); the UI
+      # renders those as a Test Annotations panel and inlines them in the Code
+      # tab, which is the whole point of keeping the report.
+      #
+      # continue-on-error so a red suite still reaches the upload below — a
+      # failed report is the one worth reading. The failure is re-raised by
+      # "Verify E2E outcome" after the artifact is safely stored.
       - name: Run E2E (readiness handled by the suite's globalSetup retry)
-        run: pnpm run test:e2e
+        id: e2e
+        continue-on-error: true
+        run: pnpm run test:report:e2e
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: html-e2e
+          # The report is a Vite app: it fetches html.meta.json.gz at runtime and
+          # does not work over file://. After downloading, serve it:
+          #   npx vite preview --outDir e2e-report
+          if-no-files-found: error
+
+      # Turns the swallowed failure back into a red run. Kept separate from the
+      # run step so the artifact upload above always gets a chance to happen.
+      - name: Verify E2E outcome
+        if: steps.e2e.outcome != 'success'
+        run: exit 1
 
       - name: Tear down
         if: always()
