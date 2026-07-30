@@ -9,10 +9,10 @@ nothing here reaches the runtime image.
 
 | File | What it is |
 |---|---|
-| `examples/data-client.ts` | A client that submits captures from a YAML file |
-| `examples/data-file.ts` | The YAML format and its parser |
-| `examples/behaviors-loader.ts` | Loads client-supplied custom behaviors by host |
-| `examples/behaviors/` | Where those behavior files live |
+| [`examples/data-client.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-client.ts) | A client that submits captures from a YAML file |
+| [`examples/data-file.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-file.ts) | The YAML format and its parser |
+| [`examples/behaviors-loader.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/behaviors-loader.ts) | Loads client-supplied custom behaviors by host |
+| [`examples/behaviors/`](https://github.com/uraitakahito/browserhive/tree/main/examples/behaviors) | Where those behavior files live |
 
 The two loaders are separate modules rather than code inside the client for one
 reason: the client's entry point is an IIFE that talks to a server, while
@@ -21,14 +21,14 @@ out, they are unit-tested without a server or a disk.
 
 ## Building them
 
-`pnpm run build` does not emit them — it uses `tsconfig.build.json`, which ships
+`pnpm run build` does not emit them — it uses [`tsconfig.build.json`](https://github.com/uraitakahito/browserhive/blob/main/tsconfig.build.json), which ships
 `src` + `bin` only. Use the separate build:
 
 ```sh
 pnpm run build:examples
 ```
 
-That compiles `src` + `bin` + `examples` via `tsconfig.examples.json`, so
+That compiles `src` + `bin` + `examples` via [`tsconfig.examples.json`](https://github.com/uraitakahito/browserhive/blob/main/tsconfig.examples.json), so
 `dist/examples/*.js` can resolve its `../src/*.js` imports against `dist/src`.
 
 ## `data-client.ts` — submit captures from a YAML file
@@ -63,7 +63,7 @@ many the file held, then a summary once every request has been accepted.
 
 ### Options
 
-Flags are defined in `src/cli/client-cli.ts`. `--data` is required, and so is
+Flags are defined in [`src/cli/client-cli.ts`](https://github.com/uraitakahito/browserhive/blob/main/src/cli/client-cli.ts). `--data` is required, and so is
 **at least one capture format** — the server rejects a request with none
 (`validateCaptureFormats`).
 
@@ -110,7 +110,7 @@ The parser is **strict on purpose**: one malformed entry fails the whole parse
 with an error naming the offending index. Its predecessor was a CSV parser that
 silently dropped malformed rows, which let fixture rot pile up unnoticed — a
 hard error matches the `Result`-based error handling used elsewhere
-(`src/result.ts`).
+([`src/result.ts`](https://github.com/uraitakahito/browserhive/blob/main/src/result.ts)).
 
 ## `behaviors-loader.ts` — client-supplied behaviors
 
@@ -157,10 +157,10 @@ Four data files ship with the repo, each for a different job:
 
 | File | Entries | What it is for |
 |---|---|---|
-| `data/smoke-test.yaml` | ~51 | Major global brands — fast, predictable 200s. A sanity check that the pipeline is wired up end to end. |
-| `data/nikkei225.yaml` | 225 | Every Nikkei 225 constituent's top page. A realistic mix of fast pages, redirect chains, banner-heavy pages and the occasional 4xx/5xx — used to exercise concurrency, retry and error paths under load. |
-| `data/accept-language.yaml` | ~14 | A hand-picked subset of the above whose pages answer differently for `ja` vs `en`. The fixture for `--accept-language`. |
-| `data/js-redirect.yaml` | ~6 | URLs that navigate via JavaScript right after `DOMContentLoaded`. A regression fixture for `runOnStableContext` in `src/capture/page-capturer.ts`. |
+| [`data/smoke-test.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/smoke-test.yaml) | ~51 | Major global brands — fast, predictable 200s. A sanity check that the pipeline is wired up end to end. |
+| [`data/nikkei225.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/nikkei225.yaml) | 225 | Every Nikkei 225 constituent's top page. A realistic mix of fast pages, redirect chains, banner-heavy pages and the occasional 4xx/5xx — used to exercise concurrency, retry and error paths under load. |
+| [`data/accept-language.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/accept-language.yaml) | ~14 | A hand-picked subset of the above whose pages answer differently for `ja` vs `en`. The fixture for `--accept-language`. |
+| [`data/js-redirect.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/js-redirect.yaml) | ~6 | URLs that navigate via JavaScript right after `DOMContentLoaded`. A regression fixture for `runOnStableContext` in [`src/capture/page-capturer.ts`](https://github.com/uraitakahito/browserhive/blob/main/src/capture/page-capturer.ts). |
 
 Start with `smoke-test.yaml` and a `--limit`; reach for `nikkei225.yaml` when
 you want the server under actual load.
