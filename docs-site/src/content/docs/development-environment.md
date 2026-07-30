@@ -90,16 +90,15 @@ One-shot CDP checks: `./chromium-server-docker/bin/cdp.sh smoke`.
 
 ### When it finishes too fast to watch — `operationDelayMs`
 
-A capture takes only a few seconds by default (about 6s for example.com), so it
-is usually over before the screencast is open. Add `operationDelayMs` to the
-request and **each browser operation is preceded by that delay**, letting you
-follow it step by step:
+A light page is captured in a few seconds, so it is usually over before the
+screencast is open. Add `operationDelayMs` to the request and **each browser
+operation is preceded by that delay**, letting you follow it step by step:
 
 ```bash
 curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
-    "url": "https://www.example.com/",
+    "url": "https://www.yahoo.co.jp/",
     "operationDelayMs": 250,
     "captureFormats": {
       "png": true, "webp": false, "html": false,
@@ -109,20 +108,22 @@ curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
 ```
 
 It applies to **that request only** — the browser connection is not re-made, so
-other captures stay fast. Measured (example.com, one PNG):
+other captures stay fast. Measured (`www.yahoo.co.jp`, one PNG):
 
 | `operationDelayMs` | Time for one capture |
 |---|---|
-| omitted (default `0`) | ~6s |
-| `250` | ~10s |
-| `1000` | ~19s |
+| omitted (default `0`) | ~30s |
+| `250` | ~33s |
+| `1000` | ~41s |
 
 - To slow every request instead, set the server-wide default with
   `--operation-delay-ms` / `BROWSERHIVE_OPERATION_DELAY_MS` (a request's value
   wins).
 - What slows down is the **gap between the browser operations BrowserHive
-  issues**, not the page's own rendering or scrolling. To watch scrolling
-  itself, raise `behaviors.options.autoscroll.stepDelayMs` on the request.
+  issues**, not the page's own rendering or scrolling — which is why the totals
+  above grow by far less than the delay suggests: on a page this heavy, loading
+  it dominates. To watch scrolling itself, raise
+  `behaviors.options.autoscroll.stepDelayMs` on the request.
 - Too large a value runs into `--task-timeout` (130s by default) and the task
   fails.
 
