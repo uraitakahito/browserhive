@@ -38,12 +38,31 @@ const HTML_ONLY: CaptureFormats = {
   wacz: false,
 };
 
+export interface CaptureOptions {
+  formats?: CaptureFormats;
+  /**
+   * Pause inserted before each browser operation, in milliseconds.
+   *
+   * Spent OUTSIDE the per-operation timeout budgets — a capture slowed down on
+   * purpose is not a stuck capture. Only the whole-task budget counts it.
+   */
+  operationDelayMs?: number;
+}
+
 /** Build a POST /v1/captures body (captureFormats is required by the API). */
 export function captureRequest(
   url: string,
-  formats: CaptureFormats = HTML_ONLY,
+  options: CaptureOptions = {},
 ): Record<string, unknown> {
-  return { url, labels: ["e2e"], captureFormats: formats };
+  const { formats = HTML_ONLY, operationDelayMs } = options;
+  return {
+    url,
+    labels: ["e2e"],
+    captureFormats: formats,
+    // Omitted rather than sent as undefined, so the server-side default stands
+    // when a test does not care about pacing.
+    ...(operationDelayMs === undefined ? {} : { operationDelayMs }),
+  };
 }
 
 /** Poll `predicate` until it returns true, or throw after `timeoutMs`. */
