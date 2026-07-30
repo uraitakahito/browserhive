@@ -61,26 +61,19 @@ LOG_LEVEL=info pnpm run server -- \
   | pino-pretty
 ```
 
-## 例: data client
+## サーバを手で叩く
 
-YAML データファイルからキャプチャリクエストを送る例クライアント
-(fire-and-forget)。形式とパーサは
-[`examples/data-file.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-file.ts)
-にある。クライアントは受理確認を受け取るだけで、実際のキャプチャはサーバが
-非同期に処理する — 完了はサーバログで確認する。
-
-例は TypeScript ソースのみで配布され、本番の `pnpm run build` は `src` + `bin`
-だけをコンパイルする。`dist/examples/` も出す `build:examples` を使うこと。
-実行先は起動中のサーバ(上のホスト開発ループ、またはコンテナスタック) —
-既定では `localhost:8080` に投げる。
+動かしているサーバ — コンテナスタックか、上のホストループ — にサンプル
+クライアントを向ける:
 
 ```sh
 pnpm run build:examples
 node dist/examples/data-client.js \
   --data data/smoke-test.yaml --webp --html --links --limit 30 \
-  --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
+
+フラグ・読み込む YAML の形式・`data/` のフィクスチャは[examples](/examples/)にある。
 
 ## Chromium の描画を観察する
 
