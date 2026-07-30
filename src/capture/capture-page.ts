@@ -35,6 +35,40 @@ export type CapturePage = Pick<
 >;
 
 /**
+ * A running total of the pauses this capture injected in order to be watched.
+ *
+ * `operationDelayMs` sleeps before each browser call, and those sleeps happen
+ * inside whatever per-operation budget is in force. A budget is there to catch
+ * a stuck page, so it should not be spent on a pause we chose to insert — but
+ * the budget has no way to tell the two apart on its own. The ledger is how it
+ * finds out: `withOperationTimeout` reads it before and after, and treats the
+ * difference as time that did not count.
+ *
+ * Cumulative and monotonic on purpose. Any interval's share is just
+ * (value at the end − value at the start), so no per-interval bookkeeping is
+ * needed and nothing has to be reset.
+ *
+ * The value only ever counts time that has ALREADY passed — including the
+ * elapsed part of a pause still in progress. Both halves of that matter:
+ *
+ *   - Crediting a pause up front would let a budget discount time that has not
+ *     passed yet, making the timeout quietly more lenient than its number says.
+ *   - Crediting it only once finished breaks whenever a pause outlasts the
+ *     budget it sits inside. The deadline fires mid-pause, sees nothing
+ *     injected, and reports a timeout for time we spent sleeping. A 5s budget
+ *     with an 8s pause in front of it could never have succeeded.
+ */
+export interface PacingLedger {
+  readonly injectedMs: number;
+}
+
+/** A page to drive, paired with the ledger of pauses taken while driving it. */
+export interface PacedPage {
+  page: CapturePage;
+  pacing: PacingLedger;
+}
+
+/**
  * Delay every browser operation this capture performs, so a headless run can be
  * followed live over the DevTools screencast. The connection is untouched, so
  * this affects one capture only; `delayMs <= 0` returns the raw Page, keeping
@@ -51,16 +85,37 @@ export type CapturePage = Pick<
  * of this so there is exactly one delay knob. See `browser.ts` for why it is
  * not coming back, and `CaptureConfig.operationDelayMs` for the server default.)
  */
-export const withOperationDelay = (
-  page: Page,
-  delayMs: number,
-): CapturePage => {
-  if (delayMs <= 0) return page;
+export const createPacedPage = (page: Page, delayMs: number): PacedPage => {
+  if (delayMs <= 0) return { page, pacing: { injectedMs: 0 } };
+
+  let completedMs = 0;
+  let inFlight = 0;
+  let sleepingSince = 0;
+
+  const ledger: PacingLedger = {
+    get injectedMs(): number {
+      if (inFlight === 0) return completedMs;
+      // Credit the part of the current pause that has actually passed, capped
+      // at its nominal length so a slow event loop cannot over-credit.
+      const elapsed = Math.min(Date.now() - sleepingSince, delayMs);
+      return completedMs + elapsed;
+    },
+  };
 
   // Wait BEFORE issuing the operation, matching how puppeteer's slowMo orders
   // things: the gap belongs in front of the call, not around its result.
   const pace = async <T>(op: () => Promise<T>): Promise<T> => {
-    await sleep(delayMs);
+    // The capture path issues these one at a time; the counter is there so an
+    // overlapping pair would still be measured from the earliest start rather
+    // than double-counted.
+    if (inFlight === 0) sleepingSince = Date.now();
+    inFlight += 1;
+    try {
+      await sleep(delayMs);
+    } finally {
+      inFlight -= 1;
+      if (inFlight === 0) completedMs += delayMs;
+    }
     return op();
   };
 
@@ -87,5 +142,5 @@ export const withOperationDelay = (
     // handing back a promise the callers do not expect.
     url: () => page.url(),
   };
-  return paced;
+  return { page: paced, pacing: ledger };
 };

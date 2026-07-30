@@ -24,7 +24,8 @@ import connectBrowser, { puppeteerExtra } from "../browser.js";
 import type { BrowserProfile } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { captureStatus } from "./capture-status.js";
-import { PageCapturer, withTimeout } from "./page-capturer.js";
+import { PageCapturer } from "./page-capturer.js";
+import { withWallClockTimeout } from "./timeouts.js";
 import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
 import { createConnectionError, errorDetailsFromException } from "./error-details.js";
 import { errorType } from "./error-type.js";
@@ -314,7 +315,7 @@ export class BrowserClient {
     const taskTotalMs = this.profile.capture.timeouts.taskTotalMs;
     try {
       // #region layer-b-timeout
-      return await withTimeout(
+      return await withWallClockTimeout(
         this.pageCapturer.capture(page, task, this.index),
         taskTotalMs,
         `Task processing for ${task.url}`,

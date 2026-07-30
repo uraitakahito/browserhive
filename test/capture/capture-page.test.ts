@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Page } from "puppeteer";
-import { withOperationDelay } from "../../src/capture/capture-page.js";
+import { createPacedPage } from "../../src/capture/capture-page.js";
 
 interface MockPage {
   goto: ReturnType<typeof vi.fn>;
@@ -16,25 +16,25 @@ const buildMockPage = (): MockPage => ({
 
 const asPage = (page: MockPage): Page => page as unknown as Page;
 
-describe("withOperationDelay", () => {
+describe("createPacedPage", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
   it("returns the raw page when the delay is zero (no wrapper on the normal path)", () => {
     const page = buildMockPage();
-    expect(withOperationDelay(asPage(page), 0)).toBe(page);
+    expect(createPacedPage(asPage(page), 0).page).toBe(page);
   });
 
   it("returns the raw page for a negative delay too", () => {
     const page = buildMockPage();
-    expect(withOperationDelay(asPage(page), -1)).toBe(page);
+    expect(createPacedPage(asPage(page), -1).page).toBe(page);
   });
 
   it("waits before issuing an async operation, not after", async () => {
     vi.useFakeTimers();
     const page = buildMockPage();
-    const paced = withOperationDelay(asPage(page), 500);
+    const { page: paced } = createPacedPage(asPage(page), 500);
 
     const pending = paced.goto("https://example.com/");
     // The delay comes first: the operation must not have been issued yet.
@@ -50,7 +50,7 @@ describe("withOperationDelay", () => {
   it("delays each operation separately", async () => {
     vi.useFakeTimers();
     const page = buildMockPage();
-    const paced = withOperationDelay(asPage(page), 100);
+    const { page: paced } = createPacedPage(asPage(page), 100);
 
     const first = paced.content();
     await vi.advanceTimersByTimeAsync(100);
@@ -66,13 +66,13 @@ describe("withOperationDelay", () => {
 
   it("passes the operation's result through", async () => {
     const page = buildMockPage();
-    const paced = withOperationDelay(asPage(page), 1);
+    const { page: paced } = createPacedPage(asPage(page), 1);
 
     await expect(paced.content()).resolves.toBe("<html></html>");
   });
 
   it("leaves the synchronous url() alone — it must not become a promise", () => {
-    const paced = withOperationDelay(asPage(buildMockPage()), 500);
+    const { page: paced } = createPacedPage(asPage(buildMockPage()), 500);
 
     expect(paced.url()).toBe("https://example.com/");
   });

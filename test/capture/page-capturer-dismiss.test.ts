@@ -16,9 +16,16 @@ import {
   createTestCaptureConfig,
 } from "../helpers/config.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
+import type { PacingLedger } from "../../src/capture/capture-page.js";
 
 const dismissBannersMock =
-  vi.fn<(page: Page, opts: DismissOptions) => Promise<DismissReport>>();
+  vi.fn<
+    (
+      page: Page,
+      pacing: PacingLedger,
+      opts: DismissOptions,
+    ) => Promise<DismissReport>
+  >();
 
 vi.mock("../../src/capture/banner-dismisser.js", async () => {
   const actual = await vi.importActual<
@@ -26,8 +33,8 @@ vi.mock("../../src/capture/banner-dismisser.js", async () => {
   >("../../src/capture/banner-dismisser.js");
   return {
     ...actual,
-    dismissBanners: (page: Page, opts: DismissOptions) =>
-      dismissBannersMock(page, opts),
+    dismissBanners: (page: Page, pacing: PacingLedger, opts: DismissOptions) =>
+      dismissBannersMock(page, pacing, opts),
   };
 });
 
@@ -120,7 +127,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     );
 
     expect(dismissBannersMock).toHaveBeenCalledTimes(1);
-    expect(dismissBannersMock).toHaveBeenCalledWith(page, TEST_DEFAULT_DISMISS_OPTIONS);
+    expect(dismissBannersMock).toHaveBeenCalledWith(page, expect.anything(), TEST_DEFAULT_DISMISS_OPTIONS);
     expect(result.dismissReport).toEqual({
       framework: "OneTrust",
       removedSelectors: ["#onetrust-banner-sdk"],
@@ -156,7 +163,7 @@ describe("PageCapturer.capture — banner dismissal integration", () => {
     await capturer.capture(asPage(page), buildTask({ dismissOptions: customOpts }), 0);
 
     expect(dismissBannersMock).toHaveBeenCalledTimes(1);
-    expect(dismissBannersMock).toHaveBeenCalledWith(page, customOpts);
+    expect(dismissBannersMock).toHaveBeenCalledWith(page, expect.anything(), customOpts);
   });
 
   it("does not call dismissBanners when the page returned an HTTP error", async () => {

@@ -13,6 +13,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Page } from "puppeteer";
 import { runOnStableContext } from "../../src/capture/page-capturer.js";
 
+/** These tests do not exercise pacing; the ledger stays inert. */
+const noPacing = { injectedMs: 0 };
+
 const DESTROYED_MESSAGE =
   "Execution context was destroyed, most likely because of a navigation.";
 
@@ -49,7 +52,7 @@ describe("runOnStableContext", () => {
     const { page, waitForNavigation } = buildMockPage();
     const operation = vi.fn().mockResolvedValue("ok");
 
-    const result = await runOnStableContext(page, operation, "test op", 5_000);
+    const result = await runOnStableContext(page, operation, "test op", 5_000, noPacing);
 
     expect(result).toBe("ok");
     expect(operation).toHaveBeenCalledTimes(1);
@@ -63,7 +66,7 @@ describe("runOnStableContext", () => {
       .mockRejectedValueOnce(new Error(DESTROYED_MESSAGE))
       .mockResolvedValueOnce("ok-after-1-redirect");
 
-    const promise = runOnStableContext(page, operation, "test op", 5_000);
+    const promise = runOnStableContext(page, operation, "test op", 5_000, noPacing);
     // Allow the destroyed throw to propagate and waitForNavigation to resolve.
     await vi.runAllTimersAsync();
 
@@ -82,7 +85,7 @@ describe("runOnStableContext", () => {
       .mockRejectedValueOnce(new Error(DESTROYED_MESSAGE))
       .mockRejectedValueOnce(new Error(DESTROYED_MESSAGE));
 
-    const promise = runOnStableContext(page, operation, "test op", 5_000);
+    const promise = runOnStableContext(page, operation, "test op", 5_000, noPacing);
     // Attach the rejection assertion eagerly so the eventual throw is
     // already "handled" by the time fake timers fire — otherwise vitest
     // reports a transient unhandled-rejection warning between the timer
@@ -104,7 +107,7 @@ describe("runOnStableContext", () => {
       .mockRejectedValueOnce(new Error(DESTROYED_MESSAGE))
       .mockResolvedValueOnce("ok-after-2-redirects");
 
-    const promise = runOnStableContext(page, operation, "test op", 5_000);
+    const promise = runOnStableContext(page, operation, "test op", 5_000, noPacing);
     await vi.runAllTimersAsync();
 
     const result = await promise;
@@ -118,7 +121,7 @@ describe("runOnStableContext", () => {
     const httpError = new Error("HTTP 404: Not Found");
     const operation = vi.fn().mockRejectedValue(httpError);
 
-    const promise = runOnStableContext(page, operation, "test op", 5_000);
+    const promise = runOnStableContext(page, operation, "test op", 5_000, noPacing);
     const expectation = expect(promise).rejects.toBe(httpError);
     await vi.runAllTimersAsync();
     await expectation;
@@ -139,7 +142,7 @@ describe("runOnStableContext", () => {
       .mockRejectedValueOnce(new Error(DESTROYED_MESSAGE))
       .mockResolvedValueOnce("ok-after-missed-event");
 
-    const promise = runOnStableContext(page, operation, "test op", 5_000);
+    const promise = runOnStableContext(page, operation, "test op", 5_000, noPacing);
     // Advance past STABLE_CONTEXT_SETTLE_TIMEOUT_MS (3_000). One extra ms
     // ensures the timeoutPromise rejects and the loop falls through to retry.
     await vi.advanceTimersByTimeAsync(3_001);
@@ -156,7 +159,7 @@ describe("runOnStableContext", () => {
     const { page } = buildMockPage();
     const operation = vi.fn<() => Promise<string>>().mockReturnValue(NEVER);
 
-    const promise = runOnStableContext(page, operation, "test op", 5_000);
+    const promise = runOnStableContext(page, operation, "test op", 5_000, noPacing);
     const expectation = expect(promise).rejects.toThrow(/Timeout: test op/);
     await vi.advanceTimersByTimeAsync(5_001);
     await expectation;
