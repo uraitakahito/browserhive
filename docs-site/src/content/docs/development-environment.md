@@ -124,8 +124,13 @@ other captures stay fast. Measured (`www.yahoo.co.jp`, one PNG):
   above grow by far less than the delay suggests: on a page this heavy, loading
   it dominates. To watch scrolling itself, raise
   `behaviors.options.autoscroll.stepDelayMs` on the request.
-- Too large a value runs into `--task-timeout` (130s by default) and the task
-  fails.
+- The ceiling is the task budget and nothing else. A capture issues roughly a
+  dozen paced operations, so around 10s apiece is what still fits inside
+  `--task-timeout` (130s by default) — past that the task is failed for taking
+  too long, which is the right answer. The per-operation budgets do not charge
+  for the pause: they bound the operation, not the wait in front of it. (They
+  used to charge for it, which made any delay of ~2s or more fail every capture
+  outright.)
 - Slowing it down only helps if you can also tell what it is *doing*. Add
   `"trace": true` to the request and BrowserHive writes what it did — the
   interventions it made, what its behaviors decided, and which responses never
