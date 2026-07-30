@@ -155,6 +155,21 @@ BrowserHive の WACZ 出力は static-shape の契約をカバーする:
 ([環境変数](/environment-variables/)を参照)。可変長フラグは CLI では複数値、
 env ではカンマ区切り。
 
+## アーカイブを検証する
+
+再生側の症状を追う前に、アーカイブ自体が壊れていないかを確かめる。
+[waxlens](https://github.com/uraitakahito/waxlens) は producer 非依存の WACZ
+validator で、BrowserHive 向けのプロファイルを持ち、S3 上のアーカイブを直接読める:
+
+```sh
+waxlens --profile browserhive s3://browserhive/<taskId>_<labels>.wacz
+```
+
+ターミナル UI から、どの rule に適合しどれに適合しないかを rule 単位で報告する。
+CI などで機械可読な JSON レポートが欲しい場合は `waxlens-validate` を使う。
+このツールが何であり、なぜ別実装で検証することに意味があるのかは
+[関連プロジェクト](/related-projects/)にある。
+
 ## トラブルシューティング
 
 - **再生ページの画像 / CSS が欠ける** — worker ログの `waczStats` を確認:
@@ -178,4 +193,5 @@ env ではカンマ区切り。
 - WACZ 仕様: <https://specs.webrecorder.net/wacz/1.0.0/>
 - WARC 1.1 仕様: <https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/>
 - ReplayWeb.page: <https://replayweb.page/>
+- waxlens(上で使った WACZ validator): <https://uraitakahito.github.io/waxlens/ja/>
 - WACZ の内部実装(BrowserHive のエンコーディング判断): [WACZ internals](/wacz-internals/)
