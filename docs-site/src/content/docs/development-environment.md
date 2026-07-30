@@ -50,6 +50,31 @@ it by hand with `pnpm --filter meadow build` if you want it earlier. What each
 of its routes reproduces is on
 [its Scenarios page](https://uraitakahito.github.io/meadow/scenarios/).
 
+When an E2E test fails, the server's own verdict on the capture is printed
+underneath it — the `taskId`, whether the capture succeeded, how many times it
+was retried, and where the artifacts landed:
+
+```
+× flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit
+   ↳ taskId=2805f4ac-… url=http://meadow.browserhive:8080/flaky?fail=2&key=e2e
+   ↳ status=success retryCount=2
+   ↳ {"html":"s3://browserhive/2805f4ac-…_e2e.html"}
+
+AssertionError: expected 3 to be 99
+```
+
+These assertions are about meadow's hit counters, so the first question on a
+failure is whether the capture succeeded at all — that line answers it without
+reading the server log. The `taskId` is annotated before the wait begins, so it
+survives a timeout, which is exactly when you need it to find the task in
+`container logs browserhive.browserhive`.
+
+Passing runs print none of this. Add `--reporter=verbose` to see it anyway:
+
+```sh
+pnpm exec vitest run --project e2e --reporter=verbose
+```
+
 (Stop the containerized server first — `container stop browserhive.browserhive` —
 if you want port 8080 for the host process.)
 

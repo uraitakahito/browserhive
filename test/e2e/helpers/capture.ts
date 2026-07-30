@@ -3,6 +3,17 @@
  * stack over HTTP only (no browserhive source is imported).
  */
 import { expect } from "vitest";
+import type { TestContext } from "vitest";
+
+/**
+ * The only part of the test context this module needs.
+ *
+ * Taking the whole context would let helpers reach for `expect` or `task` too,
+ * and then a signature no longer tells you what a helper touches. Derived from
+ * `TestContext` rather than written out, so an upstream signature change breaks
+ * the build instead of drifting.
+ */
+export type Annotate = TestContext["annotate"];
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -69,10 +80,18 @@ export interface CaptureResultReport {
  * once it is done. Unlike watching a cumulative counter, this tracks *this*
  * task, so it neither depends on tests running serially nor mistakes another
  * task's completion for its own.
+ *
+ * What the server said is annotated onto the test. Assertions in this suite are
+ * about meadow's hit counters, so when one fails the first question is "did the
+ * capture even succeed?" — and that answer used to be discarded along with the
+ * return value. `annotate` is required rather than optional: a caller that
+ * forgot it would silently lose the annotations, and the omission would only
+ * surface later, while debugging a failure with nothing to go on.
  */
 export async function submitAndWait(
   api: string,
   body: Record<string, unknown>,
+  annotate: Annotate,
 ): Promise<CaptureResultReport> {
   const res = await fetch(`${api}/v1/captures`, {
     method: "POST",
@@ -81,6 +100,11 @@ export async function submitAndWait(
   });
   expect(res.status).toBe(202);
   const { taskId } = (await res.json()) as { taskId: string };
+
+  // Annotated BEFORE polling, deliberately. The taskId is the only key tying
+  // this test to the server's own log, and it is most needed exactly when
+  // `waitUntil` below times out and throws — which skips everything after it.
+  await annotate(`taskId=${taskId} url=${String(body["url"])}`, "capture");
 
   let report: CaptureResultReport | undefined;
   await waitUntil(async () => {
@@ -93,6 +117,24 @@ export async function submitAndWait(
     report = (await lookup.json()) as CaptureResultReport;
     return true;
   });
+
+  // The server's own verdict, independent of what meadow counted. When a hit
+  // assertion fails, this separates "the browser did not do what we expected"
+  // from "the capture never succeeded in the first place".
+  //
+  // Non-success is a "warning", not an "error": the GitHub Actions reporter
+  // renders `error` as a failure annotation, and whether this test passes is
+  // the assertion's call, not an annotation's.
+  await annotate(
+    `status=${report!.status} retryCount=${String(report!.retryCount)}`,
+    report!.status === "success" ? "capture" : "warning",
+  );
+  if (report!.errorDetails) {
+    await annotate(`${report!.errorDetails.type}: ${report!.errorDetails.message}`, "warning");
+  }
+  // Where the artifacts landed. Also the entry point for attaching them later.
+  await annotate(JSON.stringify(report!.artifacts), "artifacts");
+
   return report!;
 }
 

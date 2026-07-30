@@ -11,9 +11,9 @@ const api = inject("api");
 const meadow = inject("meadow");
 
 describe("browserhive + chromium-server-docker + meadow", () => {
-  it("captures /ok end-to-end through the real stack", async () => {
+  it("captures /ok end-to-end through the real stack", async ({ annotate }) => {
     await resetMeadow(meadow);
-    await submitAndWait(api, captureRequest(meadow + scenarios.ok));
+    await submitAndWait(api, captureRequest(meadow + scenarios.ok), annotate);
     const hits = await meadowHits(meadow);
     expect(hits[scenarios.ok]).toBeGreaterThanOrEqual(1);
   });

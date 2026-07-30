@@ -11,15 +11,32 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # meadow must be on disk for the type-aware rules — see the build step
+      # below. Without this its directory is empty, `pnpm --filter meadow build`
+      # matches no project and exits 0, and the failure only shows up as
+      # `scenarios` resolving to `any`. Same setting as ci.yml.
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      # reviewdog invokes eslint directly, so the `prelint:source` hook never
+      # fires — everything it does has to be reproduced here. It runs `prep`
+      # (the two generate steps below) *and* builds meadow, whose emitted types
+      # the type-aware rules need: without `meadow/dist/index.d.ts` the E2E
+      # tests' `scenarios` import resolves to `any` and every use of it trips
+      # no-unsafe-member-access / restrict-plus-operands. Locally this passes
+      # regardless, because a previous build left dist/ in place.
+      #
+      # Note this step cannot report its own failure: `pnpm --filter` exits 0
+      # when nothing matches, so a missing submodule makes it a silent no-op.
       - run: pnpm run openapi:generate
       - run: pnpm run openapi:gen-operations
+      - run: pnpm --filter meadow build
       # reviewdog がコメントを投稿するトークンを GitHub App から実行ごとに発行する。
       # 保管する秘密は App の秘密鍵(REVIEWDOG_APP_KEY)だけで、これは無期限。
       # Dependabot PR でも動くよう、この鍵は Actions/Dependabot の両 secret store に登録する。

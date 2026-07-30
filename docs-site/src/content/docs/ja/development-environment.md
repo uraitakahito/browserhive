@@ -49,6 +49,30 @@ LOG_LEVEL=info pnpm run server | pino-pretty
 ください。各ルートが何を再現するのかは
 [シナリオのページ](https://uraitakahito.github.io/meadow/ja/scenarios/)にあります。
 
+E2E テストが失敗すると、そのキャプチャに対する**サーバ自身の判定**が下に出ます
+— `taskId`、キャプチャが成功したか、何回リトライされたか、成果物がどこに置かれたか。
+
+```
+× flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit
+   ↳ taskId=2805f4ac-… url=http://meadow.browserhive:8080/flaky?fail=2&key=e2e
+   ↳ status=success retryCount=2
+   ↳ {"html":"s3://browserhive/2805f4ac-…_e2e.html"}
+
+AssertionError: expected 3 to be 99
+```
+
+このテスト群のアサーションは meadow のヒットカウンタに対するものなので、
+失敗したとき最初に知りたいのは**そもそもキャプチャが成功したのか**です。
+上の行がそれに答えるので、サーバログを読みに行く必要がありません。
+`taskId` は待機を始める**前**に注釈されるため**タイムアウトしても残ります** ―
+`container logs browserhive.browserhive` でタスクを探すのは、まさにそのときです。
+
+成功した実行では何も出ません。それでも見たい場合は `--reporter=verbose` を付けます。
+
+```sh
+pnpm exec vitest run --project e2e --reporter=verbose
+```
+
 (ホストプロセスに 8080 を使いたい場合は、先にコンテナ版を
 `container stop browserhive.browserhive` で止める。)
 
