@@ -16,9 +16,9 @@ Enabled by **flag or config — no client JavaScript required**.
 
 | id | default | what it does |
 |----|---------|--------------|
-| `autoscroll` | **on** | Scrolls the full document height so `loading="lazy"` / IntersectionObserver / `data-src` loaders fire and their resources are recorded. Returns to the top for the screenshot. |
-| `autofetch` | **on** | Actively fetches **every** `srcset` candidate (1x/2x, small/medium/large), `data-*` lazy attribute, and same-origin stylesheet `url(...)` — even the ones the capture viewport/DPR did not select. Makes replay **DPR/viewport-complete** (fixes the Retina `_2x` gap). |
-| `autoplay` | off (opt-in) | Muted-plays `<video>` / `<audio>` and fetches their `src` / `<source>` / `poster` so media is archived. Can be large. |
+| [`autoscroll`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/builtins/autoscroll.ts) | **on** | Scrolls the full document height so `loading="lazy"` / IntersectionObserver / `data-src` loaders fire and their resources are recorded. Returns to the top for the screenshot. |
+| [`autofetch`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/builtins/autofetch.ts) | **on** | Actively fetches **every** `srcset` candidate (1x/2x, small/medium/large), `data-*` lazy attribute, and same-origin stylesheet `url(...)` — even the ones the capture viewport/DPR did not select. Makes replay **DPR/viewport-complete** (fixes the Retina `_2x` gap). |
+| [`autoplay`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/builtins/autoplay.ts) | off (opt-in) | Muted-plays `<video>` / `<audio>` and fetches their `src` / `<source>` / `poster` so media is archived. Can be large. |
 
 The default enabled set is `autoscroll,autofetch`. Behaviors run in the order
 listed.
@@ -31,7 +31,7 @@ nothing** — no `behaviors.custom`, no `--allow-custom-behaviors`.
 
 | id | applies to | what it does |
 |----|------------|--------------|
-| `site:apple.com/gallery-variants` | `*.apple.com` | TV+ gallery slides carry no `srcset` and derive their URL from the DPR, so only the variant for the captured DPR is referenced. Collects mzstatic image URLs from the SSR HTML and the live DOM and **also fetches the doubled and halved siblings**, filling in the variants. |
+| [`site:apple.com/gallery-variants`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/site/apple.ts) | `*.apple.com` | TV+ gallery slides carry no `srcset` and derive their URL from the DPR, so only the variant for the captured DPR is referenced. Collects mzstatic image URLs from the SSR HTML and the live DOM and **also fetches the doubled and halved siblings**, filling in the variants. |
 
 - **Enabled differently from built-ins**: they need no id in `--behaviors` —
   they are **always considered**, and each behavior's own `isMatch()` (a host

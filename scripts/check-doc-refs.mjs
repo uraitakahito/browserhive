@@ -10,6 +10,9 @@
  *   1. ```ts file="src/…#region"   → the file exists AND the region marker is present
  *   2. /terminology/#g-<Term>       → <Term> is actually `@glossary`-tagged in src/
  *   3. `src/….ts` code-span paths   → the referenced file still exists on disk
+ *   4. github.com/…/blob/main/<p>   → <p> still exists on disk (a doc that links
+ *      straight at a source file on GitHub rots the same way a code span does,
+ *      and the reader only finds out by getting a 404)
  *
  * Run via `npm run site:check` (build + this script). Exits 1 with a list of
  * broken references so CI fails the PR. To see it work: rename a `#region` or
@@ -86,6 +89,17 @@ for (const file of walk(DOCS).filter((f) => /\.mdx?$/.test(f))) {
       problems.push(`${rel}: \`${path}\` does not exist (renamed or moved?)`);
     }
   }
+
+  // 4. Links straight at a file on GitHub: …/blob/main/<repo-relative path>.
+  //    Trailing #L10-L20 anchors are allowed and ignored — only the path is
+  //    checked. A #region-style anchor is not, since GitHub has no such thing.
+  for (const [, path] of text.matchAll(
+    /https:\/\/github\.com\/uraitakahito\/browserhive\/blob\/main\/([^\s)"'#]+)/g,
+  )) {
+    if (!existsSync(resolve(ROOT, path))) {
+      problems.push(`${rel}: GitHub link to ${path} — no such file (renamed or moved?)`);
+    }
+  }
 }
 
 // ─── Report ────────────────────────────────────────────────────────────────
@@ -99,5 +113,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  "✓ doc-ref check passed: all live regions, /terminology/ links, and src paths resolve",
+  "✓ doc-ref check passed: all live regions, /terminology/ links, src paths, and GitHub links resolve",
 );

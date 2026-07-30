@@ -15,9 +15,9 @@ description: キャプチャ中にページへ注入する自動操作スクリ�
 
 | id | 既定 | 何をするか |
 |----|------|-----------|
-| `autoscroll` | **on** | 全高までスクロールし、`loading="lazy"` / IntersectionObserver / `data-src` を発火させて資源を記録。スクリーンショット用に最上部へ戻す。 |
-| `autofetch` | **on** | `srcset` の**全候補**（1x/2x・小中大）、`data-*` 遅延属性、同一オリジンの stylesheet `url(...)` を能動的に fetch。キャプチャ時のビューポート/DPR が選ばなかった候補も取得し、**再生を DPR/ビューポート完全**にする（Retina の `_2x` 欠落を解消）。 |
-| `autoplay` | off（opt-in） | `<video>` / `<audio>` をミュート再生し、`src` / `<source>` / `poster` を fetch してメディアをアーカイブ。大きくなり得る。 |
+| [`autoscroll`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/builtins/autoscroll.ts) | **on** | 全高までスクロールし、`loading="lazy"` / IntersectionObserver / `data-src` を発火させて資源を記録。スクリーンショット用に最上部へ戻す。 |
+| [`autofetch`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/builtins/autofetch.ts) | **on** | `srcset` の**全候補**（1x/2x・小中大）、`data-*` 遅延属性、同一オリジンの stylesheet `url(...)` を能動的に fetch。キャプチャ時のビューポート/DPR が選ばなかった候補も取得し、**再生を DPR/ビューポート完全**にする（Retina の `_2x` 欠落を解消）。 |
+| [`autoplay`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/builtins/autoplay.ts) | off（opt-in） | `<video>` / `<audio>` をミュート再生し、`src` / `<source>` / `poster` を fetch してメディアをアーカイブ。大きくなり得る。 |
 
 既定の有効セットは `autoscroll,autofetch`。behavior は記載順に実行される。
 
@@ -29,7 +29,7 @@ description: キャプチャ中にページへ注入する自動操作スクリ�
 
 | id | 対象 | 何をするか |
 |----|------|-----------|
-| `site:apple.com/gallery-variants` | `*.apple.com` | TV+ ギャラリーのスライドは `srcset` を持たず URL を DPR から計算するため、撮影した DPR の変種しか録れない。SSR HTML と live DOM から mzstatic の画像 URL を集め、**2 倍・1/2 のきょうだい URL も取得**して変種を埋める。 |
+| [`site:apple.com/gallery-variants`](https://github.com/uraitakahito/browserhive/blob/main/src/behaviors/runtime/site/apple.ts) | `*.apple.com` | TV+ ギャラリーのスライドは `srcset` を持たず URL を DPR から計算するため、撮影した DPR の変種しか録れない。SSR HTML と live DOM から mzstatic の画像 URL を集め、**2 倍・1/2 のきょうだい URL も取得**して変種を埋める。 |
 
 - **組み込み built-in とは有効化の仕方が違う**: `--behaviors` に id を書く必要はなく、
   **常に候補**に入る。実際に走るかは各 behavior の `isMatch()`（ホスト判定）が決めるので、
