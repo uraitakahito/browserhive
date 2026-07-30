@@ -76,6 +76,7 @@ import {
 import { logger as rootLogger } from "../logger.js";
 import {
   createEmptyRecordingStats,
+  pushSample,
   type NetworkRecorderOptions,
   type RecordedResponse,
   type RecordingStats,
@@ -485,6 +486,7 @@ export class NetworkRecorder {
     // Block-list applies to every URL the page tries to issue.
     if (matchesAny(request.url, this.blockPatterns)) {
       this.stats.totalBlocked += 1;
+      pushSample(this.stats.samples.blocked, request.url);
       // Mark the slot so subsequent ExtraInfo / response / loadingFinished
       // for this requestId are dropped.
       this.pending.set(requestId, {
@@ -739,12 +741,15 @@ export class NetworkRecorder {
       switch (entry.skipBodyReason) {
         case "content-type":
           this.stats.totalSkippedContentType += 1;
+          pushSample(this.stats.samples.skippedContentType, entry.url);
           break;
         case "too-large":
           this.stats.totalTruncatedTooLarge += 1;
+          pushSample(this.stats.samples.truncatedTooLarge, entry.url);
           break;
         case "task-cap":
           this.stats.totalTruncatedTaskCap += 1;
+          pushSample(this.stats.samples.truncatedTaskCap, entry.url);
           break;
         case undefined:
           break;

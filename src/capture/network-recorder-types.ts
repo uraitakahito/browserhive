@@ -81,7 +81,28 @@ export interface RecordingStats {
   totalIncomplete: number;
   /** Cumulative body bytes actually written into WARC `response` records. */
   totalBodyBytes: number;
+  /**
+   * A few example URLs per rejection kind, for diagnosing a broken replay.
+   *
+   * Bounded rather than exhaustive: a page can block thousands of URLs, and
+   * what a reader needs is a handle on *what kind* of thing disappeared, not
+   * the full list. The counters above already carry the magnitude.
+   */
+  samples: {
+    blocked: string[];
+    skippedContentType: string[];
+    truncatedTooLarge: string[];
+    truncatedTaskCap: string[];
+  };
 }
+
+/** How many example URLs are kept per rejection kind. */
+export const SAMPLE_LIMIT = 5;
+
+/** Append `url` while under `SAMPLE_LIMIT`; a no-op once the sample is full. */
+export const pushSample = (into: string[], url: string): void => {
+  if (into.length < SAMPLE_LIMIT) into.push(url);
+};
 
 export interface NetworkRecorderOptions {
   taskId: string;
@@ -106,4 +127,10 @@ export const createEmptyRecordingStats = (): RecordingStats => ({
   totalFailed: 0,
   totalIncomplete: 0,
   totalBodyBytes: 0,
+  samples: {
+    blocked: [],
+    skippedContentType: [],
+    truncatedTooLarge: [],
+    truncatedTaskCap: [],
+  },
 });
