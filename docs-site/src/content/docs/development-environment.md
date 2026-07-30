@@ -63,27 +63,20 @@ LOG_LEVEL=info pnpm run server -- \
   | pino-pretty
 ```
 
-## Example: data client
+## Driving the server by hand
 
-An example client that sends capture requests from a YAML data file
-(fire-and-forget). The format and parser live in
-[`examples/data-file.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-file.ts).
-The client sends requests and receives acceptance confirmations; the
-actual captures are processed asynchronously by the server — check the
-server logs for completion.
-
-The example ships as TypeScript source only, and the production `pnpm run
-build` compiles just `src` + `bin` — use `build:examples`, which also emits
-`dist/examples/`. Point it at a running server (the host dev loop above, or
-the container stack); by default it targets `localhost:8080`.
+Point the example client at whichever server you are running — the container
+stack or the host loop above:
 
 ```sh
 pnpm run build:examples
 node dist/examples/data-client.js \
   --data data/smoke-test.yaml --webp --html --links --limit 30 \
-  --accept-language "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7" \
   | pino-pretty
 ```
+
+Its flags, the YAML format it reads, and the fixtures in `data/` are on
+[Examples](/examples/).
 
 ## Watching Chromium render
 
