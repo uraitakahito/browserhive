@@ -31,9 +31,25 @@ export interface BehaviorCtx {
   getState(msg: string, counter?: string): BehaviorState;
 }
 
-/** A behavior instance: an async generator that yields at each checkpoint. */
+/**
+ * What a behavior decided, reported once when it finishes.
+ *
+ * Distinct from the progress a behavior `yield`s: progress says how far along
+ * it is, a decision says what it concluded and why. `autoscroll` stopping is
+ * the clearest case — reaching the bottom and running out of steps look
+ * identical from outside, but only one of them means the page was fully
+ * covered.
+ */
+export interface BehaviorDecisions {
+  [label: string]: string | number | boolean;
+}
+
+/**
+ * A behavior instance: an async generator that yields at each checkpoint and
+ * *returns* what it decided.
+ */
 export interface Behavior {
-  run(ctx: BehaviorCtx): AsyncGenerator<BehaviorState, void, void>;
+  run(ctx: BehaviorCtx): AsyncGenerator<BehaviorState, BehaviorDecisions | void, void>;
 }
 
 /** A behavior class: static id / isMatch plus a zero-arg constructor. */
@@ -66,6 +82,11 @@ export interface RunOpts {
   timeoutMs: number;
   /** Per-behavior options, keyed by behavior id. */
   options: Record<string, Record<string, unknown>>;
+  /**
+   * Log each behavior's decisions to the page console. Off unless the capture
+   * asked for a trace; see `CaptureConfig.trace`.
+   */
+  trace?: boolean;
 }
 
 /** Report returned from `run()` back to Node (serialized via page.evaluate). */

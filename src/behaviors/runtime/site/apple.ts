@@ -18,7 +18,7 @@
  * the 1x is not reliably reachable by the time behaviors run. `archiveMode:
  * multipass` is what guarantees both variants; this is the best-effort pass.
  */
-import type { BehaviorCtx, BehaviorState } from "../types";
+import type { BehaviorCtx, BehaviorState, BehaviorDecisions } from "../types";
 
 /** mzstatic resize URLs end in `/<W>x<H><suffix>` — that is what we rescale. */
 const RESIZE_PATH = /\/(\d{2,4})x(\d{2,4})([^/]*)$/;
@@ -54,7 +54,7 @@ export class AppleGalleryBehavior {
     return location.hostname.endsWith("apple.com");
   }
 
-  async *run(ctx: BehaviorCtx): AsyncGenerator<BehaviorState> {
+  async *run(ctx: BehaviorCtx): AsyncGenerator<BehaviorState, BehaviorDecisions> {
     const fetched = new Set<string>();
 
     const fetchOnce = (url: string | null): void => {
@@ -99,5 +99,7 @@ export class AppleGalleryBehavior {
     }
 
     yield ctx.getState("backfill", "urls");
+
+    return { "mzstatic urls pulled": fetched.size };
   }
 }

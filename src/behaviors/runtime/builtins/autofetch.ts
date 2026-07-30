@@ -11,7 +11,7 @@
  * a 1280px, DPR-1 capture only requests the `_large` (1x) candidate, so the
  * `_2x` variants a Retina replay asks for are missing. autofetch pulls them in.
  */
-import type { BehaviorCtx } from "../types";
+import type { BehaviorCtx, BehaviorDecisions } from "../types";
 
 export class AutoFetchBehavior {
   static id = "autofetch";
@@ -19,17 +19,29 @@ export class AutoFetchBehavior {
     return true;
   }
 
-  async *run(ctx: BehaviorCtx): AsyncGenerator<{ msg: string; counter?: string }> {
+  async *run(
+    ctx: BehaviorCtx,
+  ): AsyncGenerator<{ msg: string; counter?: string }, BehaviorDecisions> {
     const maxUrls = Number(ctx.opts.maxUrls ?? 2000);
     const urls = new Set<string>();
 
     const nodes = document.querySelectorAll(
       "img,source,[data-src],[data-srcset],[data-lazy-src],[poster]",
     );
+    // `currentSrc` is the one candidate the browser actually picked for this
+    // element at the capture viewport and DPR. Everything else we collected is
+    // a variant it would never have requested — which is precisely the gap
+    // this behavior exists to close, so it is worth counting.
+    const chosen = new Set<string>();
     for (const el of Array.from(nodes)) {
       ctx.Lib.collectCandidateUrls(el, urls);
+      const current = (el as HTMLImageElement).currentSrc;
+      if (current) chosen.add(current);
     }
+    const fromElements = urls.size;
     ctx.Lib.collectStyleSheetUrls(urls);
+    const fromStyleSheets = urls.size - fromElements;
+    const neverRequested = [...urls].filter((u) => !chosen.has(u)).length;
     yield ctx.getState("scanned", "candidates");
 
     let n = 0;
@@ -51,5 +63,13 @@ export class AutoFetchBehavior {
       }
     }
     yield ctx.getState("prefetch-done", "fetched");
+
+    return {
+      candidates: urls.size,
+      elements: nodes.length,
+      "never requested by the browser": neverRequested,
+      "from stylesheets": fromStyleSheets,
+      fetched: n,
+    };
   }
 }

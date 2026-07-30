@@ -54,6 +54,7 @@ interface InPageRunner {
     siteBehaviors: boolean;
     timeoutMs: number;
     options: Record<string, Record<string, unknown>>;
+    trace: boolean;
   }): Promise<BehaviorRunReport>;
 }
 interface BehaviorGlobal {
@@ -102,6 +103,7 @@ export const runBehaviors = async (
   page: CapturePage,
   config: BehaviorConfig,
   request?: BehaviorRequest,
+  trace = false,
 ): Promise<BehaviorRunReport | undefined> => {
   const resolved = resolveBehaviorRun(config, request);
   // Site behaviors alone are reason enough to inject: they are not listed in
@@ -131,6 +133,7 @@ export const runBehaviors = async (
       siteBehaviors: resolved.siteBehaviors,
       timeoutMs: config.timeoutMs,
       options: resolved.options,
+      trace,
     },
   );
 
