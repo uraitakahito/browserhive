@@ -89,6 +89,7 @@ export default defineConfig({
           label: "For developers",
           items: [
             { label: "Architecture", slug: "architecture" },
+            { label: "Running the tests", slug: "running-tests" },
             { label: "XState primer", slug: "xstate-primer" },
             { label: "Worker spawn & loop", slug: "worker-spawn-and-loop" },
             { label: "Terminology", slug: "terminology" },
