@@ -9,10 +9,10 @@ description: examples/ にある開発専用ユーティリティ — YAML 駆�
 
 | ファイル | 中身 |
 |---|---|
-| `examples/data-client.ts` | YAML ファイルからキャプチャを投げるクライアント |
-| `examples/data-file.ts` | YAML の形式とパーサ |
-| `examples/behaviors-loader.ts` | クライアント側のカスタム behavior をホスト単位で読み込む |
-| `examples/behaviors/` | その behavior ファイルの置き場所 |
+| [`examples/data-client.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-client.ts) | YAML ファイルからキャプチャを投げるクライアント |
+| [`examples/data-file.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/data-file.ts) | YAML の形式とパーサ |
+| [`examples/behaviors-loader.ts`](https://github.com/uraitakahito/browserhive/blob/main/examples/behaviors-loader.ts) | クライアント側のカスタム behavior をホスト単位で読み込む |
+| [`examples/behaviors/`](https://github.com/uraitakahito/browserhive/tree/main/examples/behaviors) | その behavior ファイルの置き場所 |
 
 ローダ 2 つがクライアント内のコードでなく別モジュールになっているのは理由が 1 つ:
 クライアントのエントリポイントはサーバと話す IIFE だが、データファイルのパースと
@@ -21,14 +21,14 @@ description: examples/ にある開発専用ユーティリティ — YAML 駆�
 
 ## ビルドの仕方
 
-`pnpm run build` はこれらを出力しない — `tsconfig.build.json` を使い、`src` + `bin`
+`pnpm run build` はこれらを出力しない — [`tsconfig.build.json`](https://github.com/uraitakahito/browserhive/blob/main/tsconfig.build.json) を使い、`src` + `bin`
 だけを対象にしているため。別のビルドを使う:
 
 ```sh
 pnpm run build:examples
 ```
 
-これは `tsconfig.examples.json` 経由で `src` + `bin` + `examples` をコンパイルする。
+これは [`tsconfig.examples.json`](https://github.com/uraitakahito/browserhive/blob/main/tsconfig.examples.json) 経由で `src` + `bin` + `examples` をコンパイルする。
 そのため `dist/examples/*.js` が `../src/*.js` の import を `dist/src` に対して
 解決できる。
 
@@ -63,7 +63,7 @@ node dist/examples/data-client.js \
 
 ### オプション
 
-フラグは `src/cli/client-cli.ts` で定義されている。`--data` は必須で、
+フラグは [`src/cli/client-cli.ts`](https://github.com/uraitakahito/browserhive/blob/main/src/cli/client-cli.ts) で定義されている。`--data` は必須で、
 **キャプチャ形式も少なくとも 1 つ**必須 — 1 つも無いリクエストはサーバが弾く
 (`validateCaptureFormats`)。
 
@@ -110,7 +110,7 @@ node dist/examples/data-client.js \
 インデックスを名指しするエラーを返す。前身は CSV パーサで、壊れた行を黙って捨てて
 いたためフィクスチャの腐敗が気付かれずに溜まった。ハードエラーにする方が、
 このプロジェクトの他の場所で使っている `Result` ベースのエラー処理
-(`src/result.ts`) と揃う。
+([`src/result.ts`](https://github.com/uraitakahito/browserhive/blob/main/src/result.ts)) と揃う。
 
 ## `behaviors-loader.ts` — クライアント側の behavior
 
@@ -155,10 +155,10 @@ behavior はそのまま動き続ける。
 
 | ファイル | 件数 | 何のためか |
 |---|---|---|
-| `data/smoke-test.yaml` | 約 51 | 主要グローバルブランド — 高速で結果が読める 200 系。パイプラインが端から端まで繋がっていることの確認用。 |
-| `data/nikkei225.yaml` | 225 | 日経 225 構成銘柄の企業トップページ全部。高速なページ・リダイレクト連鎖・バナーの多いページ・稀な 4xx/5xx が現実的に混ざっており、負荷下で並行処理・リトライ・エラー経路を動かすために使う。 |
-| `data/accept-language.yaml` | 約 14 | 上記から手で選んだ部分集合で、`ja` と `en` で応答が変わるページ。`--accept-language` のフィクスチャ。 |
-| `data/js-redirect.yaml` | 約 6 | `DOMContentLoaded` の直後に JavaScript で遷移する URL 群。`src/capture/page-capturer.ts` の `runOnStableContext` の回帰フィクスチャ。 |
+| [`data/smoke-test.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/smoke-test.yaml) | 約 51 | 主要グローバルブランド — 高速で結果が読める 200 系。パイプラインが端から端まで繋がっていることの確認用。 |
+| [`data/nikkei225.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/nikkei225.yaml) | 225 | 日経 225 構成銘柄の企業トップページ全部。高速なページ・リダイレクト連鎖・バナーの多いページ・稀な 4xx/5xx が現実的に混ざっており、負荷下で並行処理・リトライ・エラー経路を動かすために使う。 |
+| [`data/accept-language.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/accept-language.yaml) | 約 14 | 上記から手で選んだ部分集合で、`ja` と `en` で応答が変わるページ。`--accept-language` のフィクスチャ。 |
+| [`data/js-redirect.yaml`](https://github.com/uraitakahito/browserhive/blob/main/data/js-redirect.yaml) | 約 6 | `DOMContentLoaded` の直後に JavaScript で遷移する URL 群。[`src/capture/page-capturer.ts`](https://github.com/uraitakahito/browserhive/blob/main/src/capture/page-capturer.ts) の `runOnStableContext` の回帰フィクスチャ。 |
 
 まずは `smoke-test.yaml` と `--limit` から始め、実際に負荷をかけたくなったら
 `nikkei225.yaml` に手を伸ばす。
