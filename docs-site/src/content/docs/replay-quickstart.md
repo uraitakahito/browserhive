@@ -157,6 +157,22 @@ replayable interactive snapshot.
 Each flag has a `BROWSERHIVE_WACZ_*` env equivalent (see [Environment variables](/environment-variables/)). Variadic flags accept multiple values on the CLI; the env
 form is comma-separated.
 
+## Validating the archive
+
+Before chasing a replay symptom, check that the archive itself is sound.
+[waxlens](https://github.com/uraitakahito/waxlens) is a producer-independent
+WACZ validator; it ships a BrowserHive profile and reads archives straight from
+S3:
+
+```sh
+waxlens --profile browserhive s3://browserhive/<taskId>_<labels>.wacz
+```
+
+It reports rule by rule what conforms and what does not, from a terminal UI.
+For a machine-readable JSON report — in CI, say — use `waxlens-validate`
+instead. What the tool is, and why validating with a separate implementation is
+the point, is on [Related projects](/related-projects/).
+
 ## Troubleshooting
 
 - **Replayed page is missing images / CSS** — Check `waczStats` in the
@@ -183,4 +199,5 @@ form is comma-separated.
 - WACZ spec: <https://specs.webrecorder.net/wacz/1.0.0/>
 - WARC 1.1 spec: <https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/>
 - ReplayWeb.page: <https://replayweb.page/>
+- waxlens (the WACZ validator used above): <https://uraitakahito.github.io/waxlens/>
 - WACZ internals (BrowserHive's encoding decisions): [WACZ internals](/wacz-internals/)
