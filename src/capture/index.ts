@@ -108,7 +108,6 @@ export { TaskQueue } from "./task-queue.js";
 export type { TaskCounts } from "./task-queue.js";
 export { PageCapturer } from "./page-capturer.js";
 export {
-  withTimeout,
   validateFilename,
   validateLabels,
   generateFilename,

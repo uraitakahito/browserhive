@@ -11,7 +11,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import type { Page } from "puppeteer";
-import { withOperationDelay, type CapturePage } from "./capture-page.js";
+import {
+  createPacedPage,
+  type CapturePage,
+  type PacingLedger,
+} from "./capture-page.js";
+import { withOperationTimeout } from "./timeouts.js";
 import {
   pageTrace,
   archiveTraceLines,
@@ -31,7 +36,6 @@ import {
   createHttpError,
   errorDetailsFromException,
   isExecutionContextDestroyed,
-  TimeoutError,
 } from "./error-details.js";
 import { errorType } from "./error-type.js";
 import { err, ok, type Result } from "../result.js";
@@ -60,36 +64,6 @@ const HIDE_SCROLLBAR_CSS = `
   ::-webkit-scrollbar { display: none !important; }
 `;
 
-/**
- * Execute a promise with a timeout. Throws `TimeoutError` (typed, carries
- * `operation` and `timeoutMs`) when the budget is exceeded.
- */
-export const withTimeout = async <T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  operation: string
-): Promise<T> => {
-  let timeoutId: NodeJS.Timeout | undefined;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new TimeoutError({ operation, timeoutMs }));
-    }, timeoutMs);
-  });
-
-  try {
-    const result = await Promise.race([promise, timeoutPromise]);
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-    }
-    return result;
-  } catch (error) {
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-    }
-    throw error;
-  }
-};
 
 // ---------------------------------------------------------------------------
 // Layer A timeouts — per-call upper bounds on otherwise-unprotected puppeteer
@@ -225,7 +199,7 @@ const MULTIPASS_DEVICE_PIXEL_RATIOS = [1, 2] as const;
  * ## Strategy
  *
  *  1. Run `operation` under the existing Layer A `withTimeout` so a genuine
- *     hang is still bounded by `perAttemptMs`.
+ *     hang is still bounded by `operationBudgetMs`.
  *  2. If it rejects and the rejection IS the destroyed-context signal:
  *       - Wait for the next `framenavigated` settle (`waitForNavigation`)
  *         with a short, separate budget (`STABLE_CONTEXT_SETTLE_TIMEOUT_MS`).
@@ -249,9 +223,9 @@ const MULTIPASS_DEVICE_PIXEL_RATIOS = [1, 2] as const;
  *
  * Worst case for a single helper call:
  *
- *   `(perAttemptMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS) * (1 + maxRetries)`
+ *   `(operationBudgetMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS) * (1 + maxRetries)`
  *
- * With current defaults (perAttemptMs varies by call site, settle=3s,
+ * With current defaults (operationBudgetMs varies by call site, settle=3s,
  * maxRetries=2) the helper consumes at most:
  *
  *   * dynamic-content wait : (5s + 3s) * 3 = 24s
@@ -276,13 +250,19 @@ export const runOnStableContext = async <T>(
   page: CapturePage,
   operation: () => Promise<T>,
   description: string,
-  perAttemptMs: number,
+  operationBudgetMs: number,
+  pacing: PacingLedger,
   maxRetries: number = STABLE_CONTEXT_MAX_RETRIES,
 ): Promise<T> => {
   // #region stable-context-retry
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withTimeout(operation(), perAttemptMs, description);
+      return await withOperationTimeout(
+        operation(),
+        operationBudgetMs,
+        description,
+        pacing,
+      );
     } catch (error) {
       // Non-destroyed-context errors are real failures; do not retry.
       if (!isExecutionContextDestroyed(error)) throw error;
@@ -294,12 +274,13 @@ export const runOnStableContext = async <T>(
       // Wait for the in-flight navigation to settle. Treat a timeout
       // here as "already settled" — the loop falls through to retry
       // either way. The retry attempt does NOT count this settle wait
-      // against `perAttemptMs`.
+      // against `operationBudgetMs`.
       try {
-        await withTimeout(
+        await withOperationTimeout(
           page.waitForNavigation({ waitUntil: "domcontentloaded" }),
           STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
           `${description} (await navigation settle)`,
+          pacing,
         );
       } catch {
         // Navigation already settled before we got here — proceed to retry.
@@ -504,24 +485,27 @@ export const resetPageState = async (
   page: CapturePage,
   workerIndex: number,
   options: ResetStateOptions,
+  pacing: PacingLedger,
 ): Promise<void> => {
   if (!options.cookies && !options.pageContext) return;
 
   let session: Awaited<ReturnType<Page["createCDPSession"]>> | null = null;
   try {
     if (options.pageContext) {
-      await withTimeout(
+      await withOperationTimeout(
         page.goto("about:blank"),
         RESET_PAGE_STATE_TIMEOUT_MS,
         "resetPageState (about:blank)",
+        pacing,
       );
     }
     if (options.cookies) {
       session = await page.createCDPSession();
-      await withTimeout(
+      await withOperationTimeout(
         session.send("Network.clearBrowserCookies"),
         RESET_PAGE_STATE_TIMEOUT_MS,
         "resetPageState (clearBrowserCookies)",
+        pacing,
       );
     }
   } catch (error) {
@@ -628,7 +612,7 @@ export class PageCapturer {
     // `0` hands back the raw page, so the normal path carries no wrapper. The
     // recorder deliberately keeps `rawPage` — delaying the CDP attach buys
     // nothing and would only muddy what the setting means.
-    const page = withOperationDelay(
+    const { page, pacing } = createPacedPage(
       rawPage,
       task.operationDelayMs ?? this.config.operationDelayMs,
     );
@@ -707,13 +691,14 @@ export class PageCapturer {
       for (const [passIndex, deviceScaleFactor] of devicePixelRatios.entries()) {
         await configureViewport(page, viewport, deviceScaleFactor);
 
-        const response = await withTimeout(
+        const response = await withOperationTimeout(
           page.goto(task.url, {
             waitUntil: "domcontentloaded",
             timeout: this.config.timeouts.pageLoadMs,
           }),
           this.config.timeouts.pageLoadMs,
-          `Navigation to ${task.url} (dpr=${String(deviceScaleFactor)})`
+          `Navigation to ${task.url} (dpr=${String(deviceScaleFactor)})`,
+          pacing,
         );
 
         // The first pass decides the task's HTTP verdict. A later pass failing
@@ -749,6 +734,7 @@ export class PageCapturer {
             ),
           `Dynamic content wait for ${task.url}`,
           EVALUATE_DYNAMIC_WAIT_TIMEOUT_MS,
+          pacing,
         );
 
         // Same redirect hazard as the dynamic-content wait above —
@@ -759,10 +745,11 @@ export class PageCapturer {
           () => hideScrollbars(page),
           `hideScrollbars for ${task.url}`,
           STYLE_INJECTION_TIMEOUT_MS,
+          pacing,
         );
 
         if (task.dismissOptions) {
-          dismissReport = await dismissBanners(page, task.dismissOptions);
+          dismissReport = await dismissBanners(page, pacing, task.dismissOptions);
         }
 
         // What was done *to* the page, before the behaviors get their turn.
@@ -816,13 +803,15 @@ export class PageCapturer {
         behaviorReport = await runOnStableContext(
           page,
           () =>
-            withTimeout(
+            withOperationTimeout(
               runBehaviors(page, this.config.behaviors, task.behaviors, traceEnabled),
               behaviorBudgetMs,
               `behaviors for ${task.url}`,
+              pacing,
             ),
           `behaviors for ${task.url}`,
           behaviorBudgetMs + STABLE_CONTEXT_SETTLE_TIMEOUT_MS,
+          pacing,
         );
       }
       // Formats below are captured once, from the state left by the LAST pass
@@ -835,23 +824,23 @@ export class PageCapturer {
       let mhtmlLocation: string | undefined;
 
       if (task.captureFormats.png) {
-        pngLocation = await this.captureScreenshot(page, task, "png");
+        pngLocation = await this.captureScreenshot(page, task, pacing, "png");
       }
 
       if (task.captureFormats.webp) {
-        webpLocation = await this.captureScreenshot(page, task, "webp");
+        webpLocation = await this.captureScreenshot(page, task, pacing, "webp");
       }
 
       if (task.captureFormats.html) {
-        htmlLocation = await this.captureHtml(page, task);
+        htmlLocation = await this.captureHtml(page, task, pacing);
       }
 
       if (task.captureFormats.links) {
-        linksLocation = await this.captureLinks(page, task);
+        linksLocation = await this.captureLinks(page, task, pacing);
       }
 
       if (task.captureFormats.mhtml) {
-        mhtmlLocation = await this.captureMhtml(page, task);
+        mhtmlLocation = await this.captureMhtml(page, task, pacing);
       }
 
       // WACZ packaging happens AFTER all other formats so the WARC includes
@@ -966,13 +955,14 @@ export class PageCapturer {
       // `task.resetState` is fully merged at the request-mapper boundary
       // against `CaptureConfig.resetPageState`, so this layer never has to
       // branch on undefined or merge defaults itself.
-      await resetPageState(page, workerIndex, task.resetState);
+      await resetPageState(page, workerIndex, task.resetState, pacing);
     }
   }
 
   private async captureScreenshot(
     page: CapturePage,
     task: CaptureTask,
+    pacing: PacingLedger,
     type: "png" | "webp"
   ): Promise<string> {
     const filename = generateFilename(task, type);
@@ -996,6 +986,7 @@ export class PageCapturer {
       () => page.screenshot(options),
       `Screenshot (${type}) of ${task.url}`,
       this.config.timeouts.captureMs,
+      pacing,
     );
 
     return this.store.put(
@@ -1005,7 +996,11 @@ export class PageCapturer {
     );
   }
 
-  private async captureHtml(page: CapturePage, task: CaptureTask): Promise<string> {
+  private async captureHtml(
+    page: CapturePage,
+    task: CaptureTask,
+    pacing: PacingLedger,
+  ): Promise<string> {
     const filename = generateFilename(task, "html");
 
     // JS-redirect-aware. `page.content` serialises the document, which
@@ -1018,6 +1013,7 @@ export class PageCapturer {
       () => page.content(),
       `HTML capture of ${task.url}`,
       this.config.timeouts.captureMs,
+      pacing,
     );
 
     return this.store.put(filename, html, "text/html");
@@ -1034,7 +1030,11 @@ export class PageCapturer {
    * absolutised against the page's base URL): drop non-http(s) schemes
    * (mailto:, javascript:, tel:, blob:, ...) and dedupe by exact href.
    */
-  private async captureLinks(page: CapturePage, task: CaptureTask): Promise<string> {
+  private async captureLinks(
+    page: CapturePage,
+    task: CaptureTask,
+    pacing: PacingLedger,
+  ): Promise<string> {
     const filename = generateFilename(task, "links.json");
 
     const raw = await runOnStableContext(
@@ -1051,6 +1051,7 @@ export class PageCapturer {
         ),
       `Link extraction of ${task.url}`,
       this.config.timeouts.captureMs,
+      pacing,
     );
 
     const seen = new Set<string>();
@@ -1101,7 +1102,11 @@ export class PageCapturer {
    * worker-loop cleanup — every call site that opens a session in this
    * module follows the same pattern (see `resetPageState`).
    */
-  private async captureMhtml(page: CapturePage, task: CaptureTask): Promise<string> {
+  private async captureMhtml(
+    page: CapturePage,
+    task: CaptureTask,
+    pacing: PacingLedger,
+  ): Promise<string> {
     const filename = generateFilename(task, "mhtml");
     const session = await page.createCDPSession();
     try {
@@ -1113,6 +1118,7 @@ export class PageCapturer {
           }>,
         `MHTML capture of ${task.url}`,
         this.config.timeouts.captureMs,
+        pacing,
       );
       return await this.store.put(filename, data, "multipart/related");
     } finally {

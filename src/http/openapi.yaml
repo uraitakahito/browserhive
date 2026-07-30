@@ -620,7 +620,7 @@ components:
         operationDelayMs:
           type: integer
           minimum: 0
-          maximum: 5000
+          maximum: 10000
           description: |
             Delay (ms) inserted before each browser operation for this capture,
             so a headless run can be watched live over the DevTools screencast
@@ -634,8 +634,14 @@ components:
 
             When omitted, the server-side default applies (configured via
             `--operation-delay-ms` / `BROWSERHIVE_OPERATION_DELAY_MS`; the
-            built-in default is `0`, i.e. no delay). A large value eats into
-            `--task-timeout` (130s by default) and can fail the task.
+            built-in default is `0`, i.e. no delay).
+
+            The ceiling comes from the task budget and nothing else. A capture
+            issues roughly a dozen paced operations, so about 10s apiece is what
+            still fits inside `--task-timeout` (130s by default); past that the
+            task is failed for taking too long, which is correct. The
+            per-operation budgets do not charge for this delay at all — they
+            bound the operation, not the pause in front of it.
         trace:
           type: boolean
           description: |
