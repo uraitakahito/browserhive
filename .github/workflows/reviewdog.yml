@@ -11,7 +11,13 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # meadow must be on disk for the type-aware rules — see the build step
+      # below. Without this its directory is empty, `pnpm --filter meadow build`
+      # matches no project and exits 0, and the failure only shows up as
+      # `scenarios` resolving to `any`. Same setting as ci.yml.
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
@@ -25,6 +31,9 @@ jobs:
       # tests' `scenarios` import resolves to `any` and every use of it trips
       # no-unsafe-member-access / restrict-plus-operands. Locally this passes
       # regardless, because a previous build left dist/ in place.
+      #
+      # Note this step cannot report its own failure: `pnpm --filter` exits 0
+      # when nothing matches, so a missing submodule makes it a silent no-op.
       - run: pnpm run openapi:generate
       - run: pnpm run openapi:gen-operations
       - run: pnpm --filter meadow build
