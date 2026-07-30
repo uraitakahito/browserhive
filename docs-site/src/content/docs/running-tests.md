@@ -85,27 +85,57 @@ fixture origin is reached through the platform DNS name, both of which resolve
 from the host and from the Chromium workers. Point them elsewhere with
 `E2E_API_URL` and `E2E_MEADOW_URL`.
 
-The fixture origin is [meadow](https://uraitakahito.github.io/meadow/); what
-each of its routes reproduces is on
+The fixture origin is [meadow](https://uraitakahito.github.io/meadow/) — a
+workspace member, so `pnpm install` only links it. Its `dist/` is built by
+`pnpm run test:e2e` when the suite needs it; build it by hand with
+`pnpm --filter meadow build` if you want it earlier. What each of its routes
+reproduces is on
 [its Scenarios page](https://uraitakahito.github.io/meadow/scenarios/). For the
 surrounding dev loop — running a work-in-progress server on the host against
 these same containers — see [Development environment](/development-environment/).
 
+### When a test fails
+
+The default reporter prints the server's own verdict on the capture underneath
+the failure — the `taskId`, whether the capture succeeded, how many times it was
+retried, and where the artifacts landed:
+
+```
+× flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit
+   ↳ taskId=2805f4ac-… url=http://meadow.browserhive:8080/flaky?fail=2&key=e2e
+   ↳ status=success retryCount=2
+   ↳ {"html":"s3://browserhive/2805f4ac-…_e2e.html"}
+
+AssertionError: expected 3 to be 99
+```
+
+The assertions are about the fixture origin's hit counters, so the first
+question on a failure is whether the capture succeeded at all — that line
+answers it without reading the server log. The `taskId` is annotated *before*
+the wait begins, so it survives a timeout, which is exactly when you need it to
+find the task in `container logs browserhive.browserhive`. All of this comes
+from `annotate()` calls in `test/e2e/helpers/capture.ts`.
+
+Passing runs print none of this. Add `--reporter=verbose` to see it anyway:
+
+```sh
+pnpm exec vitest run --project e2e --reporter=verbose
+```
+
 ## The UI
 
 `@vitest/ui` gives the same view interactively or as a static bundle. It is
-worth reaching for mainly on the E2E suite, because that is where the tests
-annotate what they observed:
+worth reaching for mainly on the E2E suite, because that is where the
+annotations above live:
 
 ```sh
 pnpm run test:ui:e2e
 ```
 
-Each capture is annotated with its `taskId`, the server's own verdict
-(`status`, `retryCount`) and where the artifacts landed — see
-`test/e2e/helpers/capture.ts`. The UI renders these as a **Test Annotations**
-panel, with the type, the message and the source location, and its **Code** tab
-inlines each one at the `annotate()` call that produced it:
+Instead of loose lines in a log, the UI collects them into a **Test
+Annotations** panel — the type, the message and the source location — and its
+**Code** tab inlines each one at the `annotate()` call that produced it, so you
+read the observation next to the code that made it:
 
 ```
 Test Annotations
@@ -114,11 +144,8 @@ Test Annotations
   artifacts   {"html":"s3://browserhive/156536c8-…_e2e.html"}
 ```
 
-The assertions in that suite are about the fixture origin's hit counters, so
-when one fails the first question is whether the capture succeeded at all.
-These lines answer it without opening the server log, and the `taskId` is
-annotated *before* the wait begins so it survives a timeout — exactly when you
-need it to find the task in `container logs browserhive.browserhive`.
+Unlike the default reporter, this shows up whether the test passed or failed —
+no `--reporter=verbose` needed.
 
 `test:ui` is deliberately scoped to the `unit` project. Without a project
 filter Vitest also collects `e2e`, whose global setup spends its 45 seconds

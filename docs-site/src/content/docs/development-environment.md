@@ -7,6 +7,10 @@ The stack (SeaweedFS + chromium workers + the server) runs on
 [Apple Container](https://github.com/apple/container); the server code you
 are editing runs **on the host**. There is no dev container.
 
+This page is about running and observing the server. Running the suite against
+it — the two Vitest projects, what the E2E tests need, the `@vitest/ui` report —
+is on [Running the tests](/running-tests/).
+
 ## Full stack (when you just need a running BrowserHive)
 
 ```sh title="SeaweedFS + 1 worker + browserhive:prod"
@@ -42,43 +46,6 @@ BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive \
 BROWSERHIVE_S3_FORCE_PATH_STYLE=true \
 LOG_LEVEL=info pnpm run server | pino-pretty
 ```
-
-[`meadow`](https://uraitakahito.github.io/meadow/) — the fixture origin the E2E
-suite captures against — is a workspace member, so the install only links it.
-Its `dist/` is built by `pnpm run test:e2e` when the E2E suite needs it — build
-it by hand with `pnpm --filter meadow build` if you want it earlier. What each
-of its routes reproduces is on
-[its Scenarios page](https://uraitakahito.github.io/meadow/scenarios/).
-
-When an E2E test fails, the server's own verdict on the capture is printed
-underneath it — the `taskId`, whether the capture succeeded, how many times it
-was retried, and where the artifacts landed:
-
-```
-× flaky(2): browserhive retries via real Chrome and succeeds on the 3rd hit
-   ↳ taskId=2805f4ac-… url=http://meadow.browserhive:8080/flaky?fail=2&key=e2e
-   ↳ status=success retryCount=2
-   ↳ {"html":"s3://browserhive/2805f4ac-…_e2e.html"}
-
-AssertionError: expected 3 to be 99
-```
-
-These assertions are about meadow's hit counters, so the first question on a
-failure is whether the capture succeeded at all — that line answers it without
-reading the server log. The `taskId` is annotated before the wait begins, so it
-survives a timeout, which is exactly when you need it to find the task in
-`container logs browserhive.browserhive`.
-
-Passing runs print none of this. Add `--reporter=verbose` to see it anyway:
-
-```sh
-pnpm exec vitest run --project e2e --reporter=verbose
-```
-
-The same annotations read better in `@vitest/ui`, which groups them into a
-panel and inlines them in the source. See
-[Running the tests](/running-tests/) for that and for the rest of the suite —
-the two Vitest projects, the static report, and what CI runs.
 
 (Stop the containerized server first — `container stop browserhive.browserhive` —
 if you want port 8080 for the host process.)
