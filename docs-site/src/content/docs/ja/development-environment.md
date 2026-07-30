@@ -87,15 +87,15 @@ chromium-server 側のドキュメント
 
 ### 速すぎて見えないとき — `operationDelayMs`
 
-既定ではキャプチャが数秒で終わる(example.com で約 6 秒)ため、スクリーンキャストを
-開くころには完了している。リクエストに `operationDelayMs` を付けると
+軽いページならキャプチャは数秒で終わるので、スクリーンキャストを開くころには
+完了している。リクエストに `operationDelayMs` を付けると
 **各ブラウザ操作の前に遅延が入り**、1 手ずつ進む様子を追える:
 
 ```bash
 curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
   -H 'content-type: application/json' \
   -d '{
-    "url": "https://www.example.com/",
+    "url": "https://www.yahoo.co.jp/",
     "operationDelayMs": 250,
     "captureFormats": {
       "png": true, "webp": false, "html": false,
@@ -105,20 +105,21 @@ curl -sS --fail-with-body -X POST http://localhost:8080/v1/captures \
 ```
 
 **そのリクエストにだけ**効く(ブラウザ接続は張り替えないので、他のキャプチャは
-速いまま)。実測(example.com、PNG 1 枚):
+速いまま)。実測(`www.yahoo.co.jp`、PNG 1 枚):
 
 | `operationDelayMs` | 1 キャプチャの所要時間 |
 |---|---|
-| 省略(既定 `0`) | 約 6 秒 |
-| `250` | 約 10 秒 |
-| `1000` | 約 19 秒 |
+| 省略(既定 `0`) | 約 30 秒 |
+| `250` | 約 33 秒 |
+| `1000` | 約 41 秒 |
 
 - 全リクエストを遅くしたいときは、サーバ既定を
   `--operation-delay-ms` / `BROWSERHIVE_OPERATION_DELAY_MS` で設定する
   (リクエストの値が優先)。
 - 遅くなるのは **BrowserHive が出すブラウザ操作の間隔**であって、ページ自身の
-  描画やスクロール速度ではない。スクロールをゆっくり見たいならリクエストの
-  `behaviors.options.autoscroll.stepDelayMs` を上げる。
+  描画やスクロール速度ではない。だから上の合計は遅延の見た目ほど伸びない —
+  これだけ重いページでは読み込み自体が支配的になる。スクロールをゆっくり見たい
+  ならリクエストの `behaviors.options.autoscroll.stepDelayMs` を上げる。
 - 大きすぎる値は `--task-timeout`(既定 130 秒)に当たってタスクが失敗する。
 
 ## SeaweedFS 内の成果物を閲覧する
