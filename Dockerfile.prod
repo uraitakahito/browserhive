@@ -57,11 +57,14 @@ COPY src ./src
 COPY bin ./bin
 COPY scripts ./scripts
 
-# Git revision baked into src/generated/version.ts (surfaced at
-# /v1/status.build). The build context has no .git, so generate-version.mjs
-# reads it from GIT_REV rather than `git rev-parse`. Defaults to "dev".
+# Git revision and release tag baked into src/generated/version.ts (surfaced
+# at /v1/status.build). The build context has no .git, so generate-version.mjs
+# reads them from the environment rather than asking git. GIT_REV defaults to
+# "dev"; GIT_TAG left empty falls back to the package.json version.
 ARG GIT_REV=dev
 ENV GIT_REV=$GIT_REV
+ARG GIT_TAG=
+ENV GIT_TAG=$GIT_TAG
 
 # prep (openapi:generate + generate:version) via the prebuild hook + tsc -> ./dist
 # (pnpm needs enablePrePostScripts in pnpm-workspace.yaml for that hook to fire)
