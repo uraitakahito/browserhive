@@ -5,16 +5,16 @@
 import { describe, it, expect, inject } from "vitest";
 import { scenarios } from "meadow";
 
-import { submitAndWait, captureRequest, resetMeadow, meadowHits } from "./helpers/capture.js";
+import { submitAndWait, captureRequest, resetMeadow, meadowRequestCounts } from "./helpers/capture.js";
 
 const api = inject("api");
 const meadow = inject("meadow");
 
 describe("browserhive + chromium-server-docker + meadow", () => {
-  it("captures /ok end-to-end through the real stack", async ({ annotate }) => {
+  it("captures /plain-html end-to-end through the real stack", async ({ annotate }) => {
     await resetMeadow(meadow);
-    await submitAndWait(api, captureRequest(meadow + scenarios.ok), annotate);
-    const hits = await meadowHits(meadow);
-    expect(hits[scenarios.ok]).toBeGreaterThanOrEqual(1);
+    await submitAndWait(api, captureRequest(meadow + scenarios.plainHtml), annotate);
+    const hits = await meadowRequestCounts(meadow);
+    expect(hits[scenarios.plainHtml]).toBeGreaterThanOrEqual(1);
   });
 });

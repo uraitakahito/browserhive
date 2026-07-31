@@ -21,15 +21,15 @@ const meadow = inject("meadow");
 
 describe("pacing does not consume the operation budgets", () => {
   it("operationDelayMs=2000 still succeeds", async ({ annotate }) => {
-    // The regression itself. `/ok` settles instantly, so the only thing that
+    // The regression itself. `/plain-html` settles instantly, so the only thing
     // can push the dynamic-content wait over its 5s budget is the pause we
     // inserted ourselves — which is exactly what must not happen.
     //
     // Before the fix this failed with:
-    //   Timeout: Dynamic content wait for http://…/ok (5000ms)
+    //   Timeout: Dynamic content wait for http://…/plain-html (5000ms)
     const report = await submitAndWait(
       api,
-      captureRequest(meadow + scenarios.ok, { operationDelayMs: 2000 }),
+      captureRequest(meadow + scenarios.plainHtml, { operationDelayMs: 2000 }),
       annotate,
     );
 
@@ -102,7 +102,7 @@ describe("operation budgets still expire against a real browser", () => {
     // thread. `resetPageState` navigates to about:blank, which is browser-side
     // work and should not care — but "should not" is the reason this test is
     // here rather than a comment.
-    const report = await submitAndWait(api, captureRequest(meadow + scenarios.ok), annotate);
+    const report = await submitAndWait(api, captureRequest(meadow + scenarios.plainHtml), annotate);
 
     expect(report.status).toBe("success");
     expect(report.retryCount).toBe(0);

@@ -157,12 +157,12 @@ export async function submitAndWait(
   return report!;
 }
 
-/** Zero meadow's per-URL hit counters and flaky state (test isolation). */
+/** Zero meadow's per-URL request counts and failure counters (test isolation). */
 export async function resetMeadow(meadow: string): Promise<void> {
   await fetch(`${meadow}/__reset`, { method: "POST" });
 }
 
 /** meadow's per-URL request counts — the black-box evidence of browser behaviour. */
-export async function meadowHits(meadow: string): Promise<Record<string, number>> {
-  return getJson<Record<string, number>>(`${meadow}/__hits`);
+export async function meadowRequestCounts(meadow: string): Promise<Record<string, number>> {
+  return getJson<Record<string, number>>(`${meadow}/__request-counts`);
 }
