@@ -26,12 +26,14 @@ describe("meadow scenarios through browserhive + chromium-server-docker", () => 
   it("redirect-page: client-side location.replace is followed to /landed", async ({ annotate }) => {
     await submitAndWait(api, captureRequest(meadow + scenarios.redirectPage), annotate);
     const hits = await meadowHits(meadow);
-    expect(hits["/landed"]).toBeGreaterThanOrEqual(1);
+    // Through the contract rather than as a literal: meadow owns these paths,
+    // and a rename there should break the build here, not a run months later.
+    expect(hits[scenarios.landed]).toBeGreaterThanOrEqual(1);
   });
 
   it("lazy: autoScroll pulls the below-the-fold image", async ({ annotate }) => {
     await submitAndWait(api, captureRequest(meadow + scenarios.lazy), annotate);
     const hits = await meadowHits(meadow);
-    expect(hits["/assets/below.svg"]).toBeGreaterThanOrEqual(1);
+    expect(hits[scenarios.asset("below.svg")]).toBeGreaterThanOrEqual(1);
   });
 });
