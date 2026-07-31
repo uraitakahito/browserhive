@@ -111,7 +111,14 @@ services:
   # platform DNS, and the host-side test process resolves the SAME name
   # for /__reset and /__hits — no port publishing needed.
   meadow:
-    build: ./meadow
+    build:
+      context: ./meadow
+      args:
+        # Baked into meadow's /__version, which the E2E setup compares against
+        # the submodule before running anything. Evaluated inside the submodule,
+        # hence -C. Use `pnpm run stack:up` rather than passing these by hand.
+        GIT_TAG: "${MEADOW_TAG:-}"
+        GIT_REV: "${MEADOW_REV:-dev}"
     profiles: ["meadow"]
 
 volumes:
