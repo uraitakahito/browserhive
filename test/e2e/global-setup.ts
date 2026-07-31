@@ -13,6 +13,8 @@
  *
  * Endpoints are handed to tests via `provide` / `inject` (typed below).
  */
+import { execFileSync } from "node:child_process";
+
 import type { ProvidedContext } from "vitest";
 
 interface StackEndpoints {
@@ -49,9 +51,49 @@ export default async function setup({ provide }: GlobalSetupApi): Promise<void> 
     );
   }
 
+  await assertMeadowIsCurrent(endpoints.meadow);
+
   provide("api", endpoints.api);
   provide("meadow", endpoints.meadow);
 }
+
+/**
+ * Fail if the running meadow was not built from the commit we pin.
+ *
+ * A container nobody rebuilt keeps serving the fixtures it was baked with, and
+ * the assertions that fail as a result fail for reasons that look like anything
+ * but a stale image — a scenario that "does not exist", a counter that stays at
+ * zero. Cheaper to ask up front.
+ *
+ * `revision` rather than `version`: a tag only moves at release time, so during
+ * development every meadow build reports the same version and only the commit
+ * tells them apart.
+ *
+ * `dev` means the image was built without being told where it came from, which
+ * is exactly the state in which staleness goes unnoticed — so that fails too,
+ * rather than passing on the grounds that nothing could be checked.
+ */
+const assertMeadowIsCurrent = async (meadow: string): Promise<void> => {
+  const { revision } = (await fetch(`${meadow}/__version`).then((r) => r.json())) as {
+    revision: string;
+  };
+  const pinned = execFileSync("git", ["-C", "meadow", "rev-parse", "--short", "HEAD"])
+    .toString()
+    .trim();
+
+  if (revision === "dev") {
+    throw new Error(
+      "the meadow container does not record which commit it was built from — " +
+        "bring the stack up with `pnpm run stack:up`, which passes it",
+    );
+  }
+  if (revision !== pinned) {
+    throw new Error(
+      `the meadow container was built from ${revision}, but the submodule points at ${pinned} — ` +
+        "rebuild it: pnpm run stack:up",
+    );
+  }
+};
 
 declare module "vitest" {
   export interface ProvidedContext {
