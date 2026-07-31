@@ -11,17 +11,24 @@
  *      .git, so `git rev-parse` cannot work inside the image build).
  *   2. `git rev-parse --short HEAD` — host / local builds.
  *   3. "dev" — neither available.
+ *
+ * version resolution: the same three steps, because package.json is not the
+ * answer. Nothing in this workspace keeps that field in step with releases —
+ * it has said 1.0.0 since the day it was written, through every tag up to
+ * 1.9.x — so a running server was reporting a number that matched no release
+ * anyone could fetch. The tag is what a release IS here, so ask git for it.
+ *
+ * The leading `v` is dropped: `v1.9.10` is the tag name and `1.9.10` is the
+ * version, and this field is the version.
  */
 import { execSync } from "node:child_process";
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 
-const gitRev = () => {
+const git = (cmd) => {
   try {
-    return execSync("git rev-parse --short HEAD", {
-      stdio: ["ignore", "pipe", "ignore"],
-    })
+    return execSync(cmd, { stdio: ["ignore", "pipe", "ignore"] })
       .toString()
       .trim();
   } catch {
@@ -29,10 +36,15 @@ const gitRev = () => {
   }
 };
 
-const revision = process.env.GIT_REV?.trim() || gitRev() || "dev";
+const revision = process.env.GIT_REV?.trim() || git("git rev-parse --short HEAD") || "dev";
+
+// `describe` also covers the off-a-release case: 1.9.10-3-gabc1234 says, out
+// loud, that this build is three commits past the tag it names.
+const described = process.env.GIT_TAG?.trim() || git("git describe --tags") || null;
+const version = described ? described.replace(/^v/, "") : pkg.version;
 
 const info = {
-  version: pkg.version,
+  version,
   revision,
   buildTime: new Date().toISOString(),
 };
