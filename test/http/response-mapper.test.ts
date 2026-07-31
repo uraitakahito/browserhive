@@ -20,6 +20,7 @@ import type {
 } from "../../src/capture/capture-coordinator.js";
 import { createTestBrowserProfile } from "../helpers/config.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
+import { BUILD_INFO } from "../../src/generated/version.js";
 
 describe("taskToAcceptance", () => {
   it("includes correlationId when present", () => {
@@ -188,10 +189,12 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
     expect(response.workers).toHaveLength(1);
     expect(response.workers[0]?.health).toBe("busy");
     expect(response.queue.pendingTasks).toEqual([]);
-    // Build fingerprint is baked in at build time (revision/buildTime vary).
-    expect(response.build.version).toBe("1.0.0");
-    expect(typeof response.build.revision).toBe("string");
-    expect(typeof response.build.buildTime).toBe("string");
+    // The whole fingerprint is baked in at build time and every field of it
+    // varies — version included, now that it comes from `git describe` rather
+    // than a package.json field nobody updates. What this mapper owes is a
+    // faithful pass-through, so compare against what was baked rather than
+    // against a literal, which would only re-test the generator.
+    expect(response.build).toEqual(BUILD_INFO);
   });
 
   it("propagates currentTask from coordinator status to wire", () => {

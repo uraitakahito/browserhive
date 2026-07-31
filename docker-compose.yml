@@ -70,10 +70,13 @@ services:
       context: .
       dockerfile: Dockerfile.prod
       args:
-        # Bake the git revision into /v1/status.build. Pass the current commit
-        # when building: `GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b`.
-        # Defaults to "dev" when not provided.
+        # Bake the git revision and release tag into /v1/status.build. Pass them
+        # when building:
+        #   GIT_REV=$(git rev-parse --short HEAD) GIT_TAG=$(git describe --tags) \
+        #     container-compose up -d -b
+        # GIT_REV defaults to "dev"; an empty GIT_TAG falls back to package.json.
         GIT_REV: "${GIT_REV:-dev}"
+        GIT_TAG: "${GIT_TAG:-}"
     ports:
       - "127.0.0.1:8080:8080"
     environment:
