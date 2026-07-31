@@ -70,33 +70,83 @@ export default defineConfig({
         root: { label: "English", lang: "en" },
         ja: { label: "日本語", lang: "ja" },
       },
+      // Every entry carries a `ja` translation. Starlight localises the pages
+      // but not the nav, so without these a Japanese reader gets a fully
+      // translated page hanging off an English label — and has to guess which
+      // of nine "For developers" entries is the one about tests.
       sidebar: [
-        { label: "Quickstart", slug: "quickstart" },
+        { label: "Quickstart", translations: { ja: "クイックスタート" }, slug: "quickstart" },
         {
           label: "Guides",
+          translations: { ja: "ガイド" },
           items: [
-            { label: "Development environment", slug: "development-environment" },
-            { label: "Environment variables", slug: "environment-variables" },
-            { label: "Behaviors", slug: "behaviors" },
-            { label: "Capture results", slug: "capture-results" },
-            { label: "Storage", slug: "storage" },
-            { label: "TLS certificates", slug: "tls-certificates" },
-            { label: "Replay quickstart", slug: "replay-quickstart" },
-            { label: "Related projects", slug: "related-projects" },
+            {
+              label: "Development environment",
+              translations: { ja: "開発環境" },
+              slug: "development-environment",
+            },
+            {
+              label: "Environment variables",
+              translations: { ja: "環境変数" },
+              slug: "environment-variables",
+            },
+            { label: "Behaviors", translations: { ja: "Behavior（挙動）" }, slug: "behaviors" },
+            {
+              label: "Capture results",
+              translations: { ja: "キャプチャ結果" },
+              slug: "capture-results",
+            },
+            { label: "Storage", translations: { ja: "ストレージ" }, slug: "storage" },
+            {
+              label: "TLS certificates",
+              translations: { ja: "TLS 証明書" },
+              slug: "tls-certificates",
+            },
+            {
+              label: "Replay quickstart",
+              translations: { ja: "Replay クイックスタート" },
+              slug: "replay-quickstart",
+            },
+            {
+              label: "Related projects",
+              translations: { ja: "関連プロジェクト" },
+              slug: "related-projects",
+            },
           ],
         },
         {
           label: "For developers",
+          translations: { ja: "開発者向け" },
           items: [
-            { label: "Architecture", slug: "architecture" },
-            { label: "Running the tests", slug: "running-tests" },
-            { label: "Examples", slug: "examples" },
-            { label: "XState primer", slug: "xstate-primer" },
-            { label: "Worker spawn & loop", slug: "worker-spawn-and-loop" },
-            { label: "Terminology", slug: "terminology" },
-            { label: "Glossary reference", slug: "glossary-reference" },
-            { label: "WACZ vocabulary", slug: "wacz-vocabulary" },
-            { label: "WACZ internals", slug: "wacz-internals" },
+            { label: "Architecture", translations: { ja: "アーキテクチャ" }, slug: "architecture" },
+            {
+              label: "Running the tests",
+              translations: { ja: "テストの実行" },
+              slug: "running-tests",
+            },
+            { label: "Examples", translations: { ja: "examples" }, slug: "examples" },
+            { label: "XState primer", translations: { ja: "XState 入門" }, slug: "xstate-primer" },
+            {
+              label: "Worker spawn & loop",
+              translations: { ja: "ワーカーの生成とループ" },
+              slug: "worker-spawn-and-loop",
+            },
+            { label: "Terminology", translations: { ja: "用語集" }, slug: "terminology" },
+            {
+              label: "Glossary reference",
+              translations: { ja: "用語リファレンス" },
+              slug: "glossary-reference",
+            },
+            {
+              label: "WACZ vocabulary",
+              translations: { ja: "WACZ 用語の使い分け" },
+              slug: "wacz-vocabulary",
+            },
+            {
+              label: "WACZ internals",
+              translations: { ja: "WACZ internals" },
+              slug: "wacz-internals",
+            },
           ],
         },
         {
@@ -106,6 +156,7 @@ export default defineConfig({
           // "/ja/api/" (a 404) on Japanese pages; an absolute URL is left
           // untouched. It also has no page in a local `astro build`.
           label: "API reference ↗",
+          translations: { ja: "API リファレンス ↗" },
           link: "https://uraitakahito.github.io/browserhive/api/",
         },
       ],
