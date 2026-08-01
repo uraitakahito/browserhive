@@ -38,6 +38,16 @@ const HTML_ONLY: CaptureFormats = {
   wacz: false,
 };
 
+/** For tests that inspect the archive itself; skips the artefacts they ignore. */
+export const WACZ_ONLY: CaptureFormats = {
+  png: false,
+  webp: false,
+  html: false,
+  links: false,
+  mhtml: false,
+  wacz: true,
+};
+
 export interface CaptureOptions {
   formats?: CaptureFormats;
   /**
