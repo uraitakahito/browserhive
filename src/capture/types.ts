@@ -152,12 +152,15 @@ export interface CaptureResult {
   /**
    * WACZ completeness verdict — whether the archive actually holds the bytes a
    * replay will ask for. Set alongside `waczStats`. `complete: false` means at
-   * least one URL was only ever seen as `304` (the browser revalidated a cached
-   * copy, so no body reached the recorder) and replay cannot fetch it. See
-   * `src/storage/wacz/completeness.ts` for the invariant.
+   * least one body is missing, for one of two reasons kept apart because only
+   * the second is ours to fix: `bodylessUrls` (the URL was only ever seen as a
+   * `304` — the browser revalidated a cached copy, so no body reached the
+   * recorder) and `truncatedUrls` (the body arrived but a size cap dropped it).
+   * See `src/storage/wacz/completeness.ts` for the invariant.
    */
   completeness?: {
     bodylessUrls: string[];
+    truncatedUrls: string[];
     complete: boolean;
   };
   errorDetails?: ErrorDetails;

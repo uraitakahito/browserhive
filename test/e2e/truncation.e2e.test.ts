@@ -15,7 +15,13 @@
 import { describe, expect, inject, it } from "vitest";
 import { scenarios } from "meadow";
 
-import { captureRequest, submitAndWait, WACZ_ONLY, type Annotate } from "./helpers/capture.js";
+import {
+  captureRequest,
+  submitAndWait,
+  WACZ_ONLY,
+  type Annotate,
+  type CaptureResultReport,
+} from "./helpers/capture.js";
 import { cdxjEntries, fetchArtifact, makeS3, openWacz, warcText } from "./helpers/artifact.js";
 
 const api = inject("api");
@@ -38,6 +44,8 @@ const CAP_BYTES = 20 * 1024 * 1024;
 interface Archive {
   warc: string;
   cdxj: Record<string, unknown>[];
+  /** The server's own account of the same capture, for cross-checking. */
+  report: CaptureResultReport;
 }
 
 let pending: Promise<Archive> | undefined;
@@ -58,7 +66,7 @@ const oversizedCapture = (annotate: Annotate): Promise<Archive> => {
     expect(report.status).toBe("success");
 
     const entries = openWacz(await fetchArtifact(s3, report.artifacts.wacz!));
-    return { warc: warcText(entries), cdxj: cdxjEntries(entries) };
+    return { warc: warcText(entries), cdxj: cdxjEntries(entries), report };
   })();
   return pending;
 };
@@ -74,6 +82,20 @@ describe("a response over maxResponseBytes", () => {
     // `it.fails` blocks below — that form passes as long as *something* in it
     // throws, so a broken expectation next to a working one is invisible.
     expect(warc).toContain("truncated: too-large");
+  });
+
+  it("makes the capture report the archive as incomplete", async ({ annotate }) => {
+    const { report } = await oversizedCapture(annotate);
+
+    // The count was always reported; the verdict was not. An archive missing a
+    // 21 MiB body used to come back `complete: true`, which is the one answer a
+    // caller cannot act on.
+    expect(report.waczStats?.totalTruncatedTooLarge).toBe(1);
+    expect(report.completeness?.truncatedUrls).toEqual([
+      meadow + scenarios.largeBody(OVERSIZED_BYTES),
+    ]);
+    expect(report.completeness?.bodylessUrls).toEqual([]);
+    expect(report.completeness?.complete).toBe(false);
   });
 
   /**

@@ -837,6 +837,9 @@ export class NetworkRecorder {
         if (info.payloadDigest !== undefined) {
           recorded.payloadDigest = info.payloadDigest;
         }
+        if (entry.skipBodyReason !== undefined) {
+          recorded.bodySkipReason = entry.skipBodyReason;
+        }
         this.recordedResponses.push(recorded);
       },
     );

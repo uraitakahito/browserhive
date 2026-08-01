@@ -387,6 +387,12 @@ describe("NetworkRecorder filters", () => {
     const warc = dumpWarc(path);
     expect(warc).toContain("truncated: too-large");
     expect(warc).toContain("encodedDataLength: 1000");
+
+    // The reason travels with the recorded response, not just into the WARC:
+    // `analyzeCompleteness` reads these to decide whether the archive holds
+    // everything a replay will ask for, and `payloadDigest === undefined`
+    // cannot distinguish a dropped body from a redirect.
+    expect(result.responses.map((r) => r.bodySkipReason)).toEqual(["too-large"]);
   });
 
   it("transitions to task-cap after cumulative bytes exceed maxTaskBytes", async () => {
