@@ -27,9 +27,16 @@ cd browserhive
 
 ## Step 2 — Bring the stack up
 
-```bash title="SeaweedFS + chromium worker + BrowserHive"
-container-compose up -d -b
+```bash title="SeaweedFS + chromium worker + BrowserHive + capping"
+container-compose --profile signing up -d -b
 ```
+
+`--profile signing` starts [capping](https://uraitakahito.github.io/capping/),
+the local wacz-auth signing service. Leave it off and everything below still
+works, except that a capture asking for `signing: true` comes back
+`signature.signed: false` — the archive is written unsigned, the capture
+succeeds, and nothing else indicates the service was missing. Starting it from
+the outset avoids that.
 
 Everything starts as Apple Container containers (lightweight VMs), wired
 together by their platform DNS names. Only BrowserHive's port 8080 is
@@ -41,6 +48,7 @@ published to the host. The default is one chromium worker; add more with
 | BrowserHive API | http://localhost:8080 | Accepts captures |
 | SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | Artifact store |
 | chromium workers | `http://chromium-N.browserhive:9222` | CDP; watch via `chrome://inspect` |
+| capping | `http://capping.browserhive:8080` | Signs a WACZ when a capture asks (`--profile signing`) |
 
 Check the state (until the stack is up, curl reports the failure itself):
 
@@ -171,8 +179,8 @@ image, and when that happens the build succeeds while the server keeps serving
 the old code — the confusing failure this section exists to avoid.
 
 ```bash title="Rebuild and replace — artifacts survive in the volume"
-container-compose down
-GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
+container-compose --profile signing down
+GIT_REV=$(git rev-parse --short HEAD) container-compose --profile signing up -d -b
 ```
 
 `GIT_REV` bakes the commit into the `build` field of `/v1/status`. **Check it
@@ -185,8 +193,8 @@ curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
 # revision matches your HEAD (git rev-parse --short HEAD) when up to date
 ```
 
-If `revision` is not your HEAD, the container is stale: `container-compose down`
-and build again.
+If `revision` is not your HEAD, the container is stale:
+`container-compose --profile signing down` and build again.
 
 To rebuild only browserhive and leave chromium / SeaweedFS running, remove that
 one container instead of taking the stack down:
@@ -203,7 +211,7 @@ needed, but the container still has to be recreated for them to apply — same
 ## Tear down
 
 ```bash title="Artifacts survive in the browserhive_seaweedfs-data volume"
-container-compose down
+container-compose --profile signing down
 ```
 
 ---

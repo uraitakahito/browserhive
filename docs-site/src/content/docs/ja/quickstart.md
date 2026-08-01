@@ -27,9 +27,16 @@ cd browserhive
 
 ## Step 2 — スタックを起動する
 
-```bash title="SeaweedFS + chromium worker + BrowserHive"
-container-compose up -d -b
+```bash title="SeaweedFS + chromium worker + BrowserHive + capping"
+container-compose --profile signing up -d -b
 ```
+
+`--profile signing` はローカルの wacz-auth 署名サービス
+[capping](https://uraitakahito.github.io/capping/ja/) を起動します。付けなくても
+以下はすべて動きますが、`signing: true` を要求したキャプチャが
+`signature.signed: false` で返るようになります —— アーカイブは署名なしで書き出され、
+キャプチャは成功し、**それ以外にサービスが居ないことを示すものはありません**。
+最初から起動しておけば、この状態に迷い込まずに済みます。
 
 すべて Apple Container 上のコンテナ(軽量 VM)として起動し、プラットフォーム
 DNS 名で配線されます。ホストに公開されるのは BrowserHive の 8080 だけです。
@@ -41,6 +48,7 @@ DNS 名で配線されます。ホストに公開されるのは BrowserHive の
 | BrowserHive API | http://localhost:8080 | キャプチャ受付 |
 | SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | 成果物の保存先 |
 | chromium worker | `http://chromium-N.browserhive:9222` | CDP。目視は `chrome://inspect` |
+| capping | `http://capping.browserhive:8080` | キャプチャが要求したとき WACZ に署名する(`--profile signing`) |
 
 状態を確認します(まだ起動していなければ curl がそのまま失敗を報告します):
 
@@ -168,8 +176,8 @@ BrowserHive のイメージはビルド時にソースを取り込む(`Dockerfil
 返し続ける**という、いちばん気付きにくい状態になります。
 
 ```bash title="作り直して入れ替える — 成果物は volume に残る"
-container-compose down
-GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b
+container-compose --profile signing down
+GIT_REV=$(git rev-parse --short HEAD) container-compose --profile signing up -d -b
 ```
 
 `GIT_REV` はコミットを `/v1/status` レスポンスの `build` に焼き込みます。
@@ -182,8 +190,8 @@ curl -sS --fail-with-body http://localhost:8080/v1/status | jq '.build'
 # revision が HEAD (git rev-parse --short HEAD) と一致していれば最新
 ```
 
-`revision` が HEAD と違っていればコンテナが古いので、`container-compose down`
-してからビルドし直します。
+`revision` が HEAD と違っていればコンテナが古いので、
+`container-compose --profile signing down` してからビルドし直します。
 
 chromium / SeaweedFS は動かしたまま browserhive だけ作り直したい場合は、
 スタックを落とす代わりにそのコンテナだけ削除します:
@@ -200,7 +208,7 @@ GIT_REV=$(git rev-parse --short HEAD) container-compose up -d -b browserhive
 ## 片付け
 
 ```bash title="成果物は volume (browserhive_seaweedfs-data) に残る"
-container-compose down
+container-compose --profile signing down
 ```
 
 ---
