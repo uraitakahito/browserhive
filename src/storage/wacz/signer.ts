@@ -69,6 +69,31 @@ export interface HttpSignerOptions {
 }
 
 /**
+ * `<url> — <what happened>`.
+ *
+ * The endpoint belongs in the reason because a deployment can have more than
+ * one thing it might have been talking to, and because the most common cause
+ * of an unsigned archive is that this address points at nothing.
+ */
+const describe = (url: string, what: string): string => `${url} — ${what}`;
+
+/**
+ * What actually went wrong, not what `fetch` calls it.
+ *
+ * `fetch` reports every transport problem as the string "fetch failed" and
+ * puts the real one in `cause` — so "getaddrinfo ENOTFOUND capping.browserhive"
+ * (the container is not running) and a mistyped URL arrive looking identical.
+ *
+ * That matters more here than it would elsewhere. A capture whose signature
+ * fails still succeeds, so this line is frequently the only trace that
+ * anything went wrong at all.
+ */
+const explain = (err: unknown): string => {
+  if (!(err instanceof Error)) return String(err);
+  return err.cause instanceof Error ? `${err.message}: ${err.cause.message}` : err.message;
+};
+
+/**
  * A signer that asks an authsign-shaped HTTP service.
  *
  * Every network concern lives in here — `fetch`, the timeout, the token, and
@@ -93,12 +118,12 @@ export const createHttpSigner = (options: HttpSignerOptions): WaczSigner => ({
       if (!res.ok) {
         // The status is the diagnosis: 401 means the token is wrong, which is
         // a different fix from the service being down. Keep it in the reason.
-        return { report: { signed: false, reason: `signing service returned ${String(res.status)}` } };
+        return { report: { signed: false, reason: describe(options.url, `returned ${String(res.status)}`) } };
       }
 
       const signedData = (await res.json()) as { domain?: unknown };
       if (typeof signedData.domain !== "string") {
-        return { report: { signed: false, reason: "signing service returned no domain" } };
+        return { report: { signed: false, reason: describe(options.url, "returned no domain") } };
       }
 
       // `hash` is ours, not the response's — the file has to describe the
@@ -111,9 +136,7 @@ export const createHttpSigner = (options: HttpSignerOptions): WaczSigner => ({
     } catch (err) {
       // Timeout, DNS, connection refused, malformed JSON — all land here, and
       // all mean the same thing to the caller: carry on without a signature.
-      return {
-        report: { signed: false, reason: err instanceof Error ? err.message : String(err) },
-      };
+      return { report: { signed: false, reason: describe(options.url, explain(err)) } };
     }
   },
 });

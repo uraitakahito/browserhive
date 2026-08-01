@@ -83,7 +83,7 @@ describe("createHttpSigner", () => {
     expect(seen).toEqual([undefined, "Bearer dev-token"]);
   });
 
-  it("reports the status when the service refuses", async () => {
+  it("reports the status and the endpoint when the service refuses", async () => {
     const url = await stub((_req, res) => {
       res.writeHead(401);
       res.end();
@@ -95,6 +95,9 @@ describe("createHttpSigner", () => {
     // The status is the whole diagnosis here — a 401 means the token is wrong,
     // which is a different fix from the service being down.
     expect(report.reason).toContain("401");
+    // And which service, because a deployment can have more than one thing it
+    // could have been talking to.
+    expect(report.reason).toContain(url);
     expect(digestBytes).toBeUndefined();
   });
 
@@ -129,14 +132,31 @@ describe("createHttpSigner", () => {
     expect(report.reason).toBeDefined();
   });
 
-  it("does not throw when nothing is listening", async () => {
-    // Port 1 on loopback: reserved, and nothing this test could have started.
-    const { report } = await createHttpSigner({
-      url: "http://127.0.0.1:1/sign",
-      timeoutMs: 1000,
-    }).sign(HASH);
+  it("does not throw when nothing is listening, and says what went wrong", async () => {
+    // A high loopback port with nothing on it. Not port 1 — `fetch` refuses
+    // that one itself as a "bad port", which is a different failure and never
+    // reaches the socket.
+    const url = "http://127.0.0.1:45999/sign";
+    const { report } = await createHttpSigner({ url, timeoutMs: 2000 }).sign(HASH);
 
     expect(report.signed).toBe(false);
-    expect(report.reason).toBeDefined();
+    expect(report.reason).toContain(url);
+
+    // `fetch` reports every transport problem as the same three words and puts
+    // the real one in `cause`. Dropping it leaves "fetch failed", which cannot
+    // distinguish a stopped container from a typo in the URL — and with a
+    // policy of carrying on unsigned, that line is often the only trace there
+    // is.
+    expect(report.reason).not.toBe("fetch failed");
+    expect(report.reason).toMatch(/ECONNREFUSED|ENOTFOUND|connect/i);
+  });
+
+  it("names the host when the service's DNS name does not resolve", async () => {
+    // The exact shape of "the container is not running" in the dev stack.
+    const url = "http://capping.invalid.localdomain:8080/sign";
+    const { report } = await createHttpSigner({ url, timeoutMs: 3000 }).sign(HASH);
+
+    expect(report.signed).toBe(false);
+    expect(report.reason).toContain("capping.invalid.localdomain");
   });
 });
