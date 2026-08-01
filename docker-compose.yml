@@ -40,6 +40,12 @@ services:
     # The entrypoint also creates the bucket (background retry loop) —
     # there is no separate one-shot init container to order around.
     entrypoint: ["/etc/seaweedfs/entrypoint.sh"]
+    # Read path for the E2E suite only. browserhive itself keeps writing over
+    # the platform DNS name (seaweedfs.browserhive:8333) — this publishes the
+    # same S3 port to the host so tests can fetch back what a capture stored.
+    # Bound to 127.0.0.1: the bundled identity is a fixed dev credential.
+    ports:
+      - "127.0.0.1:8333:8333"
     environment:
       - BROWSERHIVE_S3_ACCESS_KEY_ID=browserhive
       - BROWSERHIVE_S3_SECRET_ACCESS_KEY=browserhive

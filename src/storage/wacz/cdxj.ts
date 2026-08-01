@@ -49,6 +49,16 @@ export const surtUrl = (url: string): string => {
 export const isoToCdxTimestamp = (iso: string): string =>
   iso.replace(/[-:T]/g, "").slice(0, 14);
 
+/**
+ * `sha256` of zero bytes, in the base32 form the WARC writer emits.
+ *
+ * The last-resort value for a record whose write info carried no payload
+ * digest. The recorder digests an empty payload for bodyless responses, so in
+ * practice this is unreachable — it is here so the required field cannot go
+ * missing if some other producer of `RecordedResponse` forgets.
+ */
+const EMPTY_PAYLOAD_DIGEST = "sha256:4OYMIQUY7QOBJGX36TEJS35ZEQT24QPEMSNZGTFESWMRW6CSXBKQ";
+
 export interface CdxjLineInput {
   filename: string;
   response: RecordedResponse;
@@ -64,14 +74,14 @@ export const buildCdxjLine = (input: CdxjLineInput): string => {
     url: response.url,
     mime: response.mime,
     status: String(response.status),
-    digest: response.payloadDigest ?? "",
+    // CDXJ 0.1.0 lists `digest` among the properties every object MUST carry.
+    // Responses that stored no body still have one — the recorder digests the
+    // empty payload — so there is no case left where it is absent.
+    digest: response.payloadDigest ?? EMPTY_PAYLOAD_DIGEST,
     length: String(response.length),
     offset: String(response.offset),
     filename: input.filename,
   };
-  if (response.payloadDigest === undefined) {
-    delete json["digest"];
-  }
   return `${surt} ${ts} ${JSON.stringify(json)}`;
 };
 

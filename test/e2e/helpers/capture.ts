@@ -38,6 +38,16 @@ const HTML_ONLY: CaptureFormats = {
   wacz: false,
 };
 
+/** For tests that inspect the archive itself; skips the artefacts they ignore. */
+export const WACZ_ONLY: CaptureFormats = {
+  png: false,
+  webp: false,
+  html: false,
+  links: false,
+  mhtml: false,
+  wacz: true,
+};
+
 export interface CaptureOptions {
   formats?: CaptureFormats;
   /**
@@ -87,6 +97,19 @@ export interface CaptureResultReport {
   retryCount: number;
   artifacts: Partial<Record<"png" | "webp" | "html" | "links" | "mhtml" | "wacz", string>>;
   errorDetails?: { type: string; message: string };
+  /** Present when `wacz` was requested and the recording finished. */
+  waczStats?: {
+    totalRecorded: number;
+    totalTruncatedTooLarge: number;
+    totalTruncatedTaskCap: number;
+    totalBodyBytes: number;
+  };
+  /** The server's own verdict on whether the archive holds every body. */
+  completeness?: {
+    bodylessUrls: string[];
+    truncatedUrls: string[];
+    complete: boolean;
+  };
 }
 
 /**

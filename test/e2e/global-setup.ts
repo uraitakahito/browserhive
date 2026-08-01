@@ -20,6 +20,12 @@ import type { ProvidedContext } from "vitest";
 interface StackEndpoints {
   api: string;
   meadow: string;
+  /**
+   * SeaweedFS S3 as seen FROM THE HOST — not the `seaweedfs.browserhive:8333`
+   * the containers use. Tests read artefacts back through it; browserhive
+   * writes them through the internal name. Two names, one store.
+   */
+  s3: string;
 }
 
 // Vitest 4 exposes no named "GlobalSetupContext"; the global setup receives the
@@ -35,6 +41,7 @@ export default async function setup({ provide }: GlobalSetupApi): Promise<void> 
   const endpoints: StackEndpoints = {
     api: process.env["E2E_API_URL"] ?? "http://localhost:8080",
     meadow: process.env["E2E_MEADOW_URL"] ?? "http://meadow.browserhive:8080",
+    s3: process.env["E2E_S3_URL"] ?? "http://127.0.0.1:8333",
   };
 
   let reachable = false;
@@ -52,10 +59,35 @@ export default async function setup({ provide }: GlobalSetupApi): Promise<void> 
   }
 
   await assertMeadowIsCurrent(endpoints.meadow);
+  await assertS3IsReachable(endpoints.s3);
 
   provide("api", endpoints.api);
   provide("meadow", endpoints.meadow);
+  provide("s3", endpoints.s3);
 }
+
+/**
+ * Fail early if SeaweedFS is not published to the host.
+ *
+ * The bucket rejects unsigned requests, so any HTTP answer at all — 403
+ * included — proves the port is open; only a transport error means it is not.
+ * Checked here rather than in the tests because the failure it catches is
+ * "the stack was brought up from a compose file without the `ports` entry",
+ * which reads as an inscrutable connection error from inside a test.
+ */
+const assertS3IsReachable = async (s3: string): Promise<void> => {
+  const reachable = await fetch(s3)
+    .then(() => true)
+    .catch(() => false);
+  if (!reachable) {
+    throw new Error(
+      `SeaweedFS is not reachable at ${s3} — the e2e suite reads capture ` +
+        "artefacts back from it. Check that docker-compose.yml publishes " +
+        '`127.0.0.1:8333:8333` on the seaweedfs service, then re-create the ' +
+        "stack: pnpm run stack:down && pnpm run stack:up",
+    );
+  }
+};
 
 /**
  * Fail if the running meadow was not built from the commit we pin.
@@ -99,5 +131,6 @@ declare module "vitest" {
   export interface ProvidedContext {
     api: string;
     meadow: string;
+    s3: string;
   }
 }

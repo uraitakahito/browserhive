@@ -10,13 +10,19 @@
  * the request still hits the origin, nothing fails, and `waczStats` counts the
  * record as recorded.
  *
- * v1 deliberately flags exactly one pattern — **a URL that has a 304 but no
- * 200** — so it has no false positives. Responses that are legitimately
- * bodyless are NOT flagged:
+ * Two patterns are flagged, kept in separate lists because they call for
+ * different responses:
+ *   - **a URL with a 304 but no 200** — the origin's doing, unrecoverable here;
+ *   - **a body dropped by a size cap** — ours, and a larger cap would keep it.
+ *
+ * Responses that are legitimately bodyless are NOT flagged:
  *   - redirects (301/302/…): a body is not expected;
  *   - 204 No Content: bodyless by definition;
- *   - bodies omitted on purpose by the content-type filter or the size / task
- *     caps: already counted separately in `RecordingStats`.
+ *   - bodies omitted by the content-type filter: the caller configured that
+ *     filter, so the omission is the outcome they asked for.
+ *
+ * Neither list can produce a false positive: every entry is a body this archive
+ * demonstrably does not hold.
  *
  * This is a pure function over the records the recorder already has in memory
  * (`recorder.stop().responses`), so it needs no browser, no disk, and no ZIP
@@ -31,9 +37,27 @@ export interface CompletenessReport {
    * archive and replay cannot recover it. Sorted for stable output.
    */
   bodylessUrls: string[];
-  /** True when `bodylessUrls` is empty. */
+  /**
+   * URLs whose body this side dropped after hitting a size cap. Sorted.
+   *
+   * Kept apart from `bodylessUrls` because the two call for different
+   * responses: a `304` is the origin's doing and nothing here can change it,
+   * while a capped body is ours and raising the cap would recover it.
+   */
+  truncatedUrls: string[];
+  /** True when both lists are empty. */
   complete: boolean;
 }
+
+/**
+ * Body-skip reasons that count as an incomplete archive.
+ *
+ * `content-type` is excluded on purpose: that filter is empty by default and
+ * only ever populated by the caller, so reporting "incomplete because you
+ * asked for less" says nothing they did not already decide. The caps fire on
+ * defaults, against bodies nobody chose to lose.
+ */
+const DROPPED_BY_CAP = new Set<RecordedResponse["bodySkipReason"]>(["too-large", "task-cap"]);
 
 /** Analyze recorded responses against the completeness invariant. */
 export const analyzeCompleteness = (
@@ -51,5 +75,15 @@ export const analyzeCompleteness = (
     .map(([url]) => url)
     .sort();
 
-  return { bodylessUrls, complete: bodylessUrls.length === 0 };
+  const truncatedUrls = [
+    ...new Set(
+      responses.filter((r) => DROPPED_BY_CAP.has(r.bodySkipReason)).map((r) => r.url),
+    ),
+  ].sort();
+
+  return {
+    bodylessUrls,
+    truncatedUrls,
+    complete: bodylessUrls.length === 0 && truncatedUrls.length === 0,
+  };
 };

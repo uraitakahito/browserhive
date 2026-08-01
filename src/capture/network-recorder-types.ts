@@ -61,6 +61,16 @@ export interface RecordedResponse {
   offset: number;
   /** Length of the gzip member in bytes. */
   length: number;
+  /**
+   * Why this response has no body, when it has none. `undefined` covers both
+   * "the body is here" and "no body was ever expected" (redirect, 204) —
+   * `payloadDigest` alone cannot tell those apart from a body that was dropped.
+   *
+   * Kept as the raw reason rather than a boolean: whether a missing body makes
+   * an archive incomplete is a policy question, and it belongs to the code that
+   * answers it (`analyzeCompleteness`), not to the recorder that observed it.
+   */
+  bodySkipReason?: "content-type" | "too-large" | "task-cap";
 }
 
 /** Statistics reported by `NetworkRecorder.stop()` for log enrichment. */

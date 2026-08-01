@@ -60,6 +60,56 @@ describe("analyzeCompleteness", () => {
   });
 
   it("treats an empty capture as complete", () => {
-    expect(analyzeCompleteness([])).toEqual({ bodylessUrls: [], complete: true });
+    expect(analyzeCompleteness([])).toEqual({
+      bodylessUrls: [],
+      truncatedUrls: [],
+      complete: true,
+    });
+  });
+
+  it("flags a body dropped for exceeding the per-response cap", () => {
+    const report = analyzeCompleteness([
+      rec("https://x.test/big.mp4", 200, { bodySkipReason: "too-large" }),
+    ]);
+
+    expect(report.truncatedUrls).toEqual(["https://x.test/big.mp4"]);
+    expect(report.complete).toBe(false);
+  });
+
+  it("flags a body dropped for exceeding the cumulative cap", () => {
+    const report = analyzeCompleteness([
+      rec("https://x.test/late.png", 200, { bodySkipReason: "task-cap" }),
+    ]);
+
+    expect(report.truncatedUrls).toEqual(["https://x.test/late.png"]);
+    expect(report.complete).toBe(false);
+  });
+
+  it("does NOT flag a body omitted by the content-type filter", () => {
+    // `skipContentTypes` is something the caller configured; answering "your
+    // archive is incomplete because you asked for less" tells them nothing they
+    // did not already know. The caps are different — they fire on defaults, and
+    // the caller never asked to lose that body.
+    const report = analyzeCompleteness([
+      rec("https://x.test/movie.mp4", 200, { bodySkipReason: "content-type" }),
+    ]);
+
+    expect(report.truncatedUrls).toEqual([]);
+    expect(report.complete).toBe(true);
+  });
+
+  it("keeps the two kinds of loss apart, and de-duplicates each", () => {
+    // Both lists populated at once: a reader has to be able to tell "the origin
+    // said 304" from "we dropped it ourselves", because only the second is
+    // something this side can fix.
+    const report = analyzeCompleteness([
+      rec("https://x.test/app.js", 304),
+      rec("https://x.test/big.mp4", 200, { bodySkipReason: "too-large" }),
+      rec("https://x.test/big.mp4", 200, { bodySkipReason: "too-large" }),
+    ]);
+
+    expect(report.bodylessUrls).toEqual(["https://x.test/app.js"]);
+    expect(report.truncatedUrls).toEqual(["https://x.test/big.mp4"]);
+    expect(report.complete).toBe(false);
   });
 });

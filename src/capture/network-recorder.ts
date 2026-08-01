@@ -113,6 +113,16 @@ interface PendingRequest {
   skipBody: boolean;
   /** Set when `skipBody` is true; emitted into the metadata record body. */
   skipBodyReason?: "content-type" | "too-large" | "task-cap";
+  /**
+   * Bytes on the wire for the whole response, from `loadingFinished`.
+   *
+   * Kept because the size of a body we dropped is the one thing the metadata
+   * record exists to report, and it is not available where that record is
+   * built: the response snapshot's own `encodedDataLength` comes from
+   * `responseReceived`, which fires before the body arrives and counts only
+   * the headers.
+   */
+  transferSize?: number;
   /** Wall-clock ms when the entry was first created. Used for FIFO eviction when over `maxPendingRequests`. */
   enqueuedAt: number;
   /** ResourceType (Image / Script / XHR / Fetch …) from `requestWillBeSent.type`. Emitted into metadata records. */
@@ -199,6 +209,16 @@ const fallbackStatusText = (status: number, original: string): string => {
 const isPseudoHeader = (name: string): boolean => name.startsWith(":");
 
 /**
+ * Stand-in payload for a response record that stored no body.
+ *
+ * A redirect hop, a `304`, a body dropped by a size cap — all of them archive
+ * zero bytes, and zero bytes hash to a well-defined value. Digesting it keeps
+ * `WARC-Payload-Digest` present, which in turn keeps the CDXJ line's `digest`
+ * present, which CDXJ 0.1.0 requires on every entry.
+ */
+const EMPTY_PAYLOAD = Buffer.alloc(0);
+
+/**
  * Build the HTTP/1.1-normalised request headers for the WARC payload.
  *
  * Two transformations:
@@ -244,12 +264,21 @@ const buildHttp11RequestHeaders = (
  */
 const buildHttp11ResponseHeaders = (
   cdpHeaders: Record<string, string>,
-  hasDecodedBody: boolean,
+  /**
+   * Whether the caller is about to state the stored body's length itself.
+   *
+   * True both when a body was decoded and when one was deliberately dropped —
+   * in the second case the honest length is zero, and leaving the origin's
+   * `content-length` in place would describe a body that is not there. False
+   * only for responses that never had a body (redirect, 304, 204), whose
+   * headers are already consistent and are left untouched.
+   */
+  rewriteLength: boolean,
 ): Record<string, string> => {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(cdpHeaders)) {
     if (isPseudoHeader(name)) continue;
-    if (hasDecodedBody) {
+    if (rewriteLength) {
       const lower = name.toLowerCase();
       if (
         lower === "content-encoding" ||
@@ -653,6 +682,9 @@ export class NetworkRecorder {
     // Pre-fetch size guard: `encodedDataLength` is the on-the-wire size which
     // approximates the decoded body size for non-compressed bodies.
     const declared = event.encodedDataLength;
+    // Carried to the metadata record, which otherwise has only the figure from
+    // `responseReceived` — the headers alone, off by whatever the body weighed.
+    entry.transferSize = declared;
     if (
       declared > this.opts.limits.maxResponseBytes ||
       this.stats.totalBodyBytes >= this.opts.limits.maxTaskBytes
@@ -790,16 +822,19 @@ export class NetworkRecorder {
     //      parsers know exactly how many bytes the body is.
     //   3. Always emit HTTP/1.1 status line with a non-empty reason phrase
     //      (CDP gives empty `statusText` for HTTP/2 responses).
+    // A dropped body is still a body we are accounting for: say zero rather
+    // than repeat the origin's figure for bytes the archive does not hold.
+    const statesOwnLength = body !== undefined || entry.skipBody;
     const responseHeadersMap = buildHttp11ResponseHeaders(
       entry.fullResponseHeaders ?? response.headers,
-      body !== undefined,
+      statesOwnLength,
     );
     const responseHttpHeaders: HttpHeader[] =
       cdpHeadersToList(responseHeadersMap);
-    if (body !== undefined) {
+    if (statesOwnLength) {
       responseHttpHeaders.push({
         name: "Content-Length",
-        value: String(body.byteLength),
+        value: String(body?.byteLength ?? 0),
       });
     }
     const responseBytes = buildHttpResponseBytes({
@@ -820,7 +855,17 @@ export class NetworkRecorder {
         date,
         targetUri: entry.url,
         bytes: responseBytes,
-        ...(body !== undefined && { payload: body }),
+        // Zero bytes is a payload with a digest like any other, and CDXJ 0.1.0
+        // requires `digest` on every line. Falling back to the empty buffer
+        // here rather than in the index keeps `WARC-Payload-Digest` and the
+        // CDXJ entry agreeing — computed once, from the same bytes.
+        payload: body ?? EMPTY_PAYLOAD,
+        // Only the size caps truncate. `content-type` skips never fetch the
+        // body at all, so there is nothing cut short to declare.
+        ...((entry.skipBodyReason === "too-large" ||
+          entry.skipBodyReason === "task-cap") && {
+          truncated: "length" as const,
+        }),
         ...(response.remoteIPAddress !== undefined && {
           ipAddress: response.remoteIPAddress,
         }),
@@ -836,6 +881,9 @@ export class NetworkRecorder {
         };
         if (info.payloadDigest !== undefined) {
           recorded.payloadDigest = info.payloadDigest;
+        }
+        if (entry.skipBodyReason !== undefined) {
+          recorded.bodySkipReason = entry.skipBodyReason;
         }
         this.recordedResponses.push(recorded);
       },
@@ -857,8 +905,12 @@ export class NetworkRecorder {
           refersTo: entry.responseRecordId,
           fields: {
             truncated: entry.skipBodyReason,
-            ...(response.encodedDataLength !== undefined && {
-              encodedDataLength: String(response.encodedDataLength),
+            // The whole transfer, from `loadingFinished`. The snapshot's own
+            // `encodedDataLength` is what had arrived by `responseReceived` —
+            // the headers — which would file a dropped 21 MiB body as ~156
+            // bytes and leave this record explaining nothing.
+            ...(entry.transferSize !== undefined && {
+              encodedDataLength: String(entry.transferSize),
             }),
           },
         }),

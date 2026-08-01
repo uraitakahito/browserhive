@@ -371,8 +371,18 @@ describe("NetworkRecorder filters", () => {
         statusText: "OK",
         protocol: "http/1.1",
         mimeType: "application/octet-stream",
-        headers: {},
-        encodedDataLength: 1000,
+        // As an origin actually answers. With `{}` here, a failure to strip
+        // these on the drop path leaves nothing behind to notice.
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-length": "1000",
+          "content-encoding": "gzip",
+        },
+        // Deliberately NOT 1000: `responseReceived` reports what had arrived by
+        // then (the headers), `loadingFinished` reports the whole transfer.
+        // Feeding one constant to both is what let the recorder read the wrong
+        // one for years without a unit test noticing.
+        encodedDataLength: 156,
       },
     });
     session.emit("Network.loadingFinished", {
@@ -386,7 +396,32 @@ describe("NetworkRecorder filters", () => {
 
     const warc = dumpWarc(path);
     expect(warc).toContain("truncated: too-large");
+
+    const response = findRecord(warc, (r) => r.includes("WARC-Type: response"));
+    expect(response).toBeDefined();
+
+    // The archived HTTP message has to describe what was stored. Claiming 1000
+    // bytes of gzip over an empty body is not a valid message, and a strict
+    // reader (warcio, pywb, waxlens) either blocks on it or reads into the next
+    // record.
+    expect(response).not.toMatch(/content-length: 1000/i);
+    expect(response).toMatch(/content-length: 0/i);
+    expect(response).not.toMatch(/content-encoding/i);
+
+    // WARC 1.1 provides the field for exactly this, and without it a reader
+    // cannot tell "the origin sent nothing" from "we dropped it".
+    expect(response).toContain("WARC-Truncated: length");
+
+    // The size of what was dropped — 1000, the whole transfer. 156 would be
+    // the headers alone, which explains nothing about the body that went
+    // missing.
     expect(warc).toContain("encodedDataLength: 1000");
+
+    // The reason travels with the recorded response, not just into the WARC:
+    // `analyzeCompleteness` reads these to decide whether the archive holds
+    // everything a replay will ask for, and `payloadDigest === undefined`
+    // cannot distinguish a dropped body from a redirect.
+    expect(result.responses.map((r) => r.bodySkipReason)).toEqual(["too-large"]);
   });
 
   it("transitions to task-cap after cumulative bytes exceed maxTaskBytes", async () => {
