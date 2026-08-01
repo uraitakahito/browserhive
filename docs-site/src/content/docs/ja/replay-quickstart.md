@@ -196,61 +196,9 @@ CI などで機械可読な JSON レポートが欲しい場合は `waxlens-vali
 
 ## アーカイブに署名する
 
-`signing: true` を付けると、設定された署名サービスに
-[wacz-auth](https://specs.webrecorder.net/wacz-auth/0.1.0/) の署名を要求し、
-WACZ の中に `datapackage-digest.json` として格納します。
-
-```json
-{
-  "url": "https://example.com/",
-  "captureFormats": { "png": false, "webp": false, "html": false, "links": false, "mhtml": false, "wacz": true },
-  "signing": true
-}
-```
-
-`captureFormats.wacz: true` が前提です。WACZ を作らないキャプチャに署名を頼むと
-`400` で拒否されます —— 署名の置き場所が無く、受け付けてしまうと「頼んだつもり」が
-残るからです。
-
-BrowserHive は署名鍵を持ちません。`datapackage.json` の `sha256:` を送って、
-返ってきたものを格納するだけです。だからキャプチャ側が侵害されても、2 本目の
-アーカイブに署名できる材料は手に入りません。開発時のサービスは
-[capping](https://uraitakahito.github.io/capping/ja/) で、compose の `signing`
-プロファイルで起動します。
-
-### 署名の失敗はキャプチャの失敗ではありません
-
-サービスが落ちている・遅い・トークンを拒否した場合でも、**WACZ は署名なしで
-書き出され**、キャプチャは成功します。顛末は結果に載ります。
-
-```json
-"signature": { "signed": false, "reason": "signing service returned 401" }
-```
-
-署名を頼まなかったキャプチャでは `signature` 自体がありません。
-**不在**・`signed: true`・`signed: false` は 3 つの別々の答えで、調べる必要が
-あるのは最後の 1 つだけです。
-
-これは意図的な設計です。誰かが副署したかどうかに関わらず、アーカイブは残す価値が
-あります。その代償として、**署名の設定が壊れていても普段どおりに見えます**。
-`signature.signed` を確認してください。うまくいったと仮定しないことです。
-
-### 検証
-
-署名そのものを検証できるのは `capping verify` だけです。
-
-```console
-$ capping verify --file datapackage-digest.json --root test/fixtures/dev-ca/ca.crt
-  ok       signature  signature matches the hash under the certificate's key
-  ok       chain      chain reaches a supplied trust root
-  ok       domain     certificate is valid for sign.dev.local
-  ok       timestamp  timestamp covers this signature
-
-valid
-```
-
-waxlens が見るのは「`datapackage-digest.json` が存在し、その `hash` が
-`datapackage.json` と一致するか」までで、**署名の検証は行いません**。
+キャプチャは `signing: true` で wacz-auth 署名を要求でき、WACZ の中に
+`datapackage-digest.json` として格納されます。依頼のしかた・結果の読み方・検証は
+独立したページにまとめました: [WACZ に署名する](/signing/)。
 
 ## 関連リンク
 

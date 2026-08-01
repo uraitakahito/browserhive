@@ -13,8 +13,8 @@ is on [Running the tests](/running-tests/).
 
 ## Full stack (when you just need a running BrowserHive)
 
-```sh title="SeaweedFS + 1 worker + browserhive:prod"
-container-compose up -d -b
+```sh title="SeaweedFS + 1 worker + browserhive:prod + capping"
+container-compose --profile signing up -d -b
 ```
 
 ```sh title="…or with 3 workers"
@@ -22,7 +22,7 @@ container-compose --profile scale3 up -d -b
 ```
 
 ```sh title="Stop — pass the same --profile flags you used with up; artifacts survive in the volume"
-container-compose down
+container-compose --profile signing down
 ```
 
 ```sh title="Readiness is yours to check — compose does not wait"
