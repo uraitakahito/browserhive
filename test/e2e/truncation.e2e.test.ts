@@ -119,16 +119,18 @@ describe("a response over maxResponseBytes", () => {
 
   /**
    * A fourth defect, with a different cause from the three above — hence its own
-   * block, so fixing one group does not mask the other.
+   * block, so fixing one group did not mask the other.
    *
-   * The size check reads `encodedDataLength` off `Network.loadingFinished`, which
-   * is the whole transfer; the metadata record reads it off the earlier
-   * `Network.responseReceived`, which is only what had arrived by then — the
-   * headers. So a 21 MiB body that was dropped is filed as ~156 bytes, and the
-   * one record that exists to explain what went missing understates it by five
-   * orders of magnitude.
+   * The size check reads `encodedDataLength` off `Network.loadingFinished`, the
+   * whole transfer; the metadata record used to read it off the earlier
+   * `Network.responseReceived`, only what had arrived by then — the headers. A
+   * dropped 21 MiB body was filed as ~156 bytes, so the one record that exists
+   * to explain what went missing understated it by five orders of magnitude.
+   *
+   * Only a real browser reports the two differently, which is why this needed
+   * an e2e case at all: the unit tests fed both events one constant.
    */
-  it.fails("reports the size of what was actually dropped", async ({ annotate }) => {
+  it("reports the size of what was actually dropped", async ({ annotate }) => {
     const { warc } = await oversizedCapture(annotate);
 
     const reported = Number(metadataField(warc, "encodedDataLength"));

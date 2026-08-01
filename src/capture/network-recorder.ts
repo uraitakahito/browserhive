@@ -113,6 +113,16 @@ interface PendingRequest {
   skipBody: boolean;
   /** Set when `skipBody` is true; emitted into the metadata record body. */
   skipBodyReason?: "content-type" | "too-large" | "task-cap";
+  /**
+   * Bytes on the wire for the whole response, from `loadingFinished`.
+   *
+   * Kept because the size of a body we dropped is the one thing the metadata
+   * record exists to report, and it is not available where that record is
+   * built: the response snapshot's own `encodedDataLength` comes from
+   * `responseReceived`, which fires before the body arrives and counts only
+   * the headers.
+   */
+  transferSize?: number;
   /** Wall-clock ms when the entry was first created. Used for FIFO eviction when over `maxPendingRequests`. */
   enqueuedAt: number;
   /** ResourceType (Image / Script / XHR / Fetch …) from `requestWillBeSent.type`. Emitted into metadata records. */
@@ -672,6 +682,9 @@ export class NetworkRecorder {
     // Pre-fetch size guard: `encodedDataLength` is the on-the-wire size which
     // approximates the decoded body size for non-compressed bodies.
     const declared = event.encodedDataLength;
+    // Carried to the metadata record, which otherwise has only the figure from
+    // `responseReceived` — the headers alone, off by whatever the body weighed.
+    entry.transferSize = declared;
     if (
       declared > this.opts.limits.maxResponseBytes ||
       this.stats.totalBodyBytes >= this.opts.limits.maxTaskBytes
@@ -892,8 +905,12 @@ export class NetworkRecorder {
           refersTo: entry.responseRecordId,
           fields: {
             truncated: entry.skipBodyReason,
-            ...(response.encodedDataLength !== undefined && {
-              encodedDataLength: String(response.encodedDataLength),
+            // The whole transfer, from `loadingFinished`. The snapshot's own
+            // `encodedDataLength` is what had arrived by `responseReceived` —
+            // the headers — which would file a dropped 21 MiB body as ~156
+            // bytes and leave this record explaining nothing.
+            ...(entry.transferSize !== undefined && {
+              encodedDataLength: String(entry.transferSize),
             }),
           },
         }),
