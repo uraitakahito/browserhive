@@ -24,6 +24,7 @@ import { createWriteStream, readFile } from "node:fs";
 import { stat } from "node:fs/promises";
 import { ZipArchive } from "archiver";
 import type { RecordedResponse } from "../../capture/network-recorder-types.js";
+import { sha256Hex } from "../warc/digest.js";
 import { buildCdxjIndex } from "./cdxj.js";
 import { buildPagesJsonl } from "./pages.js";
 import {
@@ -31,6 +32,7 @@ import {
   serializeDatapackage,
 } from "./datapackage.js";
 import { buildFuzzyJson } from "./fuzzy.js";
+import { unsignedSigner, type SignatureReport, type WaczSigner } from "./signer.js";
 
 /** WACZ ZIP entry path of the inlined WARC. */
 const WARC_ENTRY_PATH = "archive/data.warc.gz";
@@ -56,6 +58,11 @@ const PAGES_ENTRY_PATH = "pages/pages.jsonl";
 const INDEX_ENTRY_PATH = "indexes/index.cdxj";
 const DATAPACKAGE_ENTRY_PATH = "datapackage.json";
 const FUZZY_ENTRY_PATH = "fuzzy.json";
+/**
+ * WACZ §5.2.5. SHOULD, not MUST — so an archive without it is still valid,
+ * which is what makes "carry on unsigned" an acceptable answer.
+ */
+const DIGEST_ENTRY_PATH = "datapackage-digest.json";
 
 export interface WaczPackageInput {
   /** Path to the source `.warc.gz` (from `NetworkRecorder.stop().path`). */
@@ -80,11 +87,22 @@ export interface WaczPackageInput {
    * WACZ structure stays uniform across deployments.
    */
   fuzzyParams?: readonly string[];
+  /**
+   * Where the signature comes from. Defaults to not signing at all, so a
+   * caller that has no opinion produces exactly the archive it produced
+   * before this existed.
+   */
+  signer?: WaczSigner;
 }
 
 export interface WaczPackageResult {
   path: string;
   bytes: number;
+  /**
+   * What became of the signature. Always present — `signed: false` with a
+   * reason is the normal outcome for a capture that did not ask to be signed.
+   */
+  signature: SignatureReport;
 }
 
 /**
@@ -149,7 +167,18 @@ export const packWacz = async (
   });
   const datapackageBytes = serializeDatapackage(datapackage);
 
-  // 3. Write the zip. Use STORE for the inner WARC.gz (already gzipped —
+  // 3. Sign it. The signature covers `datapackage.json`, which in turn covers
+  // every other entry — so this has to happen after the bytes above are final
+  // and before anything is written. `sign` does not throw: a signature that
+  // could not be obtained leaves `digestBytes` undefined and the archive goes
+  // out unsigned, with the reason kept on the result.
+  // `sha256Hex` already carries the `sha256:` prefix — the same string that
+  // goes in `datapackage.json`'s resource hashes, and the same bytes the
+  // signature is computed over, prefix included.
+  const hash = sha256Hex(datapackageBytes);
+  const { digestBytes, report } = await (input.signer ?? unsignedSigner).sign(hash);
+
+  // 4. Write the zip. Use STORE for the inner WARC.gz (already gzipped —
   // double-compressing would only inflate). Other entries default to DEFLATE.
   await new Promise<void>((resolve, reject) => {
     const output = createWriteStream(input.waczPath);
@@ -171,11 +200,14 @@ export const packWacz = async (
     zip.append(indexBytes, { name: INDEX_ENTRY_PATH });
     zip.append(fuzzyBytes, { name: FUZZY_ENTRY_PATH });
     zip.append(datapackageBytes, { name: DATAPACKAGE_ENTRY_PATH });
+    if (digestBytes !== undefined) {
+      zip.append(digestBytes, { name: DIGEST_ENTRY_PATH });
+    }
     void zip.finalize();
   });
 
   const stats = await stat(input.waczPath);
-  return { path: input.waczPath, bytes: stats.size };
+  return { path: input.waczPath, bytes: stats.size, signature: report };
 };
 
 /**

@@ -57,6 +57,12 @@ export interface CaptureOptions {
    * purpose is not a stuck capture. Only the whole-task budget counts it.
    */
   operationDelayMs?: number;
+  /**
+   * Ask the signing service for a wacz-auth signature.
+   *
+   * Only valid with a WACZ format; the API rejects the other combination.
+   */
+  signing?: boolean;
 }
 
 /** Build a POST /v1/captures body (captureFormats is required by the API). */
@@ -64,7 +70,7 @@ export function captureRequest(
   url: string,
   options: CaptureOptions = {},
 ): Record<string, unknown> {
-  const { formats = HTML_ONLY, operationDelayMs } = options;
+  const { formats = HTML_ONLY, operationDelayMs, signing } = options;
   return {
     url,
     labels: ["e2e"],
@@ -72,6 +78,7 @@ export function captureRequest(
     // Omitted rather than sent as undefined, so the server-side default stands
     // when a test does not care about pacing.
     ...(operationDelayMs === undefined ? {} : { operationDelayMs }),
+    ...(signing === undefined ? {} : { signing }),
   };
 }
 
@@ -109,6 +116,15 @@ export interface CaptureResultReport {
     bodylessUrls: string[];
     truncatedUrls: string[];
     complete: boolean;
+  };
+  /**
+   * What became of the signature. Absent when the capture did not ask —
+   * a different answer from `signed: false`.
+   */
+  signature?: {
+    signed: boolean;
+    reason?: string;
+    domain?: string;
   };
 }
 

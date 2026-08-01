@@ -207,6 +207,9 @@ interface ParsedOptions {
   waczSkipContentTypes?: string[];
   /** Variadic fuzzy query-param names. Merged with env via post-parse helper. */
   waczFuzzyParam?: string[];
+  signingUrl?: string;
+  signingToken?: string;
+  signingTimeoutMs: number;
   tlsCert?: string;
   tlsKey?: string;
   userAgent?: string;
@@ -254,6 +257,9 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     maxPendingRequests: opts.waczMaxPendingRequests,
     software: SOFTWARE_IDENTIFIER,
     fuzzyParams: opts.waczFuzzyParam,
+    ...(opts.signingUrl === undefined ? {} : { signingUrl: opts.signingUrl }),
+    ...(opts.signingToken === undefined ? {} : { signingToken: opts.signingToken }),
+    signingTimeoutMs: opts.signingTimeoutMs,
   };
 
   const capture: CaptureConfig = {
@@ -554,6 +560,26 @@ export const createProgram = (): Command => {
     )
     // WACZ recorder configuration. Every field is server-wide and applies
     // to every capture that requests `wacz: true`.
+    .addOption(
+      new Option(
+        "--signing-url <url>",
+        "wacz-auth signing service /sign endpoint. Without it, a capture that asks to be signed still succeeds and reports signature.signed=false",
+      ).env("BROWSERHIVE_SIGNING_URL"),
+    )
+    .addOption(
+      new Option("--signing-token <token>", "Bearer token for the signing service").env(
+        "BROWSERHIVE_SIGNING_TOKEN",
+      ),
+    )
+    .addOption(
+      new Option(
+        "--signing-timeout-ms <n>",
+        "How long to wait for a signature before going out unsigned. A signature is optional, so this is the most it can cost a capture",
+      )
+        .env("BROWSERHIVE_SIGNING_TIMEOUT_MS")
+        .default(DEFAULT_WACZ_CONFIG.signingTimeoutMs)
+        .argParser(parsePositiveInt),
+    )
     .addOption(
       new Option(
         "--wacz-max-response-bytes <n>",

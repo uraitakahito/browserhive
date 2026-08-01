@@ -26,8 +26,8 @@ import {
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
-import { WaczPackager, analyzeCompleteness } from "../storage/wacz/index.js";
-import type { CompletenessReport } from "../storage/wacz/index.js";
+import { WaczPackager, analyzeCompleteness, unsignedSigner } from "../storage/wacz/index.js";
+import type { CompletenessReport, SignatureReport, WaczSigner } from "../storage/wacz/index.js";
 import { runBehaviors } from "../behaviors/index.js";
 import type { BehaviorRunReport } from "../behaviors/types.js";
 import type { CaptureTask, CaptureResult, LinkRecord, LinksFile } from "./types.js";
@@ -546,6 +546,14 @@ export interface WaczCaptureConfig {
   software: string;
   /** Query parameter names embedded as fuzzy-strip rules in `fuzzy.json`. */
   fuzzyParams: readonly string[];
+  /**
+   * Where a task that asked to be signed gets its signature.
+   *
+   * Absent means no signing service is configured: such a task still produces
+   * a WACZ, reported as `signature.signed: false`. A signature is not what
+   * makes an archive worth keeping.
+   */
+  signer?: WaczSigner;
 }
 
 export class PageCapturer {
@@ -849,6 +857,7 @@ export class PageCapturer {
       let waczLocation: string | undefined;
       let waczStats: RecordingStats | undefined;
       let completeness: CompletenessReport | undefined;
+      let signature: SignatureReport | undefined;
       if (recorder !== null && waczTempDir !== null && this.waczConfig) {
         const stopResult = await recorder.stop();
         recorder = null;
@@ -869,7 +878,7 @@ export class PageCapturer {
         const pageTitle = await page.title().catch(() => "");
         const waczFilename = generateFilename(task, "wacz");
         const localWaczPath = join(waczTempDir, waczFilename);
-        await WaczPackager.pack({
+        const packed = await WaczPackager.pack({
           warcPath: stopResult.path,
           waczPath: localWaczPath,
           taskId: task.taskId,
@@ -881,7 +890,17 @@ export class PageCapturer {
           software: this.waczConfig.software,
           responses: stopResult.responses,
           fuzzyParams: this.waczConfig.fuzzyParams,
+          // A task that did not ask for a signature gets a signer that says so,
+          // rather than no signer at all — the difference shows up in the
+          // report as "not requested" instead of a bare false.
+          signer:
+            task.signing === true
+              ? (this.waczConfig.signer ?? unsignedSigner)
+              : unsignedSigner,
         });
+        // Only surfaced for tasks that asked. Absent means nobody requested a
+        // signature, which is a different statement from "it failed".
+        if (task.signing === true) signature = packed.signature;
         const bytes = readFileSync(localWaczPath);
         waczLocation = await this.store.put(
           waczFilename,
@@ -907,6 +926,7 @@ export class PageCapturer {
         ...(waczLocation !== undefined && { waczLocation }),
         ...(waczStats !== undefined && { waczStats }),
         ...(completeness !== undefined && { completeness }),
+        ...(signature !== undefined && { signature }),
         ...(dismissReport !== undefined && { dismissReport }),
         ...(behaviorReport !== undefined && { behaviorReport }),
       };

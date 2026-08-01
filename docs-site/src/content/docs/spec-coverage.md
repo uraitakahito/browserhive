@@ -19,13 +19,13 @@ be overwritten — and CI checks that the table still matches the code.
 
 | Surface | Covered |
 | --- | --- |
-| WACZ file layout | 4 / 7 |
+| WACZ file layout | 5 / 7 |
 | WARC record types | 4 / 8 |
 | WARC header fields | 13 / 21 |
 | CDXJ index | 7 / 8 |
 | pages.jsonl | 4 / 6 |
 | datapackage.json | 7 / 10 |
-| Signing (wacz-auth) | 0 / 2 |
+| Signing (wacz-auth) | 1 / 2 |
 
 "Covered" counts implemented and implemented-plus. Non-spec extensions are
 listed but excluded from the denominator.
@@ -42,7 +42,7 @@ Defined by: WACZ 1.1.1 — WACZ Object
 | `pages/pages.jsonl` | Implemented | Header line plus one entry — a capture is one page. |
 | `pages/extraPages.jsonl` | Not used | For crawl-discovered pages. A capture has exactly one page, so there is nothing to put here. |
 | `datapackage.json` | Implemented | Frictionless data package manifest with a hash per resource. |
-| `datapackage-digest.json` | Not used | The hook signing hangs on. Nothing signs a capture yet, so an unsigned digest would only add a file. |
+| `datapackage-digest.json` | Implemented | Written when a capture asks to be signed (`signing: true`). Carries the `sha256:` of datapackage.json plus the wacz-auth signedData returned by the signing service. |
 | `fuzzy.json (non-spec)` | Divergent | Not in the spec. The spec permits extra files at the root, and wabac.js reads this one for fuzzy URL matching on replay. |
 
 ## WARC record types
@@ -140,7 +140,7 @@ Defined by: WACZ Signing and Verification 0.1.0
 | Item | State | Notes |
 | --- | --- | --- |
 | `Anonymous Signature` | Not used | Signs the digest with a bare key pair. Verification then needs the public key distributed some other way. |
-| `Domain-Ownership Identity + Signed Timestamp` | Not used | Signs with a domain's TLS key and countersigns with an RFC 3161 timestamp. Needs a certificate for a domain BrowserHive controls, and a timestamp authority. |
+| `Domain-Ownership Identity + Signed Timestamp` | Implemented | Requested per capture via `signing: true` and produced by an external signing service (capping in development). BrowserHive sends the hash and stores what comes back; it never holds a signing key. |
 
 ## Deliberately out of scope
 

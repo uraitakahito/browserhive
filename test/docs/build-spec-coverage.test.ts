@@ -199,6 +199,51 @@ describe("spec coverage page", () => {
     expect([...claimed].sort()).toEqual([...emitted].sort());
   });
 
+  /**
+   * The ZIP layout — a check that was missing entirely.
+   *
+   * These claims went unverified, so `datapackage-digest.json` sat marked
+   * `unused` and nothing would have noticed once the packager began writing
+   * it. A table nobody verifies is worse than no table: it reads as coverage
+   * while being free to drift.
+   *
+   * Plain set equality does not fit here, because `divergent` covers two
+   * opposite situations — `fuzzy.json` is written and not in the spec, while
+   * `indexes/index.idx` is in the spec and not written. So the invariant is
+   * stated in both directions instead:
+   *
+   *   - everything the packager writes is listed, and not as `unused`;
+   *   - nothing claimed `implemented` is a file the packager never writes.
+   *
+   * The packager names every entry it appends in a `*_ENTRY_PATH` constant,
+   * which makes the written set readable without running a capture.
+   */
+  it("claims exactly the zip entries the packager writes", async () => {
+    const packager = await readFile(resolve(ROOT, "src", "storage", "wacz", "packager.ts"), "utf8");
+    const written = new Set(
+      [...packager.matchAll(/^const \w+_ENTRY_PATH = "([^"]+)";$/gm)].map((m) => m[1]!),
+    );
+    expect(written.size).toBeGreaterThan(0);
+
+    const area = COVERAGE.find((a) => a.id === "wacz-layout");
+    expect(area).toBeDefined();
+    // Items annotate the path with a parenthetical ("fuzzy.json (non-spec)").
+    const byPath = new Map(
+      area!.items.map((i) => [i.item.replace(/\s*\(.*\)$/, ""), i.state] as const),
+    );
+
+    for (const path of written) {
+      expect(byPath.has(path), `${path} is written but not listed`).toBe(true);
+      expect(byPath.get(path), `${path} is written but marked unused`).not.toBe("unused");
+    }
+
+    for (const [path, state] of byPath) {
+      if (state === "implemented" || state === "implemented-plus") {
+        expect(written.has(path), `${path} is claimed implemented but never written`).toBe(true);
+      }
+    }
+  });
+
   /** Same idea for CDXJ: the required keys the builder writes must be the claimed ones. */
   it("claims exactly the CDXJ properties the index writes", async () => {
     const cdxj = await readFile(resolve(ROOT, "src", "storage", "wacz", "cdxj.ts"), "utf8");

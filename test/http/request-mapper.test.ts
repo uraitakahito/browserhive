@@ -405,4 +405,39 @@ describe("captureRequestToTask", () => {
       expect(result.value.resetState).toEqual(defaultsKeepContext.resetPageState);
     });
   });
+
+  describe("signing", () => {
+    it("leaves signing unset when omitted", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.signing).toBeUndefined();
+    });
+
+    it("carries signing through when asked alongside wacz", () => {
+      const result = captureRequestToTask(
+        baseRequest({
+          captureFormats: { png: false, webp: false, html: false, links: false, mhtml: false, wacz: true },
+          signing: true,
+        }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.signing).toBe(true);
+    });
+
+    it("rejects a signing request that produces nothing to sign", () => {
+      // The signature lives inside the WACZ, so there is nowhere to put one
+      // without it. Accepting this and quietly doing nothing would leave the
+      // caller believing they had asked for something.
+      const result = captureRequestToTask(
+        baseRequest({
+          captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
+          signing: true,
+        }),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/wacz/);
+    });
+  });
 });
