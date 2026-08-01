@@ -12,7 +12,11 @@ interface MdNode {
 const walk = (node: MdNode): void => {
   if (node.type === "code" && typeof node.meta === "string") {
     const m = /file="([^"#]+)#([^"]+)"/.exec(node.meta);
-    if (m) node.value = sourceRegion(m[1], m[2]); // region 欠落なら throw → ビルドが落ちる
+    // region 欠落なら throw。ただしビルドが止まるかは拡張子次第で、.mdx なら
+    // vite が拾って落ちる一方、.md は Starlight の docs loader が捕まえて
+    // ログを出すだけで exit 0 になる（実測）。両方で落ちるのは
+    // scripts/check-doc-refs.mjs の方なので、CI は site:check を走らせる。
+    if (m) node.value = sourceRegion(m[1], m[2]);
   }
   node.children?.forEach(walk);
 };

@@ -6,8 +6,12 @@ name: site
 #
 #   - `astro build` injects @glossary terms / `// #region` snippets / type
 #     tables from src/ via ts-morph (docs-site/src/lib/extract.ts). A missing
-#     region or interface fails the build.
-#   - check-doc-refs.mjs catches the references the build cannot see: a
+#     region fails the build only on .mdx pages: there the throw surfaces
+#     through vite, while on .md Starlight's docs loader catches it, logs
+#     `[ERROR] [starlight-docs-loader] Error rendering …`, and exits 0.
+#     Measured, not assumed — so the build is not something to lean on.
+#   - check-doc-refs.mjs is the guard that exits non-zero for both page kinds,
+#     and it catches the references the build cannot see at all: a
 #     `/terminology/#g-<Term>` link whose `@glossary` tag was removed, and a
 #     `src/….ts` path that was renamed.
 #
