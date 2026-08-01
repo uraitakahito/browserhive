@@ -199,6 +199,16 @@ const fallbackStatusText = (status: number, original: string): string => {
 const isPseudoHeader = (name: string): boolean => name.startsWith(":");
 
 /**
+ * Stand-in payload for a response record that stored no body.
+ *
+ * A redirect hop, a `304`, a body dropped by a size cap — all of them archive
+ * zero bytes, and zero bytes hash to a well-defined value. Digesting it keeps
+ * `WARC-Payload-Digest` present, which in turn keeps the CDXJ line's `digest`
+ * present, which CDXJ 0.1.0 requires on every entry.
+ */
+const EMPTY_PAYLOAD = Buffer.alloc(0);
+
+/**
  * Build the HTTP/1.1-normalised request headers for the WARC payload.
  *
  * Two transformations:
@@ -832,7 +842,11 @@ export class NetworkRecorder {
         date,
         targetUri: entry.url,
         bytes: responseBytes,
-        ...(body !== undefined && { payload: body }),
+        // Zero bytes is a payload with a digest like any other, and CDXJ 0.1.0
+        // requires `digest` on every line. Falling back to the empty buffer
+        // here rather than in the index keeps `WARC-Payload-Digest` and the
+        // CDXJ entry agreeing — computed once, from the same bytes.
+        payload: body ?? EMPTY_PAYLOAD,
         // Only the size caps truncate. `content-type` skips never fetch the
         // body at all, so there is nothing cut short to declare.
         ...((entry.skipBodyReason === "too-large" ||
