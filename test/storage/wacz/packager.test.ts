@@ -91,7 +91,12 @@ describe("buildCdxjLine / buildCdxjIndex", () => {
     expect(json["filename"]).toBe("data.warc.gz");
   });
 
-  it("omits digest when payload digest is unknown", () => {
+  it("still carries a digest when the payload digest is unknown", () => {
+    // This used to assert the opposite — that the key was dropped. CDXJ 0.1.0
+    // lists `digest` among the properties every object MUST contain, so an
+    // index that omits it does not conform, and a bodyless response is not an
+    // exception: it archived zero bytes, and zero bytes have a hash.
+    //
     // Build directly rather than using `baseResponse()` so we don't trip
     // `exactOptionalPropertyTypes` (which forbids assigning `undefined`
     // to an optional field).
@@ -105,7 +110,7 @@ describe("buildCdxjLine / buildCdxjIndex", () => {
     };
     const line = buildCdxjLine({ filename: "data.warc.gz", response: noDigest });
     const json = JSON.parse(line.slice(line.indexOf("{"))) as Record<string, unknown>;
-    expect("digest" in json).toBe(false);
+    expect(json["digest"]).toBe("sha256:4OYMIQUY7QOBJGX36TEJS35ZEQT24QPEMSNZGTFESWMRW6CSXBKQ");
   });
 
   it("sorts lines lexicographically by (surt, timestamp)", () => {

@@ -139,6 +139,15 @@ interface BuildHttpRecordCommon {
   bytes: Buffer;
   /** Body-only payload for `WARC-Payload-Digest`. Optional. */
   payload?: Buffer;
+  /**
+   * WARC 1.1 `WARC-Truncated` — set when only part of the resource made it
+   * into the record, with the enumerated reason. The spec anticipates writers
+   * imposing limits ("writers of the WARC format may place limits on the time
+   * or storage allocated to archiving a single resource") and provides this
+   * field to record that they did; without it a reader cannot tell a body we
+   * dropped from one the origin never sent.
+   */
+  truncated?: "length" | "time" | "disconnect" | "unspecified";
 }
 
 const buildHttpRecord = (
@@ -162,6 +171,8 @@ const buildHttpRecord = (
     headers["WARC-IP-Address"] = input.ipAddress;
   if (input.payload !== undefined)
     headers["WARC-Payload-Digest"] = sha256Base32(input.payload);
+  if (input.truncated !== undefined)
+    headers["WARC-Truncated"] = input.truncated;
   return { headers, body: input.bytes };
 };
 

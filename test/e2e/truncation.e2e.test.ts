@@ -99,19 +99,17 @@ describe("a response over maxResponseBytes", () => {
   });
 
   /**
-   * Known-broken, stated as the behaviour we want rather than the behaviour we
-   * have: when the fix lands this starts passing, vitest reports the unexpected
-   * pass, and the `.fails` comes off. Written the other way round — asserting
-   * today's output — a correct fix would look like a test failure.
-   *
-   * Three defects, one cause: the body is dropped but the response record keeps
-   * claiming it is there.
-   *   1. the archived HTTP message advertises the original content-length (and
+   * Three defects that shared one cause — the body was dropped while the
+   * response record went on claiming it was there:
+   *   1. the archived HTTP message advertised the original content-length (and
    *      content-encoding) over an empty body
-   *   2. no WARC-Truncated field marks the record as cut short
-   *   3. the CDXJ line loses `digest`, which CDXJ 0.1.0 requires
+   *   2. no WARC-Truncated field marked the record as cut short
+   *   3. the CDXJ line lost `digest`, which CDXJ 0.1.0 requires
+   *
+   * Held as `it.fails` until all three were fixed; the assertions are the ones
+   * that were written before any of them existed.
    */
-  it.fails("keeps its headers honest and flags the truncation", async ({ annotate }) => {
+  it("keeps its headers honest and flags the truncation", async ({ annotate }) => {
     const { warc, cdxj } = await oversizedCapture(annotate);
 
     expect(warc).toContain("WARC-Truncated: length");
@@ -121,16 +119,18 @@ describe("a response over maxResponseBytes", () => {
 
   /**
    * A fourth defect, with a different cause from the three above — hence its own
-   * block, so fixing one group does not mask the other.
+   * block, so fixing one group did not mask the other.
    *
-   * The size check reads `encodedDataLength` off `Network.loadingFinished`, which
-   * is the whole transfer; the metadata record reads it off the earlier
-   * `Network.responseReceived`, which is only what had arrived by then — the
-   * headers. So a 21 MiB body that was dropped is filed as ~156 bytes, and the
-   * one record that exists to explain what went missing understates it by five
-   * orders of magnitude.
+   * The size check reads `encodedDataLength` off `Network.loadingFinished`, the
+   * whole transfer; the metadata record used to read it off the earlier
+   * `Network.responseReceived`, only what had arrived by then — the headers. A
+   * dropped 21 MiB body was filed as ~156 bytes, so the one record that exists
+   * to explain what went missing understated it by five orders of magnitude.
+   *
+   * Only a real browser reports the two differently, which is why this needed
+   * an e2e case at all: the unit tests fed both events one constant.
    */
-  it.fails("reports the size of what was actually dropped", async ({ annotate }) => {
+  it("reports the size of what was actually dropped", async ({ annotate }) => {
     const { warc } = await oversizedCapture(annotate);
 
     const reported = Number(metadataField(warc, "encodedDataLength"));
