@@ -244,12 +244,21 @@ const buildHttp11RequestHeaders = (
  */
 const buildHttp11ResponseHeaders = (
   cdpHeaders: Record<string, string>,
-  hasDecodedBody: boolean,
+  /**
+   * Whether the caller is about to state the stored body's length itself.
+   *
+   * True both when a body was decoded and when one was deliberately dropped —
+   * in the second case the honest length is zero, and leaving the origin's
+   * `content-length` in place would describe a body that is not there. False
+   * only for responses that never had a body (redirect, 304, 204), whose
+   * headers are already consistent and are left untouched.
+   */
+  rewriteLength: boolean,
 ): Record<string, string> => {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(cdpHeaders)) {
     if (isPseudoHeader(name)) continue;
-    if (hasDecodedBody) {
+    if (rewriteLength) {
       const lower = name.toLowerCase();
       if (
         lower === "content-encoding" ||
@@ -790,16 +799,19 @@ export class NetworkRecorder {
     //      parsers know exactly how many bytes the body is.
     //   3. Always emit HTTP/1.1 status line with a non-empty reason phrase
     //      (CDP gives empty `statusText` for HTTP/2 responses).
+    // A dropped body is still a body we are accounting for: say zero rather
+    // than repeat the origin's figure for bytes the archive does not hold.
+    const statesOwnLength = body !== undefined || entry.skipBody;
     const responseHeadersMap = buildHttp11ResponseHeaders(
       entry.fullResponseHeaders ?? response.headers,
-      body !== undefined,
+      statesOwnLength,
     );
     const responseHttpHeaders: HttpHeader[] =
       cdpHeadersToList(responseHeadersMap);
-    if (body !== undefined) {
+    if (statesOwnLength) {
       responseHttpHeaders.push({
         name: "Content-Length",
-        value: String(body.byteLength),
+        value: String(body?.byteLength ?? 0),
       });
     }
     const responseBytes = buildHttpResponseBytes({
