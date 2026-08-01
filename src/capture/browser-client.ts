@@ -25,6 +25,7 @@ import type { BrowserProfile } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { captureStatus } from "./capture-status.js";
 import { PageCapturer } from "./page-capturer.js";
+import { createHttpSigner } from "../storage/wacz/index.js";
 import { withWallClockTimeout } from "./timeouts.js";
 import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
 import { createConnectionError, errorDetailsFromException } from "./error-details.js";
@@ -75,6 +76,19 @@ export class BrowserClient {
           },
           software: profile.capture.wacz.software,
           fuzzyParams: profile.capture.wacz.fuzzyParams,
+          // Built only when a URL is configured. Without one, a task that asks
+          // to be signed falls back to the unsigned signer and says so.
+          ...(profile.capture.wacz.signingUrl === undefined
+            ? {}
+            : {
+                signer: createHttpSigner({
+                  url: profile.capture.wacz.signingUrl,
+                  ...(profile.capture.wacz.signingToken === undefined
+                    ? {}
+                    : { token: profile.capture.wacz.signingToken }),
+                  timeoutMs: profile.capture.wacz.signingTimeoutMs,
+                }),
+              }),
         }
       : undefined;
     this.pageCapturer = new PageCapturer(profile.capture, store, waczConfig);

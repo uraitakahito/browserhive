@@ -178,6 +178,7 @@ export const captureResultToReport = (
   },
   ...(result.waczStats !== undefined && { waczStats: result.waczStats }),
   ...(result.completeness !== undefined && { completeness: result.completeness }),
+  ...(result.signature !== undefined && { signature: result.signature }),
   ...(result.errorDetails !== undefined && { errorDetails: result.errorDetails }),
 });
 

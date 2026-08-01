@@ -4,3 +4,6 @@
 [submodule "meadow"]
 	path = meadow
 	url = https://github.com/uraitakahito/meadow.git
+[submodule "capping"]
+	path = capping
+	url = https://github.com/uraitakahito/capping.git

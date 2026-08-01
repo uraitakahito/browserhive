@@ -55,6 +55,11 @@ jobs:
           cache-dependency-path: docs-site/package-lock.json
       - name: Install docs-site dependencies
         run: npm ci --prefix docs-site
+      # site:build, not site:check — deliberately. site:check also runs
+      # docs:spec-coverage:check, which needs the root install (vitest), and
+      # this workflow installs only docs-site/ on purpose. The drift guard runs
+      # on the pull request instead (site.yml), so nothing reaches main
+      # unchecked.
       - name: Build Astro site
         run: pnpm run site:build
       - name: Upload Astro dist

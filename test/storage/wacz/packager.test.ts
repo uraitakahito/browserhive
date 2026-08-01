@@ -27,6 +27,7 @@ import {
 } from "../../../src/storage/wacz/index.js";
 import { sha256Hex } from "../../../src/storage/warc/index.js";
 import type { RecordedResponse } from "../../../src/capture/network-recorder-types.js";
+import type { WaczSigner } from "../../../src/storage/wacz/signer.js";
 
 let tmpDir: string;
 beforeEach(() => {
@@ -382,5 +383,105 @@ describe("WaczPackager — Phase 6 replay correctness", () => {
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * Signing.
+ *
+ * A signature is optional and a failed one is not a failed capture, so the
+ * archive has to come out either way. That policy has a cost: when signing is
+ * broken, nothing looks wrong. The capture succeeds, the WACZ is written, and
+ * the only trace is a field nobody is forced to read.
+ *
+ * Which is why both directions are pinned here, and why the success case
+ * asserts what the signature *covers* rather than merely that a file appeared.
+ * Both signers are fakes — the point of the port is that neither of these
+ * tests needs a network, a container, or a key.
+ */
+describe("WaczPackager.pack — signing", () => {
+  const packWith = async (signer: WaczSigner) => {
+    const warcPath = join(tmpDir, "data.warc.gz");
+    writeFileSync(warcPath, Buffer.from("fake-warc-bytes"));
+    const waczPath = join(tmpDir, "signed.wacz");
+    const result = await WaczPackager.pack({
+      warcPath,
+      waczPath,
+      taskId: "task-sign",
+      pageUrl: "https://example.com/",
+      pageTitle: "Example",
+      capturedAt: "2026-08-02T00:00:00.000Z",
+      software: "browserhive-test/0.0.0",
+      responses: [],
+      signer,
+    });
+    return { result, entries: unzipSync(new Uint8Array(readFileSync(waczPath))) };
+  };
+
+  it("still writes the archive when signing fails, and says why", async () => {
+    const alwaysFails: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async () => ({
+        report: { signed: false, reason: "signing service returned 503" },
+      }),
+    };
+
+    const { result, entries } = await packWith(alwaysFails);
+
+    // Three things at once, and all three are the policy: the archive exists,
+    // it carries no signature, and the reason survived.
+    expect(result.bytes).toBeGreaterThan(0);
+    expect(Object.keys(entries)).not.toContain("datapackage-digest.json");
+    expect(result.signature).toEqual({
+      signed: false,
+      reason: "signing service returned 503",
+    });
+  });
+
+  it("adds the digest and covers the datapackage that is actually in the zip", async () => {
+    const fakeSigner: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async (hash) => ({
+        digestBytes: Buffer.from(
+          `${JSON.stringify({ path: "datapackage.json", hash })}\n`,
+        ),
+        report: { signed: true, domain: "sign.dev.local" },
+      }),
+    };
+
+    const { result, entries } = await packWith(fakeSigner);
+
+    expect(result.signature).toEqual({ signed: true, domain: "sign.dev.local" });
+    expect(Object.keys(entries)).toContain("datapackage-digest.json");
+
+    // The assertion that matters. "A digest file appeared" would still pass if
+    // the hash were computed over the wrong bytes — and a signature over the
+    // wrong bytes verifies against nothing while looking entirely correct.
+    const digest = JSON.parse(
+      Buffer.from(entries["datapackage-digest.json"]!).toString("utf-8"),
+    ) as { path: string; hash: string };
+    const datapackageBytes = Buffer.from(entries["datapackage.json"]!);
+    expect(digest.path).toBe("datapackage.json");
+    expect(digest.hash).toBe(sha256Hex(datapackageBytes));
+  });
+
+  it("does not sign when no signer is given", async () => {
+    const warcPath = join(tmpDir, "data.warc.gz");
+    writeFileSync(warcPath, Buffer.from("fake-warc-bytes"));
+    const waczPath = join(tmpDir, "plain.wacz");
+    const result = await WaczPackager.pack({
+      warcPath,
+      waczPath,
+      taskId: "task-plain",
+      pageUrl: "https://example.com/",
+      pageTitle: "Example",
+      capturedAt: "2026-08-02T00:00:00.000Z",
+      software: "browserhive-test/0.0.0",
+      responses: [],
+    });
+
+    const entries = unzipSync(new Uint8Array(readFileSync(waczPath)));
+    expect(Object.keys(entries)).not.toContain("datapackage-digest.json");
+    expect(result.signature.signed).toBe(false);
   });
 });

@@ -67,6 +67,7 @@ export const DEFAULT_WACZ_CONFIG: WaczConfig = {
   // that build a CaptureConfig without going through the CLI builder.
   software: "browserhive/0.0.0",
   fuzzyParams: [...DEFAULT_WACZ_FUZZY_PARAMS],
+  signingTimeoutMs: 5_000,
 };
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {

@@ -147,6 +147,11 @@ export default defineConfig({
               translations: { ja: "WACZ internals" },
               slug: "wacz-internals",
             },
+            {
+              label: "Spec coverage",
+              translations: { ja: "仕様の実装状況" },
+              slug: "spec-coverage",
+            },
           ],
         },
         {
