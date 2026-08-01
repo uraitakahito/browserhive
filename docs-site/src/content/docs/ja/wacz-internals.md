@@ -169,12 +169,5 @@ CDP は HTTP/2 のワイヤデータをそのまま渡してくるため、Brows
 
 ## WACZ に意図的に入れないもの
 
-- **認証フロー / ライブデータ / WebRTC** — 対象外
-  ([Replay クイックスタート](/replay-quickstart/)参照)。
-- **キャプチャ対象ページの Service Worker 登録** — replay は自前の SW を使う。
-  キャプチャした SW は競合する。
-- **`maxResponseBytes` 超の画像 / 動画 body** —
-  `metadata { truncated: too-large }` として記録。メディアの多いキャプチャでは
-  上限をチューニングする。
-- **既定ブロックリストのトラフィック**(`google-analytics.com` 等)—
-  何も記録しない。`--wacz-block-pattern` で上書き。
+[仕様の実装状況](/spec-coverage/)へ移した。この実装が出しているフィールドや
+レコード種別の一覧と同じ問いなので、2 箇所に分けず 1 箇所で答える。

@@ -177,12 +177,6 @@ HTTP/1.1-shaped regardless of upstream transport.
 
 ## What's deliberately NOT in the WACZ
 
-- **Auth flows / live data / WebRTC** — out of scope (see
-  [Replay quickstart](/replay-quickstart/)).
-- **Service Worker registrations from the captured page** — replay
-  uses its own SW; the captured one would conflict.
-- **Images / video bodies above `maxResponseBytes`** — recorded as
-  `metadata { truncated: too-large }`. Tune the cap for media-heavy
-  captures.
-- **Default block-list traffic** (`google-analytics.com` etc.) —
-  recorded as nothing. Override with `--wacz-block-pattern`.
+Moved to [Spec coverage](/spec-coverage/), alongside the fields and record types
+this implementation does and does not emit — the same question, answered in one
+place rather than two.
