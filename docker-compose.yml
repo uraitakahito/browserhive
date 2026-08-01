@@ -100,6 +100,12 @@ services:
       # per-host custom behaviors from examples/behaviors/<version>/). Dev stack
       # only — the server is published on 127.0.0.1.
       - BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS=true
+      # Where `signing: true` captures go for their signature. The service only
+      # runs under the "signing" profile; without it every such capture comes
+      # back `signature.signed: false` and the WACZ is written unsigned, which
+      # is the documented behaviour rather than a failure.
+      - BROWSERHIVE_SIGNING_URL=http://capping.browserhive:8080/sign
+      - BROWSERHIVE_SIGNING_TOKEN=dev-token
       - LOG_LEVEL=info
       # The entrypoint shim polls this URL before starting the server —
       # depends_on is start order only, and the boot HeadBucket is fatal.
@@ -111,6 +117,27 @@ services:
     depends_on:
       - seaweedfs
       - chromium-1
+
+  # Local wacz-auth signing. Stands in for the service that would sign captures
+  # in production, so the HTTP path — token, timeout, service being down — is
+  # exercised here rather than discovered later.
+  #
+  # The identity is mounted read-only from test/fixtures/dev-ca. Committing it
+  # is the point: every environment gets the same ca.crt, which is what lets a
+  # test assert `capping verify --root test/fixtures/dev-ca/ca.crt` instead of
+  # merely "a signature appeared". Those keys sign nothing anyone trusts — the
+  # CA reaches no trust store.
+  capping:
+    build:
+      context: ./capping
+    # --host 0.0.0.0 because capping's default is 127.0.0.1, which no other
+    # container can reach.
+    command:
+      ["serve", "--dir", "/id", "--host", "0.0.0.0", "--port", "8080",
+       "--token", "dev-token"]
+    volumes:
+      - ./test/fixtures/dev-ca:/id:ro
+    profiles: ["signing"]
 
   # E2E fixture-origin ("the synthetic internet"). One URL serves both
   # directions: Chromium visits http://meadow.browserhive:8080 via the

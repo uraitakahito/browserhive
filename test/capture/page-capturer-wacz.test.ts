@@ -21,6 +21,7 @@ import {
 } from "../helpers/config.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
 import type { WaczCaptureConfig } from "../../src/capture/page-capturer.js";
+import type { WaczSigner } from "../../src/storage/wacz/index.js";
 
 const TASK_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -246,5 +247,72 @@ describe("PageCapturer.capture — WACZ recording", () => {
     expect(result.status).toBe("failed");
     expect(result.errorDetails?.type).toBe("internal");
     expect(result.errorDetails?.message).toMatch(/no WaczCaptureConfig/);
+  });
+});
+
+/**
+ * Signing, at the task level.
+ *
+ * The service itself is faked here — cycle 3 already pinned down how the HTTP
+ * signer behaves against a misbehaving service, and cycle 2 pinned down what
+ * the packager does with the result. What is left to check is the wiring: does
+ * asking for a signature reach the signer, and does not asking stay silent.
+ */
+describe("PageCapturer — signing", () => {
+  const runCapture = async (
+    taskOverrides: Partial<CaptureTask>,
+    signer?: WaczSigner,
+  ) => {
+    const store = createTestArtifactStore("/tmp/out");
+    const cdp = makeCDPSession();
+    const page = buildMockPage(cdp, () => {
+      /* no network activity needed */
+    });
+    const capturer = new PageCapturer(config(), store, {
+      ...buildWaczConfig(),
+      ...(signer === undefined ? {} : { signer }),
+    });
+    return capturer.capture(asPage(page), buildTask(taskOverrides), 0);
+  };
+
+  const config = () => createTestCaptureConfig();
+
+  it("says nothing about signatures when the task did not ask", async () => {
+    const signer: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async () => {
+        throw new Error("must not be called");
+      },
+    };
+
+    const result = await runCapture({ signing: false }, signer);
+
+    // Absent, not `{ signed: false }` — "nobody asked" and "we asked and it
+    // failed" are different answers and a reader has to be able to tell them
+    // apart.
+    expect(result.status).toBe("success");
+    expect(result.signature).toBeUndefined();
+  });
+
+  it("reports the outcome when the task did ask", async () => {
+    const signer: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async () => ({ report: { signed: false, reason: "service is down" } }),
+    };
+
+    const result = await runCapture({ signing: true }, signer);
+
+    // The capture still succeeded. That is the policy, and it is the reason
+    // this field has to exist at all.
+    expect(result.status).toBe("success");
+    expect(result.waczLocation).toBeDefined();
+    expect(result.signature).toEqual({ signed: false, reason: "service is down" });
+  });
+
+  it("falls back to unsigned when no signing service is configured", async () => {
+    const result = await runCapture({ signing: true });
+
+    expect(result.status).toBe("success");
+    expect(result.signature?.signed).toBe(false);
   });
 });

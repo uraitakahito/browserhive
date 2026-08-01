@@ -23,6 +23,14 @@ export interface CaptureTask {
   retryCount: number;
   captureFormats: CaptureFormats;
   /**
+   * Ask the configured signing service for a wacz-auth signature and store it
+   * as `datapackage-digest.json` inside the WACZ.
+   *
+   * Only meaningful alongside `captureFormats.wacz`; the HTTP boundary rejects
+   * the combination that is not, so the capture layer never sees it.
+   */
+  signing?: boolean;
+  /**
    * Upstream `Accept-Language` header to send for this capture. Validated
    * by the OpenAPI schema (printable ASCII only, ≤ 200 chars). Undefined
    * means "let Chromium use its built-in default".
@@ -162,6 +170,26 @@ export interface CaptureResult {
     bodylessUrls: string[];
     truncatedUrls: string[];
     complete: boolean;
+  };
+  /**
+   * What became of the wacz-auth signature. Set only when the task asked to be
+   * signed — absence means nobody requested one, which is a different
+   * statement from `signed: false`.
+   *
+   * `signed: false` is not a failed capture. A signature is optional, so a
+   * signing service that is down, slow, or refusing a token leaves an archive
+   * that is still worth keeping; what would be unacceptable is losing the fact
+   * that it went unsigned, which is why `reason` travels with it.
+   *
+   * Deliberately NOT part of `completeness`: that verdict is a pure function
+   * over the recorded responses, needing no browser, disk, or ZIP round-trip.
+   * A signature is the result of an HTTP call, and folding it in would cost
+   * that property.
+   */
+  signature?: {
+    signed: boolean;
+    reason?: string;
+    domain?: string;
   };
   errorDetails?: ErrorDetails;
   captureProcessingTimeMs: number;

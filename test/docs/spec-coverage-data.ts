@@ -86,9 +86,9 @@ export const COVERAGE: CoverageArea[] = [
       },
       {
         item: "datapackage-digest.json",
-        state: "unused",
-        en: "The hook signing hangs on. Nothing signs a capture yet, so an unsigned digest would only add a file.",
-        ja: "署名がぶら下がる場所。まだ何も署名していないため、未署名の digest はファイルが増えるだけになる。",
+        state: "implemented",
+        en: "Written when a capture asks to be signed (`signing: true`). Carries the `sha256:` of datapackage.json plus the wacz-auth signedData returned by the signing service.",
+        ja: "署名を要求したキャプチャ (`signing: true`) で書き出す。datapackage.json の `sha256:` と、署名サービスが返した wacz-auth の signedData を持つ。",
       },
       {
         item: "fuzzy.json (non-spec)",
@@ -331,9 +331,9 @@ export const COVERAGE: CoverageArea[] = [
       },
       {
         item: "Domain-Ownership Identity + Signed Timestamp",
-        state: "unused",
-        en: "Signs with a domain's TLS key and countersigns with an RFC 3161 timestamp. Needs a certificate for a domain BrowserHive controls, and a timestamp authority.",
-        ja: "ドメインの TLS 鍵で署名し、RFC 3161 タイムスタンプで副署する。BrowserHive が管理するドメインの証明書と、タイムスタンプ局が要る。",
+        state: "implemented",
+        en: "Requested per capture via `signing: true` and produced by an external signing service (capping in development). BrowserHive sends the hash and stores what comes back; it never holds a signing key.",
+        ja: "キャプチャごとに `signing: true` で要求し、外部の署名サービス (開発では capping) が生成する。BrowserHive はハッシュを送って返ってきたものを格納するだけで、署名鍵を持たない。",
       },
     ],
   },

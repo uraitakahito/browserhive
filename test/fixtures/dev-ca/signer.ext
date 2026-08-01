@@ -1,0 +1,2 @@
+subjectAltName=DNS:sign.dev.local
+keyUsage=critical,digitalSignature

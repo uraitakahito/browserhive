@@ -49,6 +49,13 @@ export const captureRequestToTask = (
     return err(formatsValidation.error);
   }
 
+  // A signature lives inside the WACZ, so asking for one without asking for a
+  // WACZ cannot be satisfied. Accepting it and quietly doing nothing would
+  // leave the caller believing they had asked for something.
+  if (request.signing === true && !captureFormats.wacz) {
+    return err("signing requires captureFormats.wacz");
+  }
+
   const trimmedLabels = (request.labels ?? [])
     .map((l) => l.trim())
     .filter((l) => l !== "");
@@ -103,6 +110,7 @@ export const captureRequestToTask = (
     ...(acceptLanguage !== undefined &&
       acceptLanguage !== "" && { acceptLanguage }),
     ...(dismissOptions !== undefined && { dismissOptions }),
+    ...(request.signing === true && { signing: true }),
     // Range checks (1–7680 × 1–4320) are enforced by Ajv at the OpenAPI
     // schema boundary, so the value can be passed through unchanged.
     ...(request.viewport !== undefined && { viewport: request.viewport }),

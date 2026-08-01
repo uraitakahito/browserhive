@@ -19,13 +19,13 @@ BrowserHive は 4 つの仕様に対して書き出しています。このペ�
 
 | 面 | 被覆 |
 | --- | --- |
-| WACZ のファイル構成 | 4 / 7 |
+| WACZ のファイル構成 | 5 / 7 |
 | WARC のレコード種別 | 4 / 8 |
 | WARC のヘッダフィールド | 13 / 21 |
 | CDXJ 索引 | 7 / 8 |
 | pages.jsonl | 4 / 6 |
 | datapackage.json | 7 / 10 |
-| 署名 (wacz-auth) | 0 / 2 |
+| 署名 (wacz-auth) | 1 / 2 |
 
 「被覆」は実装と実装＋補完の合計です。仕様外の拡張は一覧に載せますが分母から外しています。
 
@@ -41,7 +41,7 @@ BrowserHive は 4 つの仕様に対して書き出しています。このペ�
 | `pages/pages.jsonl` | 実装 | ヘッダ行 ＋ 1 エントリ。1 キャプチャ = 1 ページのため。 |
 | `pages/extraPages.jsonl` | 未実装 | クロールで発見したページ用。1 キャプチャ 1 ページなので入れるものがない。 |
 | `datapackage.json` | 実装 | Frictionless data package のマニフェスト。リソースごとにハッシュを持つ。 |
-| `datapackage-digest.json` | 未実装 | 署名がぶら下がる場所。まだ何も署名していないため、未署名の digest はファイルが増えるだけになる。 |
+| `datapackage-digest.json` | 実装 | 署名を要求したキャプチャ (`signing: true`) で書き出す。datapackage.json の `sha256:` と、署名サービスが返した wacz-auth の signedData を持つ。 |
 | `fuzzy.json (non-spec)` | 逸脱 | 仕様に無い。仕様はルートへの追加ファイルを認めており、wabac.js が replay 時の曖昧 URL 照合に読む。 |
 
 ## WARC のレコード種別
@@ -139,7 +139,7 @@ BrowserHive は 4 つの仕様に対して書き出しています。このペ�
 | 項目 | 状態 | 備考 |
 | --- | --- | --- |
 | `Anonymous Signature` | 未実装 | 鍵ペアだけで digest に署名する。検証には公開鍵を別経路で配る必要がある。 |
-| `Domain-Ownership Identity + Signed Timestamp` | 未実装 | ドメインの TLS 鍵で署名し、RFC 3161 タイムスタンプで副署する。BrowserHive が管理するドメインの証明書と、タイムスタンプ局が要る。 |
+| `Domain-Ownership Identity + Signed Timestamp` | 実装 | キャプチャごとに `signing: true` で要求し、外部の署名サービス (開発では capping) が生成する。BrowserHive はハッシュを送って返ってきたものを格納するだけで、署名鍵を持たない。 |
 
 ## 意図的に対象外にしているもの
 

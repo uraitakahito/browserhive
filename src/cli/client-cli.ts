@@ -64,6 +64,16 @@ export interface ClientOptions {
    */
   fullPage?: boolean;
   /**
+   * When `true`, sent as the request's `signing: true` — ask the server's
+   * signing service for a wacz-auth signature.
+   *
+   * Only valid together with `--wacz`; the server rejects the other
+   * combination rather than accepting a request it cannot satisfy. A capture
+   * whose signature fails still succeeds, so check `signature.signed` on the
+   * result to tell a signed archive from an unsigned one.
+   */
+  signing?: boolean;
+  /**
    * Which `examples/behaviors/<version>/` directory to load client-supplied
    * custom behaviors from. Attached per-entry by matching the target URL's
    * host (FQDN then registrable domain). Defaults to `v1.0`.
@@ -172,6 +182,10 @@ export const createProgram = (): Command => {
       "--full-page",
       "Capture the full document height (overrides the server default for PNG / WebP)",
     )
+    .option(
+      "--signing",
+      "Ask the server's signing service for a wacz-auth signature (requires --wacz). A capture whose signature fails still succeeds — see signature.signed on the result",
+    )
     .addOption(
       new Option(
         "--behaviors-version <v>",
@@ -214,6 +228,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     operationDelayMs?: number;
     archiveMode?: ArchiveMode;
     fullPage?: boolean;
+    signing?: boolean;
     behaviorsVersion?: string;
   }>();
 
@@ -242,6 +257,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.operationDelayMs !== undefined && { operationDelayMs: opts.operationDelayMs }),
     ...(opts.archiveMode !== undefined && { archiveMode: opts.archiveMode }),
     ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
+    ...(opts.signing !== undefined && { signing: opts.signing }),
     ...(opts.behaviorsVersion !== undefined && { behaviorsVersion: opts.behaviorsVersion }),
   };
 };
@@ -277,6 +293,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       operationDelayMs: options.operationDelayMs ?? "(server default)",
       archiveMode: options.archiveMode ?? "(server default)",
       fullPage: options.fullPage ?? null,
+      signing: options.signing ?? null,
       limit: options.limit ?? null,
       behaviorsVersion: options.behaviorsVersion ?? "v1.0",
     },

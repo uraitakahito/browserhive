@@ -1,0 +1,119 @@
+/**
+ * Getting a WACZ signed, and reporting honestly when it was not.
+ *
+ * The signature lives in `datapackage-digest.json` at the WACZ root and
+ * follows wacz-auth 0.1.0. Producing it needs a private key, and the whole
+ * point of asking a service for it is that the key is not here: this process
+ * sends a hash and gets a signature back, and never holds anything that could
+ * sign a second archive.
+ *
+ * A signature is optional, and that shapes the contract below: `sign` does not
+ * throw. A signing service that is down, slow, or refusing a token is not a
+ * failed capture — the archive is still worth keeping. What must not happen is
+ * losing the fact that it went unsigned, so the outcome is returned rather than
+ * logged and dropped.
+ */
+import { Buffer } from "node:buffer";
+
+/** What became of the signature. Reported on the capture result. */
+export interface SignatureReport {
+  signed: boolean;
+  /** Set when `signed` is false. One line, in the signer's own words. */
+  reason?: string;
+  /** Set when `signed` is true. The domain the certificate is issued for. */
+  domain?: string;
+}
+
+export interface SignResult {
+  /** `datapackage-digest.json` to add to the ZIP. Absent when unsigned. */
+  digestBytes?: Buffer;
+  report: SignatureReport;
+}
+
+export interface WaczSigner {
+  /**
+   * Sign `hash` — the `sha256:<hex>` of `datapackage.json`, exactly as it
+   * appears in the file.
+   *
+   * Never throws. Reporting "there is no signature, and here is why" is this
+   * port's job; letting the failure escape would push the same try/catch into
+   * every caller and invite one of them to treat it as fatal.
+   */
+  sign(hash: string): Promise<SignResult>;
+}
+
+/**
+ * The signer for captures that did not ask to be signed.
+ *
+ * Not a null object for convenience — it carries a reason, so a reader of the
+ * report can tell "nobody asked" apart from "we asked and it failed".
+ */
+export const unsignedSigner: WaczSigner = {
+  // eslint-disable-next-line @typescript-eslint/require-await -- async by contract: WaczSigner.sign returns a promise, and this one has nothing to await.
+  sign: async () => ({ report: { signed: false, reason: "signing not requested" } }),
+};
+
+export interface HttpSignerOptions {
+  /** The signing service's `/sign` endpoint. */
+  url: string;
+  /** Bearer token, when the service requires one. */
+  token?: string;
+  /**
+   * How long to wait before giving up and going out unsigned.
+   *
+   * A signature is optional, so there is no version of this where holding the
+   * capture open is the right trade. Whatever this is set to is the most a
+   * signing service can cost a capture.
+   */
+  timeoutMs: number;
+}
+
+/**
+ * A signer that asks an authsign-shaped HTTP service.
+ *
+ * Every network concern lives in here — `fetch`, the timeout, the token, and
+ * the catch. That is the whole reason the port exists: callers get a signature
+ * or a reason, and never a decision about what an exception means.
+ */
+export const createHttpSigner = (options: HttpSignerOptions): WaczSigner => ({
+  async sign(hash) {
+    try {
+      const res = await fetch(options.url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(options.token === undefined
+            ? {}
+            : { authorization: `Bearer ${options.token}` }),
+        },
+        body: JSON.stringify({ hash }),
+        signal: AbortSignal.timeout(options.timeoutMs),
+      });
+
+      if (!res.ok) {
+        // The status is the diagnosis: 401 means the token is wrong, which is
+        // a different fix from the service being down. Keep it in the reason.
+        return { report: { signed: false, reason: `signing service returned ${String(res.status)}` } };
+      }
+
+      const signedData = (await res.json()) as { domain?: unknown };
+      if (typeof signedData.domain !== "string") {
+        return { report: { signed: false, reason: "signing service returned no domain" } };
+      }
+
+      // `hash` is ours, not the response's — the file has to describe the
+      // datapackage we actually built, whatever the service echoed back.
+      const digestBytes = Buffer.from(
+        `${JSON.stringify({ path: "datapackage.json", hash, signedData }, null, 2)}\n`,
+        "utf-8",
+      );
+      return { digestBytes, report: { signed: true, domain: signedData.domain } };
+    } catch (err) {
+      // Timeout, DNS, connection refused, malformed JSON — all land here, and
+      // all mean the same thing to the caller: carry on without a signature.
+      return {
+        report: { signed: false, reason: err instanceof Error ? err.message : String(err) },
+      };
+    }
+  },
+});

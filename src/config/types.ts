@@ -91,6 +91,23 @@ export interface WaczConfig {
   /** Software identifier embedded in WARC `warcinfo` + WACZ `datapackage.json`. */
   software: string;
   /**
+   * `/sign` endpoint of the wacz-auth signing service.
+   *
+   * Undefined means no service is configured. A capture that asked to be
+   * signed still produces a WACZ, reported as `signature.signed: false` — a
+   * signature is not what makes an archive worth keeping.
+   */
+  signingUrl?: string;
+  /** Bearer token for the signing service, when it requires one. */
+  signingToken?: string;
+  /**
+   * How long to wait for a signature before giving up and going out unsigned.
+   *
+   * A signature is optional, so there is no version of this where holding the
+   * capture open is the right trade.
+   */
+  signingTimeoutMs: number;
+  /**
    * Query parameter names treated as cache-busters for fuzzy matching at
    * replay time. The packager emits a `fuzzy.json` file in the WACZ
    * containing strip rules for these names so replay tooling that honours

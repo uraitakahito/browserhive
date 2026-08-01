@@ -99,6 +99,7 @@ const submitRequest = async (
   operationDelayMs: number | undefined,
   archiveMode: ArchiveMode | undefined,
   fullPage: boolean | undefined,
+  signing: boolean,
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
@@ -119,6 +120,11 @@ const submitRequest = async (
     ...(operationDelayMs !== undefined && { operationDelayMs }),
     ...(archiveMode !== undefined && { archiveMode }),
     ...(fullPage !== undefined && { fullPage }),
+    // Only meaningful with captureFormats.wacz — the server rejects the other
+    // combination rather than accepting a request it cannot satisfy. A capture
+    // whose signature fails still succeeds; check `signature.signed` on the
+    // result to tell a signed archive from an unsigned one.
+    ...(signing && { signing: true }),
     ...(custom.length > 0 && { behaviors: { custom } }),
   };
 
@@ -167,6 +173,7 @@ const submitAll = async (
   operationDelayMs: number | undefined,
   archiveMode: ArchiveMode | undefined,
   fullPage: boolean | undefined,
+  signing: boolean,
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult[]> => {
   const total = entries.length;
@@ -183,6 +190,7 @@ const submitAll = async (
       operationDelayMs,
       archiveMode,
       fullPage,
+      signing,
       selectBehaviors,
     );
     completed++;
@@ -263,6 +271,7 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     options.operationDelayMs,
     options.archiveMode,
     options.fullPage,
+    options.signing ?? false,
     (host) => selectForHost(registry, host),
   );
 

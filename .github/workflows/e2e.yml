@@ -44,8 +44,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # capping is a submodule and its dist/ is what test/e2e/signing.e2e.test.ts
+      # spawns to verify a signature — the only thing that checks the signature
+      # itself, as opposed to checking that a digest file appeared.
+      - name: Build capping
+        run: pnpm --dir capping install --frozen-lockfile && pnpm --dir capping run build
+
+      # --profile signing brings up the local wacz-auth signing service.
+      # Without it every signed capture comes back `signature.signed: false`,
+      # which is correct behaviour and a failing signing suite — the archive is
+      # still written, so nothing else would go red.
       - name: Bring up the stack
-        run: container-compose --profile meadow up -d -b
+        run: container-compose --profile meadow --profile signing up -d -b
 
       # Produces the @vitest/ui HTML report into html-e2e/ instead of only
       # printing to the log. The suite annotates every capture with its taskId,
@@ -81,4 +91,4 @@ jobs:
       - name: Tear down
         if: always()
         # down only covers services active under the given profiles.
-        run: container-compose --profile meadow down
+        run: container-compose --profile meadow --profile signing down
