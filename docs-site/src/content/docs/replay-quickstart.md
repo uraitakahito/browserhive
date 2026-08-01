@@ -201,64 +201,9 @@ the point, is on [Related projects](/related-projects/).
 
 ## Signing the archive
 
-`signing: true` asks the configured signing service for a
-[wacz-auth](https://specs.webrecorder.net/wacz-auth/0.1.0/) signature and
-stores it as `datapackage-digest.json` inside the WACZ:
-
-```json
-{
-  "url": "https://example.com/",
-  "captureFormats": { "png": false, "webp": false, "html": false, "links": false, "mhtml": false, "wacz": true },
-  "signing": true
-}
-```
-
-It requires `captureFormats.wacz: true`. Asking to sign a capture that
-produces no WACZ is rejected with `400` — there would be nowhere to put the
-signature, and accepting the request would leave you believing you had asked
-for something.
-
-BrowserHive never holds a signing key. It sends the `sha256:` of
-`datapackage.json` to the service and stores what comes back, which is why a
-capture worker being compromised does not put you in a position to forge a
-second archive. In development that service is
-[capping](https://uraitakahito.github.io/capping/), started with the `signing`
-compose profile.
-
-### A failed signature is not a failed capture
-
-If the service is down, slow, or refuses the token, **the WACZ is still
-written** — without a signature — and the capture succeeds. The outcome is on
-the result:
-
-```json
-"signature": { "signed": false, "reason": "signing service returned 401" }
-```
-
-`signature` is absent entirely when the capture did not ask to be signed.
-Absent, `signed: true`, and `signed: false` are three different answers, and
-only the last one needs looking into.
-
-This is deliberate: an archive is worth keeping whether or not anyone
-countersigned it. The cost is that a broken signing setup looks like a normal
-day, so **check `signature.signed`** rather than assuming it worked.
-
-### Verifying
-
-`capping verify` is the only thing that checks the signature itself:
-
-```console
-$ capping verify --file datapackage-digest.json --root test/fixtures/dev-ca/ca.crt
-  ok       signature  signature matches the hash under the certificate's key
-  ok       chain      chain reaches a supplied trust root
-  ok       domain     certificate is valid for sign.dev.local
-  ok       timestamp  timestamp covers this signature
-
-valid
-```
-
-waxlens checks that `datapackage-digest.json` exists and that its `hash`
-matches `datapackage.json` — it does **not** verify the signature.
+A capture can ask for a wacz-auth signature with `signing: true`, stored as
+`datapackage-digest.json` inside the WACZ. Requesting one, reading the outcome
+and verifying it have a page of their own: [Signing a WACZ](/signing/).
 
 ## See also
 

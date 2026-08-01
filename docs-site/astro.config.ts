@@ -108,6 +108,11 @@ export default defineConfig({
               slug: "replay-quickstart",
             },
             {
+              label: "Signing a WACZ",
+              translations: { ja: "WACZ に署名する" },
+              slug: "signing",
+            },
+            {
               label: "Related projects",
               translations: { ja: "関連プロジェクト" },
               slug: "related-projects",
