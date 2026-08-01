@@ -833,6 +833,12 @@ export class NetworkRecorder {
         targetUri: entry.url,
         bytes: responseBytes,
         ...(body !== undefined && { payload: body }),
+        // Only the size caps truncate. `content-type` skips never fetch the
+        // body at all, so there is nothing cut short to declare.
+        ...((entry.skipBodyReason === "too-large" ||
+          entry.skipBodyReason === "task-cap") && {
+          truncated: "length" as const,
+        }),
         ...(response.remoteIPAddress !== undefined && {
           ipAddress: response.remoteIPAddress,
         }),
