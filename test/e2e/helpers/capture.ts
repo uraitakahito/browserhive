@@ -4,6 +4,7 @@
  */
 import { expect } from "vitest";
 import type { TestContext } from "vitest";
+import type { RequestLog } from "meadow";
 
 /**
  * The only part of the test context this module needs.
@@ -63,6 +64,14 @@ export interface CaptureOptions {
    * Only valid with a WACZ format; the API rejects the other combination.
    */
   signing?: boolean;
+  /**
+   * How this capture treats the browser HTTP cache.
+   *
+   * The server default is `clear`, so tests that want a `304` have to ask for
+   * `default` explicitly — twice, since the first visit is what populates the
+   * cache.
+   */
+  cache?: "default" | "bypass" | "clear";
 }
 
 /** Build a POST /v1/captures body (captureFormats is required by the API). */
@@ -70,7 +79,7 @@ export function captureRequest(
   url: string,
   options: CaptureOptions = {},
 ): Record<string, unknown> {
-  const { formats = HTML_ONLY, operationDelayMs, signing } = options;
+  const { formats = HTML_ONLY, operationDelayMs, signing, cache } = options;
   return {
     url,
     labels: ["e2e"],
@@ -79,6 +88,7 @@ export function captureRequest(
     // when a test does not care about pacing.
     ...(operationDelayMs === undefined ? {} : { operationDelayMs }),
     ...(signing === undefined ? {} : { signing }),
+    ...(cache === undefined ? {} : { cache }),
   };
 }
 
@@ -201,7 +211,24 @@ export async function resetMeadow(meadow: string): Promise<void> {
   await fetch(`${meadow}/__reset`, { method: "POST" });
 }
 
-/** meadow's per-URL request counts — the black-box evidence of browser behaviour. */
+/**
+ * meadow's per-URL request counts — the black-box evidence of browser behaviour.
+ *
+ * Exact and unbounded. Use this when the number itself is the question.
+ */
 export async function meadowRequestCounts(meadow: string): Promise<Record<string, number>> {
   return getJson<Record<string, number>>(`${meadow}/__request-counts`);
+}
+
+/**
+ * The requests meadow actually received, in order, with the headers that
+ * explain caching.
+ *
+ * Not a way to count: the log is capped at meadow's `REQUEST_LOG_LIMIT`, and
+ * `truncated` says whether anything was dropped. `meadowRequestCounts` is what
+ * counts. What this answers is the question counts cannot — *what* arrived,
+ * and whether it was conditional.
+ */
+export async function meadowRequests(meadow: string): Promise<RequestLog> {
+  return getJson<RequestLog>(`${meadow}/__requests`);
 }

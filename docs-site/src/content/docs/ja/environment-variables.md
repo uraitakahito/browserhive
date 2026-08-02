@@ -31,6 +31,7 @@ description: CLI フラグ ↔ BROWSERHIVE_* 環境変数の完全な対応表(�
 | `--viewport-height <px>`<code class="env">BROWSERHIVE_VIEWPORT_HEIGHT</code> | 正の整数(サーバ既定。リクエストの `viewport.height` が優先) |
 | `--device-scale-factor <n>`<code class="env">BROWSERHIVE_DEVICE_SCALE_FACTOR</code> | 正の整数(既定 `1`) — 描画時の DPR。`2` で Retina 相当。`multipass` では無視される |
 | `--archive-mode <mode>`<code class="env">BROWSERHIVE_ARCHIVE_MODE</code> | `single-pass` または `multipass`(既定 `single-pass`) — `multipass` は DPR 1/2 の 2 パスを 1 つの WACZ に、キャッシュ無効で記録 |
+| `--cache <mode>`<code class="env">BROWSERHIVE_CACHE</code> | `default` / `bypass` / `clear`(既定 **`clear`**) — ブラウザ HTTP キャッシュの既定。リクエストごとに上書き可。`clear` なのは `304` が本文を持たないため —— キャッシュヒットから組み立てたものはアーカイブではない |
 | `--behaviors <list>`<code class="env">BROWSERHIVE_BEHAVIORS</code> | カンマ区切りの behavior id(既定 `autoscroll,autofetch`)。空文字で全 built-in を無効化 |
 | `--behavior-timeout <ms>`<code class="env">BROWSERHIVE_BEHAVIOR_TIMEOUT_MS</code> | 正の整数(既定 `30000`) — behavior パス全体の上限 |
 | `--allow-custom-behaviors`<code class="env">BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS</code> | `"true"`/`"1"` または `"false"`/`"0"`(既定 `false`) — リクエストの `behaviors.custom` を受理する |

@@ -528,6 +528,53 @@ export const resetPageState = async (
 };
 
 /**
+ * Empty the browser's HTTP cache.
+ *
+ * Best-effort by design: failing to clear costs at most a `304` on a URL
+ * captured before, which is not worth losing an otherwise good capture over.
+ * Session handling mirrors `resetPageState` — opened here, detached in
+ * `finally`, so nothing leaks across tasks.
+ *
+ * `Network.clearBrowserCache` is browser-wide, not page-scoped. That is
+ * contained today because a worker owns its browser and reuses a single tab,
+ * so "the browser" and "this capture" are the same thing. Putting several
+ * pages on one browser would make this reach other tasks, and this is where
+ * that would need rethinking.
+ */
+const clearBrowserCache = async (
+  page: CapturePage,
+  workerIndex: number,
+  pacing: PacingLedger,
+): Promise<void> => {
+  let session: Awaited<ReturnType<Page["createCDPSession"]>> | null = null;
+  try {
+    session = await page.createCDPSession();
+    await withOperationTimeout(
+      session.send("Network.clearBrowserCache"),
+      RESET_PAGE_STATE_TIMEOUT_MS,
+      "clearBrowserCache",
+      pacing,
+    );
+  } catch (error) {
+    logger.warn(
+      { err: error, workerIndex },
+      "clearBrowserCache failed (best-effort, continuing)",
+    );
+  } finally {
+    if (session) {
+      try {
+        await session.detach();
+      } catch (error) {
+        logger.warn(
+          { err: error, workerIndex },
+          "clearBrowserCache CDP session detach failed",
+        );
+      }
+    }
+  }
+};
+
+/**
  * Check if HTTP status code indicates success (2xx)
  */
 export const isSuccessHttpStatus = (statusCode: number): boolean => {
@@ -633,6 +680,26 @@ export class PageCapturer {
     // not. `tempDir` is reused for both the WARC and the WACZ output —
     // both files are read back into memory for upload, then the dir is
     // removed in `finally`.
+    // Settle the HTTP cache before anything else touches the page — for every
+    // capture, not only WACZ ones. The recorder merely enables the CDP
+    // `Network` domain and does not intercept requests, so the cache is live
+    // unless told otherwise, and a revalidated resource comes back as a
+    // bodyless `304` that cannot be archived.
+    const cacheArchiveMode = task.archiveMode ?? this.config.archiveMode;
+    const cache = task.cache ?? this.config.cache;
+    if (cache === "clear") {
+      await clearBrowserCache(page, workerIndex, pacing);
+    }
+    // Set explicitly every capture, not just when disabling: the page is reused
+    // across tasks, so the previous task's choice would otherwise leak into
+    // this one.
+    //
+    // Two conditions, and the first is not redundant. `multipass` must never
+    // read the cache — a later pass served from what an earlier pass stored
+    // defeats the sweep — and that holds even for `clear`, because clearing
+    // empties the cache and then pass one fills it again.
+    await page.setCacheEnabled(cacheArchiveMode !== "multipass" && cache === "default");
+
     let recorder: NetworkRecorder | null = null;
     let waczTempDir: string | null = null;
     if (task.captureFormats.wacz) {
@@ -676,15 +743,6 @@ export class PageCapturer {
         archiveMode === "multipass"
           ? MULTIPASS_DEVICE_PIXEL_RATIOS
           : [task.deviceScaleFactor ?? this.config.viewport.deviceScaleFactor];
-
-      // The recorder only enables the CDP `Network` domain — it does not
-      // intercept requests — so the browser's HTTP cache is live by default and
-      // a revalidated resource comes back as a bodyless `304` that cannot be
-      // archived. Under `multipass` that would also make the second pass a
-      // no-op. Set it explicitly every capture (not just for multipass): the
-      // page is reused across tasks, so the previous task's choice would
-      // otherwise leak into this one.
-      await page.setCacheEnabled(archiveMode !== "multipass");
 
       await setUserAgent(page, this.config.userAgent);
       await setAcceptLanguage(page, task.acceptLanguage);

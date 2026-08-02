@@ -82,6 +82,7 @@ export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
   // pays off on sites that derive image URLs from devicePixelRatio rather than
   // declaring every candidate in `srcset` (autofetch already covers the latter).
   archiveMode: "single-pass",
+  cache: "clear",
   timeouts: {
     pageLoadMs: 30000,
     captureMs: 10000,
