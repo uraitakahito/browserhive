@@ -137,7 +137,7 @@ unzip -p capture.wacz datapackage-digest.json > datapackage-digest.json
 ```console
 $ node capping/dist/cli.js verify \
     --file datapackage-digest.json \
-    --root test/fixtures/dev-ca/ca.crt
+    --root test/fixtures/dev-ca/insecure-dev-ca.crt
   ok       signature  signature matches the hash under the certificate's key
   ok       chain      chain reaches a supplied trust root
   ok       domain     certificate is valid for sign.dev.local
@@ -146,7 +146,7 @@ $ node capping/dist/cli.js verify \
 valid
 ```
 
-`--root` is the development CA committed at `test/fixtures/dev-ca/ca.crt`. It
+`--root` is the development CA committed at `test/fixtures/dev-ca/insecure-dev-ca.crt`. It
 is the same in every checkout on purpose: a fixed trust anchor is what lets a
 test assert `valid` rather than merely "a digest file appeared". Those keys
 sign nothing anyone trusts — the CA reaches no trust store.
