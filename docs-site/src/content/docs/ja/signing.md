@@ -2,24 +2,24 @@
 title: WACZ に署名する
 description: キャプチャごとに wacz-auth 署名を要求し、結果を読み、検証する
 ---
+`signing: true` は [wacz-auth](https://specs.webrecorder.net/wacz-auth/0.1.0/)
+署名を**要求**します。設定された署名サービスに依頼し、返ってきたものを**検証**し、
+WACZ の中に `datapackage-digest.json` として格納します。**署名できなかった
+キャプチャは失敗し、成果物は保存されません。**
 
-`signing: true` を付けると、設定された署名サービスに
-[wacz-auth](https://specs.webrecorder.net/wacz-auth/0.1.0/) の署名を要求し、
-WACZ の中に `datapackage-digest.json` として格納します。
-
-BrowserHive は署名鍵を持ちません。`datapackage.json` の `sha256:` を送って、
-返ってきたものを格納するだけです。だからキャプチャ側が侵害されても、2 本目の
-アーカイブに署名できる材料は手に入りません。開発時のサービスは
-[capping](https://uraitakahito.github.io/capping/ja/) で、compose の `signing`
+BrowserHive は署名鍵を持ちません。`datapackage.json` の `sha256:` を送って
+返ってきたものを格納するだけなので、キャプチャワーカーが侵害されても第二の
+アーカイブを偽造できる立場にありません。開発時のそのサービスは
+[capping](https://uraitakahito.github.io/capping/) で、`signing` compose
 プロファイルで起動します。
 
 ```bash title="署名サービスが動いている必要があります"
 container-compose --profile signing up -d -b
 ```
 
-プロファイルを付けなくても他はすべて動きますが、署名を要求したキャプチャは
-すべて `signature.signed: false` で返ります。
-[壊れていても何も起きません](#壊れていても何も起きません)を参照してください。
+プロファイルを外しても、署名を要求しないキャプチャは従来どおり動きます。
+要求するものは**失敗**し、到達できなかったサービスを名指しします ——
+[署名が取得できないキャプチャは失敗します](#署名が取得できないキャプチャは失敗します)を参照。
 
 ## 署名付きでキャプチャを依頼する
 
@@ -69,53 +69,88 @@ curl -sS http://localhost:8080/v1/captures/550e8400-e29b-41d4-a716-446655440000 
 {
   "status": "success",
   "wacz": "s3://browserhive/550e8400-….wacz",
-  "signature": { "signed": true, "domain": "sign.dev.local" }
-}
-```
-
-`signature` には **3 つの状態**があり、それぞれ別の答えです。
-
-| `signature` | 意味 |
-|---|---|
-| 不在 | 署名を頼んでいない |
-| `{ "signed": true, "domain": … }` | そのドメインの証明書で署名された |
-| `{ "signed": false, "reason": … }` | 頼んだが、付かなかった。`reason` が理由 |
-
-### 署名の失敗はキャプチャの失敗ではありません
-
-サービスが落ちている・遅い・トークンを拒否した場合でも、**WACZ は書き出され**、
-キャプチャは成功します。
-
-```json
-{
-  "status": "success",
-  "wacz": "s3://browserhive/550e8400-….wacz",
   "signature": {
-    "signed": false,
-    "reason": "http://capping.browserhive:8080/sign — fetch failed: getaddrinfo ENOTFOUND capping.browserhive"
+    "signed": true,
+    "domain": "sign.dev.local",
+    "checks": { "signature": "ok", "chain": "ok", "domain": "ok", "timestamp": "ok" }
   }
 }
 ```
 
-これは意図した設計です。誰かが副署したかどうかに関わらずアーカイブは残す価値が
-ありますし、署名サービスの不調でキャプチャを失う理由はありません。`reason` には
-**エンドポイントと根本原因**が入るので、「ただ失敗した」ではなく診断になります ——
-上の `ENOTFOUND` は「コンテナが起動していない」と言っています。
+`signature` は署名が不要だったキャプチャでは**存在しません**。これは
+`signed: false` とは別の答えで、このフィールドが常在ではなく任意である理由です。
 
-### <span id="壊れていても何も起きません">壊れていても何も起きません</span>
+### `checks` は「どこまで検証したか」を述べます
 
-この方針の代償ははっきり書いておきます。URL の間違い・トークンの間違い・
-誰も起動していないサービス —— そのどれもが**成功したキャプチャと、アップロードされた
-WACZ** を生みます。何も赤くなりません。
+`signed: true` は「署名を受け取った」ではなく「**検証した**」を意味します。
+`checks` はどの検査が走ったかを示します。
 
-つまり `signature.signed` は飾りではなく、**署名済みかどうかを区別する唯一のもの**
-です。確認することがそのまま運用の作法になります。
+| 検査 | 何が言えるか | 必要なもの |
+|---|---|---|
+| `signature` | 署名が**このキャプチャが生成した** `datapackage.json` を覆っている（応答が返した hash ではない） | — |
+| `chain` | 証明書がこのサーバに設定された root に届く | `BROWSERHIVE_SIGNING_TRUST_ANCHOR` |
+| `domain` | 証明書が応答の名乗るドメイン向けに発行されている | — |
+| `timestamp` | タイムスタンプトークンが**この**署名を覆っている | `BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` |
 
-```bash title="署名なしで返ってきたらスクリプトを落とす"
-curl -sS "http://localhost:8080/v1/captures/$TASK_ID" \
-  | jq -e '.signature.signed == true' > /dev/null \
-  || echo "unsigned — container logs capping.browserhive を確認してください"
+それぞれ `ok` / `failed` / `skipped` のいずれかです。**`skipped` は合格ではありません。**
+chain と timestamp は照合先の信頼アンカーが要り、どちらも未設定のサーバでも残る 2 つは
+動きます —— この 2 つは設定不要で、**サービスが別のバイトに署名している事態を捕まえる
+のはここ**です。
+
+`failed` の検査が結果として届くことはありません。キャプチャが失敗するからです。
+成功したキャプチャの `checks` には `ok` と `skipped` しか現れず、
+**それを読むことで自分の構成が実際に何を検証したか**が分かります。
+
+### <span id="署名が取得できないキャプチャは失敗します">署名が取得できないキャプチャは失敗します</span>
+
+サービスが停止している、遅い、トークンを拒否する、あるいは**検証を通らないものを
+返した** —— いずれの場合も**キャプチャは失敗し、何も保存されません**。
+
+```json
+{
+  "status": "failed",
+  "errorDetails": {
+    "type": "signing",
+    "message": "a signature was required and could not be obtained: http://capping.browserhive:8080/sign — fetch failed: getaddrinfo ENOTFOUND capping.browserhive"
+  }
+}
 ```
+
+WACZ はアップロードされません —— **そもそも書かれない**ので、中途半端に署名された
+成果物が後から見つかることもありません。`errorDetails.type` が `internal` ではなく
+`signing` なのは、対処が別種だからです。署名サービスの停止はサービスを再起動して
+再試行すれば直り、`internal` は本物の不具合が住む場所です。
+
+以前は逆でした。署名に失敗してもキャプチャは成功しアーカイブはアップロードされ、
+結果は誰も読む義務のないフィールドに入っていました —— URL の間違い、トークンの
+間違い、誰も起動していないサービス、そのどれもが**問題なさそうに見えて署名されて
+いないアーカイブ**を生みました。何も赤くなりませんでした。
+
+:::note[署名なしの保存は変わりません]
+`signing` を書かない、または `false` にすれば、署名サービスの有無にかかわらず
+従来どおり成功します。失敗するのは**署名を要求して得られなかった場合**だけです。
+「取れたら付ける」という段はありません —— サービスがたまたま動いていたかどうかで
+価値が変わるアーカイブは、確認しない限り誰も依拠できないからです。
+:::
+
+### 何を提供するかはサーバが決めます
+
+`--signing-policy` が配備の方針を定め、要求はその範囲で選びます。
+
+| 方針 | `signing` 未指定 | `signing: true` | `signing: false` |
+|---|---|---|---|
+| `forbidden` | 署名なし | **400** | 署名なし |
+| `optional` *(既定)* | 署名なし | 署名必須 | 署名なし |
+| `required` | **署名必須** | 署名必須 | **400** |
+
+`required` は、証拠用の配備が**呼び出し側のフラグ書き忘れに依存しない**ために
+あります —— 書き忘れは「署名が取得できなかった」と同じ無音の失敗が 1 段上に
+移ったものです。`forbidden` はその鏡で、署名サービスを持たないサーバが
+それを理由にキャプチャを失敗させられないようにします。
+
+`--signing-policy required` で `--signing-url` が無いサーバは**起動を拒否します**。
+受け付けてしまえば、全キャプチャを 1 件ずつ失敗させ、理由はワーカーログにしか
+出ないことになります。
 
 ## 署名を検証する
 
@@ -129,7 +164,9 @@ aws --endpoint-url "http://seaweedfs.browserhive:8333" \
 unzip -p capture.wacz datapackage-digest.json > datapackage-digest.json
 ```
 
-署名そのものを検証できるのは `capping verify` だけです。
+BrowserHive はアーカイブを保存する前に既にこの 4 つを検査しています。ここでの
+`capping verify` は最初の検査ではなく**第二の意見**です —— 手元に渡ってきた
+アーカイブを確かめたいとき、あるいは他のツールが作ったものを検査したいときに使います。
 
 ```console
 $ node capping/dist/cli.js verify \
@@ -162,12 +199,25 @@ waxlens が見るのは「`datapackage-digest.json` が存在し、その `hash`
 
 | 変数 | 意味 |
 |---|---|
-| `BROWSERHIVE_SIGNING_URL` | サービスの `/sign` エンドポイント。未設定なら署名サービス無しで、要求したキャプチャは `signed: false` になる |
+| `BROWSERHIVE_SIGNING_POLICY` | `forbidden` / `optional`（既定）/ `required`。この配備が何を提供するか。`required` で URL が無ければ起動を拒否する |
+| `BROWSERHIVE_SIGNING_URL` | サービスの `/sign` エンドポイント。未設定なら署名サービス無しで、署名が必要なキャプチャは失敗する（要求ではなくサーバ側の不足として報告される） |
 | `BROWSERHIVE_SIGNING_TOKEN` | サービスが要求する場合の bearer トークン |
-| `BROWSERHIVE_SIGNING_TIMEOUT_MS` | 署名なしに切り替えるまでの待ち時間。既定 5000。署名は任意なので、これがキャプチャに掛けられる上限 |
+| `BROWSERHIVE_SIGNING_TIMEOUT_MS` | 署名を待つ時間。既定 5000 |
+| `BROWSERHIVE_SIGNING_TRUST_ANCHOR` | 署名証明書を発行した root の PEM。未設定なら chain 検査は `skipped` となり、**どの CA の署名でも受け入れる** |
+| `BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` | 時刻認証局を発行した root の PEM。未設定なら timestamp 検査は `skipped` |
 
-dev スタックでは前 2 つを `docker-compose.yml` が設定します。capping が起動するのは
-`--profile signing` のときだけです。
+すべて同名の CLI フラグがあります（`--signing-policy` など）。
+
+dev スタックでは方針以外を `docker-compose.yml` が設定し、**両方のアンカーは
+capping が署名に使う identity を指しています** —— 開発時も 2 つではなく
+4 つの検査を通すためです。capping が起動するのは `--profile signing` のときだけです。
+
+:::caution[開発用 CA を弾くのはアンカーです]
+本番サーバが `BROWSERHIVE_SIGNING_TRUST_ANCHOR` に実在の root を設定していれば、
+`insecure-dev-` の CA が署名したものは chain 検査で落ち、署名必須ならキャプチャが
+失敗します。アンカーを未設定にすると検査は `skipped` になり —— アーカイブには
+そう記録されますが —— **開発用の署名が本番のアーカイブに入る経路は塞がれません**。
+:::
 
 ## アーカイブに何が入るか
 

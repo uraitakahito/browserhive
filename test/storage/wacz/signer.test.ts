@@ -219,8 +219,8 @@ describe("createHttpSigner — verification", () => {
   const realSignedData = (): unknown =>
     JSON.parse(readFixture("signed-data.json")) as unknown;
   const anchors = {
-    signing: readFixture("ca.pem"),
-    timestamp: readFixture("tsa-ca.pem"),
+    signing: readFixture("../dev-ca/insecure-dev-ca.crt"),
+    timestamp: readFixture("../dev-ca/insecure-dev-tsa-ca.crt"),
   };
 
   it("reports every check when the signature verifies", async () => {

@@ -28,8 +28,8 @@ const fixture = (): SignedData =>
   JSON.parse(read("signed-data.json")) as SignedData;
 
 const anchors = {
-  signing: read("ca.pem"),
-  timestamp: read("tsa-ca.pem"),
+  signing: read("../dev-ca/insecure-dev-ca.crt"),
+  timestamp: read("../dev-ca/insecure-dev-tsa-ca.crt"),
 };
 
 describe("verifySignedData — the happy path", () => {
