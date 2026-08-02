@@ -8,9 +8,6 @@
  * and the presence-only boolean flags use a manual post-parse env merge —
  * commander's `Option#env` covers the scalar cases natively.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type {
   ArchiveMode,
@@ -27,27 +24,24 @@ import {
   DEFAULT_WACZ_CONFIG,
 } from "../config/index.js";
 import { logger } from "../logger.js";
+import { BUILD_INFO } from "../generated/version.js";
 
 /**
- * Read the package version once at module load so the WARC `warcinfo`
- * record carries the real BrowserHive version (e.g. `browserhive/1.0.0`)
- * rather than the literal default. The path resolution mirrors how
- * `http/http-server.ts` finds `dist/openapi.dereferenced.json` — walks two
- * levels up from the compiled file location to reach the project root.
+ * The version every archive is stamped with.
+ *
+ * Goes into `datapackage.json` and the WARC `warcinfo` record, so it is
+ * **baked into the archive** and outlives the process that wrote it. There is
+ * no correcting it later — it is what that file says about itself from then on.
+ *
+ * Read from `BUILD_INFO`, not from `package.json`. This used to read
+ * package.json and consequently claimed `browserhive/1.0.0` on every release
+ * through v1.15.0: that field has never tracked releases here, and
+ * `scripts/generate-version.mjs` was written for exactly that reason —
+ * "package.json is not the answer … the tag is what a release IS here, so ask
+ * git for it". Its output was already correct and already served at
+ * `/v1/status.build`. Only the archives were reading the wrong source.
  */
-const readPackageVersion = (): string => {
-  try {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const projectRoot = join(here, "..", "..", "..");
-    const raw = readFileSync(join(projectRoot, "package.json"), "utf-8");
-    const pkg = JSON.parse(raw) as { version?: string };
-    return pkg.version ?? "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-};
-
-const SOFTWARE_IDENTIFIER = `browserhive/${readPackageVersion()}`;
+export const SOFTWARE_IDENTIFIER = `browserhive/${BUILD_INFO.version}`;
 
 /** Mask AWS-style access key ids in logs (`AKIA…ABCD` → `AKIA****ABCD`). */
 const maskAccessKeyId = (id: string): string => {
