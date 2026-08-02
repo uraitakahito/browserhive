@@ -91,6 +91,10 @@ WARC には痕跡が残らない。上の例は www.yahoo.co.jp の実測値で�
 `coverage` は behavior が動かなかったときは**丸ごと現れない**。
 「見ていない」と「全部見た」は別の主張なので、既定値を書かない。
 
+打ち切られる側は meadow の [`/endless-feed`](https://uraitakahito.github.io/meadow/ja/scenarios/)
+——**スクロールしても底に着かないページ**—— に対して e2e で検査している。
+以前は実在のサイトに対して手で確かめるしかなかった。
+
 :::note
 署名を要求したキャプチャでは、この申告も署名に覆われる ——
 署名は `datapackage.json` を対象にしているため。
