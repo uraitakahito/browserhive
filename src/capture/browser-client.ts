@@ -50,6 +50,19 @@ export class BrowserClient {
    * navigate this same page instead of opening a new tab per task.
    */
   private currentPage: Page | null = null;
+  /**
+   * What Chromium reports itself as, e.g. `Chrome/150.0.7871.181`.
+   *
+   * Asked once per connection rather than per capture: it is a property of the
+   * browser container, which outlives every task this worker runs, and a
+   * round-trip per capture would be charged against the capture's own budget
+   * for an answer that cannot have changed.
+   *
+   * Undefined when the ask failed. Not defaulted to a string — an archive
+   * saying it was made by "unknown" reads as a version, where an absent field
+   * reads as "nobody asked".
+   */
+  private browserVersion: string | undefined;
   private pageCapturer: PageCapturer;
   public readonly logger: Logger;
 
@@ -137,9 +150,13 @@ export class BrowserClient {
           if (this.browser === browser) {
             this.browser = null;
             this.currentPage = null;
+            // Re-asked on reconnect: the upstream container may have been
+            // replaced by a different image while this worker was down.
+            this.browserVersion = undefined;
           }
         });
         this.browser = browser;
+        this.browserVersion = await browser.version().catch(() => undefined);
       }
       this.currentPage ??= await this.acquirePage(this.browser);
       return ok();
@@ -330,7 +347,7 @@ export class BrowserClient {
     try {
       // #region layer-b-timeout
       return await withWallClockTimeout(
-        this.pageCapturer.capture(page, task, this.index),
+        this.pageCapturer.capture(page, task, this.index, this.browserVersion),
         taskTotalMs,
         `Task processing for ${task.url}`,
       );

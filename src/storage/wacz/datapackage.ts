@@ -45,9 +45,66 @@ export interface DatapackageInput {
  * that a body was lost to a `304` went with it.
  */
 export interface CaptureSelfReport {
+  /**
+   * Which build produced this archive, in a form a machine can read.
+   *
+   * `software` beside it is the spec's field and it is prose: py-wacz writes
+   * "py-wacz 0.4.6", Browsertrix "Browsertrix-Crawler 1.x (with warcio.js
+   * 2.y)", Scoop "Scoop @ Harvard Library Innovation Lab v0.0.1". No two agree
+   * on a shape, and nothing parses it — wabac reads only `config`, `profile`,
+   * `metadata` and `resources` from this file. So the parseable copy lives
+   * here, where the rest of what the capture knows about itself already is.
+   */
+  build: BuildInfo;
+  /** Absent when the browser could not be asked. */
+  browser?: { product: string };
+  /**
+   * The settings that actually applied — not the ones the request carried.
+   *
+   * Every one of these resolves as `task.X ?? config.X`, so a request that
+   * says nothing still gets a value, and writing the request would leave the
+   * archive unable to say whether it was captured with the cache cleared or
+   * not. What an archive has to answer is what happened.
+   */
+  settings: CaptureSettings;
   completeness: CompletenessReport;
   /** Absent when behaviors were off, or when autoscroll reported nothing. */
   coverage?: CoverageReport;
+}
+
+/** The build fingerprint, as `scripts/generate-version.mjs` resolves it. */
+export interface BuildInfo {
+  version: string;
+  revision: string;
+  buildTime: string;
+}
+
+/**
+ * What was in force for this capture, limited to things that change the bytes.
+ *
+ * The line is drawn there on purpose. `taskId` and `correlationId` say who
+ * asked; `captureFormats` says which files to emit. Neither changes what is
+ * inside the WACZ. `viewport` and `cache` do.
+ */
+export interface CaptureSettings {
+  viewport: { width: number; height: number };
+  /**
+   * One entry per pass. `multipass` sweeps two, and recording a single number
+   * for it would tell a reader the 2x variants are absent when they are in the
+   * archive. A list keeps the shape the same either way, and says how many
+   * passes ran.
+   */
+  devicePixelRatios: number[];
+  cache: string;
+  archiveMode: string;
+  /**
+   * Behaviors that actually ran — `enabled ∩ isMatch()`, taken from the run
+   * report rather than from configuration. Site behaviors never appear in
+   * `enabled`, so copying the config would miss them.
+   */
+  behaviors: string[];
+  /** Only when the request set one; it changes what the origin returns. */
+  acceptLanguage?: string;
 }
 
 interface DatapackageResource {

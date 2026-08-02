@@ -84,6 +84,65 @@ describe("capture artefacts land in the object store", () => {
     expect(capture.coverage?.scrollSteps).toBeLessThan(40);
   });
 
+  it("records the settings that applied, not the ones that were asked for", async ({
+    annotate,
+  }) => {
+    // The request below sets neither `cache` nor `archiveMode`, so `task.cache`
+    // and `task.archiveMode` are both undefined. Every one of these resolves as
+    // `task.X ?? config.X`, and writing the request instead of the resolution
+    // would leave the archive unable to say whether it was captured with the
+    // cache cleared — which is the difference between an archive with bodies
+    // and one full of 304s.
+    const url = `${meadow}${scenarios.plainHtml}`;
+    const report = await submitAndWait(api, captureRequest(url, { formats: WACZ_ONLY }), annotate);
+    expect(report.status).toBe("success");
+
+    const entries = openWacz(await fetchArtifact(s3, report.artifacts.wacz!));
+    const capture = datapackage(entries)["browserhive:capture"] as {
+      build?: { version?: string; revision?: string };
+      browser?: { product?: string };
+      settings?: {
+        cache?: string;
+        archiveMode?: string;
+        devicePixelRatios?: number[];
+        behaviors?: string[];
+        viewport?: { width?: number };
+      };
+    };
+    await annotate(JSON.stringify(capture), "environment");
+
+    expect(capture.settings?.cache).toBe("clear");
+    expect(capture.settings?.archiveMode).toBe("single-pass");
+    // A single pass is still a list. `multipass` sweeps two, and a lone number
+    // would tell a reader the 2x variants are absent when they are present.
+    expect(capture.settings?.devicePixelRatios).toEqual([1]);
+    expect(capture.settings?.viewport?.width).toBe(1280);
+    // Taken from what ran, not from configuration — site behaviors never
+    // appear in `enabled`, so copying the config would miss them.
+    expect(capture.settings?.behaviors).toContain("autoscroll");
+
+    expect(capture.build?.revision).toMatch(/^[0-9a-f]{7,}$/);
+    expect(capture.browser?.product).toMatch(/^Chrome\//);
+  });
+
+  it("records both passes when multipass ran", async ({ annotate }) => {
+    const url = `${meadow}${scenarios.plainHtml}`;
+    const report = await submitAndWait(
+      api,
+      captureRequest(url, { formats: WACZ_ONLY, archiveMode: "multipass" }),
+      annotate,
+    );
+
+    const entries = openWacz(await fetchArtifact(s3, report.artifacts.wacz!));
+    const settings = (
+      datapackage(entries)["browserhive:capture"] as {
+        settings?: { devicePixelRatios?: number[] };
+      }
+    ).settings;
+
+    expect(settings?.devicePixelRatios).toEqual([1, 2]);
+  });
+
   it("says so when scrolling stopped at the cap rather than the page end", async ({
     annotate,
   }) => {

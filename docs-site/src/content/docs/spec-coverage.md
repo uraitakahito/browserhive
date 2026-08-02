@@ -132,7 +132,7 @@ Defined by: WACZ 1.1.1 — datapackage.json
 | `mainPageUrl (SHOULD)` | Divergent | Written as `mainPageURL`. wabac.js reads that spelling; the spec's is `mainPageUrl`, and 1.2.0 drops the property entirely. Replay wins here. |
 | `description (SHOULD)` | Not used | A longer prose description. A capture has no editorial description to give. |
 | `modified (SHOULD)` | Not used | A WACZ is written once and never edited, so it equals `created`. |
-| `browserhive:capture (non-spec)` | Divergent | Not in the spec. What this capture could not get: `completeness` (bodies lost to a 304 or a size cap) and `coverage` (whether scrolling stopped at its step cap rather than the end of the page). Namespaced because it is an observation, not agreed vocabulary. The Frictionless schema has no `additionalProperties: false`, and wabac.js reads only config / profile / metadata / resources from this file. |
+| `browserhive:capture (non-spec)` | Divergent | Not in the spec. What this capture was and what it could not get: `build` (version, revision, buildTime), `browser`, `settings` (the values that applied, not the ones requested), `completeness` (bodies lost to a 304 or a size cap) and `coverage` (whether scrolling stopped at its step cap rather than the end of the page). Namespaced because it is an observation, not agreed vocabulary. The Frictionless schema has no `additionalProperties: false`, and wabac.js reads only config / profile / metadata / resources from this file. |
 
 ## Signing (wacz-auth)
 

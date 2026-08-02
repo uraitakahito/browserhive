@@ -163,6 +163,9 @@ root.resources    // path と hash だけを見る
 // それ以外のキーは走査もされない
 ```
 
+`browserhive:capture` が持つのは `build`（版・commit・ビルド時刻）・`browser`・
+`settings`（実際に効いた値）・`completeness`・`coverage` である。
+
 Frictionless の公式スキーマも `additionalProperties: false` を持たないので、
 拡張キーは設計上許されている —— `wacz_version` や `mainPageURL` が
 そこに乗っているのと同じ仕組みである。ただし `config` と `metadata` は
