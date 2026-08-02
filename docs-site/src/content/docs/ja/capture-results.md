@@ -57,6 +57,50 @@ description: 投げた capture がどうなったかを知る方法 — タス�
 ファイル名の規則から鍵を組み立て直す必要はない ― S3 互換ストレージなら
 `s3://bucket/key` 形式の URI。
 
+## アーカイブは自分の欠けを名乗る
+
+`completeness` は API 応答にも入るが、**同じものが WACZ の
+`datapackage.json` にも書き込まれる**。アーカイブは単独で流通し、
+API 応答は流通しないからだ —— 3 年後に WACZ を開いた人が
+「これは全部入っているのか」を問える先は、ファイルしかない。
+
+```json title="datapackage.json（WACZ の中）"
+{
+  "profile": "data-package",
+  "wacz_version": "1.1.1",
+  "browserhive:capture": {
+    "completeness": { "bodylessUrls": [], "truncatedUrls": [], "complete": true },
+    "coverage": { "scrollExhausted": true, "scrollSteps": 40, "scrolledPx": 32000 }
+  }
+}
+```
+
+**`completeness` と `coverage` は別の問いに答える。**
+
+`completeness` は「記録した応答のうち本文を失ったものはあるか」。
+`304` やサイズ上限で落ちた本文を数える。WARC だけを見て決まる。
+
+`coverage` は「そもそもページのどこまで到達したか」。
+`scrollExhausted: true` は、スクロールが**ページの終わりではなく歩数上限で止まった**
+ことを意味する —— その下にあったものは要求すらされていないので、
+WARC には痕跡が残らない。上の例は www.yahoo.co.jp の実測値で、
+無限スクロールのフィードを 40 歩（1280×800 のビューポートで 32,000px）で
+打ち切っている。**このとき `complete` は `true` のままである。**
+どちらも正しく、答えている問いが違う。
+
+`coverage` は behavior が動かなかったときは**丸ごと現れない**。
+「見ていない」と「全部見た」は別の主張なので、既定値を書かない。
+
+打ち切られる側は meadow の [`/endless-feed`](https://uraitakahito.github.io/meadow/ja/scenarios/)
+——**スクロールしても底に着かないページ**—— に対して e2e で検査している。
+以前は実在のサイトに対して手で確かめるしかなかった。
+
+:::note
+署名を要求したキャプチャでは、この申告も署名に覆われる ——
+署名は `datapackage.json` を対象にしているため。
+**後から書き換えられない主張**になる。
+:::
+
 ## サーバに問い合わせる
 
 ```bash

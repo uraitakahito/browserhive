@@ -58,6 +58,50 @@ and fill in `errorDetails`:
 keys never have to be reconstructed from the filename rules — an
 `s3://bucket/key` URI for S3-compatible storage.
 
+## The archive states its own gaps
+
+`completeness` is in the API response, and **the same report is written into
+the WACZ's `datapackage.json`**. An archive travels; an HTTP response does not.
+Someone opening a WACZ three years from now can only ask the file.
+
+```json title="datapackage.json (inside the WACZ)"
+{
+  "profile": "data-package",
+  "wacz_version": "1.1.1",
+  "browserhive:capture": {
+    "completeness": { "bodylessUrls": [], "truncatedUrls": [], "complete": true },
+    "coverage": { "scrollExhausted": true, "scrollSteps": 40, "scrolledPx": 32000 }
+  }
+}
+```
+
+**`completeness` and `coverage` answer different questions.**
+
+`completeness` asks whether any recorded response lost its body — to a `304`,
+or to a size cap. It is decided by the WARC alone.
+
+`coverage` asks how far down the page the capture ever got.
+`scrollExhausted: true` means scrolling stopped at its **step cap rather than
+the end of the page**, so whatever lay below was never requested and leaves no
+trace in the WARC at all. The example above is measured from
+www.yahoo.co.jp: an infinite feed, cut at 40 steps (32,000px at the 1280×800
+viewport). **`complete` is still `true` there.** Both are correct; they are
+answers to different questions.
+
+`coverage` is absent entirely when behaviors did not run. "Did not look" and
+"looked at all of it" are different claims, so no default is written.
+
+The cut-short case is covered by an e2e against meadow's
+[`/endless-feed`](https://uraitakahito.github.io/meadow/scenarios/) — a page
+that grows as it is scrolled, so scrolling never reaches an end. It used to be
+checked by hand against a real website.
+
+:::note
+On a capture that asked to be signed, this report is covered by the signature
+too — the signature is over `datapackage.json`. It becomes a claim that cannot
+be edited afterwards.
+:::
+
 ## Asking the server
 
 ```bash

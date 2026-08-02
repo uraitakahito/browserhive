@@ -27,6 +27,7 @@ import type { RecordedResponse } from "../../capture/network-recorder-types.js";
 import { sha256Hex } from "../warc/digest.js";
 import { buildCdxjIndex } from "./cdxj.js";
 import { buildPagesJsonl } from "./pages.js";
+import type { CaptureSelfReport } from "./datapackage.js";
 import {
   buildDatapackage,
   serializeDatapackage,
@@ -87,6 +88,15 @@ export interface WaczPackageInput {
    * WACZ structure stays uniform across deployments.
    */
   fuzzyParams?: readonly string[];
+  /**
+   * What this capture could not get, written into `datapackage.json`.
+   *
+   * Omitted only by callers that have nothing to say — a packager driven from
+   * a test fixture, say. A real capture always has a completeness report, and
+   * an archive that does not carry one cannot be asked later whether it is
+   * whole.
+   */
+  capture?: CaptureSelfReport;
   /**
    * Where the signature comes from. Defaults to not signing at all, so a
    * caller that has no opinion produces exactly the archive it produced
@@ -164,6 +174,7 @@ export const packWacz = async (
       { path: INDEX_ENTRY_PATH, bytes: indexBytes },
       { path: FUZZY_ENTRY_PATH, bytes: fuzzyBytes },
     ],
+    ...(input.capture !== undefined && { capture: input.capture }),
   });
   const datapackageBytes = serializeDatapackage(datapackage);
 

@@ -131,6 +131,7 @@ BrowserHive は 4 つの仕様に対して書き出しています。このペ�
 | `mainPageUrl (SHOULD)` | 逸脱 | `mainPageURL` と書いている。wabac.js がその綴りを読むため。仕様の綴りは `mainPageUrl` で、1.2.0 では削除された。ここは replay を優先している。 |
 | `description (SHOULD)` | 未実装 | 長めの説明文。キャプチャに付ける編集的な説明が存在しない。 |
 | `modified (SHOULD)` | 未実装 | WACZ は一度書いたら編集しないため `created` と同値になる。 |
+| `browserhive:capture (non-spec)` | 逸脱 | 仕様に無い。このキャプチャが取り切れなかったもの ——「304 やサイズ上限で本文を失ったか」(`completeness`) と「スクロールがページの終わりではなく歩数上限で止まったか」(`coverage`)。合意された語彙ではなく我々の観測なので名前空間を切ってある。Frictionless のスキーマは `additionalProperties: false` を持たず、wabac.js はこのファイルから config / profile / metadata / resources しか読まない。 |
 
 ## 署名 (wacz-auth)
 

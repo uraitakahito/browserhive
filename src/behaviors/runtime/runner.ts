@@ -98,6 +98,10 @@ export class BehaviorRunner {
       // Why the behavior did what it did. Not the same as progress: `steps`
       // says how far it got, this says what it concluded — and only one of
       // those tells you whether the page was actually covered.
+      //
+      // The trace prints inside the captured page, so it is for someone
+      // watching a capture happen. The copy on the report below is the one
+      // that leaves the browser.
       if (opts.trace === true && decisions !== undefined) {
         console.group(`${TRACE_PREFIX} ${Behavior.id}`);
         for (const [label, value] of Object.entries(decisions)) {
@@ -110,6 +114,7 @@ export class BehaviorRunner {
         steps,
         ms: Date.now() - start,
         ...(error ? { error } : {}),
+        ...(decisions !== undefined && { decisions }),
       });
       if (report.timedOut) break;
     }
