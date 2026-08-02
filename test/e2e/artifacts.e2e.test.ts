@@ -79,10 +79,40 @@ describe("capture artefacts land in the object store", () => {
     await annotate(JSON.stringify(capture), "capture-report");
 
     expect(capture.completeness?.complete).toBe(true);
-    // A short static page: autoscroll runs out of page, not out of steps. The
-    // yahoo.co.jp case this exists for is the opposite, and cannot be an e2e
-    // fixture — it needs an origin with no bottom.
+    // A short static page: autoscroll runs out of page, not out of steps.
     expect(capture.coverage?.scrollExhausted).toBe(false);
     expect(capture.coverage?.scrollSteps).toBeLessThan(40);
+  });
+
+  it("says so when scrolling stopped at the cap rather than the page end", async ({
+    annotate,
+  }) => {
+    // The case the coverage report exists for. Until meadow grew a page with
+    // no bottom this was checked by hand against www.yahoo.co.jp — network
+    // required, a different answer every run, and nothing left behind in any
+    // repository.
+    const url = `${meadow}${scenarios.endlessFeed}`;
+    const report = await submitAndWait(api, captureRequest(url, { formats: WACZ_ONLY }), annotate);
+
+    // Giving up is not failing. What was captured was captured correctly.
+    expect(report.status).toBe("success");
+
+    const entries = openWacz(await fetchArtifact(s3, report.artifacts.wacz!));
+    const capture = datapackage(entries)["browserhive:capture"] as {
+      completeness?: { complete?: boolean };
+      coverage?: { scrollExhausted?: boolean; scrollSteps?: number; scrolledPx?: number };
+    };
+    await annotate(JSON.stringify(capture), "capture-report");
+
+    expect(capture.coverage?.scrollExhausted).toBe(true);
+    // Written out rather than read from config on purpose. Raising the cap is
+    // a decision about how much of a page to archive, and a test that follows
+    // it silently is not guarding anything.
+    expect(capture.coverage?.scrollSteps).toBe(40);
+    expect(capture.coverage?.scrolledPx).toBe(32_000);
+
+    // The distinction the two reports exist to keep apart: not having looked
+    // below the cut-off is not the same as holding a broken body.
+    expect(capture.completeness?.complete).toBe(true);
   });
 });

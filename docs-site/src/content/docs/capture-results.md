@@ -91,6 +91,11 @@ answers to different questions.
 `coverage` is absent entirely when behaviors did not run. "Did not look" and
 "looked at all of it" are different claims, so no default is written.
 
+The cut-short case is covered by an e2e against meadow's
+[`/endless-feed`](https://uraitakahito.github.io/meadow/scenarios/) — a page
+that grows as it is scrolled, so scrolling never reaches an end. It used to be
+checked by hand against a real website.
+
 :::note
 On a capture that asked to be signed, this report is covered by the signature
 too — the signature is over `datapackage.json`. It becomes a claim that cannot
