@@ -60,7 +60,8 @@ COPY scripts ./scripts
 # Git revision and release tag baked into src/generated/version.ts (surfaced
 # at /v1/status.build). The build context has no .git, so generate-version.mjs
 # reads them from the environment rather than asking git. GIT_REV defaults to
-# "dev"; GIT_TAG left empty falls back to the package.json version.
+# "dev"; GIT_TAG left empty makes the version "unknown" — which also becomes
+# the `software` field baked into every archive, so pass it for a real build.
 ARG GIT_REV=dev
 ENV GIT_REV=$GIT_REV
 ARG GIT_TAG=

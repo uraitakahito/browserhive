@@ -28,6 +28,7 @@ import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { WaczPackager, analyzeCompleteness, unsignedSigner } from "../storage/wacz/index.js";
 import { analyzeCoverage, type CoverageReport } from "../storage/wacz/coverage.js";
+import { BUILD_INFO } from "../generated/version.js";
 import type { CompletenessReport, SignatureReport, WaczSigner } from "../storage/wacz/index.js";
 import { runBehaviors } from "../behaviors/index.js";
 import type { BehaviorRunReport } from "../behaviors/types.js";
@@ -661,7 +662,15 @@ export class PageCapturer {
   async capture(
     rawPage: Page,
     task: CaptureTask,
-    workerIndex: number
+    workerIndex: number,
+    /**
+     * What the browser reports itself as, e.g. `Chrome/150.0.7871.181`.
+     *
+     * Passed in rather than asked for here: it belongs to the connection, not
+     * to this capture, and BrowserClient already holds it. Undefined when the
+     * ask failed, in which case the archive says nothing rather than guessing.
+     */
+    browserVersion?: string,
   ): Promise<CaptureResult> {
     // Pace every browser operation this capture performs when asked to, so a
     // headless run can be watched live. Request first, then the server default;
@@ -945,7 +954,27 @@ export class PageCapturer {
           // The archive says what it could not get. Until now this was
           // computed on every capture and put only in the HTTP response, so
           // discarding that response discarded the fact that a body was lost.
-          capture: { completeness, ...(coverage !== undefined && { coverage }) },
+          capture: {
+            build: BUILD_INFO,
+            ...(browserVersion !== undefined && { browser: { product: browserVersion } }),
+            // Resolved values, never `task.*`. A request that omitted `cache`
+            // still ran with one, and an archive that records `undefined`
+            // cannot say which.
+            settings: {
+              viewport: { width: viewport.width, height: viewport.height },
+              // Copied, not aliased: MULTIPASS_DEVICE_PIXEL_RATIOS is a shared
+              // readonly constant and this ends up in serialized output.
+              devicePixelRatios: [...devicePixelRatios],
+              cache,
+              archiveMode,
+              behaviors: behaviorReport?.ran.map((r) => r.id) ?? [],
+              ...(task.acceptLanguage !== undefined && {
+                acceptLanguage: task.acceptLanguage,
+              }),
+            },
+            completeness,
+            ...(coverage !== undefined && { coverage }),
+          },
           warcPath: stopResult.path,
           waczPath: localWaczPath,
           taskId: task.taskId,

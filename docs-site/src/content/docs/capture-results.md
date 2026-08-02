@@ -88,6 +88,19 @@ www.yahoo.co.jp: an infinite feed, cut at 40 steps (32,000px at the 1280×800
 viewport). **`complete` is still `true` there.** Both are correct; they are
 answers to different questions.
 
+`settings` records what **applied**, not what was asked for. `cache`,
+`archiveMode` and `viewport` all fall back to a server default when the request
+omits them, and the archive keeps the resolution rather than the omission —
+which is why a value appears for something you never sent. That is the point:
+an archive has to be able to say whether it was captured with the cache cleared.
+
+`devicePixelRatios` is a list because `multipass` runs two passes. A single
+number would tell a reader the `_2x` variants are absent from an archive that
+holds them.
+
+`behaviors` is what actually ran (`enabled ∩ isMatch()`). Site behaviors never
+appear in `enabled`, so copying the configuration would miss them.
+
 `coverage` is absent entirely when behaviors did not run. "Did not look" and
 "looked at all of it" are different claims, so no default is written.
 
