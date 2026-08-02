@@ -32,6 +32,7 @@ describe("taskToAcceptance", () => {
       captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
       resetState: DEFAULT_RESET_STATE_OPTIONS,
       correlationId: "EXT-1",
+      requireSignature: false,
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
     expect(taskToAcceptance(task)).toEqual({
@@ -49,6 +50,7 @@ describe("taskToAcceptance", () => {
       retryCount: 0,
       captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
       resetState: DEFAULT_RESET_STATE_OPTIONS,
+      requireSignature: false,
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     };
     expect(taskToAcceptance(task)).toEqual({
@@ -141,6 +143,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
           captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
           resetState: DEFAULT_RESET_STATE_OPTIONS,
               correlationId: "EXT-9",
+          requireSignature: false,
           enqueuedAt: "2024-01-01T00:00:00.000Z",
         },
       },
@@ -223,6 +226,7 @@ describe("workerInfoToWire and coordinatorStatusToResponse", () => {
               retryCount: 0,
               captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
               resetState: DEFAULT_RESET_STATE_OPTIONS,
+                      requireSignature: false,
                       enqueuedAt: "2024-01-01T00:00:00.000Z",
             },
           },
@@ -253,6 +257,7 @@ describe("currentTaskToWire", () => {
     retryCount: 0,
     captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
     resetState: DEFAULT_RESET_STATE_OPTIONS,
+    requireSignature: false,
     enqueuedAt: "2024-01-01T00:00:00.000Z",
   };
 
@@ -279,6 +284,7 @@ describe("taskToPending", () => {
     retryCount: 2,
     captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
     resetState: DEFAULT_RESET_STATE_OPTIONS,
+    requireSignature: false,
     enqueuedAt,
   };
 
@@ -323,6 +329,7 @@ describe("taskToProcessing", () => {
       retryCount: 0,
       captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
       resetState: DEFAULT_RESET_STATE_OPTIONS,
+      requireSignature: false,
       enqueuedAt,
     },
   };
@@ -387,6 +394,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
           retryCount: 0,
           captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
           resetState: DEFAULT_RESET_STATE_OPTIONS,
+          requireSignature: false,
           enqueuedAt,
         },
       ],
@@ -433,6 +441,7 @@ describe("coordinatorStatusToResponse — queue.pendingTasks", () => {
             retryCount: 1,
             captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
             resetState: DEFAULT_RESET_STATE_OPTIONS,
+            requireSignature: false,
             enqueuedAt,
           },
         },

@@ -73,6 +73,39 @@ export interface ResetPageStateConfig {
 }
 
 /**
+ * Whether a deployment signs the archives it produces.
+ *
+ * `required` is what makes a signature dependable: it removes the case where a
+ * caller simply forgot to ask, which is the same quiet failure as a signature
+ * that could not be obtained, one level up. `forbidden` is its mirror — a
+ * deployment with no signing service cannot be made to fail a capture over one.
+ */
+export type SigningPolicy = "forbidden" | "optional" | "required";
+
+/**
+ * How this server handles signatures. Server-wide, not per-profile.
+ *
+ * Tasks are work-stolen from a shared queue, so a signing service attached to
+ * one browser profile and not another would make the outcome depend on which
+ * worker happened to pick a task up — signed or not, at random, with nothing
+ * in the archive explaining why. `storage` is server-wide for the same reason.
+ */
+export interface SigningConfig {
+  policy: SigningPolicy;
+  /** `/sign` endpoint of the wacz-auth signing service. */
+  url?: string;
+  /** Bearer token, when the service requires one. */
+  token?: string;
+  /**
+   * How long to wait for a signature before giving up.
+   *
+   * What "giving up" costs depends on the capture: one that did not require a
+   * signature is written unsigned, one that did fails here.
+   */
+  timeoutMs: number;
+}
+
+/**
  * Filter / limit policy for the WACZ capture format. Each field is also
  * exposed as a CLI flag in `src/cli/server-cli.ts` (Phase 5); this struct
  * is the resolved-once-at-startup form the capture pipeline reads.
@@ -90,23 +123,6 @@ export interface WaczConfig {
   maxPendingRequests: number;
   /** Software identifier embedded in WARC `warcinfo` + WACZ `datapackage.json`. */
   software: string;
-  /**
-   * `/sign` endpoint of the wacz-auth signing service.
-   *
-   * Undefined means no service is configured. A capture that asked to be
-   * signed still produces a WACZ, reported as `signature.signed: false` — a
-   * signature is not what makes an archive worth keeping.
-   */
-  signingUrl?: string;
-  /** Bearer token for the signing service, when it requires one. */
-  signingToken?: string;
-  /**
-   * How long to wait for a signature before giving up and going out unsigned.
-   *
-   * A signature is optional, so there is no version of this where holding the
-   * capture open is the right trade.
-   */
-  signingTimeoutMs: number;
   /**
    * Query parameter names treated as cache-busters for fuzzy matching at
    * replay time. The packager emits a `fuzzy.json` file in the WACZ
@@ -247,6 +263,8 @@ export interface CoordinatorConfig {
   browserProfiles: BrowserProfile[];
   /** Where captured artifacts are written. Server-wide, not per-profile. */
   storage: StorageConfig;
+  /** How signatures are handled. Server-wide, not per-profile — see `SigningConfig`. */
+  signing: SigningConfig;
   /** Maximum retry count for failed capture tasks */
   maxRetryCount: number;
   /** Queue poll interval in milliseconds when queue is empty */

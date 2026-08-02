@@ -7,13 +7,18 @@
  * more reliably than a real service can be made to.
  *
  * The contract under test is one sentence: `sign` never throws. Every failure
- * has to come back as `{ signed: false, reason }`, because the caller's only
- * correct response is to write the archive anyway.
+ * has to come back as `{ signed: false, reason }`, because what a failure means
+ * is not this layer's call — a capture that required a signature fails on it,
+ * one that did not is written unsigned, and the port cannot tell them apart.
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createHttpSigner } from "../../../src/storage/wacz/signer.js";
+import {
+  createHttpSigner,
+  noSigningServiceSigner,
+  unsignedSigner,
+} from "../../../src/storage/wacz/signer.js";
 
 const HASH = "sha256:0be7b2fea93622c434c8f205494e2d0b451acae3803dc87420b6ef51e151239c";
 
@@ -158,5 +163,28 @@ describe("createHttpSigner", () => {
 
     expect(report.signed).toBe(false);
     expect(report.reason).toContain("capping.invalid.localdomain");
+  });
+});
+
+/**
+ * The two stand-in signers.
+ *
+ * Both report `signed: false`, and the reason is the only thing telling them
+ * apart. That matters more now than it did: with a signature required, this
+ * string is what a failed capture says about itself, and "signing not
+ * requested" on a capture that plainly requested one sends the reader looking
+ * in the wrong place.
+ */
+describe("stand-in signers", () => {
+  it("says nobody asked when nobody asked", async () => {
+    const { digestBytes, report } = await unsignedSigner.sign(HASH);
+    expect(digestBytes).toBeUndefined();
+    expect(report).toEqual({ signed: false, reason: "signing not requested" });
+  });
+
+  it("names the missing service rather than blaming the request", async () => {
+    const { report } = await noSigningServiceSigner.sign(HASH);
+    expect(report.signed).toBe(false);
+    expect(report.reason).toContain("no signing service");
   });
 });

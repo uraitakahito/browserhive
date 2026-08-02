@@ -9,6 +9,7 @@ import { createActor, type SnapshotFrom } from "xstate";
 import type {
   BrowserProfile,
   CaptureConfig,
+  SigningConfig,
   CoordinatorConfig,
   DiscoveryConfig,
 } from "../config/index.js";
@@ -245,6 +246,15 @@ export class CaptureCoordinator {
    */
   get captureDefaults(): CaptureConfig {
     return this.config.browserProfiles[0]?.capture ?? DEFAULT_CAPTURE_CONFIG;
+  }
+
+  /**
+   * Server-wide signing settings, for the HTTP layer to resolve requests
+   * against. Unlike `captureDefaults` there is no per-profile fallback to make
+   * here — that is the point of it being server-wide.
+   */
+  get signing(): SigningConfig {
+    return this.config.signing;
   }
 
   getStatus(opts: GetStatusOptions = {}): CoordinatorStatusReport {

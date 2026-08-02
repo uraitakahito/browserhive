@@ -6,6 +6,7 @@ import {
   PuppeteerTimeoutError,
   TimeoutError,
 } from "../../src/capture/error-details.js";
+import { SigningRequiredError } from "../../src/storage/wacz/signer.js";
 
 describe("extractPuppeteerTimeoutMs", () => {
   it("parses Puppeteer's Navigation timeout message (space before ms)", () => {
@@ -181,5 +182,29 @@ describe("isExecutionContextDestroyed", () => {
     expect(
       isExecutionContextDestroyed({ message: "Execution context was destroyed" }),
     ).toBe(false);
+  });
+});
+
+/**
+ * Signing failures get their own type.
+ *
+ * Not a cosmetic distinction: a signing service that is down is fixed by
+ * restarting a service and retrying, and `internal` is where genuine bugs
+ * live. Folding one into the other means the first thing an operator does
+ * with a wave of failures — read the type — tells them the wrong thing.
+ */
+describe("errorDetailsFromException — signing", () => {
+  it("classifies a required-but-missing signature as `signing`", () => {
+    const details = errorDetailsFromException(
+      new SigningRequiredError("http://sign:8080/sign — returned 503"),
+    );
+
+    expect(details.type).toBe("signing");
+    // The endpoint is the part that says what to fix, so it has to survive.
+    expect(details.message).toContain("http://sign:8080/sign");
+  });
+
+  it("leaves an ordinary error as `internal`", () => {
+    expect(errorDetailsFromException(new Error("boom")).type).toBe("internal");
   });
 });

@@ -87,6 +87,16 @@ export interface BuildInfo {
  * inside the WACZ. `viewport` and `cache` do.
  */
 export interface CaptureSettings {
+  /**
+   * Whether this capture was allowed to go out unsigned.
+   *
+   * The resolved answer, not the request's flag — a deployment running under
+   * `signingPolicy: "required"` signs captures that never asked. Written even
+   * when it is `none`, because the absence of `datapackage-digest.json`
+   * already says no signature exists and says nothing about whether one was
+   * meant to.
+   */
+  signature: "required" | "none";
   viewport: { width: number; height: number };
   /**
    * One entry per pass. `multipass` sweeps two, and recording a single number

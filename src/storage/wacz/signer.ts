@@ -15,6 +15,21 @@
  */
 import { Buffer } from "node:buffer";
 
+/**
+ * A signature was required and could not be obtained.
+ *
+ * Thrown by the packager rather than by `sign`, which keeps its contract: the
+ * port reports, the caller decides. It carries the signer's own reason because
+ * that is the only part that says what to fix — the endpoint that refused, the
+ * timeout that elapsed.
+ */
+export class SigningRequiredError extends Error {
+  constructor(reason: string) {
+    super(`a signature was required and could not be obtained: ${reason}`);
+    this.name = "SigningRequiredError";
+  }
+}
+
 /** What became of the signature. Reported on the capture result. */
 export interface SignatureReport {
   signed: boolean;
@@ -51,6 +66,22 @@ export interface WaczSigner {
 export const unsignedSigner: WaczSigner = {
   // eslint-disable-next-line @typescript-eslint/require-await -- async by contract: WaczSigner.sign returns a promise, and this one has nothing to await.
   sign: async () => ({ report: { signed: false, reason: "signing not requested" } }),
+};
+
+/**
+ * The signer for captures that asked, on a deployment with nothing to ask.
+ *
+ * Distinct from `unsignedSigner` because the reason is the whole value here.
+ * A capture that required a signature and failed reports this string, and
+ * "signing not requested" would send whoever reads it to the request — which
+ * did request one — instead of to the server that has no signing service
+ * configured.
+ */
+export const noSigningServiceSigner: WaczSigner = {
+  // eslint-disable-next-line @typescript-eslint/require-await -- async by contract: WaczSigner.sign returns a promise, and this one has nothing to await.
+  sign: async () => ({
+    report: { signed: false, reason: "no signing service is configured on this server" },
+  }),
 };
 
 export interface HttpSignerOptions {

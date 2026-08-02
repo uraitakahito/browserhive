@@ -31,7 +31,12 @@ export type { FuzzyJsonInput, FuzzyRule } from "./fuzzy.js";
 export { analyzeCompleteness } from "./completeness.js";
 export type { CompletenessReport } from "./completeness.js";
 
-export { createHttpSigner, unsignedSigner } from "./signer.js";
+export {
+  SigningRequiredError,
+  createHttpSigner,
+  noSigningServiceSigner,
+  unsignedSigner,
+} from "./signer.js";
 export type {
   HttpSignerOptions,
   SignatureReport,

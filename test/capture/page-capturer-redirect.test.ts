@@ -36,6 +36,7 @@ const createTask = (): CaptureTask => ({
   retryCount: 0,
   captureFormats: { png: false, webp: true, html: true, links: false, mhtml: false, wacz: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
+  requireSignature: false,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
 });
 

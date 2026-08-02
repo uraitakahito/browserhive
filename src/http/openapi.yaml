@@ -542,10 +542,22 @@ components:
             that produces no WACZ is rejected with 400, because there would be
             nowhere to put the signature.
 
-            A capture whose signature fails still succeeds. The WACZ is written
-            without one and the outcome is reported in the result's `signature`
-            field, so an unsigned archive is never silently indistinguishable
-            from a signed one.
+            Asking for a signature makes it a requirement: a capture that
+            cannot be signed fails (`status: "failed"`, `errorDetails.type:
+            "signing"`) and no artefact is stored. There is no "sign if you
+            can" — an archive whose value depends on whether a service happened
+            to be up is one nobody can rely on without checking.
+
+            Omit the field, or set it to `false`, to store without a signature.
+            That capture succeeds exactly as it did before, and its result
+            carries no `signature` field at all — "nobody asked" and "we asked
+            and it failed" are different answers.
+
+            What this field is allowed to say depends on the server's
+            `--signing-policy`. Under `forbidden` a request asking for a
+            signature is rejected with 400; under `required` every capture is
+            signed and `signing: false` is rejected with 400; under `optional`
+            (the default) the choice is this field's.
 
             Not part of `captureFormats`: a signature is a property of the WACZ,
             not a separate artefact, and every field in `captureFormats` is
@@ -1249,7 +1261,7 @@ components:
       enum: [ready, busy, error, disconnected]
     ErrorType:
       type: string
-      enum: [http, timeout, connection, internal]
+      enum: [http, timeout, connection, signing, internal]
     ErrorTaskInfo:
       type: object
       required: [taskId, url, labels]

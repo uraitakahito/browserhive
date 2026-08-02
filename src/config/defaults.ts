@@ -3,6 +3,7 @@ import type {
   CoordinatorConfig,
   BrowserHiveConfig,
   DiscoveryConfig,
+  SigningConfig,
   WaczConfig,
 } from "./types.js";
 
@@ -67,7 +68,18 @@ export const DEFAULT_WACZ_CONFIG: WaczConfig = {
   // that build a CaptureConfig without going through the CLI builder.
   software: "browserhive/0.0.0",
   fuzzyParams: [...DEFAULT_WACZ_FUZZY_PARAMS],
-  signingTimeoutMs: 5_000,
+};
+
+/**
+ * Leave the choice to each request, and wait 5s for an answer.
+ *
+ * Neither other policy is a safe default: `required` would fail every capture
+ * on a server with no signing service, and `forbidden` would refuse requests
+ * that succeed today.
+ */
+export const DEFAULT_SIGNING_CONFIG: SigningConfig = {
+  policy: "optional",
+  timeoutMs: 5_000,
 };
 
 export const DEFAULT_CAPTURE_CONFIG: CaptureConfig = {
@@ -164,6 +176,7 @@ export const DEFAULT_COORDINATOR_CONFIG = {
   // trivially small in memory. The durable record is the `.result.json`
   // manifest, so eviction loses nothing — it only turns a 200 into a 404.
   resultCacheSize: 1000,
+  signing: DEFAULT_SIGNING_CONFIG,
 } satisfies Omit<CoordinatorConfig, "storage">;
 
 /**

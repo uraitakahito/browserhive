@@ -23,13 +23,18 @@ export interface CaptureTask {
   retryCount: number;
   captureFormats: CaptureFormats;
   /**
-   * Ask the configured signing service for a wacz-auth signature and store it
-   * as `datapackage-digest.json` inside the WACZ.
+   * Whether this capture may be stored without a signature.
+   *
+   * Already resolved: the HTTP boundary combines the deployment's
+   * `signingPolicy` with the request's `signing` flag and refuses the two
+   * contradictory pairs, so what arrives here is the answer rather than either
+   * input. `true` makes a signature that could not be obtained a failed
+   * capture; `false` writes the archive unsigned and says why.
    *
    * Only meaningful alongside `captureFormats.wacz`; the HTTP boundary rejects
    * the combination that is not, so the capture layer never sees it.
    */
-  signing?: boolean;
+  requireSignature: boolean;
   /**
    * Upstream `Accept-Language` header to send for this capture. Validated
    * by the OpenAPI schema (printable ASCII only, ≤ 200 chars). Undefined
