@@ -26,7 +26,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # reviewdog invokes eslint directly, so the `prelint:source` hook never
       # fires — everything it does has to be reproduced here. It runs `prep`
-      # (the two generate steps below) *and* builds meadow, whose emitted types
+      # (the three generate steps below) *and* builds meadow, whose emitted types
       # the type-aware rules need: without `meadow/dist/index.d.ts` the E2E
       # tests' `scenarios` import resolves to `any` and every use of it trips
       # no-unsafe-member-access / restrict-plus-operands. Locally this passes
@@ -36,6 +36,12 @@ jobs:
       # when nothing matches, so a missing submodule makes it a silent no-op.
       - run: pnpm run openapi:generate
       - run: pnpm run openapi:gen-operations
+      # The other half of `prep`. Missing here until a rule finally noticed:
+      # `src/generated/version.ts` is generated and git-ignored, so on a fresh
+      # checkout `BUILD_INFO` has no resolvable type and every property read of
+      # it trips no-unsafe-member-access. Nothing read a property of it until
+      # `SOFTWARE_IDENTIFIER` did, which is why this was invisible.
+      - run: pnpm run generate:version
       - run: pnpm --filter meadow build
       # reviewdog がコメントを投稿するトークンを GitHub App から実行ごとに発行する。
       # 保管する秘密は App の秘密鍵(REVIEWDOG_APP_KEY)だけで、これは無期限。
