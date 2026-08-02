@@ -113,6 +113,11 @@ export default defineConfig({
               slug: "signing",
             },
             {
+              label: "Archives as evidence",
+              translations: { ja: "証拠としてのアーカイブ" },
+              slug: "evidence",
+            },
+            {
               label: "Related projects",
               translations: { ja: "関連プロジェクト" },
               slug: "related-projects",
