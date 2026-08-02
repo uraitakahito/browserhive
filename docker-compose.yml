@@ -124,7 +124,8 @@ services:
   #
   # The identity is mounted read-only from test/fixtures/dev-ca. Committing it
   # is the point: every environment gets the same ca.crt, which is what lets a
-  # test assert `capping verify --root test/fixtures/dev-ca/ca.crt` instead of
+  # test assert `capping verify --root test/fixtures/dev-ca/insecure-dev-ca.crt`
+  # instead of
   # merely "a signature appeared". Those keys sign nothing anyone trusts — the
   # CA reaches no trust store.
   capping:

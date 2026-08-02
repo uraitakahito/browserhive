@@ -134,7 +134,7 @@ unzip -p capture.wacz datapackage-digest.json > datapackage-digest.json
 ```console
 $ node capping/dist/cli.js verify \
     --file datapackage-digest.json \
-    --root test/fixtures/dev-ca/ca.crt
+    --root test/fixtures/dev-ca/insecure-dev-ca.crt
   ok       signature  signature matches the hash under the certificate's key
   ok       chain      chain reaches a supplied trust root
   ok       domain     certificate is valid for sign.dev.local
@@ -143,7 +143,7 @@ $ node capping/dist/cli.js verify \
 valid
 ```
 
-`--root` は `test/fixtures/dev-ca/ca.crt` にコミットしてある開発用 CA です。
+`--root` は `test/fixtures/dev-ca/insecure-dev-ca.crt` にコミットしてある開発用 CA です。
 どのチェックアウトでも同じであることに意味があります —— 信頼アンカーが固定
 されているからこそ、テストが「digest ファイルが現れた」ではなく `valid` を
 主張できます。この鍵は誰も信頼していないものに署名しており、CA はどの信頼ストア
@@ -178,7 +178,7 @@ dev スタックでは前 2 つを `docker-compose.yml` が設定します。cap
   "signedData": {
     "hash": "sha256:0be7b2fe…",
     "created": "2026-08-02T00:00:00.000Z",
-    "software": "capping/0.2.0",
+    "software": "capping/0.3.0",
     "signature": "MEQCIGS0Ydsd…",
     "domain": "sign.dev.local",
     "domainCert": "-----BEGIN CERTIFICATE-----\n…",

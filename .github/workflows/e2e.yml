@@ -50,12 +50,20 @@ jobs:
       - name: Build capping
         run: pnpm --dir capping install --frozen-lockfile && pnpm --dir capping run build
 
-      # --profile signing brings up the local wacz-auth signing service.
-      # Without it every signed capture comes back `signature.signed: false`,
-      # which is correct behaviour and a failing signing suite — the archive is
-      # still written, so nothing else would go red.
+      # `pnpm run stack:up` rather than container-compose directly. The script
+      # passes MEADOW_TAG and MEADOW_REV, which the compose file defaults to
+      # `dev` without — and `dev` is exactly what test/e2e/global-setup.ts
+      # refuses to start on, since it means the image cannot be checked for
+      # staleness. Spelling the command out here got that wrong: this job could
+      # not have reached a single test.
+      #
+      # The script brings up both profiles. `signing` is the local wacz-auth
+      # service; without it every signed capture comes back
+      # `signature.signed: false`, which is correct behaviour and a failing
+      # signing suite — the archive is still written, so nothing else would go
+      # red.
       - name: Bring up the stack
-        run: container-compose --profile meadow --profile signing up -d -b
+        run: pnpm run stack:up
 
       # Produces the @vitest/ui HTML report into html-e2e/ instead of only
       # printing to the log. The suite annotates every capture with its taskId,
@@ -90,5 +98,7 @@ jobs:
 
       - name: Tear down
         if: always()
-        # down only covers services active under the given profiles.
-        run: container-compose --profile meadow --profile signing down
+        # `down` only covers services active under the given profiles, so this
+        # has to name the same set as the up — which is why both live in
+        # package.json rather than here.
+        run: pnpm run stack:down
