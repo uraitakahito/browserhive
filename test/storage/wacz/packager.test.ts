@@ -208,6 +208,7 @@ describe("WaczPackager.pack — end-to-end zip layout", () => {
       software: "browserhive-test/0.0.0",
       responses: [],
       capture: {
+        build: { version: "1.15.0", revision: "1dcfc15", buildTime: "2026-08-02T05:53:09.566Z" },
         completeness: {
           bodylessUrls: ["https://example.com/cached.css"],
           truncatedUrls: [],
@@ -226,6 +227,7 @@ describe("WaczPackager.pack — end-to-end zip layout", () => {
     >;
 
     expect(dp["browserhive:capture"]).toEqual({
+      build: { version: "1.15.0", revision: "1dcfc15", buildTime: "2026-08-02T05:53:09.566Z" },
       completeness: {
         bodylessUrls: ["https://example.com/cached.css"],
         truncatedUrls: [],
@@ -237,6 +239,44 @@ describe("WaczPackager.pack — end-to-end zip layout", () => {
     // wabac.js reads only config / profile / metadata / resources from here.
     expect(dp["profile"]).toBe("data-package");
     expect(dp["wacz_version"]).toBe("1.1.1");
+  });
+
+  it("records which build produced the archive, in a form a machine can read", async () => {
+    // `software` is prose — py-wacz writes "py-wacz 0.4.6", Browsertrix writes
+    // "Browsertrix-Crawler 1.x (with warcio.js 2.y)", Scoop writes "Scoop @
+    // Harvard Library Innovation Lab v0.0.1". No two agree, and nothing parses
+    // it: wabac reads only config / profile / metadata / resources from this
+    // file. So the parseable copy goes here instead, beside the other things
+    // this capture knows about itself.
+    const warcPath = join(tmpDir, "data.warc.gz");
+    writeFileSync(warcPath, Buffer.from("fake-warc-bytes"));
+    const waczPath = join(tmpDir, "build.wacz");
+
+    await WaczPackager.pack({
+      warcPath,
+      waczPath,
+      taskId: "task-build",
+      pageUrl: "https://example.com/",
+      pageTitle: "Example",
+      capturedAt: "2026-08-02T00:00:00.000Z",
+      software: "browserhive-test/0.0.0",
+      responses: [],
+      capture: {
+        build: { version: "1.15.0", revision: "1dcfc15", buildTime: "2026-08-02T05:53:09.566Z" },
+        completeness: { bodylessUrls: [], truncatedUrls: [], complete: true },
+      },
+    });
+
+    const entries = unzipSync(new Uint8Array(readFileSync(waczPath)));
+    const dp = JSON.parse(Buffer.from(entries["datapackage.json"]!).toString("utf-8")) as Record<
+      string,
+      unknown
+    >;
+    expect((dp["browserhive:capture"] as { build?: unknown }).build).toEqual({
+      version: "1.15.0",
+      revision: "1dcfc15",
+      buildTime: "2026-08-02T05:53:09.566Z",
+    });
   });
 
   it("omits the key entirely when the caller reported nothing", async () => {

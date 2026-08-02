@@ -72,6 +72,12 @@ export interface CaptureOptions {
    * cache.
    */
   cache?: "default" | "bypass" | "clear";
+  /**
+   * `multipass` sweeps DPR 1 and 2 in one capture. Tests that assert what the
+   * archive says about itself need it, since the number of passes is one of
+   * the settings recorded there.
+   */
+  archiveMode?: "single-pass" | "multipass";
 }
 
 /** Build a POST /v1/captures body (captureFormats is required by the API). */
@@ -79,7 +85,7 @@ export function captureRequest(
   url: string,
   options: CaptureOptions = {},
 ): Record<string, unknown> {
-  const { formats = HTML_ONLY, operationDelayMs, signing, cache } = options;
+  const { formats = HTML_ONLY, operationDelayMs, signing, cache, archiveMode } = options;
   return {
     url,
     labels: ["e2e"],
@@ -89,6 +95,7 @@ export function captureRequest(
     ...(operationDelayMs === undefined ? {} : { operationDelayMs }),
     ...(signing === undefined ? {} : { signing }),
     ...(cache === undefined ? {} : { cache }),
+    ...(archiveMode === undefined ? {} : { archiveMode }),
   };
 }
 

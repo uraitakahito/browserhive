@@ -170,6 +170,9 @@ root.resources    // only path and hash are read
 // no other key is even walked
 ```
 
+`browserhive:capture` carries `build` (version, revision, buildTime), `browser`,
+`settings` (the values that applied), `completeness` and `coverage`.
+
 The official Frictionless schema has no `additionalProperties: false` either,
 so extra keys are legal by design — the same mechanism that carries
 `wacz_version` and `mainPageURL`. Note that `config` and `metadata` are names

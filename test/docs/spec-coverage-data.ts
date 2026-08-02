@@ -317,8 +317,8 @@ export const COVERAGE: CoverageArea[] = [
       {
         item: "browserhive:capture (non-spec)",
         state: "divergent",
-        en: "Not in the spec. What this capture could not get: `completeness` (bodies lost to a 304 or a size cap) and `coverage` (whether scrolling stopped at its step cap rather than the end of the page). Namespaced because it is an observation, not agreed vocabulary. The Frictionless schema has no `additionalProperties: false`, and wabac.js reads only config / profile / metadata / resources from this file.",
-        ja: "仕様に無い。このキャプチャが取り切れなかったもの ——「304 やサイズ上限で本文を失ったか」(`completeness`) と「スクロールがページの終わりではなく歩数上限で止まったか」(`coverage`)。合意された語彙ではなく我々の観測なので名前空間を切ってある。Frictionless のスキーマは `additionalProperties: false` を持たず、wabac.js はこのファイルから config / profile / metadata / resources しか読まない。",
+        en: "Not in the spec. What this capture was and what it could not get: `build` (version, revision, buildTime), `browser`, `settings` (the values that applied, not the ones requested), `completeness` (bodies lost to a 304 or a size cap) and `coverage` (whether scrolling stopped at its step cap rather than the end of the page). Namespaced because it is an observation, not agreed vocabulary. The Frictionless schema has no `additionalProperties: false`, and wabac.js reads only config / profile / metadata / resources from this file.",
+        ja: "仕様に無い。このキャプチャが何であって何を取り切れなかったか ——`build`(version・revision・buildTime)、`browser`、`settings`(要求ではなく実際に効いた値)、`completeness`(304 やサイズ上限で本文を失ったか)、`coverage`(スクロールがページの終わりではなく歩数上限で止まったか)。合意された語彙ではなく我々の観測なので名前空間を切ってある。Frictionless のスキーマは `additionalProperties: false` を持たず、wabac.js はこのファイルから config / profile / metadata / resources しか読まない。",
       },
     ],
   },
