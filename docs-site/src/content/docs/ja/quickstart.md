@@ -217,5 +217,7 @@ container-compose --profile signing down
 
 - [API リファレンス](/api/) — `dismissBanners` / `resetState` / `viewport` など全パラメータの型定義
 - [アーキテクチャ解説](/architecture/) — XState ステートマシンと内部構造
+- [仕様書リンク集](/ja/specifications/) — 出てきたファイルの中身を規格で確かめたいとき。
+  WACZ 1.1.1・wacz-auth・Data Package は日本語訳があります
 - worker の動作確認・目視は chromium-server 側の
   [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/ja/getting-started/verify/) を参照

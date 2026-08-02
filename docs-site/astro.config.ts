@@ -117,6 +117,11 @@ export default defineConfig({
               translations: { ja: "関連プロジェクト" },
               slug: "related-projects",
             },
+            {
+              label: "Specifications",
+              translations: { ja: "仕様書リンク集" },
+              slug: "specifications",
+            },
           ],
         },
         {
