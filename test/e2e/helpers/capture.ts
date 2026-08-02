@@ -4,6 +4,7 @@
  */
 import { expect } from "vitest";
 import type { TestContext } from "vitest";
+import type { RequestLog } from "meadow";
 
 /**
  * The only part of the test context this module needs.
@@ -210,7 +211,24 @@ export async function resetMeadow(meadow: string): Promise<void> {
   await fetch(`${meadow}/__reset`, { method: "POST" });
 }
 
-/** meadow's per-URL request counts — the black-box evidence of browser behaviour. */
+/**
+ * meadow's per-URL request counts — the black-box evidence of browser behaviour.
+ *
+ * Exact and unbounded. Use this when the number itself is the question.
+ */
 export async function meadowRequestCounts(meadow: string): Promise<Record<string, number>> {
   return getJson<Record<string, number>>(`${meadow}/__request-counts`);
+}
+
+/**
+ * The requests meadow actually received, in order, with the headers that
+ * explain caching.
+ *
+ * Not a way to count: the log is capped at meadow's `REQUEST_LOG_LIMIT`, and
+ * `truncated` says whether anything was dropped. `meadowRequestCounts` is what
+ * counts. What this answers is the question counts cannot — *what* arrived,
+ * and whether it was conditional.
+ */
+export async function meadowRequests(meadow: string): Promise<RequestLog> {
+  return getJson<RequestLog>(`${meadow}/__requests`);
 }
