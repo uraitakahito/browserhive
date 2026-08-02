@@ -14,7 +14,7 @@
  */
 import { Command, InvalidArgumentError, Option } from "commander";
 import { type CaptureFormats } from "../capture/index.js";
-import type { ArchiveMode } from "../config/index.js";
+import type { ArchiveMode, CacheMode } from "../config/index.js";
 import { logger } from "../logger.js";
 
 export interface ClientOptions {
@@ -73,6 +73,11 @@ export interface ClientOptions {
    * result to tell a signed archive from an unsigned one.
    */
   signing?: boolean;
+  /**
+   * Sent as the request's `cache`. Omitted → the server default, which ships
+   * as `clear`.
+   */
+  cache?: CacheMode;
   /**
    * Which `examples/behaviors/<version>/` directory to load client-supplied
    * custom behaviors from. Attached per-entry by matching the target URL's
@@ -182,6 +187,12 @@ export const createProgram = (): Command => {
       "--full-page",
       "Capture the full document height (overrides the server default for PNG / WebP)",
     )
+    .addOption(
+      new Option(
+        "--cache <mode>",
+        "How this capture treats the browser HTTP cache: default | bypass | clear. Omitted uses the server default (ships as clear)",
+      ).choices(["default", "bypass", "clear"]),
+    )
     .option(
       "--signing",
       "Ask the server's signing service for a wacz-auth signature (requires --wacz). A capture whose signature fails still succeeds — see signature.signed on the result",
@@ -229,6 +240,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     archiveMode?: ArchiveMode;
     fullPage?: boolean;
     signing?: boolean;
+    cache?: CacheMode;
     behaviorsVersion?: string;
   }>();
 
@@ -258,6 +270,7 @@ export const parseClientOptions = (argv: string[]): ClientOptions => {
     ...(opts.archiveMode !== undefined && { archiveMode: opts.archiveMode }),
     ...(opts.fullPage !== undefined && { fullPage: opts.fullPage }),
     ...(opts.signing !== undefined && { signing: opts.signing }),
+    ...(opts.cache !== undefined && { cache: opts.cache }),
     ...(opts.behaviorsVersion !== undefined && { behaviorsVersion: opts.behaviorsVersion }),
   };
 };
@@ -294,6 +307,7 @@ export const logClientConfig = (options: ClientOptions): void => {
       archiveMode: options.archiveMode ?? "(server default)",
       fullPage: options.fullPage ?? null,
       signing: options.signing ?? null,
+      cache: options.cache ?? null,
       limit: options.limit ?? null,
       behaviorsVersion: options.behaviorsVersion ?? "v1.0",
     },

@@ -63,6 +63,14 @@ export interface CaptureOptions {
    * Only valid with a WACZ format; the API rejects the other combination.
    */
   signing?: boolean;
+  /**
+   * How this capture treats the browser HTTP cache.
+   *
+   * The server default is `clear`, so tests that want a `304` have to ask for
+   * `default` explicitly — twice, since the first visit is what populates the
+   * cache.
+   */
+  cache?: "default" | "bypass" | "clear";
 }
 
 /** Build a POST /v1/captures body (captureFormats is required by the API). */
@@ -70,7 +78,7 @@ export function captureRequest(
   url: string,
   options: CaptureOptions = {},
 ): Record<string, unknown> {
-  const { formats = HTML_ONLY, operationDelayMs, signing } = options;
+  const { formats = HTML_ONLY, operationDelayMs, signing, cache } = options;
   return {
     url,
     labels: ["e2e"],
@@ -79,6 +87,7 @@ export function captureRequest(
     // when a test does not care about pacing.
     ...(operationDelayMs === undefined ? {} : { operationDelayMs }),
     ...(signing === undefined ? {} : { signing }),
+    ...(cache === undefined ? {} : { cache }),
   };
 }
 

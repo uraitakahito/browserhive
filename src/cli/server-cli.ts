@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import { Command, InvalidArgumentError, Option } from "commander";
 import type {
   ArchiveMode,
+  CacheMode,
   BrowserHiveConfig,
   CaptureConfig,
   StorageConfig,
@@ -159,6 +160,8 @@ interface ParsedOptions {
   captureTrace: boolean;
   /** How many passes a capture makes over the page. Env BROWSERHIVE_ARCHIVE_MODE. */
   archiveMode: ArchiveMode;
+  /** Server default for the HTTP cache. Env BROWSERHIVE_CACHE. */
+  cache: CacheMode;
   viewportWidth: number;
   viewportHeight: number;
   /** Device pixel ratio the capture browser renders at. Env BROWSERHIVE_DEVICE_SCALE_FACTOR. */
@@ -266,6 +269,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     operationDelayMs: opts.operationDelayMs,
     trace: opts.captureTrace,
     archiveMode: opts.archiveMode,
+    cache: opts.cache,
     timeouts: {
       pageLoadMs: opts.pageLoadTimeout,
       captureMs: opts.captureTimeout,
@@ -491,6 +495,15 @@ export const createProgram = (): Command => {
         .env("BROWSERHIVE_ARCHIVE_MODE")
         .choices(["single-pass", "multipass"])
         .default(defaultCapture.archiveMode),
+    )
+    .addOption(
+      new Option(
+        "--cache <mode>",
+        "Default handling of the browser HTTP cache: default (use it) | bypass (fetch fresh, keep existing entries) | clear (empty it first). Ships as clear — a 304 carries no body, so an archive built from cache hits is not an archive. Overridable per request",
+      )
+        .env("BROWSERHIVE_CACHE")
+        .choices(["default", "bypass", "clear"])
+        .default(defaultCapture.cache),
     )
     .addOption(
       new Option(
@@ -944,6 +957,7 @@ export const logServerConfig = (config: BrowserHiveConfig): void => {
       queuePollIntervalMs: coordinator.queuePollIntervalMs,
       resultCacheSize: coordinator.resultCacheSize,
       archiveMode: capture.archiveMode,
+      cache: capture.cache,
       viewport: {
         width: capture.viewport.width,
         height: capture.viewport.height,

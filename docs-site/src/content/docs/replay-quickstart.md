@@ -191,6 +191,11 @@ the point, is on [Related projects](/related-projects/).
   body (see `bodylessSample`). Capturing the same site repeatedly lets the
   browser cache kick in, so a revalidated resource's body is never
   recorded. Re-capture, or capture with the browser cache disabled.
+- **Capture fails with `HTTP 304: Not Modified`** — the browser had this
+  URL cached and revalidated it, so no body crossed the wire and there was
+  nothing to archive. The shipped default (`cache: "clear"`) prevents this;
+  you only see it if the server or the request asked for `cache: "default"`.
+  Re-send with `"cache": "clear"`, or set `BROWSERHIVE_CACHE=clear`.
 - **Replay shows "no matching response"** — Some resource fetched at
   replay time has no recorded counterpart, often because of a fresh
   cache-buster value the fuzzy match didn't catch. Add the parameter

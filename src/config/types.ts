@@ -134,6 +134,25 @@ export interface WaczConfig {
  */
 export type ArchiveMode = "single-pass" | "multipass";
 
+/**
+ * How a capture treats the browser's HTTP cache.
+ *
+ *   default — use it. A URL captured before can come back `304 Not Modified`,
+ *             which carries no body, so there is nothing to archive and the
+ *             capture fails.
+ *   bypass  — do not read the cache for this capture. Entries left by earlier
+ *             captures stay where they are.
+ *   clear   — empty the whole cache first, then capture without reading it.
+ *             Nothing an earlier capture stored can influence this one.
+ *
+ * Neither of the last two stops the capture from FILLING the cache. Chromium
+ * keeps storing responses while cache reads are disabled — measured, and the
+ * opposite of what "cache disabled" suggests. So a `default` capture of the
+ * same URL afterwards still sees a 304 either way, which is why the shipped
+ * default clears on every capture rather than expecting one reset to hold.
+ */
+export type CacheMode = "default" | "bypass" | "clear";
+
 export interface CaptureConfig {
   /**
    * Server-wide default delay (ms) inserted before each browser operation, for
@@ -159,6 +178,21 @@ export interface CaptureConfig {
   trace: boolean;
   /** Server-wide default archive mode. Overridable per request. */
   archiveMode: ArchiveMode;
+  /**
+   * Server-wide default for the HTTP cache, overridable per request.
+   *
+   * Ships as `clear`, because this is an archiver: an archive assembled from
+   * cache hits is not an archive. A `304` carries no body, so the bytes that
+   * were supposed to be recorded never crossed the wire.
+   *
+   * The cost is one CDP round trip per capture, which in steady state clears
+   * an already-empty cache — `clear` also captures with the cache disabled, so
+   * nothing is stored to clear next time. What it buys is that a single
+   * `cache: "default"` request cannot leave residue behind that affects
+   * everything after it. Deployments where the re-fetching matters can set
+   * `BROWSERHIVE_CACHE=default`.
+   */
+  cache: CacheMode;
   timeouts: {
     /** Page load timeout. */
     pageLoadMs: number;

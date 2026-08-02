@@ -100,6 +100,7 @@ const submitRequest = async (
   archiveMode: ArchiveMode | undefined,
   fullPage: boolean | undefined,
   signing: boolean,
+  cache: CaptureRequest["cache"],
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult> => {
   const correlationId = generateRandomId(5);
@@ -125,6 +126,10 @@ const submitRequest = async (
     // whose signature fails still succeeds; check `signature.signed` on the
     // result to tell a signed archive from an unsigned one.
     ...(signing && { signing: true }),
+    // Omitted → the server default, which ships as `clear`: a repeat capture
+    // of the same URL would otherwise revalidate and come back as a bodyless
+    // 304, failing the capture.
+    ...(cache === undefined ? {} : { cache }),
     ...(custom.length > 0 && { behaviors: { custom } }),
   };
 
@@ -174,6 +179,7 @@ const submitAll = async (
   archiveMode: ArchiveMode | undefined,
   fullPage: boolean | undefined,
   signing: boolean,
+  cache: CaptureRequest["cache"],
   selectBehaviors: (host: string) => CustomBehavior[],
 ): Promise<SubmitResult[]> => {
   const total = entries.length;
@@ -191,6 +197,7 @@ const submitAll = async (
       archiveMode,
       fullPage,
       signing,
+      cache,
       selectBehaviors,
     );
     completed++;
@@ -272,6 +279,7 @@ const runClient = async (options: ClientOptions): Promise<void> => {
     options.archiveMode,
     options.fullPage,
     options.signing ?? false,
+    options.cache,
     (host) => selectForHost(registry, host),
   );
 

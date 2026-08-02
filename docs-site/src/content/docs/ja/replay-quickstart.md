@@ -172,6 +172,12 @@ CI などで機械可読な JSON レポートが欲しい場合は `waxlens-vali
 
 ## トラブルシューティング
 
+- **`HTTP 304: Not Modified` でキャプチャが失敗する** —— その URL がブラウザに
+  キャッシュされていて再検証されたため、本文がネットワークを流れず、アーカイブする
+  ものがありませんでした。出荷時の既定(`cache: "clear"`)ではこれは起きません。
+  出るのはサーバかリクエストが `cache: "default"` を選んだ場合です。
+  `"cache": "clear"` を付けて投げ直すか、`BROWSERHIVE_CACHE=clear` にしてください。
+
 - **再生ページの画像 / CSS が欠ける** — `"trace": true` を付けて撮り直し、
   `chrome://inspect` でページの console の `[bh] archive` グループを読む。
   何がアーカイブに入らなかったかを理由と例示 URL つきで出す。`never archived`

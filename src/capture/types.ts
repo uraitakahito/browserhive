@@ -2,7 +2,7 @@
  * Capture Task and Result Types
  */
 
-import type { ArchiveMode, BrowserProfile } from "../config/index.js";
+import type { ArchiveMode, BrowserProfile, CacheMode } from "../config/index.js";
 import type { WorkerHealth } from "./capture-worker.js";
 import type { CaptureFormats } from "./capture-formats.js";
 import type { CaptureStatus } from "./capture-status.js";
@@ -83,6 +83,11 @@ export interface CaptureTask {
    * with the browser cache disabled. Undefined means "use the server default".
    */
   archiveMode?: ArchiveMode;
+  /**
+   * How this capture treats the browser HTTP cache. Omitted → the server
+   * default (`--cache` / `BROWSERHIVE_CACHE`, which ships as `clear`).
+   */
+  cache?: CacheMode;
   /**
    * Per-request override for `screenshot.fullPage`. When defined, takes
    * precedence over `CaptureConfig.screenshot.fullPage` for this task only.
