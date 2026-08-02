@@ -220,5 +220,8 @@ container-compose --profile signing down
 
 - [API reference](/api/) — type definitions for every parameter (`dismissBanners` / `resetState` / `viewport`, …)
 - [Architecture](/architecture/) — XState state machines and the internals
+- [Specifications](/specifications/) — when you want to check a file you just
+  produced against the standard. WACZ 1.1.1, wacz-auth and Data Package have
+  Japanese translations
 - To verify or watch a worker, see chromium-server's
   [Verifying workers](https://uraitakahito.github.io/chromium-server-docker/getting-started/verify/)
