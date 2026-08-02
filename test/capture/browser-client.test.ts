@@ -91,6 +91,10 @@ describe("BrowserClient", () => {
       // tests that need the `newPage()` fallback override per case.
       pages: vi.fn().mockResolvedValue([mockPage]),
       newPage: vi.fn().mockResolvedValue(mockPage),
+      // `connect()` asks once, so the archive can record which Chromium made
+      // it. Real `Browser` always has this; a mock without it made connect()
+      // throw before it could return.
+      version: vi.fn().mockResolvedValue("Chrome/150.0.7871.181"),
       on: vi.fn().mockImplementation((event: string, listener: () => void) => {
         if (event === "disconnected") browserDisconnectedListener = listener;
         return mockBrowser as Browser;
@@ -289,7 +293,11 @@ describe("BrowserClient", () => {
       expect(mockCapture).toHaveBeenCalledWith(
         mockPage,
         task,
-        0
+        0,
+        // Handed down from the connection, not asked for per capture — the
+        // browser cannot change version between tasks, and the round trip
+        // would come out of the capture's own budget.
+        "Chrome/150.0.7871.181",
       );
     });
 
