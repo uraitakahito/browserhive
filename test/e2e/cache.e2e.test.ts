@@ -20,7 +20,13 @@
 import { describe, expect, inject, it } from "vitest";
 import { scenarios } from "meadow";
 
-import { captureRequest, submitAndWait, WACZ_ONLY } from "./helpers/capture.js";
+import {
+  captureRequest,
+  meadowRequests,
+  resetMeadow,
+  submitAndWait,
+  WACZ_ONLY,
+} from "./helpers/capture.js";
 
 const api = inject("api");
 const meadow = inject("meadow");
@@ -56,6 +62,57 @@ describe("a URL captured twice with the cache in play", () => {
 });
 
 describe("a capture that does not read the cache still fills it", () => {
+  it("is visible from what meadow received, without inferring from a status", async ({
+    annotate,
+  }) => {
+    // Establishing this took two captures and a deduction before meadow could
+    // report what arrived: the only evidence available was the status
+    // BrowserHive reported for a *second* capture. Now the requests themselves
+    // say it.
+    //
+    // The URL carries the run's timestamp because the browser cache outlives
+    // the test process. `resetMeadow` clears meadow's records, not Chromium's
+    // cache, so a fixed URL would inherit whatever an earlier run left and the
+    // first assertion below would depend on execution order.
+    const url = `${cacheableUrl("seen")}-${String(Date.now())}`;
+    await resetMeadow(meadow);
+
+    // 1. Warm the cache, so there is something to revalidate against.
+    await submitAndWait(api, captureRequest(url, { formats: WACZ_ONLY, cache: "default" }), annotate);
+    // 2. bypass, against a warm cache.
+    await submitAndWait(api, captureRequest(url, { formats: WACZ_ONLY, cache: "bypass" }), annotate);
+    // 3. default again.
+    await submitAndWait(api, captureRequest(url, { formats: WACZ_ONLY, cache: "default" }), annotate);
+
+    const { requests, truncated } = await meadowRequests(meadow);
+    // A truncated log would make "the first three" meaningless.
+    expect(truncated).toBe(false);
+
+    const forPage = requests.filter((r) => r.url.includes(url.split("?")[1] ?? ""));
+    await annotate(
+      forPage.map((r, i) => `${String(i)}: ifNoneMatch=${r.ifNoneMatch ?? "(none)"}`).join("\n"),
+      "meadow",
+    );
+
+    // Never seen before, so nothing to revalidate.
+    expect(forPage[0]?.ifNoneMatch).toBeUndefined();
+
+    // The discriminating assertion: the cache was warm by now, and `bypass`
+    // asked anyway. Make `bypass` read the cache and this is the line that
+    // goes red.
+    expect(forPage[1]?.ifNoneMatch).toBeUndefined();
+
+    // And the finding this file exists for — that bypassing capture stored
+    // the response regardless, so the next `default` had something to
+    // revalidate against. It fails and is retried, so it arrives more than
+    // once; every retry is conditional too, which is why retrying never
+    // rescues a capture from a 304.
+    expect(forPage.length).toBeGreaterThan(2);
+    for (const later of forPage.slice(2)) {
+      expect(later.ifNoneMatch).toBeDefined();
+    }
+  });
+
   it("populates the entry anyway, for both bypass and clear", async ({ annotate }) => {
     // Measured, and it contradicts the obvious reading of "cache disabled".
     // Chromium's setCacheDisabled stops the capture *reading* the cache; the
