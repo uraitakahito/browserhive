@@ -27,6 +27,7 @@ import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { WaczPackager, analyzeCompleteness, unsignedSigner } from "../storage/wacz/index.js";
+import { analyzeCoverage, type CoverageReport } from "../storage/wacz/coverage.js";
 import type { CompletenessReport, SignatureReport, WaczSigner } from "../storage/wacz/index.js";
 import { runBehaviors } from "../behaviors/index.js";
 import type { BehaviorRunReport } from "../behaviors/types.js";
@@ -915,6 +916,7 @@ export class PageCapturer {
       let waczLocation: string | undefined;
       let waczStats: RecordingStats | undefined;
       let completeness: CompletenessReport | undefined;
+      let coverage: CoverageReport | undefined;
       let signature: SignatureReport | undefined;
       if (recorder !== null && waczTempDir !== null && this.waczConfig) {
         const stopResult = await recorder.stop();
@@ -922,6 +924,9 @@ export class PageCapturer {
         waczStats = stopResult.stats;
         // Same records the CDXJ is built from — no need to re-read the archive.
         completeness = analyzeCompleteness(stopResult.responses);
+        // What the archive could not reach, as opposed to what it could not
+        // keep. Only autoscroll knows this, and only if it ran.
+        coverage = analyzeCoverage(behaviorReport, this.config.viewport.height);
 
         // The one thing DevTools genuinely cannot show. Its Network panel
         // reports what the *browser* did — a resource can be a green 200 there
@@ -937,6 +942,10 @@ export class PageCapturer {
         const waczFilename = generateFilename(task, "wacz");
         const localWaczPath = join(waczTempDir, waczFilename);
         const packed = await WaczPackager.pack({
+          // The archive says what it could not get. Until now this was
+          // computed on every capture and put only in the HTTP response, so
+          // discarding that response discarded the fact that a body was lost.
+          capture: { completeness, ...(coverage !== undefined && { coverage }) },
           warcPath: stopResult.path,
           waczPath: localWaczPath,
           taskId: task.taskId,

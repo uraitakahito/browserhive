@@ -190,6 +190,81 @@ describe("buildDatapackage / serializeDatapackage", () => {
 });
 
 describe("WaczPackager.pack — end-to-end zip layout", () => {
+  it("writes what the capture could not get into the archive, not just the response", async () => {
+    // The point of the whole change: an archive travels and an HTTP response
+    // does not. Read the ZIP, not the return value — a caller that never sees
+    // the API result must still be able to ask the file whether it is whole.
+    const warcPath = join(tmpDir, "data.warc.gz");
+    writeFileSync(warcPath, Buffer.from("fake-warc-bytes"));
+    const waczPath = join(tmpDir, "capture-report.wacz");
+
+    await WaczPackager.pack({
+      warcPath,
+      waczPath,
+      taskId: "task-cov",
+      pageUrl: "https://www.yahoo.co.jp/",
+      pageTitle: "Yahoo",
+      capturedAt: "2026-08-02T00:00:00.000Z",
+      software: "browserhive-test/0.0.0",
+      responses: [],
+      capture: {
+        completeness: {
+          bodylessUrls: ["https://example.com/cached.css"],
+          truncatedUrls: [],
+          complete: false,
+        },
+        // The measured yahoo.co.jp numbers: 40 steps at an 800px viewport,
+        // stopped by the cap rather than by the end of the page.
+        coverage: { scrollExhausted: true, scrollSteps: 40, scrolledPx: 32_000 },
+      },
+    });
+
+    const entries = unzipSync(new Uint8Array(readFileSync(waczPath)));
+    const dp = JSON.parse(Buffer.from(entries["datapackage.json"]!).toString("utf-8")) as Record<
+      string,
+      unknown
+    >;
+
+    expect(dp["browserhive:capture"]).toEqual({
+      completeness: {
+        bodylessUrls: ["https://example.com/cached.css"],
+        truncatedUrls: [],
+        complete: false,
+      },
+      coverage: { scrollExhausted: true, scrollSteps: 40, scrolledPx: 32_000 },
+    });
+    // The spec fields are untouched — the new key sits beside them, and
+    // wabac.js reads only config / profile / metadata / resources from here.
+    expect(dp["profile"]).toBe("data-package");
+    expect(dp["wacz_version"]).toBe("1.1.1");
+  });
+
+  it("omits the key entirely when the caller reported nothing", async () => {
+    // An absent key and `complete: true` are different claims. Writing the
+    // latter when nobody measured would be the same defect in a new place.
+    const warcPath = join(tmpDir, "data.warc.gz");
+    writeFileSync(warcPath, Buffer.from("fake-warc-bytes"));
+    const waczPath = join(tmpDir, "no-report.wacz");
+
+    await WaczPackager.pack({
+      warcPath,
+      waczPath,
+      taskId: "task-none",
+      pageUrl: "https://example.com/",
+      pageTitle: "Example",
+      capturedAt: "2026-08-02T00:00:00.000Z",
+      software: "browserhive-test/0.0.0",
+      responses: [],
+    });
+
+    const entries = unzipSync(new Uint8Array(readFileSync(waczPath)));
+    const dp = JSON.parse(Buffer.from(entries["datapackage.json"]!).toString("utf-8")) as Record<
+      string,
+      unknown
+    >;
+    expect(dp).not.toHaveProperty("browserhive:capture");
+  });
+
   it("produces a zip with the four expected entries and verifiable datapackage hashes", async () => {
     // Synthesize a tiny "warc.gz" — content doesn't have to be a valid WARC for
     // the zip-layout test; the hash should match regardless.

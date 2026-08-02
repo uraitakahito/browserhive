@@ -148,6 +148,26 @@ switch (root.profile) {
 `profile` 不在を「WACZ が不完全」の印として扱い、オプション手順(CDX 検証等)を
 黙ってスキップする。常に `"profile": "data-package"` を出力すること。
 
+### `datapackage.json` の未知キーは replay に届かない
+
+`browserhive:capture`（このキャプチャが取り切れなかったものの申告）を
+ここに書いている。安全な理由は、wabac がこのファイルから読むキーが
+**4 つしかない**ことを実際に確かめたため:
+
+```typescript
+// wabac 2.26.6 —— loadPackage / loadLeafWACZPackage が触るもの
+root.config       // あれば initConfig に渡される
+root.profile      // 上の switch
+root.metadata     // loadLeafWACZPackage が返す
+root.resources    // path と hash だけを見る
+// それ以外のキーは走査もされない
+```
+
+Frictionless の公式スキーマも `additionalProperties: false` を持たないので、
+拡張キーは設計上許されている —— `wacz_version` や `mainPageURL` が
+そこに乗っているのと同じ仕組みである。ただし `config` と `metadata` は
+**wabac が意味を持たせている名前**なので、独自の値を入れてはならない。
+
 ### WARC の `application/http;msgtype=response` は HTTP/1.1 形でなければならない
 
 ワイヤが HTTP/2(や HTTP/3)でも、WARC ペイロードは実務上*常に* HTTP/1.1。
