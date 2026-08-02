@@ -2,6 +2,8 @@
  * Configuration Module (Barrel File)
  */
 export type {
+  SigningConfig,
+  SigningPolicy,
   ArchiveMode,
   CacheMode,
   BrowserConnectOptions,
@@ -18,6 +20,7 @@ export type {
   WaczConfig,
 } from "./types.js";
 export {
+  DEFAULT_SIGNING_CONFIG,
   DEFAULT_CAPTURE_CONFIG,
   DEFAULT_COORDINATOR_CONFIG,
   DEFAULT_BROWSERHIVE_CONFIG,

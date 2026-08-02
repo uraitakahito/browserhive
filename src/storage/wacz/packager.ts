@@ -33,7 +33,12 @@ import {
   serializeDatapackage,
 } from "./datapackage.js";
 import { buildFuzzyJson } from "./fuzzy.js";
-import { unsignedSigner, type SignatureReport, type WaczSigner } from "./signer.js";
+import {
+  SigningRequiredError,
+  unsignedSigner,
+  type SignatureReport,
+  type WaczSigner,
+} from "./signer.js";
 
 /** WACZ ZIP entry path of the inlined WARC. */
 const WARC_ENTRY_PATH = "archive/data.warc.gz";
@@ -103,6 +108,15 @@ export interface WaczPackageInput {
    * before this existed.
    */
   signer?: WaczSigner;
+  /**
+   * Whether an archive without a signature is allowed to exist.
+   *
+   * Resolved upstream from the deployment's policy and the request, so this
+   * layer never sees either — by the time it gets here the question is only
+   * "may this go out unsigned". `false` keeps the archive; `true` makes a
+   * signature that could not be obtained a failed capture.
+   */
+  requireSignature?: boolean;
 }
 
 export interface WaczPackageResult {
@@ -188,6 +202,14 @@ export const packWacz = async (
   // signature is computed over, prefix included.
   const hash = sha256Hex(datapackageBytes);
   const { digestBytes, report } = await (input.signer ?? unsignedSigner).sign(hash);
+
+  // A capture that had to be signed and was not is a failed capture. Throwing
+  // here — before the zip is written — is what keeps an unsigned archive from
+  // existing at all: the upload downstream reads a file that is never created,
+  // so nothing else has to know about this rule.
+  if (input.requireSignature === true && !report.signed) {
+    throw new SigningRequiredError(report.reason ?? "no reason given");
+  }
 
   // 4. Write the zip. Use STORE for the inner WARC.gz (already gzipped —
   // double-compressing would only inflate). Other entries default to DEFLATE.

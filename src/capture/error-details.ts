@@ -13,6 +13,7 @@
 import { TimeoutError as PuppeteerTimeoutError } from "puppeteer";
 import { errorType } from "./error-type.js";
 import type { ErrorDetails } from "./types.js";
+import { SigningRequiredError } from "../storage/wacz/signer.js";
 
 export { PuppeteerTimeoutError };
 
@@ -206,6 +207,10 @@ const isPuppeteerTimeout = (error: unknown): error is Error => {
  * timeout-classification fix.
  */
 export const errorDetailsFromException = (error: unknown): ErrorDetails => {
+  if (error instanceof SigningRequiredError) {
+    return { type: errorType.signing, message: error.message };
+  }
+
   if (error instanceof TimeoutError) {
     return {
       type: errorType.timeout,

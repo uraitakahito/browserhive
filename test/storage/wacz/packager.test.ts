@@ -10,7 +10,7 @@
  *     indexes/index.cdxj + datapackage.json, all hashes verifiable.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -28,6 +28,8 @@ import {
 import { sha256Hex } from "../../../src/storage/warc/index.js";
 import type { RecordedResponse } from "../../../src/capture/network-recorder-types.js";
 import type { WaczSigner } from "../../../src/storage/wacz/signer.js";
+import type { CaptureSelfReport } from "../../../src/storage/wacz/datapackage.js";
+import { SigningRequiredError } from "../../../src/storage/wacz/signer.js";
 
 let tmpDir: string;
 beforeEach(() => {
@@ -504,21 +506,50 @@ describe("WaczPackager — Phase 6 replay correctness", () => {
 /**
  * Signing.
  *
- * A signature is optional and a failed one is not a failed capture, so the
- * archive has to come out either way. That policy has a cost: when signing is
- * broken, nothing looks wrong. The capture succeeds, the WACZ is written, and
- * the only trace is a field nobody is forced to read.
+ * Whether a failed signature is a failed capture is not this layer's decision —
+ * it arrives as `requireSignature`, resolved from the deployment's policy and
+ * the request. Both outcomes are pinned here because they are opposite in the
+ * one way that matters: with a signature required, the archive must not exist
+ * at all, and asserting that the call threw is not the same claim.
  *
- * Which is why both directions are pinned here, and why the success case
- * asserts what the signature *covers* rather than merely that a file appeared.
- * Both signers are fakes — the point of the port is that neither of these
- * tests needs a network, a container, or a key.
+ * The success case asserts what the signature *covers* rather than merely that
+ * a file appeared. Every signer is a fake — the point of the port is that none
+ * of these tests needs a network, a container, or a key.
  */
 describe("WaczPackager.pack — signing", () => {
-  const packWith = async (signer: WaczSigner) => {
+  /** The smallest self-report the packager will accept, for tests that read it back. */
+  const captureReport = (signature: "required" | "none" = "none"): CaptureSelfReport => ({
+    build: { version: "0.0.0", revision: "test", buildTime: "2026-08-02T00:00:00.000Z" },
+    settings: {
+      viewport: { width: 1280, height: 800 },
+      devicePixelRatios: [1],
+      cache: "clear",
+      archiveMode: "single-pass",
+      behaviors: [],
+      signature,
+    },
+    completeness: { bodylessUrls: [], truncatedUrls: [], complete: true },
+  });
+
+  /** A signer that never manages to sign, whatever it is asked. */
+  const alwaysFails: WaczSigner = {
+    // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+    sign: async () => ({
+      report: { signed: false, reason: "signing service returned 503" },
+    }),
+  };
+
+  const packWith = async (
+    signer: WaczSigner,
+    options: {
+      requireSignature?: boolean;
+      waczPath?: string;
+      capture?: CaptureSelfReport;
+    } = {},
+  ) => {
     const warcPath = join(tmpDir, "data.warc.gz");
     writeFileSync(warcPath, Buffer.from("fake-warc-bytes"));
-    const waczPath = join(tmpDir, "signed.wacz");
+    const waczPath = options.waczPath ?? join(tmpDir, "signed.wacz");
     const result = await WaczPackager.pack({
       warcPath,
       waczPath,
@@ -529,18 +560,13 @@ describe("WaczPackager.pack — signing", () => {
       software: "browserhive-test/0.0.0",
       responses: [],
       signer,
+      requireSignature: options.requireSignature ?? false,
+      ...(options.capture === undefined ? {} : { capture: options.capture }),
     });
     return { result, entries: unzipSync(new Uint8Array(readFileSync(waczPath))) };
   };
 
-  it("still writes the archive when signing fails, and says why", async () => {
-    const alwaysFails: WaczSigner = {
-      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
-      sign: async () => ({
-        report: { signed: false, reason: "signing service returned 503" },
-      }),
-    };
-
+  it("writes the archive unsigned when no signature was required", async () => {
     const { result, entries } = await packWith(alwaysFails);
 
     // Three things at once, and all three are the policy: the archive exists,
@@ -551,6 +577,72 @@ describe("WaczPackager.pack — signing", () => {
       signed: false,
       reason: "signing service returned 503",
     });
+  });
+
+  it("writes nothing when a required signature could not be obtained", async () => {
+    const waczPath = join(tmpDir, "required.wacz");
+
+    await expect(
+      packWith(alwaysFails, { requireSignature: true, waczPath }),
+    ).rejects.toThrow(SigningRequiredError);
+
+    // The assertion that matters. Throwing after the zip is written would
+    // satisfy `rejects.toThrow` and still leave an unsigned archive on disk —
+    // and the upload downstream reads that file, not the return value.
+    expect(existsSync(waczPath)).toBe(false);
+  });
+
+  it.each(["required", "none"] as const)(
+    "carries settings.signature=%s into the archive",
+    async (signature) => {
+      const { entries } = await packWith(alwaysFails, {
+        capture: captureReport(signature),
+      });
+
+      const pkg = JSON.parse(
+        Buffer.from(entries["datapackage.json"]!).toString("utf-8"),
+      ) as Record<string, { settings: { signature: string } }>;
+      // Resolving this is the capture layer's job — what the packager owes is
+      // that the answer reaches the file. Three years on, the digest entry
+      // being absent says no signature exists; only this says whether one was
+      // ever meant to.
+      expect(pkg["browserhive:capture"].settings.signature).toBe(signature);
+    },
+  );
+
+  it("signs the capture's self-report along with everything else", async () => {
+    // The property Stage 4 depends on: whatever goes into `browserhive:capture`
+    // is inside the bytes the signature covers, because the datapackage is
+    // assembled before its hash is taken. That holds by construction today and
+    // would stop holding silently if the order ever moved — which is why it is
+    // pinned here rather than assumed.
+    //
+    // Asserted by re-hashing rather than by reading the digest: a test that
+    // only checked "the digest names some hash" would pass with the signature
+    // computed over the wrong bytes, which is the failure worth catching.
+    let signedHash: string | undefined;
+    const recordingSigner: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async (hash) => {
+        signedHash = hash;
+        return {
+          digestBytes: Buffer.from(`${JSON.stringify({ path: "datapackage.json", hash })}\n`),
+          report: { signed: true, domain: "sign.dev.local" },
+        };
+      },
+    };
+
+    const { entries } = await packWith(recordingSigner, { capture: captureReport() });
+
+    const datapackageBytes = Buffer.from(entries["datapackage.json"]!);
+    expect(datapackageBytes.toString("utf-8")).toContain("browserhive:capture");
+    expect(signedHash).toBe(sha256Hex(datapackageBytes));
+  });
+
+  it("carries the signer's reason into the failure", async () => {
+    await expect(
+      packWith(alwaysFails, { requireSignature: true }),
+    ).rejects.toThrow("signing service returned 503");
   });
 
   it("adds the digest and covers the datapackage that is actually in the zip", async () => {

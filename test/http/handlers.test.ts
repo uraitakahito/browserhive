@@ -5,8 +5,8 @@ import type { CaptureCoordinator } from "../../src/capture/index.js";
 import type { CoordinatorStatusReport } from "../../src/capture/capture-coordinator.js";
 import { ok, err } from "../../src/result.js";
 import { DEFAULT_RESET_STATE_OPTIONS } from "../../src/capture/reset-state.js";
-import { DEFAULT_CAPTURE_CONFIG } from "../../src/config/index.js";
-import type { CaptureConfig } from "../../src/config/index.js";
+import { DEFAULT_CAPTURE_CONFIG, DEFAULT_SIGNING_CONFIG } from "../../src/config/index.js";
+import type { SigningConfig, CaptureConfig } from "../../src/config/index.js";
 import type { CaptureResult } from "../../src/capture/types.js";
 
 interface CoordinatorStub {
@@ -17,6 +17,7 @@ interface CoordinatorStub {
   getResult: (taskId: string) => CaptureResult | undefined;
   isTracking: (taskId: string) => boolean;
   captureDefaults: CaptureConfig;
+  signing: SigningConfig;
 }
 
 const buildStub = (overrides: Partial<CoordinatorStub> = {}): CoordinatorStub => ({
@@ -28,6 +29,9 @@ const buildStub = (overrides: Partial<CoordinatorStub> = {}): CoordinatorStub =>
   // the built-in defaults here keeps these existing tests focused on
   // status / 4xx / 5xx behaviour without dragging resetState into them.
   captureDefaults: DEFAULT_CAPTURE_CONFIG,
+  // Server-wide, so the handler reads it straight off the coordinator rather
+  // than off a profile — `optional` leaves these tests' requests alone.
+  signing: DEFAULT_SIGNING_CONFIG,
   getResult: () => undefined,
   isTracking: () => false,
   getStatus: (): CoordinatorStatusReport => ({
@@ -334,6 +338,7 @@ describe("getStatus handler", () => {
                 retryCount: 0,
                 captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
                 resetState: DEFAULT_RESET_STATE_OPTIONS,
+                              requireSignature: false,
                               enqueuedAt: "2024-01-01T00:00:00.000Z",
               },
             },
@@ -380,6 +385,7 @@ describe("getStatus handler", () => {
               retryCount: 0,
               captureFormats: { png: true, webp: false, html: false, links: false, mhtml: false, wacz: false },
               resetState: DEFAULT_RESET_STATE_OPTIONS,
+              requireSignature: false,
               enqueuedAt,
             },
           },
@@ -418,6 +424,7 @@ describe("getCapture handler", () => {
       captureFormats: { png: false, webp: false, html: false, links: false, mhtml: false, wacz: true },
       resetState: DEFAULT_RESET_STATE_OPTIONS,
       correlationId: "abc123de",
+      requireSignature: false,
       enqueuedAt: "2024-01-01T00:00:00.000Z",
     },
     status: "success",

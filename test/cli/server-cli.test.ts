@@ -321,11 +321,119 @@ describe("server-cli parseCliOptions", () => {
     });
   });
 
+  describe("署名設定", () => {
+    // タスクは共有キューから任意のワーカーに work-stealing で取られる。署名設定が
+    // プロファイル単位だと、同じ要求が「どのワーカーが拾ったか」で署名されたり
+    // されなかったりする。storage と同じくサーバ全体に置くのはそのため。
+    it("署名設定はプロファイルではなくサーバ全体に載る", () => {
+      stubS3Env();
+      const config = parseCliOptions(
+        argv(
+          "--browser-url",
+          "http://a:9222",
+          "--browser-url",
+          "http://b:9222",
+          "--signing-url",
+          "http://sign:8080/sign",
+          "--signing-policy",
+          "required",
+          "--signing-trust-anchor",
+          "test/fixtures/dev-ca/insecure-dev-ca.crt",
+        ),
+      );
+
+      expect(config.coordinator.signing).toMatchObject({
+        policy: "required",
+        url: "http://sign:8080/sign",
+      });
+      // ワーカーが 2 つあっても署名の扱いは 1 つ。取り違えようがない。
+      expect(config.coordinator.browserProfiles).toHaveLength(2);
+      for (const profile of config.coordinator.browserProfiles) {
+        expect(profile.capture.wacz).not.toHaveProperty("signingUrl");
+        expect(profile.capture.wacz).not.toHaveProperty("signingPolicy");
+      }
+    });
+  });
+
   describe("失敗系", () => {
     it("--browser-url が CLI/env のどちらにもなければ exit する", () => {
       stubS3Env();
 
       expect(() => parseCliOptions(argv())).toThrow(ProcessExitError);
+    });
+
+    // 署名を要求する構成なのに署名サービスが無い、が一番起きやすい設定ミス。
+    // 起動を通すと、キャプチャが 1 件ずつ失敗して初めて分かることになる。
+    it("--signing-policy required なのに --signing-url が無ければ exit する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(argv("--signing-policy", "required")),
+      ).toThrow(ProcessExitError);
+    });
+
+    // 署名を必須にしただけでは「どの CA の署名でも通る」ままになる。chain 検査は
+    // 信頼アンカーが無いと skipped になり、開発用 CA の署名もそのまま受理される。
+    // required を選んだ配備がいちばん避けたいのがそれなので、起動時に要求する。
+    it("--signing-policy required なのに --signing-trust-anchor が無ければ exit する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(
+          argv("--signing-policy", "required", "--signing-url", "http://sign:8080/sign"),
+        ),
+      ).toThrow(ProcessExitError);
+    });
+
+    it("--signing-policy required は URL とアンカーが揃えば起動する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(
+          argv(
+            "--signing-policy", "required",
+            "--signing-url", "http://sign:8080/sign",
+            "--signing-trust-anchor", "test/fixtures/dev-ca/insecure-dev-ca.crt",
+          ),
+        ),
+      ).not.toThrow();
+    });
+
+    // optional では要求しない。署名を求めるリクエストだけが弱い検証で通るという
+    // 状態は、配備全体を止めるほどではなく、checks に skipped として残る。
+    it("--signing-policy optional はアンカーが無くても起動する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(argv("--signing-url", "http://sign:8080/sign")),
+      ).not.toThrow();
+    });
+
+    // required だけが対象。optional で署名サービスを持たない配備は普通の構成で、
+    // 署名を要求した個々のリクエストだけが失敗する。
+    it.each(["optional", "forbidden"])(
+      "--signing-policy %s なら --signing-url が無くても起動する",
+      (policy) => {
+        stubS3Env();
+        vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+        expect(() =>
+          parseCliOptions(argv("--signing-policy", policy)),
+        ).not.toThrow();
+      },
+    );
+
+    it("--signing-policy に未知の値を渡せば exit する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(argv("--signing-policy", "sometimes")),
+      ).toThrow(ProcessExitError);
     });
 
     it("--s3-endpoint が CLI/env のどちらにもなければ exit する", () => {
