@@ -178,7 +178,7 @@ dev スタックでは前 2 つを `docker-compose.yml` が設定します。cap
   "signedData": {
     "hash": "sha256:0be7b2fe…",
     "created": "2026-08-02T00:00:00.000Z",
-    "software": "capping/0.2.0",
+    "software": "capping/0.3.0",
     "signature": "MEQCIGS0Ydsd…",
     "domain": "sign.dev.local",
     "domainCert": "-----BEGIN CERTIFICATE-----\n…",
