@@ -31,6 +31,7 @@ Every CLI flag has a `BROWSERHIVE_*` env-var equivalent. Resolution order is **C
 | `--viewport-height <px>`<code class="env">BROWSERHIVE_VIEWPORT_HEIGHT</code> | positive integer (server-wide default; per-request `viewport.height` overrides) |
 | `--device-scale-factor <n>`<code class="env">BROWSERHIVE_DEVICE_SCALE_FACTOR</code> | positive integer (default `1`) — rendering DPR; `2` is Retina. Ignored under `multipass` |
 | `--archive-mode <mode>`<code class="env">BROWSERHIVE_ARCHIVE_MODE</code> | `single-pass` or `multipass` (default `single-pass`) — `multipass` records a DPR 1 and DPR 2 pass into one WACZ with the browser cache disabled |
+| `--cache <mode>`<code class="env">BROWSERHIVE_CACHE</code> | `default`, `bypass` or `clear` (default **`clear`**) — server-wide default for the browser HTTP cache, overridable per request. `clear` because a `304` carries no body: an archive assembled from cache hits is not an archive |
 | `--behaviors <list>`<code class="env">BROWSERHIVE_BEHAVIORS</code> | comma-separated behavior ids (default `autoscroll,autofetch`); an empty string disables all built-ins |
 | `--behavior-timeout <ms>`<code class="env">BROWSERHIVE_BEHAVIOR_TIMEOUT_MS</code> | positive integer (default `30000`) — wall-clock budget for the whole behavior pass |
 | `--allow-custom-behaviors`<code class="env">BROWSERHIVE_ALLOW_CUSTOM_BEHAVIORS</code> | `"true"`/`"1"` or `"false"`/`"0"` (default `false`) — accept the request's `behaviors.custom` |

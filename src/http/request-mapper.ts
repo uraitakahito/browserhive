@@ -124,6 +124,7 @@ export const captureRequestToTask = (
     }),
     ...(request.trace !== undefined && { trace: request.trace }),
     // Enum ("single-pass" | "multipass") enforced by Ajv; pass through.
+    ...(request.cache !== undefined && { cache: request.cache }),
     ...(request.archiveMode !== undefined && {
       archiveMode: request.archiveMode,
     }),

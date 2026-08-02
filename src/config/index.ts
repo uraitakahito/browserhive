@@ -3,6 +3,7 @@
  */
 export type {
   ArchiveMode,
+  CacheMode,
   BrowserConnectOptions,
   CaptureConfig,
   CoordinatorConfig,

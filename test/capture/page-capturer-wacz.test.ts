@@ -30,16 +30,20 @@ interface FakeCDPSession extends EventEmitter {
   detach: () => Promise<void>;
   /** Test helper to install a body for `Network.getResponseBody`. */
   setBody: (requestId: string, body: string) => void;
+  /** Every method name this session was asked to send, in order. */
+  sent: string[];
 }
 
 const makeCDPSession = (): FakeCDPSession => {
   const ee = new EventEmitter();
   const bodies = new Map<string, string>();
   const session = ee as unknown as FakeCDPSession;
+  session.sent = [];
   session.send = async (
     method: string,
     params?: Record<string, unknown>,
   ): Promise<unknown> => {
+    session.sent.push(method);
     if (method === "Network.enable") return Promise.resolve(undefined);
     if (method === "Network.getResponseBody") {
       const raw = params?.["requestId"];
@@ -228,12 +232,12 @@ describe("PageCapturer.capture — WACZ recording", () => {
     expect(result.status).toBe("success");
     expect(result.waczLocation).toBeUndefined();
     expect(result.waczStats).toBeUndefined();
-    // When WACZ isn't requested, the only CDP session created should come
-    // from `resetPageState` for `Network.clearBrowserCookies`. Verify by
-    // checking that `Network.enable` was never sent.
-    expect(
-      page.createCDPSession.mock.calls.length,
-    ).toBeLessThanOrEqual(1);
+    // The recorder never attached. Asserted directly rather than by counting
+    // CDP sessions: several things legitimately open one (clearing the cache,
+    // `resetPageState` clearing cookies), so a count is a proxy that breaks
+    // whenever another of them is added — as it did when the cache option
+    // arrived. `Network.enable` is what the recorder itself sends.
+    expect(cdp.sent).not.toContain("Network.enable");
   });
 
   it("returns an internal error when wacz is requested but no WaczCaptureConfig is wired up", async () => {
@@ -314,5 +318,75 @@ describe("PageCapturer — signing", () => {
 
     expect(result.status).toBe("success");
     expect(result.signature?.signed).toBe(false);
+  });
+});
+
+/**
+ * The HTTP cache.
+ *
+ * BrowserHive is an archiver, so the shipped default empties the cache before
+ * every capture: a `304` carries no body, and an archive assembled from cache
+ * hits is not an archive.
+ *
+ * `bypass` and `clear` are indistinguishable when you look at a single
+ * capture — both fetch fresh, both succeed. The difference is what they leave
+ * behind, which only the e2e suite can observe. What is pinned here is the
+ * layer below that: which CDP commands each mode issues.
+ */
+describe("PageCapturer — HTTP cache", () => {
+  const runCapture = async (
+    config: Parameters<typeof createTestCaptureConfig>[0],
+    taskOverrides: Partial<CaptureTask> = {},
+  ) => {
+    const store = createTestArtifactStore("/tmp/out");
+    const cdp = makeCDPSession();
+    const page = buildMockPage(cdp, () => {
+      /* no network activity needed */
+    });
+    const capturer = new PageCapturer(createTestCaptureConfig(config), store, buildWaczConfig());
+    await capturer.capture(asPage(page), buildTask(taskOverrides), 0);
+    return { cdp, page };
+  };
+
+  it("clears the cache out of the box, with no configuration at all", async () => {
+    // Asserts the shipped default rather than one injected here. Substituting a
+    // config would keep passing if defaults.ts drifted back to using the cache.
+    const { cdp, page } = await runCapture({});
+
+    expect(cdp.sent).toContain("Network.clearBrowserCache");
+    expect(page.setCacheEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it("uses the cache when the server default is turned back", async () => {
+    const { cdp, page } = await runCapture({ cache: "default" });
+
+    expect(cdp.sent).not.toContain("Network.clearBrowserCache");
+    expect(page.setCacheEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("bypasses without clearing — that is the whole difference", async () => {
+    const { cdp, page } = await runCapture({ cache: "bypass" });
+
+    // Leaving existing entries in place is exactly what separates this from
+    // `clear`; a later `default` capture of the same URL can still see a 304.
+    expect(cdp.sent).not.toContain("Network.clearBrowserCache");
+    expect(page.setCacheEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it("lets the task override the server default", async () => {
+    const { cdp, page } = await runCapture({ cache: "default" }, { cache: "clear" });
+
+    expect(cdp.sent).toContain("Network.clearBrowserCache");
+    expect(page.setCacheEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it("never reads the cache under multipass, whatever was asked for", async () => {
+    // multipass depends on it: a second pass served from what the first pass
+    // stored defeats the sweep. That holds for `clear` too — clearing empties
+    // the cache, and then pass one fills it again.
+    for (const cache of ["default", "bypass", "clear"] as const) {
+      const { page } = await runCapture({ archiveMode: "multipass" }, { cache });
+      expect(page.setCacheEnabled).toHaveBeenCalledWith(false);
+    }
   });
 });

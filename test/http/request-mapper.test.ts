@@ -440,4 +440,22 @@ describe("captureRequestToTask", () => {
       if (!result.ok) expect(result.error).toMatch(/wacz/);
     });
   });
+
+  describe("cache", () => {
+    it("leaves cache unset when omitted, so the server default applies", () => {
+      const result = captureRequestToTask(baseRequest());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.cache).toBeUndefined();
+    });
+
+    it("carries each mode through", () => {
+      for (const cache of ["default", "bypass", "clear"] as const) {
+        const result = captureRequestToTask(baseRequest({ cache }));
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.cache).toBe(cache);
+      }
+    });
+  });
 });

@@ -211,7 +211,7 @@ describe("PageCapturer.capture — archiveMode", () => {
     store = createTestArtifactStore("/tmp/out");
   });
 
-  it("single-pass loads the page once, with the browser cache left on", async () => {
+  it("single-pass loads the page once", async () => {
     const capturer = new PageCapturer(createTestCaptureConfig(), store);
     const page = buildMockPage();
 
@@ -221,6 +221,18 @@ describe("PageCapturer.capture — archiveMode", () => {
     // only the navigations to the target URL.
     expect(gotoTargetCount(page)).toBe(1);
     expect(page.setViewport).toHaveBeenCalledTimes(1);
+  });
+
+  it("single-pass reads the cache only when asked to", async () => {
+    // The shipped default is `clear`, so the cache is off here too — this used
+    // to assert `true`, back when single-pass meant "leave the cache alone".
+    // Which mode does what is covered in page-capturer-wacz.test.ts; what
+    // matters here is that archiveMode alone no longer decides it.
+    const capturer = new PageCapturer(createTestCaptureConfig({ cache: "default" }), store);
+    const page = buildMockPage();
+
+    await capturer.capture(asPage(page), buildTask(), 0);
+
     expect(page.setCacheEnabled).toHaveBeenCalledWith(true);
   });
 
