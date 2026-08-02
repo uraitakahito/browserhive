@@ -1,3 +1,4 @@
+import { DEFAULT_SIGNING_CONFIG } from "../../src/config/index.js";
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import type { BrowserProfile } from "../../src/config/index.js";
 import type { CaptureTask, CaptureResult } from "../../src/capture/types.js";
@@ -56,6 +57,7 @@ const createTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
   retryCount: 0,
   captureFormats: { png: true, webp: false, html: true, links: false, mhtml: false, wacz: false },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
+  requireSignature: false,
   enqueuedAt: "2024-01-01T00:00:00.000Z",
   ...overrides,
 });
@@ -106,7 +108,7 @@ describe("BrowserClient", () => {
     // Setup connectBrowser mock
     vi.mocked(connectBrowser).mockResolvedValue(mockBrowser as Browser);
 
-    client = new BrowserClient(0, createBrowserProfile(), createTestArtifactStore());
+    client = new BrowserClient(0, createBrowserProfile(), createTestArtifactStore(), DEFAULT_SIGNING_CONFIG);
   });
 
   describe("connect", () => {
@@ -371,6 +373,7 @@ describe("BrowserClient", () => {
             },
           },
           createTestArtifactStore(),
+          DEFAULT_SIGNING_CONFIG,
         );
         // connectBrowser is mocked at module scope; await connect to set
         // the internal browser reference on this fresh client too.
@@ -417,7 +420,7 @@ describe("BrowserClient", () => {
 
   describe("properties", () => {
     it("should expose index", () => {
-      const w = new BrowserClient(3, createBrowserProfile(), createTestArtifactStore());
+      const w = new BrowserClient(3, createBrowserProfile(), createTestArtifactStore(), DEFAULT_SIGNING_CONFIG);
       expect(w.index).toBe(3);
     });
 

@@ -21,11 +21,11 @@
  */
 import type { Browser, Page } from "puppeteer";
 import connectBrowser, { puppeteerExtra } from "../browser.js";
-import type { BrowserProfile } from "../config/index.js";
+import type { BrowserProfile, SigningConfig } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { captureStatus } from "./capture-status.js";
 import { PageCapturer } from "./page-capturer.js";
-import { createHttpSigner } from "../storage/wacz/index.js";
+import { readTrustAnchors, createHttpSigner } from "../storage/wacz/index.js";
 import { withWallClockTimeout } from "./timeouts.js";
 import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
 import { createConnectionError, errorDetailsFromException } from "./error-details.js";
@@ -69,7 +69,12 @@ export class BrowserClient {
   public readonly index: number;
   public readonly profile: BrowserProfile;
 
-  constructor(index: number, profile: BrowserProfile, store: ArtifactStore) {
+  constructor(
+    index: number,
+    profile: BrowserProfile,
+    store: ArtifactStore,
+    signing: SigningConfig,
+  ) {
     this.index = index;
     this.profile = profile;
     // `WaczCaptureConfig` is the read-only sub-shape `PageCapturer` consumes.
@@ -89,17 +94,21 @@ export class BrowserClient {
           },
           software: profile.capture.wacz.software,
           fuzzyParams: profile.capture.wacz.fuzzyParams,
-          // Built only when a URL is configured. Without one, a task that asks
-          // to be signed falls back to the unsigned signer and says so.
-          ...(profile.capture.wacz.signingUrl === undefined
+          // Built only when a URL is configured. Without one, a capture that
+          // required a signature fails and names the missing service — see
+          // `noSigningServiceSigner`.
+          ...(signing.url === undefined
             ? {}
             : {
                 signer: createHttpSigner({
-                  url: profile.capture.wacz.signingUrl,
-                  ...(profile.capture.wacz.signingToken === undefined
-                    ? {}
-                    : { token: profile.capture.wacz.signingToken }),
-                  timeoutMs: profile.capture.wacz.signingTimeoutMs,
+                  url: signing.url,
+                  ...(signing.token === undefined ? {} : { token: signing.token }),
+                  timeoutMs: signing.timeoutMs,
+                  // Read once, at construction. A capture is not the moment to
+                  // discover the trust anchor was deleted, and re-reading per
+                  // signature would make the archive depend on the filesystem
+                  // staying still for the length of a crawl.
+                  anchors: readTrustAnchors(signing),
                 }),
               }),
         }

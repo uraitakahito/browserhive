@@ -106,6 +106,13 @@ services:
       # is the documented behaviour rather than a failure.
       - BROWSERHIVE_SIGNING_URL=http://capping.browserhive:8080/sign
       - BROWSERHIVE_SIGNING_TOKEN=dev-token
+      # Without these two the chain and timestamp checks report `skipped`, and
+      # dev would exercise half of what production runs. They point at the same
+      # identity capping signs with below — the point being that a signature
+      # from any *other* CA is then rejected here too, which is how a
+      # production server refuses the dev CA.
+      - BROWSERHIVE_SIGNING_TRUST_ANCHOR=/dev-ca/insecure-dev-ca.crt
+      - BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR=/dev-ca/insecure-dev-tsa-ca.crt
       - LOG_LEVEL=info
       # The entrypoint shim polls this URL before starting the server —
       # depends_on is start order only, and the boot HeadBucket is fatal.

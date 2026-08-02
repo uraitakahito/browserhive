@@ -45,6 +45,7 @@ const createResult = (overrides: Partial<CaptureResult> = {}): CaptureResult => 
     captureFormats: { png: false, webp: false, html: false, links: false, mhtml: false, wacz: true },
     resetState: DEFAULT_RESET_STATE_OPTIONS,
     correlationId: "abc123de",
+    requireSignature: false,
     enqueuedAt: "2024-01-01T00:00:00.000Z",
   },
   status: "success",

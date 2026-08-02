@@ -61,6 +61,7 @@ export const createCaptureHandlers = (
     const body = request.body as CaptureRequest;
     const result = captureRequestToTask(body, {
       resetPageState: captureDefaults.resetPageState,
+      signingPolicy: coordinator.signing.policy,
     });
 
     if (!result.ok) {

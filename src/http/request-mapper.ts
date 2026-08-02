@@ -21,7 +21,7 @@ import {
   validateLabels,
 } from "../capture/index.js";
 import type { CaptureTask } from "../capture/index.js";
-import type { CaptureConfig } from "../config/index.js";
+import type { CaptureConfig, SigningPolicy } from "../config/index.js";
 import { err, ok, type Result } from "../result.js";
 import type { CaptureRequest } from "./generated/index.js";
 
@@ -32,6 +32,8 @@ import type { CaptureRequest } from "./generated/index.js";
  */
 export interface RequestMapperDefaults {
   resetPageState: CaptureConfig["resetPageState"];
+  /** What the deployment offers. The request chooses within it, or is refused. */
+  signingPolicy: SigningPolicy;
 }
 
 export const captureRequestToTask = (
@@ -55,6 +57,22 @@ export const captureRequestToTask = (
   if (request.signing === true && !captureFormats.wacz) {
     return err("signing requires captureFormats.wacz");
   }
+
+  // The deployment decides what is on offer; the request chooses within it.
+  // Contradictions are refused rather than resolved silently — a caller who
+  // asked for a signature on a server that does not sign has a wrong
+  // expectation, not a preference to be overridden, and quietly storing an
+  // unsigned archive would leave them believing otherwise.
+  if (defaults.signingPolicy === "forbidden" && request.signing === true) {
+    return err("this server does not sign captures (signingPolicy=forbidden)");
+  }
+  if (defaults.signingPolicy === "required" && request.signing === false) {
+    return err("this server signs every capture (signingPolicy=required)");
+  }
+  // Resolved once, here. What travels on the task is the answer, not the two
+  // inputs — every layer below only ever asks "may this go out unsigned".
+  const requireSignature =
+    defaults.signingPolicy === "required" || request.signing === true;
 
   const trimmedLabels = (request.labels ?? [])
     .map((l) => l.trim())
@@ -110,7 +128,7 @@ export const captureRequestToTask = (
     ...(acceptLanguage !== undefined &&
       acceptLanguage !== "" && { acceptLanguage }),
     ...(dismissOptions !== undefined && { dismissOptions }),
-    ...(request.signing === true && { signing: true }),
+    requireSignature,
     // Range checks (1–7680 × 1–4320) are enforced by Ajv at the OpenAPI
     // schema boundary, so the value can be passed through unchanged.
     ...(request.viewport !== undefined && { viewport: request.viewport }),

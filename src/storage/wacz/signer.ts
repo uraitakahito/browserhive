@@ -14,6 +14,27 @@
  * logged and dropped.
  */
 import { Buffer } from "node:buffer";
+import { verifySignedData } from "./verify-signed-data.js";
+import type {
+  SignedData,
+  TrustAnchors,
+  VerificationChecks,
+} from "./verify-signed-data.js";
+
+/**
+ * A signature was required and could not be obtained.
+ *
+ * Thrown by the packager rather than by `sign`, which keeps its contract: the
+ * port reports, the caller decides. It carries the signer's own reason because
+ * that is the only part that says what to fix — the endpoint that refused, the
+ * timeout that elapsed.
+ */
+export class SigningRequiredError extends Error {
+  constructor(reason: string) {
+    super(`a signature was required and could not be obtained: ${reason}`);
+    this.name = "SigningRequiredError";
+  }
+}
 
 /** What became of the signature. Reported on the capture result. */
 export interface SignatureReport {
@@ -22,6 +43,19 @@ export interface SignatureReport {
   reason?: string;
   /** Set when `signed` is true. The domain the certificate is issued for. */
   domain?: string;
+  /**
+   * Which checks ran, and how each came out.
+   *
+   * `signed: true` alone would say "we hold a signature" without saying how
+   * hard that was tested — and that depends on the deployment. Without a trust
+   * anchor there is nothing to check a chain against, so it reports `skipped`
+   * rather than `ok`: an archive should not be credited with a check that
+   * never happened.
+   *
+   * Absent when nothing was verified at all, which is the case for the two
+   * stand-in signers below — they never had a response to check.
+   */
+  checks?: VerificationChecks;
 }
 
 export interface SignResult {
@@ -53,11 +87,35 @@ export const unsignedSigner: WaczSigner = {
   sign: async () => ({ report: { signed: false, reason: "signing not requested" } }),
 };
 
+/**
+ * The signer for captures that asked, on a deployment with nothing to ask.
+ *
+ * Distinct from `unsignedSigner` because the reason is the whole value here.
+ * A capture that required a signature and failed reports this string, and
+ * "signing not requested" would send whoever reads it to the request — which
+ * did request one — instead of to the server that has no signing service
+ * configured.
+ */
+export const noSigningServiceSigner: WaczSigner = {
+  // eslint-disable-next-line @typescript-eslint/require-await -- async by contract: WaczSigner.sign returns a promise, and this one has nothing to await.
+  sign: async () => ({
+    report: { signed: false, reason: "no signing service is configured on this server" },
+  }),
+};
+
 export interface HttpSignerOptions {
   /** The signing service's `/sign` endpoint. */
   url: string;
   /** Bearer token, when the service requires one. */
   token?: string;
+  /**
+   * Roots the returned signature is checked against.
+   *
+   * Either half may be absent; the matching check then reports `skipped`. An
+   * empty object still verifies the signature and the domain — those need no
+   * configuration, and they are what catch a service signing the wrong bytes.
+   */
+  anchors?: TrustAnchors;
   /**
    * How long to wait before giving up and going out unsigned.
    *
@@ -121,9 +179,29 @@ export const createHttpSigner = (options: HttpSignerOptions): WaczSigner => ({
         return { report: { signed: false, reason: describe(options.url, `returned ${String(res.status)}`) } };
       }
 
-      const signedData = (await res.json()) as { domain?: unknown };
+      const signedData = (await res.json()) as SignedData;
       if (typeof signedData.domain !== "string") {
         return { report: { signed: false, reason: describe(options.url, "returned no domain") } };
+      }
+
+      // Answering 200 says nothing about what was signed. Until this ran,
+      // `signed: true` meant only that the shape looked right — a service
+      // pointed at the wrong place produced archives that claimed a signature
+      // nobody had checked.
+      const verified = await verifySignedData({
+        signedData,
+        hash,
+        anchors: options.anchors ?? {},
+        timeoutMs: options.timeoutMs,
+      });
+      if (!verified.ok) {
+        return {
+          report: {
+            signed: false,
+            reason: describe(options.url, verified.reason ?? "signature did not verify"),
+            checks: verified.checks,
+          },
+        };
       }
 
       // `hash` is ours, not the response's — the file has to describe the
@@ -132,7 +210,10 @@ export const createHttpSigner = (options: HttpSignerOptions): WaczSigner => ({
         `${JSON.stringify({ path: "datapackage.json", hash, signedData }, null, 2)}\n`,
         "utf-8",
       );
-      return { digestBytes, report: { signed: true, domain: signedData.domain } };
+      return {
+        digestBytes,
+        report: { signed: true, domain: signedData.domain, checks: verified.checks },
+      };
     } catch (err) {
       // Timeout, DNS, connection refused, malformed JSON — all land here, and
       // all mean the same thing to the caller: carry on without a signature.

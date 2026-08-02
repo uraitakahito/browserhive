@@ -106,6 +106,7 @@ export const createTestCoordinatorConfig = (
   maxRetryCount: overrides.maxRetryCount ?? DEFAULT_COORDINATOR_CONFIG.maxRetryCount,
   queuePollIntervalMs: overrides.queuePollIntervalMs ?? DEFAULT_COORDINATOR_CONFIG.queuePollIntervalMs,
   rejectDuplicateUrls: overrides.rejectDuplicateUrls ?? DEFAULT_COORDINATOR_CONFIG.rejectDuplicateUrls,
+  signing: (overrides.signing as CoordinatorConfig["signing"] | undefined) ?? DEFAULT_COORDINATOR_CONFIG.signing,
 });
 
 /**

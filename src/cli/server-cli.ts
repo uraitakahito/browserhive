@@ -14,6 +14,8 @@ import type {
   CacheMode,
   BrowserHiveConfig,
   CaptureConfig,
+  SigningConfig,
+  SigningPolicy,
   StorageConfig,
   TlsConfig,
   WaczConfig,
@@ -21,6 +23,7 @@ import type {
 import {
   DEFAULT_BROWSERHIVE_CONFIG,
   DEFAULT_CAPTURE_CONFIG,
+  DEFAULT_SIGNING_CONFIG,
   DEFAULT_WACZ_CONFIG,
 } from "../config/index.js";
 import { logger } from "../logger.js";
@@ -204,6 +207,9 @@ interface ParsedOptions {
   waczSkipContentTypes?: string[];
   /** Variadic fuzzy query-param names. Merged with env via post-parse helper. */
   waczFuzzyParam?: string[];
+  signingPolicy: SigningPolicy;
+  signingTrustAnchor?: string;
+  signingTimestampAnchor?: string;
   signingUrl?: string;
   signingToken?: string;
   signingTimeoutMs: number;
@@ -254,9 +260,22 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     maxPendingRequests: opts.waczMaxPendingRequests,
     software: SOFTWARE_IDENTIFIER,
     fuzzyParams: opts.waczFuzzyParam,
-    ...(opts.signingUrl === undefined ? {} : { signingUrl: opts.signingUrl }),
-    ...(opts.signingToken === undefined ? {} : { signingToken: opts.signingToken }),
-    signingTimeoutMs: opts.signingTimeoutMs,
+  };
+
+  // Server-wide, beside `storage`. Attaching it to a browser profile would let
+  // two workers disagree about whether captures get signed, and which one
+  // answers a given request is decided by work-stealing.
+  const signing: SigningConfig = {
+    policy: opts.signingPolicy,
+    ...(opts.signingUrl === undefined ? {} : { url: opts.signingUrl }),
+    ...(opts.signingToken === undefined ? {} : { token: opts.signingToken }),
+    ...(opts.signingTrustAnchor === undefined
+      ? {}
+      : { trustAnchorPath: opts.signingTrustAnchor }),
+    ...(opts.signingTimestampAnchor === undefined
+      ? {}
+      : { timestampAnchorPath: opts.signingTimestampAnchor }),
+    timeoutMs: opts.signingTimeoutMs,
   };
 
   const capture: CaptureConfig = {
@@ -306,6 +325,7 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     coordinator: {
       browserProfiles: opts.browserUrl.map((url) => ({ browserURL: url, capture })),
       storage: opts.storage,
+      signing,
       maxRetryCount: opts.maxRetryCount,
       queuePollIntervalMs: opts.queuePollIntervalMs,
       rejectDuplicateUrls: opts.rejectDuplicateUrls,
@@ -574,9 +594,30 @@ export const createProgram = (): Command => {
       ).env("BROWSERHIVE_SIGNING_URL"),
     )
     .addOption(
+      new Option(
+        "--signing-policy <policy>",
+        "What this deployment does about signatures. `required` signs every capture and fails the ones it cannot sign; `forbidden` refuses requests that ask for a signature",
+      )
+        .env("BROWSERHIVE_SIGNING_POLICY")
+        .default(DEFAULT_SIGNING_CONFIG.policy)
+        .choices(["forbidden", "optional", "required"]),
+    )
+    .addOption(
       new Option("--signing-token <token>", "Bearer token for the signing service").env(
         "BROWSERHIVE_SIGNING_TOKEN",
       ),
+    )
+    .addOption(
+      new Option(
+        "--signing-trust-anchor <pem>",
+        "PEM holding the root that issued the signing certificate. Without it the chain check is reported as skipped, and signatures from any CA are accepted",
+      ).env("BROWSERHIVE_SIGNING_TRUST_ANCHOR"),
+    )
+    .addOption(
+      new Option(
+        "--signing-timestamp-anchor <pem>",
+        "PEM holding the root that issued the timestamp authority. Without it the timestamp check is reported as skipped",
+      ).env("BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR"),
     )
     .addOption(
       new Option(
@@ -584,7 +625,7 @@ export const createProgram = (): Command => {
         "How long to wait for a signature before going out unsigned. A signature is optional, so this is the most it can cost a capture",
       )
         .env("BROWSERHIVE_SIGNING_TIMEOUT_MS")
-        .default(DEFAULT_WACZ_CONFIG.signingTimeoutMs)
+        .default(DEFAULT_SIGNING_CONFIG.timeoutMs)
         .argParser(parsePositiveInt),
     )
     .addOption(
@@ -842,6 +883,32 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
 
   if ((opts.tlsCert && !opts.tlsKey) || (!opts.tlsCert && opts.tlsKey)) {
     program.error("Both --tls-cert and --tls-key must be specified together");
+  }
+
+  // Refuse to start rather than fail one capture at a time. `required` is the
+  // only policy this applies to: it signs *every* capture, so without a service
+  // nothing could ever succeed. Under `optional` a deployment with no signing
+  // service is a normal thing to be — only the requests that ask for a
+  // signature fail, and they say so.
+  if (opts.signingPolicy === "required" && opts.signingUrl === undefined) {
+    program.error(
+      "--signing-policy required needs --signing-url (or BROWSERHIVE_SIGNING_URL) — " +
+        "every capture would fail",
+    );
+  }
+
+  // A required signature that nobody checks the issuer of is a signature from
+  // anyone, the development CA included. `required` is the policy a deployment
+  // picks when the signature is the point, and without an anchor the chain
+  // check reports `skipped` — which the archive records honestly and which
+  // stops nothing. `optional` is left alone: there the weak case is one request
+  // at a time, not the whole deployment.
+  if (opts.signingPolicy === "required" && opts.signingTrustAnchor === undefined) {
+    program.error(
+      "--signing-policy required needs --signing-trust-anchor " +
+        "(or BROWSERHIVE_SIGNING_TRUST_ANCHOR) — without it the chain check is " +
+        "skipped and a signature from any CA is accepted, including the development one",
+    );
   }
 
   const storage = resolveStorageConfig(opts, program);

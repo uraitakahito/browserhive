@@ -26,7 +26,12 @@ import {
 import type { CaptureConfig } from "../config/index.js";
 import { DEFAULT_DYNAMIC_CONTENT_WAIT_MS } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
-import { WaczPackager, analyzeCompleteness, unsignedSigner } from "../storage/wacz/index.js";
+import {
+  WaczPackager,
+  analyzeCompleteness,
+  noSigningServiceSigner,
+  unsignedSigner,
+} from "../storage/wacz/index.js";
 import { analyzeCoverage, type CoverageReport } from "../storage/wacz/coverage.js";
 import { BUILD_INFO } from "../generated/version.js";
 import type { CompletenessReport, SignatureReport, WaczSigner } from "../storage/wacz/index.js";
@@ -961,6 +966,7 @@ export class PageCapturer {
             // still ran with one, and an archive that records `undefined`
             // cannot say which.
             settings: {
+              signature: task.requireSignature ? "required" : "none",
               viewport: { width: viewport.width, height: viewport.height },
               // Copied, not aliased: MULTIPASS_DEVICE_PIXEL_RATIOS is a shared
               // readonly constant and this ends up in serialized output.
@@ -974,6 +980,12 @@ export class PageCapturer {
             },
             completeness,
             ...(coverage !== undefined && { coverage }),
+            // Only when something was seen. An empty object would say "we
+            // looked and every host was plain HTTP", which is a claim, not an
+            // absence.
+            ...(Object.keys(stopResult.tls).length > 0 && {
+              tls: { hosts: stopResult.tls, chains: stopResult.tlsChains },
+            }),
           },
           warcPath: stopResult.path,
           waczPath: localWaczPath,
@@ -986,17 +998,20 @@ export class PageCapturer {
           software: this.waczConfig.software,
           responses: stopResult.responses,
           fuzzyParams: this.waczConfig.fuzzyParams,
-          // A task that did not ask for a signature gets a signer that says so,
+          // A task that did not need a signature gets a signer that says so,
           // rather than no signer at all — the difference shows up in the
           // report as "not requested" instead of a bare false.
-          signer:
-            task.signing === true
-              ? (this.waczConfig.signer ?? unsignedSigner)
-              : unsignedSigner,
+          signer: task.requireSignature
+            ? (this.waczConfig.signer ?? noSigningServiceSigner)
+            : unsignedSigner,
+          // Packing throws rather than returning when this holds and no
+          // signature came back, so nothing below runs and no archive is
+          // uploaded.
+          requireSignature: task.requireSignature,
         });
-        // Only surfaced for tasks that asked. Absent means nobody requested a
-        // signature, which is a different statement from "it failed".
-        if (task.signing === true) signature = packed.signature;
+        // Only surfaced for tasks that needed one. Absent means no signature
+        // was required, which is a different statement from "it failed".
+        if (task.requireSignature) signature = packed.signature;
         const bytes = readFileSync(localWaczPath);
         waczLocation = await this.store.put(
           waczFilename,

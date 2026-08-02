@@ -3,6 +3,7 @@ import {
   captureRequestToTask as captureRequestToTaskRaw,
   type RequestMapperDefaults,
 } from "../../src/http/request-mapper.js";
+import type { SigningPolicy } from "../../src/config/types.js";
 import type { CaptureRequest } from "../../src/http/generated/index.js";
 import type { CaptureTask } from "../../src/capture/types.js";
 import {
@@ -29,6 +30,7 @@ const baseRequest = (overrides: Partial<CaptureRequest> = {}): CaptureRequest =>
  */
 const baseDefaults: RequestMapperDefaults = {
   resetPageState: DEFAULT_RESET_STATE_OPTIONS,
+  signingPolicy: "optional",
 };
 
 const captureRequestToTask = (
@@ -336,6 +338,7 @@ describe("captureRequestToTask", () => {
     /** Server defaults that flip pageContext off, used to assert per-axis fallback. */
     const defaultsKeepContext: RequestMapperDefaults = {
       resetPageState: { cookies: true, pageContext: false },
+      signingPolicy: "optional",
     };
 
     it("resolves to server defaults when the request omits resetState", () => {
@@ -349,7 +352,7 @@ describe("captureRequestToTask", () => {
       const result = captureRequestToTask(
         baseRequest({ resetState: true }),
         // Server says "skip everything" — request `true` still wipes both.
-        { resetPageState: { cookies: false, pageContext: false } },
+        { resetPageState: { cookies: false, pageContext: false }, signingPolicy: "optional" },
       );
       expect(result.ok).toBe(true);
       if (!result.ok) return;
@@ -407,11 +410,13 @@ describe("captureRequestToTask", () => {
   });
 
   describe("signing", () => {
-    it("leaves signing unset when omitted", () => {
+    it("requires no signature when none was asked for", () => {
       const result = captureRequestToTask(baseRequest());
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.signing).toBeUndefined();
+      // Resolved, not absent. A capture layer that had to treat `undefined` as
+      // "probably not" is exactly how an unsigned archive went out unnoticed.
+      expect(result.value.requireSignature).toBe(false);
     });
 
     it("carries signing through when asked alongside wacz", () => {
@@ -423,7 +428,7 @@ describe("captureRequestToTask", () => {
       );
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value.signing).toBe(true);
+      expect(result.value.requireSignature).toBe(true);
     });
 
     it("rejects a signing request that produces nothing to sign", () => {
@@ -457,5 +462,72 @@ describe("captureRequestToTask", () => {
         expect(result.value.cache).toBe(cache);
       }
     });
+  });
+});
+
+/**
+ * Signing policy resolution.
+ *
+ * Two dials produce one answer: the deployment says what is on offer, the
+ * request chooses within it. The nine combinations are pinned here rather than
+ * inferred, because two of them are rejections and the difference between
+ * "resolved to no signature" and "refused" is the whole point — a caller who
+ * asked for a signature on a server that does not sign has a wrong
+ * expectation, not a preference to be overridden.
+ */
+describe("captureRequestToTask — signing policy", () => {
+  const signable = (signing?: boolean): CaptureRequest =>
+    baseRequest({
+      captureFormats: { png: false, webp: false, html: false, links: false, mhtml: false, wacz: true },
+      ...(signing === undefined ? {} : { signing }),
+    });
+
+  const withPolicy = (signingPolicy: SigningPolicy): RequestMapperDefaults => ({
+    ...baseDefaults,
+    signingPolicy,
+  });
+
+  it("refuses a signature where the deployment does not sign", () => {
+    const result = captureRequestToTaskRaw(signable(true), withPolicy("forbidden"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("forbidden");
+  });
+
+  it("refuses opting out where the deployment signs everything", () => {
+    const result = captureRequestToTaskRaw(signable(false), withPolicy("required"));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("required");
+  });
+
+  it.each([
+    ["required", undefined],
+    ["required", true],
+    ["optional", true],
+  ] as const)("resolves policy=%s + signing=%s to a required signature", (policy, signing) => {
+    const result = captureRequestToTaskRaw(signable(signing), withPolicy(policy));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.requireSignature).toBe(true);
+  });
+
+  // The four that keep unsigned capture possible. Losing any of these means a
+  // deployment can no longer store without a signature.
+  it.each([
+    ["forbidden", undefined],
+    ["forbidden", false],
+    ["optional", undefined],
+    ["optional", false],
+  ] as const)("resolves policy=%s + signing=%s to no signature", (policy, signing) => {
+    const result = captureRequestToTaskRaw(signable(signing), withPolicy(policy));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.requireSignature).toBe(false);
+  });
+
+  it("still refuses a signature without a WACZ to put it in", () => {
+    const result = captureRequestToTaskRaw(
+      baseRequest({ signing: true }),
+      withPolicy("optional"),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("signing requires captureFormats.wacz");
   });
 });

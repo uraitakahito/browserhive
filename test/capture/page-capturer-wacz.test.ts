@@ -125,6 +125,7 @@ const buildTask = (overrides: Partial<CaptureTask> = {}): CaptureTask => ({
     wacz: true,
   },
   resetState: DEFAULT_RESET_STATE_OPTIONS,
+  requireSignature: false,
   enqueuedAt: "2026-05-08T12:00:00.000Z",
   ...overrides,
 });
@@ -260,7 +261,8 @@ describe("PageCapturer.capture — WACZ recording", () => {
  * The service itself is faked here — cycle 3 already pinned down how the HTTP
  * signer behaves against a misbehaving service, and cycle 2 pinned down what
  * the packager does with the result. What is left to check is the wiring: does
- * asking for a signature reach the signer, and does not asking stay silent.
+ * asking for a signature reach the signer, does not asking stay silent, and
+ * does a signature that was required and not obtained stop the archive.
  */
 describe("PageCapturer — signing", () => {
   const runCapture = async (
@@ -289,7 +291,7 @@ describe("PageCapturer — signing", () => {
       },
     };
 
-    const result = await runCapture({ signing: false }, signer);
+    const result = await runCapture({ requireSignature: false }, signer);
 
     // Absent, not `{ signed: false }` — "nobody asked" and "we asked and it
     // failed" are different answers and a reader has to be able to tell them
@@ -298,26 +300,44 @@ describe("PageCapturer — signing", () => {
     expect(result.signature).toBeUndefined();
   });
 
-  it("reports the outcome when the task did ask", async () => {
+  it("reports the outcome when a required signature was obtained", async () => {
+    const signer: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async (hash) => ({
+        digestBytes: Buffer.from(`${JSON.stringify({ path: "datapackage.json", hash })}\n`),
+        report: { signed: true, domain: "sign.dev.local" },
+      }),
+    };
+
+    const result = await runCapture({ requireSignature: true }, signer);
+
+    expect(result.status).toBe("success");
+    expect(result.waczLocation).toBeDefined();
+    expect(result.signature).toEqual({ signed: true, domain: "sign.dev.local" });
+  });
+
+  it("fails the capture when a required signature could not be obtained", async () => {
     const signer: WaczSigner = {
       // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
       sign: async () => ({ report: { signed: false, reason: "service is down" } }),
     };
 
-    const result = await runCapture({ signing: true }, signer);
+    const result = await runCapture({ requireSignature: true }, signer);
 
-    // The capture still succeeded. That is the policy, and it is the reason
-    // this field has to exist at all.
-    expect(result.status).toBe("success");
-    expect(result.waczLocation).toBeDefined();
-    expect(result.signature).toEqual({ signed: false, reason: "service is down" });
+    // No archive, and the reason the signer gave survives into the failure —
+    // it is the only part that says what to fix.
+    expect(result.status).toBe("failed");
+    expect(result.waczLocation).toBeUndefined();
+    expect(result.errorDetails?.message).toContain("service is down");
   });
 
-  it("falls back to unsigned when no signing service is configured", async () => {
-    const result = await runCapture({ signing: true });
+  it("says which side is missing when no signing service is configured", async () => {
+    const result = await runCapture({ requireSignature: true });
 
-    expect(result.status).toBe("success");
-    expect(result.signature?.signed).toBe(false);
+    // "signing not requested" would send the reader to the request, which
+    // plainly did request one. The server is the thing that is missing.
+    expect(result.status).toBe("failed");
+    expect(result.errorDetails?.message).toContain("no signing service");
   });
 });
 

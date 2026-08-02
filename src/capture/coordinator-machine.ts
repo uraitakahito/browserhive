@@ -133,7 +133,7 @@ export const coordinatorMachine = setup({
         if (haveHosts.has(host)) continue;
         const index = spawnCount;
         spawnCount += 1;
-        const client = new BrowserClient(index, profile, context.store);
+        const client = new BrowserClient(index, profile, context.store, context.config.signing);
         const ref = spawn("captureWorker", {
           id: `worker-${host}`,
           input: {

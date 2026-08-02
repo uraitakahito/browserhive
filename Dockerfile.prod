@@ -82,6 +82,15 @@ RUN pnpm --filter browserhive deploy --prod --legacy /deploy/app
 # ---------- Runtime stage ----------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 
+# `openssl ts -verify` — the one check in signature verification that Node
+# exposes no API for. The other three run in-process against Node's own
+# OpenSSL; this is the only reason the binary is here, and ~6 MB is a smaller
+# price than shipping archives that call themselves signed without anyone
+# having checked the timestamp.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 ENV NODE_ENV=production
 
