@@ -983,7 +983,9 @@ export class PageCapturer {
             // Only when something was seen. An empty object would say "we
             // looked and every host was plain HTTP", which is a claim, not an
             // absence.
-            ...(Object.keys(stopResult.tls).length > 0 && { tls: stopResult.tls }),
+            ...(Object.keys(stopResult.tls).length > 0 && {
+              tls: { hosts: stopResult.tls, chains: stopResult.tlsChains },
+            }),
           },
           warcPath: stopResult.path,
           waczPath: localWaczPath,

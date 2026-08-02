@@ -49,6 +49,7 @@ That is the axis BrowserHive is working along.
 | The archive is signed | `signing: true` requests a [wacz-auth](https://specs.webrecorder.net/wacz-auth/0.1.0/) signature over the `sha256:` of `datapackage.json`, stored as `datapackage-digest.json` | [Signing a WACZ](/signing/) |
 | A signing key is never held by the capture worker | BrowserHive sends the hash to a signing service and stores what comes back, so a compromised worker cannot forge a second archive | [Signing a WACZ](/signing/) |
 | The signature is checked, not just received | Four checks before an archive may call itself signed: the signature covers the hash this capture produced, the certificate chains to a configured root, it was issued for the domain named, and the timestamp token covers this signature. Each is reported separately — `skipped` is not a pass | [Signing a WACZ](/signing/) |
+| The TLS the browser observed is recorded | Per HTTPS host: protocol, cipher, subject, issuer and validity window, plus the certificate chain itself. Not proof of origin — a certificate is public — but `issuer` is what changes under interception, and the validity window is checkable against the capture time | [Capture results](/capture-results/) |
 | Signing fails closed | A capture that had to be signed and could not be is a failed capture; no artefact is stored. What is on offer is set per deployment by `--signing-policy` | [Signing a WACZ](/signing/) |
 | The time of signing can be corroborated | `signedData` carries an RFC 3161 timestamp token when the signing service attaches one — the development service always does, and BrowserHive stores whatever comes back | [Signing a WACZ](/signing/) |
 | The archive reports its own gaps | `completeness` records what the capture could **not** get — bodies lost to `304`, responses truncated at the size limit | [Capture results](/capture-results/) |
@@ -88,23 +89,6 @@ there is currently nothing in the archive that ties one to the capture.
 
 **What is needed:** a way to carry the requesting party's identity into the
 archive, and to have the signature cover it.
-
-### The TLS certificates presented by the origins are not recorded
-
-BrowserHive can read the certificate chain each origin presented, through the
-same browser that performed the capture, but does not currently store it.
-
-A certificate does **not** prove the content came from that server — it is public
-information, and anyone can attach a copy to anything. What it does support is
-narrower and still worth having: the issuer reveals whether the connection was
-intercepted, and the validity window can be checked against the claimed capture
-time.
-
-**What is needed:** storing the chain in the archive itself. Certificate
-Transparency logs hold the same bytes, but an exhibit that depends on a
-third-party service still being reachable years later is weaker for it — and
-certificates issued by a private CA, which is precisely the interception case,
-are not in those logs at all.
 
 ### Name resolution is not recorded
 

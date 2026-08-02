@@ -9,7 +9,10 @@
  */
 import type { CompletenessReport } from "./completeness.js";
 import type { CoverageReport } from "./coverage.js";
-import type { ObservedTlsByHost } from "../../capture/network-recorder-types.js";
+import type {
+  CertificateChains,
+  ObservedTlsByHost,
+} from "../../capture/network-recorder-types.js";
 import { sha256Hex } from "../warc/digest.js";
 
 export interface WaczResourceInput {
@@ -83,7 +86,19 @@ export interface CaptureSelfReport {
    * A host is absent when it was never reached over HTTPS, and `null` when it
    * was but nothing came back.
    */
-  tls?: ObservedTlsByHost;
+  tls?: {
+    /** Per host. Absent means never HTTPS; `null` means HTTPS with nothing returned. */
+    hosts: ObservedTlsByHost;
+    /**
+     * The chains themselves, keyed by `chainRef`.
+     *
+     * Stored rather than referenced: Certificate Transparency holds the same
+     * bytes, but an exhibit that depends on a third-party service still being
+     * reachable is weaker for it — and a chain from a private CA, which is the
+     * interception case worth examining, was never logged there at all.
+     */
+    chains: CertificateChains;
+  };
 }
 
 /** The build fingerprint, as `scripts/generate-version.mjs` resolves it. */

@@ -165,7 +165,25 @@ export interface ObservedTls {
   /** ISO 8601. CDP reports epoch seconds; converted here so the archive is uniform. */
   validFrom: string;
   validTo: string;
+  /**
+   * Key into the chain store, when the chain was retrievable.
+   *
+   * Absent rather than empty when it was not: the observation above came from
+   * the response event and still holds, and conflating "no chain" with "no
+   * TLS" would lose the part that catches interception.
+   */
+  chainRef?: string;
 }
+
+/**
+ * Certificate chains, keyed by the hash of the chain itself.
+ *
+ * Deduplicated because hosts share certificates: measured on one capture, 15
+ * hosts presented 3 distinct chains — 53.3 KB stored per host against 12.8 KB
+ * stored once each. Each value is base64 DER, leaf first, exactly as CDP
+ * returned it.
+ */
+export type CertificateChains = Record<string, string[]>;
 
 /**
  * Per-host TLS observations for a capture.
