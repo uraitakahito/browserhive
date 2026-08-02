@@ -711,3 +711,247 @@ describe("NetworkRecorder redirects", () => {
     )).toContain("<html>final</html>");
   });
 });
+
+/**
+ * What the browser saw of each TLS connection.
+ *
+ * `securityDetails` rides on `responseReceived`, an event the recorder already
+ * handles — so this costs no extra CDP round-trip and the only question is
+ * what to keep. Per host, not per response: a hundred requests to one origin
+ * are one connection's worth of information, and writing it a hundred times
+ * would say nothing more.
+ *
+ * A certificate proves nothing about who we talked to — it is public, and
+ * anyone can present a copy. It is kept for two narrower things: the issuer
+ * shows whether the connection was intercepted, and the validity window can be
+ * checked against a claimed capture time.
+ */
+describe("NetworkRecorder — observed TLS", () => {
+  const securityDetails = (subject: string) => ({
+    protocol: "TLS 1.3",
+    cipher: "AES_128_GCM",
+    subjectName: subject,
+    issuer: "Example CA G4",
+    // CDP reports these as epoch seconds.
+    validFrom: 1_762_340_773,
+    validTo: 1_796_396_340,
+    sanList: [subject],
+  });
+
+  const respond = (
+    session: FakeSession,
+    requestId: string,
+    url: string,
+    security?: ReturnType<typeof securityDetails>,
+  ): void => {
+    session.emit("Network.requestWillBeSent", {
+      requestId,
+      request: { url, method: "GET", headers: {} },
+    });
+    session.emit("Network.responseReceived", {
+      requestId,
+      response: {
+        url,
+        status: 200,
+        statusText: "OK",
+        protocol: "h2",
+        mimeType: "text/html",
+        headers: {},
+        encodedDataLength: 4,
+        ...(security !== undefined && { securityDetails: security }),
+      },
+    });
+    session.setBody(requestId, "body");
+    session.emit("Network.loadingFinished", { requestId, encodedDataLength: 4 });
+  };
+
+  it("keeps one entry per host, not one per response", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/one", securityDetails("a.example"));
+    respond(session, "r2", "https://a.example/two", securityDetails("a.example"));
+
+    const { tls } = await recorder.stop();
+
+    expect(Object.keys(tls)).toEqual(["a.example"]);
+    expect(tls["a.example"]).toMatchObject({
+      protocol: "TLS 1.3",
+      cipher: "AES_128_GCM",
+      subject: "a.example",
+      issuer: "Example CA G4",
+    });
+  });
+
+  it("converts CDP's epoch seconds into the timestamps everything else uses", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/x", securityDetails("a.example"));
+
+    const { tls } = await recorder.stop();
+
+    // Every other date in the archive is ISO 8601. A raw epoch here would make
+    // the one field a reader most wants to compare against a capture time the
+    // one field they have to convert first.
+    expect(tls["a.example"]).toMatchObject({
+      validFrom: "2025-11-05T11:06:13.000Z",
+      validTo: "2026-12-04T14:59:00.000Z",
+    });
+  });
+
+  it("ignores hosts that were never HTTPS", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "http://plain.example/x");
+
+    const { tls } = await recorder.stop();
+
+    // Absent, not null: `null` is reserved for "HTTPS, and we got nothing",
+    // which is a different thing a reader has to be able to tell apart.
+    expect(tls).not.toHaveProperty("plain.example");
+  });
+
+  it("records null for an HTTPS host that reported no details", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "https://quiet.example/x");
+
+    const { tls } = await recorder.stop();
+
+    expect(tls).toHaveProperty("quiet.example", null);
+  });
+});
+
+/**
+ * The certificate chains themselves.
+ *
+ * Fetched at stop rather than per response: the page is still open here, and
+ * asking during the capture would put a CDP round-trip on the critical path of
+ * every request for information that does not change between them.
+ *
+ * Stored because an exhibit should not depend on a third-party service still
+ * being reachable years later. Certificate Transparency holds the same bytes,
+ * but a chain from a private CA — which is exactly the interception case worth
+ * examining — was never logged there at all.
+ */
+describe("NetworkRecorder — certificate chains", () => {
+  const chainFor = (host: string): string[] => [`leaf-${host}`, "intermediate", "root"];
+
+  const withCertificates = (
+    session: FakeSession,
+    chains: Record<string, string[]>,
+  ): string[] => {
+    const asked: string[] = [];
+    const inner = session.send.bind(session);
+    session.send = async (method: string, params?: Record<string, unknown>) => {
+      if (method === "Network.getCertificate") {
+        const raw = params?.["origin"];
+        const origin = typeof raw === "string" ? raw : "";
+        asked.push(origin);
+        const chain = chains[origin];
+        if (chain === undefined) throw new Error(`no certificate for ${origin}`);
+        // Misleadingly named by CDP: the payload is base64 DER, not table names.
+        return { tableNames: chain };
+      }
+      return inner(method, params);
+    };
+    return asked;
+  };
+
+  const securityDetails = (subject: string) => ({
+    protocol: "TLS 1.3",
+    cipher: "AES_128_GCM",
+    subjectName: subject,
+    issuer: "Example CA G4",
+    validFrom: 1_762_340_773,
+    validTo: 1_796_396_340,
+    sanList: [subject],
+  });
+
+  const respond = (session: FakeSession, requestId: string, url: string): void => {
+    const host = new URL(url).host;
+    session.emit("Network.requestWillBeSent", {
+      requestId,
+      request: { url, method: "GET", headers: {} },
+    });
+    session.emit("Network.responseReceived", {
+      requestId,
+      response: {
+        url,
+        status: 200,
+        statusText: "OK",
+        protocol: "h2",
+        mimeType: "text/html",
+        headers: {},
+        encodedDataLength: 4,
+        securityDetails: securityDetails(host),
+      },
+    });
+    session.setBody(requestId, "body");
+    session.emit("Network.loadingFinished", { requestId, encodedDataLength: 4 });
+  };
+
+  it("asks each origin once, however many responses it served", async () => {
+    const session = makeFakeSession();
+    const asked = withCertificates(session, {
+      "https://a.example": chainFor("a"),
+    });
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "c.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/one");
+    respond(session, "r2", "https://a.example/two");
+    await recorder.stop();
+
+    expect(asked).toEqual(["https://a.example"]);
+  });
+
+  it("stores a shared chain once and points both hosts at it", async () => {
+    const session = makeFakeSession();
+    const shared = ["leaf-shared", "intermediate", "root"];
+    withCertificates(session, {
+      "https://a.example": shared,
+      "https://b.example": shared,
+    });
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "c.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/x");
+    respond(session, "r2", "https://b.example/x");
+    const { tls, tlsChains } = await recorder.stop();
+
+    // Measured on a real capture: 15 hosts, 3 distinct chains, 53.3 KB raw
+    // against 12.8 KB deduplicated. Storing per host would be mostly copies.
+    expect(Object.keys(tlsChains)).toHaveLength(1);
+    expect(tls["a.example"]?.chainRef).toBe(tls["b.example"]?.chainRef);
+    expect(tlsChains[tls["a.example"]!.chainRef!]).toEqual(shared);
+  });
+
+  it("leaves a host without a chainRef when the fetch failed", async () => {
+    const session = makeFakeSession();
+    withCertificates(session, {});   // every origin throws
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "c.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/x");
+    const { tls, tlsChains } = await recorder.stop();
+
+    // The observation survives even when the chain does not — `issuer` is the
+    // field that catches interception, and it came from a different source.
+    expect(tls["a.example"]).toMatchObject({ issuer: "Example CA G4" });
+    expect(tls["a.example"]?.chainRef).toBeUndefined();
+    expect(tlsChains).toEqual({});
+  });
+
+  it("still produces the archive when certificates cannot be fetched at all", async () => {
+    const session = makeFakeSession();
+    withCertificates(session, {});
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "c.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/x");
+
+    // A certificate is not what a capture is for. Unlike a required signature,
+    // its absence costs a field, not the archive.
+    await expect(recorder.stop()).resolves.toBeDefined();
+  });
+});

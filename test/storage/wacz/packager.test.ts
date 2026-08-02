@@ -639,6 +639,42 @@ describe("WaczPackager.pack — signing", () => {
     expect(signedHash).toBe(sha256Hex(datapackageBytes));
   });
 
+  it("carries the observed TLS into the archive", async () => {
+    const capture = captureReport();
+    capture.tls = {
+      hosts: {
+        "a.example": {
+          protocol: "TLS 1.3",
+          cipher: "AES_128_GCM",
+          subject: "a.example",
+          issuer: "Example CA G4",
+          validFrom: "2025-11-05T11:06:13.000Z",
+          validTo: "2026-12-04T14:59:00.000Z",
+          chainRef: "a3f1",
+        },
+        "quiet.example": null,
+      },
+      chains: { a3f1: ["MIIF…", "MIIE…"] },
+    };
+
+    const { entries } = await packWith(alwaysFails, { capture });
+
+    const pkg = JSON.parse(
+      Buffer.from(entries["datapackage.json"]!).toString("utf-8"),
+    ) as Record<
+      string,
+      { tls: { hosts: Record<string, { issuer?: string } | null>; chains: Record<string, string[]> } }
+    >;
+    const tls = pkg["browserhive:capture"].tls;
+    expect(tls.hosts["a.example"]).toMatchObject({ issuer: "Example CA G4" });
+    // `null` has to survive serialisation. Dropping it would turn "HTTPS, and
+    // we got nothing" into "never seen over HTTPS".
+    expect(tls.hosts).toHaveProperty("quiet.example", null);
+    // And the chain the ref points at has to be there — a dangling ref would
+    // read as "we have the certificate" while holding nothing.
+    expect(tls.chains["a3f1"]).toEqual(["MIIF…", "MIIE…"]);
+  });
+
   it("carries the signer's reason into the failure", async () => {
     await expect(
       packWith(alwaysFails, { requireSignature: true }),
