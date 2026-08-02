@@ -148,9 +148,11 @@ WACZ はアップロードされません —— **そもそも書かれない**
 移ったものです。`forbidden` はその鏡で、署名サービスを持たないサーバが
 それを理由にキャプチャを失敗させられないようにします。
 
-`--signing-policy required` で `--signing-url` が無いサーバは**起動を拒否します**。
-受け付けてしまえば、全キャプチャを 1 件ずつ失敗させ、理由はワーカーログにしか
-出ないことになります。
+`--signing-policy required` のサーバは、`--signing-url` と
+`--signing-trust-anchor` の**両方**が無ければ**起動を拒否します**。URL が無ければ
+全キャプチャを 1 件ずつ失敗させ、理由はワーカーログにしか出ません。アンカーが
+無ければ chain 検査が `skipped` になり —— **署名必須なのに、どの CA の署名でも
+通る**ことになります。開発用 CA も含めて。配備が `required` を選ぶ理由の正反対です。
 
 ## 署名を検証する
 
@@ -203,7 +205,7 @@ waxlens が見るのは「`datapackage-digest.json` が存在し、その `hash`
 | `BROWSERHIVE_SIGNING_URL` | サービスの `/sign` エンドポイント。未設定なら署名サービス無しで、署名が必要なキャプチャは失敗する（要求ではなくサーバ側の不足として報告される） |
 | `BROWSERHIVE_SIGNING_TOKEN` | サービスが要求する場合の bearer トークン |
 | `BROWSERHIVE_SIGNING_TIMEOUT_MS` | 署名を待つ時間。既定 5000 |
-| `BROWSERHIVE_SIGNING_TRUST_ANCHOR` | 署名証明書を発行した root の PEM。未設定なら chain 検査は `skipped` となり、**どの CA の署名でも受け入れる** |
+| `BROWSERHIVE_SIGNING_TRUST_ANCHOR` | 署名証明書を発行した root の PEM。未設定なら chain 検査は `skipped` となり、**どの CA の署名でも受け入れる**。`signingPolicy: required` では必須 |
 | `BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` | 時刻認証局を発行した root の PEM。未設定なら timestamp 検査は `skipped` |
 
 すべて同名の CLI フラグがあります（`--signing-policy` など）。

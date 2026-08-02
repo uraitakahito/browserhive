@@ -610,6 +610,35 @@ describe("WaczPackager.pack — signing", () => {
     },
   );
 
+  it("signs the capture's self-report along with everything else", async () => {
+    // The property Stage 4 depends on: whatever goes into `browserhive:capture`
+    // is inside the bytes the signature covers, because the datapackage is
+    // assembled before its hash is taken. That holds by construction today and
+    // would stop holding silently if the order ever moved — which is why it is
+    // pinned here rather than assumed.
+    //
+    // Asserted by re-hashing rather than by reading the digest: a test that
+    // only checked "the digest names some hash" would pass with the signature
+    // computed over the wrong bytes, which is the failure worth catching.
+    let signedHash: string | undefined;
+    const recordingSigner: WaczSigner = {
+      // eslint-disable-next-line @typescript-eslint/require-await -- a fake: the port is async, this stand-in has nothing to await.
+      sign: async (hash) => {
+        signedHash = hash;
+        return {
+          digestBytes: Buffer.from(`${JSON.stringify({ path: "datapackage.json", hash })}\n`),
+          report: { signed: true, domain: "sign.dev.local" },
+        };
+      },
+    };
+
+    const { entries } = await packWith(recordingSigner, { capture: captureReport() });
+
+    const datapackageBytes = Buffer.from(entries["datapackage.json"]!);
+    expect(datapackageBytes.toString("utf-8")).toContain("browserhive:capture");
+    expect(signedHash).toBe(sha256Hex(datapackageBytes));
+  });
+
   it("carries the signer's reason into the failure", async () => {
     await expect(
       packWith(alwaysFails, { requireSignature: true }),

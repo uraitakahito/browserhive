@@ -337,6 +337,8 @@ describe("server-cli parseCliOptions", () => {
           "http://sign:8080/sign",
           "--signing-policy",
           "required",
+          "--signing-trust-anchor",
+          "test/fixtures/dev-ca/insecure-dev-ca.crt",
         ),
       );
 
@@ -369,6 +371,46 @@ describe("server-cli parseCliOptions", () => {
       expect(() =>
         parseCliOptions(argv("--signing-policy", "required")),
       ).toThrow(ProcessExitError);
+    });
+
+    // 署名を必須にしただけでは「どの CA の署名でも通る」ままになる。chain 検査は
+    // 信頼アンカーが無いと skipped になり、開発用 CA の署名もそのまま受理される。
+    // required を選んだ配備がいちばん避けたいのがそれなので、起動時に要求する。
+    it("--signing-policy required なのに --signing-trust-anchor が無ければ exit する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(
+          argv("--signing-policy", "required", "--signing-url", "http://sign:8080/sign"),
+        ),
+      ).toThrow(ProcessExitError);
+    });
+
+    it("--signing-policy required は URL とアンカーが揃えば起動する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(
+          argv(
+            "--signing-policy", "required",
+            "--signing-url", "http://sign:8080/sign",
+            "--signing-trust-anchor", "test/fixtures/dev-ca/insecure-dev-ca.crt",
+          ),
+        ),
+      ).not.toThrow();
+    });
+
+    // optional では要求しない。署名を求めるリクエストだけが弱い検証で通るという
+    // 状態は、配備全体を止めるほどではなく、checks に skipped として残る。
+    it("--signing-policy optional はアンカーが無くても起動する", () => {
+      stubS3Env();
+      vi.stubEnv("BROWSERHIVE_BROWSER_URLS", "http://a:9222");
+
+      expect(() =>
+        parseCliOptions(argv("--signing-url", "http://sign:8080/sign")),
+      ).not.toThrow();
     });
 
     // required だけが対象。optional で署名サービスを持たない配備は普通の構成で、

@@ -897,6 +897,20 @@ export const parseCliOptions = (argv: string[]): BrowserHiveConfig => {
     );
   }
 
+  // A required signature that nobody checks the issuer of is a signature from
+  // anyone, the development CA included. `required` is the policy a deployment
+  // picks when the signature is the point, and without an anchor the chain
+  // check reports `skipped` — which the archive records honestly and which
+  // stops nothing. `optional` is left alone: there the weak case is one request
+  // at a time, not the whole deployment.
+  if (opts.signingPolicy === "required" && opts.signingTrustAnchor === undefined) {
+    program.error(
+      "--signing-policy required needs --signing-trust-anchor " +
+        "(or BROWSERHIVE_SIGNING_TRUST_ANCHOR) — without it the chain check is " +
+        "skipped and a signature from any CA is accepted, including the development one",
+    );
+  }
+
   const storage = resolveStorageConfig(opts, program);
 
   const resolved: ResolvedOptions = {

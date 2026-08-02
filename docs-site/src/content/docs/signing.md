@@ -164,9 +164,12 @@ remembering a flag — forgetting it is the same quiet failure as a signature
 that could not be obtained, one level up. `forbidden` is its mirror: a server
 with no signing service cannot be made to fail a capture over one.
 
-A server started with `--signing-policy required` and no `--signing-url`
-**refuses to start**. Accepting it would mean failing every capture, one at a
-time, for a reason visible only in a worker log.
+A server started with `--signing-policy required` **refuses to start** without
+both `--signing-url` and `--signing-trust-anchor`. Without the URL every
+capture would fail, one at a time, for a reason visible only in a worker log.
+Without the anchor the chain check is `skipped` — so a required signature would
+be a signature from **any** CA, the development one included, which is the
+opposite of why a deployment picks `required`.
 
 ## Verifying the signature
 
@@ -222,7 +225,7 @@ waxlens and fails `capping verify`.
 | `BROWSERHIVE_SIGNING_URL` | The service's `/sign` endpoint. Unset means no signing service: a capture that needs one fails, naming the server rather than blaming the request. |
 | `BROWSERHIVE_SIGNING_TOKEN` | Bearer token, when the service wants one. |
 | `BROWSERHIVE_SIGNING_TIMEOUT_MS` | How long to wait for a signature. Default 5000. |
-| `BROWSERHIVE_SIGNING_TRUST_ANCHOR` | PEM holding the root that issued the signing certificate. Unset leaves the chain check `skipped`, which accepts a signature from **any** CA. |
+| `BROWSERHIVE_SIGNING_TRUST_ANCHOR` | PEM holding the root that issued the signing certificate. Unset leaves the chain check `skipped`, which accepts a signature from **any** CA. Required under `signingPolicy: required`. |
 | `BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` | PEM holding the root that issued the timestamp authority. Unset leaves the timestamp check `skipped`. |
 
 Every one has a CLI flag of the same name (`--signing-policy`, …).
