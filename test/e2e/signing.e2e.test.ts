@@ -37,7 +37,7 @@ const meadow = inject("meadow");
 const s3 = makeS3(inject("s3"));
 
 const ROOT = resolve(import.meta.dirname, "..", "..");
-const DEV_CA = join(ROOT, "test", "fixtures", "dev-ca", "ca.crt");
+const DEV_CA = join(ROOT, "test", "fixtures", "dev-ca", "insecure-dev-ca.crt");
 const CAPPING_CLI = join(ROOT, "capping", "dist", "cli.js");
 
 describe("a capture that asked to be signed", () => {
