@@ -103,6 +103,19 @@ export interface SigningConfig {
    * signature is written unsigned, one that did fails here.
    */
   timeoutMs: number;
+  /**
+   * PEM file holding the root that issued the signing certificate.
+   *
+   * Without it the chain check reports `skipped` rather than `ok` — the
+   * signature and the domain are still verified, and those are what catch a
+   * service signing the wrong bytes. What is lost is the ability to tell a
+   * certificate this deployment trusts from any other that verifies, which is
+   * exactly what stops a production server from accepting the development
+   * CA's signatures.
+   */
+  trustAnchorPath?: string;
+  /** PEM file holding the root that issued the timestamp authority. */
+  timestampAnchorPath?: string;
 }
 
 /**

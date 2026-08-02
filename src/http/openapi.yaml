@@ -1131,17 +1131,48 @@ components:
         signed:
           type: boolean
           description: |
-            Whether `datapackage-digest.json` was written into the WACZ.
+            Whether a verified `datapackage-digest.json` was written into the
+            WACZ.
 
-            `false` is not a failed capture. A signature is optional, so a
-            signing service that is down, slow, or refusing a token leaves an
-            archive that is still worth keeping.
+            `true` means the signature was checked, not merely received: it
+            covers the `datapackage.json` this capture produced, under a
+            certificate issued for `domain`. See `checks` for how far that went
+            — a deployment with no trust anchor configured verifies less than
+            one with.
+
+            `false` here is always a failed capture, because this field is only
+            present when a signature was required.
         reason:
           type: string
           description: Why there is no signature. Set when `signed` is false.
         domain:
           type: string
           description: The domain the signing certificate is issued for. Set when `signed` is true.
+        checks:
+          type: object
+          description: |
+            Which verification checks ran, and how each came out.
+
+            `skipped` is not a pass. The chain and timestamp checks each need a
+            trust anchor to check against, and a deployment that configured
+            neither still gets `signature` and `domain` — those need no
+            configuration and are what catch a service signing the wrong bytes.
+          required: [signature, chain, domain, timestamp]
+          additionalProperties: false
+          properties:
+            signature:
+              $ref: "#/components/schemas/CheckOutcome"
+            chain:
+              $ref: "#/components/schemas/CheckOutcome"
+            domain:
+              $ref: "#/components/schemas/CheckOutcome"
+            timestamp:
+              $ref: "#/components/schemas/CheckOutcome"
+
+    CheckOutcome:
+      type: string
+      description: "`ok` ran and passed, `failed` ran and did not, `skipped` never ran."
+      enum: [ok, failed, skipped]
 
     WaczCompleteness:
       type: object

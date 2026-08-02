@@ -208,6 +208,8 @@ interface ParsedOptions {
   /** Variadic fuzzy query-param names. Merged with env via post-parse helper. */
   waczFuzzyParam?: string[];
   signingPolicy: SigningPolicy;
+  signingTrustAnchor?: string;
+  signingTimestampAnchor?: string;
   signingUrl?: string;
   signingToken?: string;
   signingTimeoutMs: number;
@@ -267,6 +269,12 @@ const buildServerConfig = (opts: ResolvedOptions): BrowserHiveConfig => {
     policy: opts.signingPolicy,
     ...(opts.signingUrl === undefined ? {} : { url: opts.signingUrl }),
     ...(opts.signingToken === undefined ? {} : { token: opts.signingToken }),
+    ...(opts.signingTrustAnchor === undefined
+      ? {}
+      : { trustAnchorPath: opts.signingTrustAnchor }),
+    ...(opts.signingTimestampAnchor === undefined
+      ? {}
+      : { timestampAnchorPath: opts.signingTimestampAnchor }),
     timeoutMs: opts.signingTimeoutMs,
   };
 
@@ -598,6 +606,18 @@ export const createProgram = (): Command => {
       new Option("--signing-token <token>", "Bearer token for the signing service").env(
         "BROWSERHIVE_SIGNING_TOKEN",
       ),
+    )
+    .addOption(
+      new Option(
+        "--signing-trust-anchor <pem>",
+        "PEM holding the root that issued the signing certificate. Without it the chain check is reported as skipped, and signatures from any CA are accepted",
+      ).env("BROWSERHIVE_SIGNING_TRUST_ANCHOR"),
+    )
+    .addOption(
+      new Option(
+        "--signing-timestamp-anchor <pem>",
+        "PEM holding the root that issued the timestamp authority. Without it the timestamp check is reported as skipped",
+      ).env("BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR"),
     )
     .addOption(
       new Option(

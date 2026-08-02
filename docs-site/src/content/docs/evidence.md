@@ -48,6 +48,8 @@ That is the axis BrowserHive is working along.
 | --- | --- | --- |
 | The archive is signed | `signing: true` requests a [wacz-auth](https://specs.webrecorder.net/wacz-auth/0.1.0/) signature over the `sha256:` of `datapackage.json`, stored as `datapackage-digest.json` | [Signing a WACZ](/signing/) |
 | A signing key is never held by the capture worker | BrowserHive sends the hash to a signing service and stores what comes back, so a compromised worker cannot forge a second archive | [Signing a WACZ](/signing/) |
+| The signature is checked, not just received | Four checks before an archive may call itself signed: the signature covers the hash this capture produced, the certificate chains to a configured root, it was issued for the domain named, and the timestamp token covers this signature. Each is reported separately — `skipped` is not a pass | [Signing a WACZ](/signing/) |
+| Signing fails closed | A capture that had to be signed and could not be is a failed capture; no artefact is stored. What is on offer is set per deployment by `--signing-policy` | [Signing a WACZ](/signing/) |
 | The time of signing can be corroborated | `signedData` carries an RFC 3161 timestamp token when the signing service attaches one — the development service always does, and BrowserHive stores whatever comes back | [Signing a WACZ](/signing/) |
 | The archive reports its own gaps | `completeness` records what the capture could **not** get — bodies lost to `304`, responses truncated at the size limit | [Capture results](/capture-results/) |
 | The archive reports where it stopped | `coverage` records scroll exhaustion — how far down the page the capture actually reached before giving up | [Capture results](/capture-results/) |
@@ -66,21 +68,6 @@ evidentiary use only makes it more important.
 
 These are the gaps. They are ordered by how much they matter for evidentiary
 use, not by how hard they are.
-
-### Signing does not fail closed
-
-A capture whose signature could not be obtained **still succeeds**. If the
-signing service is unreachable, misconfigured, or slow, the capture returns
-normally and the archive goes out unsigned, with the reason recorded in
-`SignatureReport`.
-
-This is deliberate, and it is the right trade for a capture pipeline: losing a
-whole capture because a signing service was down would be worse. For evidentiary
-use it is the wrong trade — an unsigned archive has little evidentiary value, and
-the failure is most likely to be noticed long after the capture.
-
-**What is needed:** a mode in which a signature failure fails the capture. The
-reporting side already exists; what is missing is the policy.
 
 ### The development signing service is not usable for real signatures
 
@@ -165,9 +152,10 @@ for the observation rather than for a guarantee, because a name like
 
 ## Order of work
 
-1. **Make signatures dependable.** Fail-closed signing, a real certificate
-   authority, a recognised timestamp authority, and an operator identity bound
-   into the archive. Until these hold, later items add little.
+1. **Make signatures dependable.** Fail-closed signing and verification of
+   what the signing service returns are implemented. What remains is a real
+   certificate authority, a recognised timestamp authority, and an operator
+   identity bound into the archive. Until those hold, later items add little.
 2. **Record the capture context.** TLS certificate chains and resolved
    addresses, stored in the archive rather than referenced from it.
 3. **Protect the archive after capture.** Storage immutability, retention, an

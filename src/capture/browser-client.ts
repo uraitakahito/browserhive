@@ -25,7 +25,7 @@ import type { BrowserProfile, SigningConfig } from "../config/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { captureStatus } from "./capture-status.js";
 import { PageCapturer } from "./page-capturer.js";
-import { createHttpSigner } from "../storage/wacz/index.js";
+import { readTrustAnchors, createHttpSigner } from "../storage/wacz/index.js";
 import { withWallClockTimeout } from "./timeouts.js";
 import type { CaptureTask, CaptureResult, ErrorDetails } from "./types.js";
 import { createConnectionError, errorDetailsFromException } from "./error-details.js";
@@ -104,6 +104,11 @@ export class BrowserClient {
                   url: signing.url,
                   ...(signing.token === undefined ? {} : { token: signing.token }),
                   timeoutMs: signing.timeoutMs,
+                  // Read once, at construction. A capture is not the moment to
+                  // discover the trust anchor was deleted, and re-reading per
+                  // signature would make the archive depend on the filesystem
+                  // staying still for the length of a crawl.
+                  anchors: readTrustAnchors(signing),
                 }),
               }),
         }

@@ -13,6 +13,8 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import {
   createHttpSigner,
@@ -21,6 +23,7 @@ import {
 } from "../../../src/storage/wacz/signer.js";
 
 const HASH = "sha256:0be7b2fea93622c434c8f205494e2d0b451acae3803dc87420b6ef51e151239c";
+
 
 const servers: Server[] = [];
 
@@ -42,12 +45,20 @@ afterEach(async () => {
   );
 });
 
-const signedDataFixture = {
-  hash: HASH,
-  created: "2026-08-02T00:00:00.000Z",
-  signature: "MEQCIGS0Ydsd",
-  domain: "sign.dev.local",
-  domainCert: "-----BEGIN CERTIFICATE-----\n…",
+/**
+ * A `signedData` capping actually produced, not a hand-written stand-in.
+ *
+ * It used to be a placeholder — `domainCert: "-----BEGIN CERTIFICATE-----\n…"`,
+ * literally. That was fine while nothing verified it, and became a liability
+ * the moment something did: a verifier tested against an unverifiable fixture
+ * proves nothing, and the red it produces looks like a bug in the verifier
+ * rather than in the fixture.
+ */
+const FIXTURE_DIR = join(import.meta.dirname, "../../fixtures/signing");
+const readFixture = (name: string): string => readFileSync(join(FIXTURE_DIR, name), "utf-8");
+const signedDataFixture = JSON.parse(readFixture("signed-data.json")) as {
+  hash: string;
+  domain: string;
 };
 
 describe("createHttpSigner", () => {
@@ -59,7 +70,14 @@ describe("createHttpSigner", () => {
 
     const { digestBytes, report } = await createHttpSigner({ url, timeoutMs: 5000 }).sign(HASH);
 
-    expect(report).toEqual({ signed: true, domain: "sign.dev.local" });
+    // No anchors configured here, so the two checks that need one are
+    // `skipped` — the other two hold regardless, and they are the ones that
+    // catch a service signing the wrong bytes.
+    expect(report).toEqual({
+      signed: true,
+      domain: "sign.dev.local",
+      checks: { signature: "ok", chain: "skipped", domain: "ok", timestamp: "skipped" },
+    });
     expect(digestBytes).toBeDefined();
 
     // The shape wacz-auth expects at the WACZ root, and the hash we asked to
@@ -186,5 +204,75 @@ describe("stand-in signers", () => {
     const { report } = await noSigningServiceSigner.sign(HASH);
     expect(report.signed).toBe(false);
     expect(report.reason).toContain("no signing service");
+  });
+});
+
+/**
+ * Verification, through the port.
+ *
+ * The service is a stub here and the payload is the real fixture, so what is
+ * under test is the wiring: does a response that does not verify come back as
+ * `signed: false`, and does the report say which check said so.
+ */
+describe("createHttpSigner — verification", () => {
+  const REAL_HASH = HASH;
+  const realSignedData = (): unknown =>
+    JSON.parse(readFixture("signed-data.json")) as unknown;
+  const anchors = {
+    signing: readFixture("ca.pem"),
+    timestamp: readFixture("tsa-ca.pem"),
+  };
+
+  it("reports every check when the signature verifies", async () => {
+    const url = await stub((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(realSignedData()));
+    });
+
+    const out = await createHttpSigner({ url, timeoutMs: 2000, anchors }).sign(REAL_HASH);
+
+    expect(out.report.signed).toBe(true);
+    expect(out.report.checks).toEqual({
+      signature: "ok",
+      chain: "ok",
+      domain: "ok",
+      timestamp: "ok",
+    });
+    expect(out.digestBytes).toBeDefined();
+  });
+
+  it("refuses a signature that is not over the hash we sent", async () => {
+    const url = await stub((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(realSignedData()));
+    });
+
+    // The service returns a genuine signature — over somebody else's bytes.
+    // Before verification existed this produced `signed: true`.
+    const out = await createHttpSigner({ url, timeoutMs: 2000, anchors }).sign(
+      "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    );
+
+    expect(out.report.signed).toBe(false);
+    expect(out.report.checks?.signature).toBe("failed");
+    expect(out.digestBytes).toBeUndefined();
+  });
+
+  it("verifies nothing it was given no anchors for, and says so", async () => {
+    const url = await stub((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(realSignedData()));
+    });
+
+    const out = await createHttpSigner({ url, timeoutMs: 2000, anchors: {} }).sign(REAL_HASH);
+
+    // The signature and the domain still hold — those need no configuration.
+    expect(out.report.signed).toBe(true);
+    expect(out.report.checks).toEqual({
+      signature: "ok",
+      chain: "skipped",
+      domain: "ok",
+      timestamp: "skipped",
+    });
   });
 });
