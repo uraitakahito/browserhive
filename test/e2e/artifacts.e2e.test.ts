@@ -57,4 +57,32 @@ describe("capture artefacts land in the object store", () => {
     // to be sitting at a similar key.
     expect(datapackage(entries)["mainPageURL"]).toBe(url);
   });
+
+  it("carries its own account of what it could not get", async ({ annotate }) => {
+    // Unit tests prove the packager writes the key when handed one. Only this
+    // proves a real capture hands it one — the report is assembled in
+    // page-capturer from a behavior's return value and the recorder's
+    // responses, and either could stop arriving without a unit test noticing.
+    //
+    // Read from the archive rather than the API response on purpose: the
+    // archive is what travels, and the whole point of writing it here is that
+    // someone who never saw the response can still ask.
+    const url = `${meadow}${scenarios.plainHtml}`;
+    const report = await submitAndWait(api, captureRequest(url, { formats: WACZ_ONLY }), annotate);
+    expect(report.status).toBe("success");
+
+    const entries = openWacz(await fetchArtifact(s3, report.artifacts.wacz!));
+    const capture = datapackage(entries)["browserhive:capture"] as {
+      completeness?: { complete?: boolean };
+      coverage?: { scrollExhausted?: boolean; scrollSteps?: number };
+    };
+    await annotate(JSON.stringify(capture), "capture-report");
+
+    expect(capture.completeness?.complete).toBe(true);
+    // A short static page: autoscroll runs out of page, not out of steps. The
+    // yahoo.co.jp case this exists for is the opposite, and cannot be an e2e
+    // fixture — it needs an origin with no bottom.
+    expect(capture.coverage?.scrollExhausted).toBe(false);
+    expect(capture.coverage?.scrollSteps).toBeLessThan(40);
+  });
 });

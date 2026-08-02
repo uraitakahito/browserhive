@@ -155,6 +155,26 @@ parts of the loader treat the absence of `profile` as a sign the WACZ is
 incomplete and silently skip optional steps (like CDX validation). Always
 emit `"profile": "data-package"`.
 
+### Unknown keys in `datapackage.json` never reach replay
+
+`browserhive:capture` — this capture's account of what it could not get —
+is written here. It is safe because wabac reads exactly **four** keys from this
+file, which was checked rather than assumed:
+
+```typescript
+// wabac 2.26.6 — everything loadPackage / loadLeafWACZPackage touch
+root.config       // passed to initConfig when present
+root.profile      // the switch above
+root.metadata     // returned by loadLeafWACZPackage
+root.resources    // only path and hash are read
+// no other key is even walked
+```
+
+The official Frictionless schema has no `additionalProperties: false` either,
+so extra keys are legal by design — the same mechanism that carries
+`wacz_version` and `mainPageURL`. Note that `config` and `metadata` are names
+**wabac gives meaning to**, so they must not be used for anything of ours.
+
 ### WARC `application/http;msgtype=response` must be HTTP/1.1-shaped
 
 Even when the wire transport is HTTP/2 (or HTTP/3), the WARC payload is

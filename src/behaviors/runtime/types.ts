@@ -89,8 +89,23 @@ export interface RunOpts {
   trace?: boolean;
 }
 
-/** Report returned from `run()` back to Node (serialized via page.evaluate). */
+/**
+ * Report returned from `run()` back to Node (serialized via page.evaluate).
+ *
+ * Declared twice on purpose: `src/behaviors/types.ts` holds the Node-side
+ * copy, and this directory is excluded from the tsc build so it cannot import
+ * it. The two must be kept in step by hand — `test/behaviors/report-shape.test.ts`
+ * fails if they drift, because a field added on one side alone crosses
+ * `page.evaluate` and then vanishes into an `any`.
+ */
 export interface BehaviorRunReport {
-  ran: Array<{ id: string; steps: number; ms: number; error?: string }>;
+  ran: Array<{
+    id: string;
+    steps: number;
+    ms: number;
+    error?: string;
+    /** What the behavior concluded. See the Node-side copy for why. */
+    decisions?: Record<string, string | number | boolean>;
+  }>;
   timedOut: boolean;
 }

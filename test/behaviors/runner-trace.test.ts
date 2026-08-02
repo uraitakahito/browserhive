@@ -112,4 +112,29 @@ describe("BehaviorRunner — decision trace", () => {
     expect(grp).not.toHaveBeenCalled();
     grp.mockRestore();
   });
+
+  it("puts the decisions in the report, not only in the console", async () => {
+    // The console trace is off by default and lives inside the captured page,
+    // so it reaches nobody. `steps` does reach Node, and `steps` cannot answer
+    // the only question worth asking of autoscroll: did it stop because it ran
+    // out of page, or because it ran out of steps? Those are the same number.
+    const runner = new BehaviorRunner();
+    runner.register(buildBehavior("x", 3, { stopped: "maxSteps 40 reached", reachedBottom: false }));
+
+    const report = await runner.run(runOpts());
+
+    expect(report.ran[0]?.decisions).toEqual({
+      stopped: "maxSteps 40 reached",
+      reachedBottom: false,
+    });
+  });
+
+  it("omits the field entirely when a behavior decided nothing", async () => {
+    const runner = new BehaviorRunner();
+    runner.register(buildBehavior("x", 1));
+
+    const report = await runner.run(runOpts());
+
+    expect(report.ran[0]).not.toHaveProperty("decisions");
+  });
 });

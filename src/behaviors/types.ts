@@ -45,6 +45,21 @@ export interface BehaviorRequest {
 
 /** Report returned from the in-page runner, surfaced in the capture result. */
 export interface BehaviorRunReport {
-  ran: { id: string; steps: number; ms: number; error?: string }[];
+  ran: {
+    id: string;
+    steps: number;
+    ms: number;
+    error?: string;
+    /**
+     * What the behavior concluded, as opposed to how far it got.
+     *
+     * `steps` cannot answer the only question worth asking of `autoscroll`:
+     * whether it stopped because the page ended or because the step cap did.
+     * Both produce the same number. Measured against www.yahoo.co.jp, five
+     * captures in a row reported `steps: 41` — the cap, every time, with the
+     * bottom never reached and nothing downstream able to tell.
+     */
+    decisions?: Record<string, string | number | boolean>;
+  }[];
   timedOut: boolean;
 }

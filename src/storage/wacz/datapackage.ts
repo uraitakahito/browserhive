@@ -7,6 +7,8 @@
  * Hash format: `sha256:<hex>` (the WACZ spec). Distinct from WARC's
  * digest format (`sha256:<base32>`) — see `digest.ts:sha256Hex`.
  */
+import type { CompletenessReport } from "./completeness.js";
+import type { CoverageReport } from "./coverage.js";
 import { sha256Hex } from "../warc/digest.js";
 
 export interface WaczResourceInput {
@@ -28,6 +30,24 @@ export interface DatapackageInput {
   /** Optional package identifier. Defaults to a synthetic value derived from `mainPageURL`. */
   name?: string;
   resources: WaczResourceInput[];
+  /** What this capture could not get. Written under `browserhive:capture`. */
+  capture?: CaptureSelfReport;
+}
+
+/**
+ * The archive's account of its own gaps.
+ *
+ * Written into `datapackage.json` rather than returned only to the caller,
+ * because the archive travels and the API response does not. A WACZ opened in
+ * three years is the thing that has to answer "is everything here?", and until
+ * now it could not — `completeness` was computed on every capture and put in
+ * the HTTP response alone, so the moment that response was discarded, the fact
+ * that a body was lost to a `304` went with it.
+ */
+export interface CaptureSelfReport {
+  completeness: CompletenessReport;
+  /** Absent when behaviors were off, or when autoscroll reported nothing. */
+  coverage?: CoverageReport;
 }
 
 interface DatapackageResource {
@@ -58,6 +78,18 @@ export interface DatapackageOutput {
   mainPageDate: string;
   title?: string;
   resources: DatapackageResource[];
+  /**
+   * Non-spec. What this capture could not get.
+   *
+   * Namespaced because it is our observation, not a vocabulary anyone agreed
+   * on — unlike `wacz_version` and `mainPageURL`, which are bare because the
+   * WACZ spec named them. The Frictionless schema has no
+   * `additionalProperties: false`, so extra keys are legal by design; wabac.js
+   * reads only `config`, `profile`, `metadata` and `resources` from this file
+   * and ignores everything else, so replay does not see this at all.
+   */
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  "browserhive:capture"?: CaptureSelfReport;
 }
 
 const fileNameOf = (path: string): string => {
@@ -83,6 +115,7 @@ export const buildDatapackage = (input: DatapackageInput): DatapackageOutput => 
     resources,
   };
   if (input.title !== undefined) out.title = input.title;
+  if (input.capture !== undefined) out["browserhive:capture"] = input.capture;
   return out;
 };
 

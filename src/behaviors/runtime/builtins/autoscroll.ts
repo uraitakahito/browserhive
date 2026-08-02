@@ -42,10 +42,19 @@ export class AutoScrollBehavior {
     await ctx.Lib.sleep(settleMs); // brief settle for freshly-triggered loads
     yield ctx.getState("settled");
 
+    // Two values for two readers. `stopped` is a sentence someone reads in a
+    // log and will get reworded; `reachedBottom` and `scrollSteps` are what
+    // `analyzeCoverage` reads, so rewording the sentence cannot silently
+    // invert the archive's own account of itself.
+    //
+    // `steps` ends one past the count taken, because the guard increments
+    // before the body runs — the reported figure is the real one.
     return {
       stopped: reachedBottom
         ? `bottom reached after ${String(steps)} steps`
         : `maxSteps ${String(maxSteps)} reached — bottom NOT reached`,
+      reachedBottom,
+      scrollSteps: reachedBottom ? steps : maxSteps,
     };
   }
 }
