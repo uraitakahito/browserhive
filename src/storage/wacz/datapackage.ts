@@ -9,6 +9,7 @@
  */
 import type { CompletenessReport } from "./completeness.js";
 import type { CoverageReport } from "./coverage.js";
+import type { ObservedTlsByHost } from "../../capture/network-recorder-types.js";
 import { sha256Hex } from "../warc/digest.js";
 
 export interface WaczResourceInput {
@@ -70,6 +71,19 @@ export interface CaptureSelfReport {
   completeness: CompletenessReport;
   /** Absent when behaviors were off, or when autoscroll reported nothing. */
   coverage?: CoverageReport;
+  /**
+   * What the browser saw of each HTTPS host's TLS connection.
+   *
+   * Not provenance: a certificate is public, so recording one proves nothing
+   * about who answered. It is here because `issuer` shows whether the
+   * connection was intercepted and the validity window can be checked against
+   * `mainPageDate` — neither of which any other field can answer, and neither
+   * of which can be recovered once the capture is over.
+   *
+   * A host is absent when it was never reached over HTTPS, and `null` when it
+   * was but nothing came back.
+   */
+  tls?: ObservedTlsByHost;
 }
 
 /** The build fingerprint, as `scripts/generate-version.mjs` resolves it. */

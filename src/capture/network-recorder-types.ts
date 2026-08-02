@@ -144,3 +144,34 @@ export const createEmptyRecordingStats = (): RecordingStats => ({
     truncatedTaskCap: [],
   },
 });
+
+/**
+ * What the browser saw of the TLS connection to one host.
+ *
+ * Not proof of origin. A certificate is public — anyone can fetch one and
+ * present a copy — so holding these fields says nothing about who answered.
+ * They are kept for two narrower things: `issuer` shows whether the
+ * connection was intercepted, and the validity window can be checked against
+ * a claimed capture time.
+ */
+export interface ObservedTls {
+  /** e.g. `"TLS 1.3"`. */
+  protocol: string;
+  cipher: string;
+  /** Subject common name, as the browser reports it. */
+  subject: string;
+  /** The one field that changes when a connection is intercepted. */
+  issuer: string;
+  /** ISO 8601. CDP reports epoch seconds; converted here so the archive is uniform. */
+  validFrom: string;
+  validTo: string;
+}
+
+/**
+ * Per-host TLS observations for a capture.
+ *
+ * A host is absent when it was never reached over HTTPS, and `null` when it
+ * was but nothing came back — omitting the key in that case would read as
+ * "this host was plain HTTP", which is a different fact.
+ */
+export type ObservedTlsByHost = Record<string, ObservedTls | null>;

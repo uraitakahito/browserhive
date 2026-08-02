@@ -78,6 +78,7 @@ import {
   createEmptyRecordingStats,
   pushSample,
   type NetworkRecorderOptions,
+  type ObservedTlsByHost,
   type RecordedResponse,
   type RecordingStats,
 } from "./network-recorder-types.js";
@@ -335,6 +336,14 @@ export class NetworkRecorder {
   private recordedResponses: RecordedResponse[] = [];
   private started = false;
   private stopped = false;
+  /**
+   * One entry per host, filled as responses arrive.
+   *
+   * Keyed by host rather than origin because the port is not what a reader is
+   * checking — "who issued the certificate this name presented" is, and a host
+   * reached on two ports presents the same one.
+   */
+  private readonly tls: ObservedTlsByHost = {};
 
   constructor(options: NetworkRecorderOptions) {
     this.opts = options;
@@ -417,12 +426,54 @@ export class NetworkRecorder {
    * the drain are logged but do not propagate (the WARC produced so far is
    * still valuable).
    */
+  /**
+   * Record what this response revealed about its TLS connection.
+   *
+   * First writer wins: a host that answered once with details and later
+   * without keeps them. The alternative — last writer — would let a single
+   * detail-less response erase what was observed, and nothing is gained by
+   * preferring the newer of two views of the same connection.
+   */
+  private noteTls(response: Protocol.Network.Response): void {
+    let host: string;
+    try {
+      const url = new URL(response.url);
+      if (url.protocol !== "https:") return;
+      host = url.host;
+    } catch {
+      return;
+    }
+    if (this.tls[host] !== undefined && this.tls[host] !== null) return;
+
+    const d = response.securityDetails;
+    if (d === undefined) {
+      // Reached over HTTPS and told us nothing. Recorded as `null` so the
+      // archive can say that, rather than looking like a plain-HTTP host.
+      this.tls[host] ??= null;
+      return;
+    }
+    this.tls[host] = {
+      protocol: d.protocol,
+      cipher: d.cipher,
+      subject: d.subjectName,
+      issuer: d.issuer,
+      // CDP hands these over as epoch seconds. Every other date in the archive
+      // is ISO 8601, and the whole point of keeping the validity window is to
+      // compare it against a capture time — converting at the boundary means
+      // nobody has to do it at the point of comparison.
+      validFrom: new Date(d.validFrom * 1000).toISOString(),
+      validTo: new Date(d.validTo * 1000).toISOString(),
+    };
+  }
+
   async stop(): Promise<{
     path: string;
     bytesWritten: number;
     stats: RecordingStats;
     /** Per-response WARC record metadata, used by the WACZ packager to build CDXJ. */
     responses: RecordedResponse[];
+    /** What the browser saw of each HTTPS host's TLS connection. */
+    tls: ObservedTlsByHost;
   }> {
     if (this.stopped) throw new Error("NetworkRecorder already stopped");
     this.stopped = true;
@@ -468,6 +519,7 @@ export class NetworkRecorder {
       ...result,
       stats: this.stats,
       responses: this.recordedResponses,
+      tls: this.tls,
     };
   }
 
@@ -620,6 +672,7 @@ export class NetworkRecorder {
     if (event.response.remoteIPAddress !== undefined) {
       snap.remoteIPAddress = event.response.remoteIPAddress;
     }
+    this.noteTls(event.response);
     entry.response = snap;
 
     // Apply content-type filter at this point so we don't waste the

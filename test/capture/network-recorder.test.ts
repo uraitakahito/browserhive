@@ -711,3 +711,116 @@ describe("NetworkRecorder redirects", () => {
     )).toContain("<html>final</html>");
   });
 });
+
+/**
+ * What the browser saw of each TLS connection.
+ *
+ * `securityDetails` rides on `responseReceived`, an event the recorder already
+ * handles — so this costs no extra CDP round-trip and the only question is
+ * what to keep. Per host, not per response: a hundred requests to one origin
+ * are one connection's worth of information, and writing it a hundred times
+ * would say nothing more.
+ *
+ * A certificate proves nothing about who we talked to — it is public, and
+ * anyone can present a copy. It is kept for two narrower things: the issuer
+ * shows whether the connection was intercepted, and the validity window can be
+ * checked against a claimed capture time.
+ */
+describe("NetworkRecorder — observed TLS", () => {
+  const securityDetails = (subject: string) => ({
+    protocol: "TLS 1.3",
+    cipher: "AES_128_GCM",
+    subjectName: subject,
+    issuer: "Example CA G4",
+    // CDP reports these as epoch seconds.
+    validFrom: 1_762_340_773,
+    validTo: 1_796_396_340,
+    sanList: [subject],
+  });
+
+  const respond = (
+    session: FakeSession,
+    requestId: string,
+    url: string,
+    security?: ReturnType<typeof securityDetails>,
+  ): void => {
+    session.emit("Network.requestWillBeSent", {
+      requestId,
+      request: { url, method: "GET", headers: {} },
+    });
+    session.emit("Network.responseReceived", {
+      requestId,
+      response: {
+        url,
+        status: 200,
+        statusText: "OK",
+        protocol: "h2",
+        mimeType: "text/html",
+        headers: {},
+        encodedDataLength: 4,
+        ...(security !== undefined && { securityDetails: security }),
+      },
+    });
+    session.setBody(requestId, "body");
+    session.emit("Network.loadingFinished", { requestId, encodedDataLength: 4 });
+  };
+
+  it("keeps one entry per host, not one per response", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/one", securityDetails("a.example"));
+    respond(session, "r2", "https://a.example/two", securityDetails("a.example"));
+
+    const { tls } = await recorder.stop();
+
+    expect(Object.keys(tls)).toEqual(["a.example"]);
+    expect(tls["a.example"]).toMatchObject({
+      protocol: "TLS 1.3",
+      cipher: "AES_128_GCM",
+      subject: "a.example",
+      issuer: "Example CA G4",
+    });
+  });
+
+  it("converts CDP's epoch seconds into the timestamps everything else uses", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "https://a.example/x", securityDetails("a.example"));
+
+    const { tls } = await recorder.stop();
+
+    // Every other date in the archive is ISO 8601. A raw epoch here would make
+    // the one field a reader most wants to compare against a capture time the
+    // one field they have to convert first.
+    expect(tls["a.example"]).toMatchObject({
+      validFrom: "2025-11-05T11:06:13.000Z",
+      validTo: "2026-12-04T14:59:00.000Z",
+    });
+  });
+
+  it("ignores hosts that were never HTTPS", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "http://plain.example/x");
+
+    const { tls } = await recorder.stop();
+
+    // Absent, not null: `null` is reserved for "HTTPS, and we got nothing",
+    // which is a different thing a reader has to be able to tell apart.
+    expect(tls).not.toHaveProperty("plain.example");
+  });
+
+  it("records null for an HTTPS host that reported no details", async () => {
+    const session = makeFakeSession();
+    const recorder = await startRecorder(baseOpts(join(tmpDir, "tls.warc.gz")), session);
+
+    respond(session, "r1", "https://quiet.example/x");
+
+    const { tls } = await recorder.stop();
+
+    expect(tls).toHaveProperty("quiet.example", null);
+  });
+});

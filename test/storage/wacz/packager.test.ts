@@ -639,6 +639,33 @@ describe("WaczPackager.pack — signing", () => {
     expect(signedHash).toBe(sha256Hex(datapackageBytes));
   });
 
+  it("carries the observed TLS into the archive", async () => {
+    const capture = captureReport();
+    capture.tls = {
+      "a.example": {
+        protocol: "TLS 1.3",
+        cipher: "AES_128_GCM",
+        subject: "a.example",
+        issuer: "Example CA G4",
+        validFrom: "2025-11-05T11:06:13.000Z",
+        validTo: "2026-12-04T14:59:00.000Z",
+      },
+      "quiet.example": null,
+    };
+
+    const { entries } = await packWith(alwaysFails, { capture });
+
+    const pkg = JSON.parse(
+      Buffer.from(entries["datapackage.json"]!).toString("utf-8"),
+    ) as Record<string, { tls: Record<string, { issuer?: string } | null> }>;
+    expect(pkg["browserhive:capture"].tls["a.example"]).toMatchObject({
+      issuer: "Example CA G4",
+    });
+    // `null` has to survive serialisation. Dropping it would turn "HTTPS, and
+    // we got nothing" into "never seen over HTTPS".
+    expect(pkg["browserhive:capture"].tls).toHaveProperty("quiet.example", null);
+  });
+
   it("carries the signer's reason into the failure", async () => {
     await expect(
       packWith(alwaysFails, { requireSignature: true }),
