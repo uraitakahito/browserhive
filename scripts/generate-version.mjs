@@ -12,19 +12,24 @@
  *   2. `git rev-parse --short HEAD` — host / local builds.
  *   3. "dev" — neither available.
  *
- * version resolution: the same three steps, because package.json is not the
- * answer. Nothing in this workspace keeps that field in step with releases —
- * it has said 1.0.0 since the day it was written, through every tag up to
- * 1.9.x — so a running server was reporting a number that matched no release
- * anyone could fetch. The tag is what a release IS here, so ask git for it.
+ * version resolution: GIT_TAG, then `git describe --tags`, then the literal
+ * "unknown". Not package.json — nothing in this workspace keeps that field in
+ * step with releases (it has said 1.0.0 since the day it was written, through
+ * every tag), so a build falling back to it reports a number that matches no
+ * release anyone can fetch. The tag is what a release IS here.
+ *
+ * Falling back to package.json is how `browserhive/1.0.0` ended up stamped
+ * into every archive ever produced: this value also becomes the `software`
+ * field of `datapackage.json` and the WARC `warcinfo` record, where it is
+ * baked in and cannot be corrected afterwards. "unknown" is worse to look at
+ * and better to receive — an archive that admits it does not know beats one
+ * that names a release that never existed.
  *
  * The leading `v` is dropped: `v1.9.10` is the tag name and `1.9.10` is the
  * version, and this field is the version.
  */
 import { execSync } from "node:child_process";
-import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
-
-const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+import { writeFileSync, mkdirSync } from "node:fs";
 
 const git = (cmd) => {
   try {
@@ -41,7 +46,7 @@ const revision = process.env.GIT_REV?.trim() || git("git rev-parse --short HEAD"
 // `describe` also covers the off-a-release case: 1.9.10-3-gabc1234 says, out
 // loud, that this build is three commits past the tag it names.
 const described = process.env.GIT_TAG?.trim() || git("git describe --tags") || null;
-const version = described ? described.replace(/^v/, "") : pkg.version;
+const version = described ? described.replace(/^v/, "") : "unknown";
 
 const info = {
   version,
