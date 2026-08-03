@@ -149,9 +149,18 @@ services:
     # container can reach.
     command:
       ["serve", "--dir", "/id", "--host", "0.0.0.0", "--port", "8080",
-       "--token", "dev-token"]
+       "--token", "dev-token",
+       # Where the timestamp comes from. capping issues none of its own since
+       # v0.5.0; without this every signature it makes carries no timeSignature
+       # and the timestamp check here reports `skipped`.
+       "--tsa-url", "http://tsa.browserhive:3004/api/v1/timestamp"]
     volumes:
       - ./test/fixtures/dev-ca:/id:ro
+    # Start order only — container-compose has no healthcheck support. A
+    # signature attempted before the TSA is listening fails the capture rather
+    # than producing an untimestamped one, which is the behaviour wanted here.
+    depends_on:
+      - tsa
     profiles: ["signing"]
 
   # RFC 3161 timestamps, from sigstore/timestamp-authority rather than the

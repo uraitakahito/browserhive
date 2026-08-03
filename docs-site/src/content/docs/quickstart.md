@@ -49,6 +49,7 @@ published to the host. The default is one chromium worker; add more with
 | SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | Artifact store |
 | chromium workers | `http://chromium-N.browserhive:9222` | CDP; watch via `chrome://inspect` |
 | capping | `http://capping.browserhive:8080` | Signs a WACZ when a capture asks (`--profile signing`) |
+| timestamp authority | `http://tsa.browserhive:3004` | RFC 3161 timestamps for capping's signatures (`--profile signing`) |
 
 Check the state (until the stack is up, curl reports the failure itself):
 
