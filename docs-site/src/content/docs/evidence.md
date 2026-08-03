@@ -116,6 +116,22 @@ reconstructed from outside the system, if it can be reconstructed at all.
 
 **What is needed:** an audit log covering request and retrieval.
 
+### <span id="the-timestamp-is-checked-against-the-time-it-asserts">The timestamp is checked against the time it asserts</span>
+
+The `timestamp` check verifies the token as of the instant the token itself
+carries, which is what keeps an archive checkable after the timestamping
+certificate expires. That instant is signed by the authority, so it cannot be
+edited without breaking the token — but it is not corroborated either. An
+authority whose key leaked after expiry could issue a token backdated into its
+own validity window, and this check would accept it.
+
+This is RFC 3161's standing limitation rather than something particular to
+BrowserHive, and the alternative is worse: checking against the current time
+prevents none of it while discarding every archive that outlives the authority.
+
+**What is needed:** an independent time source, or an archive timestamp applied
+by a second authority while the first is still valid.
+
 ## What BrowserHive will not claim
 
 Overstating what an archive proves is a bigger risk than any of the gaps above.

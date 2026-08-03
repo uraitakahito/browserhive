@@ -17,6 +17,8 @@ stack produces.
 | `signed-data.json` | wacz-auth `signedData` over `HASH` below, signed by the dev CA. The happy path. |
 | `other-ca.pem` | An unrelated root. Nothing here chains to it — that is its job. |
 | `other-time-signature.txt` | A genuine timestamp token, issued over a *different* signature. |
+| `expired-tsa-ca.crt` | A timestamp root whose validity window has closed. |
+| `expired-time-signature.txt` | A token issued by that authority *while it was still valid*. |
 
 The hash the signature covers:
 
@@ -30,6 +32,14 @@ and never reaches the timestamp; dropping `timeSignature` reports `skipped`,
 not `failed`. What is left is a token that is valid in itself and belongs to
 other bytes — which is also what swapping tokens between archives would look
 like. Corrupting the token would fail for being corrupt, and prove less.
+
+`expired-time-signature.txt` is the case that cannot be reached by mutating
+anything, because what it tests is the passage of time. Its authority was
+issued a certificate valid for a few minutes, signed this token inside that
+window, and has been expired ever since. Verified as of *now* it fails;
+verified as of the moment it claims, it passes — which is the whole difference
+between an archive that stays checkable and one that stops in 2036, when the
+dev CA lapses.
 
 Every other case is a mutation of these: a different hash, a rewritten
 `domain`, a missing `timeSignature`. Only the cases that need their own key

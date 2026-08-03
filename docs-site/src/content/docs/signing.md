@@ -114,6 +114,15 @@ A `failed` check never reaches you as a result: it fails the capture. `checks`
 on a successful capture therefore holds only `ok` and `skipped`, and reading it
 tells you what your configuration actually verified.
 
+The `timestamp` check is made **as of the moment the token says it was issued**,
+not as of now. A timestamping certificate expiring is the authority declining to
+sign anything new; it says nothing about what that authority signed while the
+certificate was valid, and an archive is exactly the thing that gets read
+afterwards. Verifying at the current time instead would fail every archive in
+storage the day the certificate lapsed, without a byte of any of them having
+changed. What this does not establish is that the asserted time is *true* — see
+[Evidence](/evidence/#the-timestamp-is-checked-against-the-time-it-asserts).
+
 ### <span id="a-signature-that-cannot-be-obtained-is-a-failed-capture">A signature that cannot be obtained is a failed capture</span>
 
 If the service is down, slow, refuses the token, or returns something that does
