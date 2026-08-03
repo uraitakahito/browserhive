@@ -158,6 +158,31 @@ describe("verifySignedData — timestamp", () => {
     expect(result.ok).toBe(true);
     expect(result.checks.timestamp).toBe("skipped");
   });
+
+  it("still accepts a token whose authority's certificate has since expired", async () => {
+    // The point of a timestamp is that it outlives the key that made it. A
+    // certificate expiring is the authority declining to sign anything *new* —
+    // it says nothing about what was signed while the certificate was valid,
+    // and an archive is exactly the thing that gets read afterwards.
+    //
+    // `expired-time-signature.txt` was issued during a validity window that
+    // has since closed, so this is not a simulation: the same code path that
+    // reads it today is what every archive hits once the dev CA lapses in
+    // 2036.
+    const signedData = {
+      ...fixture(),
+      timeSignature: read("expired-time-signature.txt").trim(),
+    };
+
+    const result = await verifySignedData({
+      signedData,
+      hash: HASH,
+      anchors: { signing: anchors.signing, timestamp: read("expired-tsa-ca.crt") },
+    });
+
+    expect(result.checks.timestamp).toBe("ok");
+    expect(result.ok).toBe(true);
+  });
 });
 
 describe("verifySignedData — malformed input", () => {

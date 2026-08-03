@@ -114,6 +114,15 @@ A `failed` check never reaches you as a result: it fails the capture. `checks`
 on a successful capture therefore holds only `ok` and `skipped`, and reading it
 tells you what your configuration actually verified.
 
+The `timestamp` check is made **as of the moment the token says it was issued**,
+not as of now. A timestamping certificate expiring is the authority declining to
+sign anything new; it says nothing about what that authority signed while the
+certificate was valid, and an archive is exactly the thing that gets read
+afterwards. Verifying at the current time instead would fail every archive in
+storage the day the certificate lapsed, without a byte of any of them having
+changed. What this does not establish is that the asserted time is *true* — see
+[Evidence](/evidence/#the-timestamp-is-checked-against-the-time-it-asserts).
+
 ### <span id="a-signature-that-cannot-be-obtained-is-a-failed-capture">A signature that cannot be obtained is a failed capture</span>
 
 If the service is down, slow, refuses the token, or returns something that does
@@ -233,6 +242,14 @@ Every one has a CLI flag of the same name (`--signing-policy`, …).
 The dev stack sets all but the policy in `docker-compose.yml`, with both
 anchors pointing at the identity capping signs with — so development exercises
 all four checks rather than two. capping only starts under `--profile signing`.
+
+The timestamps come from a second service under the same profile: sigstore's
+[timestamp-authority](https://github.com/sigstore/timestamp-authority), at
+`tsa.browserhive:3004`. capping issues none of its own. It used to, and that
+stand-in restarted its serial at `01` for every signature — RFC 3161 says
+serials MUST be unique per authority, so what came back looked like a timestamp
+and was not one. The TSA signs with the same `insecure-dev-tsa` identity, which
+is why `BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` did not have to move.
 
 :::caution[The anchors are what reject the development CA]
 A production server that sets `BROWSERHIVE_SIGNING_TRUST_ANCHOR` to a real root

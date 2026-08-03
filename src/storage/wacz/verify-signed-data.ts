@@ -11,10 +11,10 @@
  *
  * Three of them are `node:crypto` — which is OpenSSL, in-process, no temp
  * files. The fourth is RFC 3161, which Node exposes no API for, so it is the
- * one place this shells out. Keeping that boundary at one call is the whole
- * reason the split exists: a subprocess brings temp files, argument handling,
- * exit codes and a timeout with it, and three of these checks do not need any
- * of that.
+ * one check that shells out. Keeping that boundary around a single check is
+ * the whole reason the split exists: a subprocess brings temp files, argument
+ * handling, exit codes and a timeout with it, and three of these checks do not
+ * need any of that.
  *
  * Nothing here throws. A malformed certificate, an unreadable token and a
  * forged signature are all the same answer to the caller — this signature
@@ -128,11 +128,44 @@ const chainReaches = (chain: X509Certificate[], anchors: X509Certificate[]): boo
 };
 
 /**
+ * The instant a token says it was made, as seconds since the epoch.
+ *
+ * `undefined` when the token cannot be read at all — the caller then verifies
+ * without `-attime`, which is the stricter of the two and fails anyway.
+ */
+const genTimeOf = async (tokenPath: string, timeoutMs: number): Promise<number | undefined> => {
+  try {
+    const { stdout } = await execFileAsync("openssl", ["ts", "-reply", "-in", tokenPath, "-text"], {
+      timeout: timeoutMs,
+    });
+    const printed = /^Time stamp: (.+)$/m.exec(stdout)?.[1];
+    if (printed === undefined) return undefined;
+    const parsed = new Date(printed);
+    return Number.isNaN(parsed.getTime()) ? undefined : Math.floor(parsed.getTime() / 1000);
+  } catch {
+    return undefined;
+  }
+};
+
+/**
  * `openssl ts -verify`, the one thing Node cannot do.
  *
  * The token covers the base64 *text* of the signature, not its bytes — that is
  * capping's shape and py-wacz's, and getting it wrong makes a valid token look
  * forged.
+ *
+ * Verification happens as of the moment the token claims, not as of now. A
+ * timestamp exists precisely to be checked after the fact, so a timestamping
+ * certificate expiring must not invalidate what it signed while it was valid —
+ * otherwise every archive here stops verifying on 2036-07-29 without a byte of
+ * it having changed.
+ *
+ * What this does not do is establish that `genTime` is true. openssl checks the
+ * certificate against whatever instant it is handed and no further, so a leaked
+ * key could still mint a token backdated into its own validity window. That is
+ * RFC 3161's standing limitation and wants an independent time source to close;
+ * verifying at `genTime` is strictly better than verifying at `now`, which
+ * prevents none of it while discarding every archive that outlives the CA.
  */
 const verifyTimestamp = async (
   signedData: SignedData,
@@ -149,11 +182,10 @@ const verifyTimestamp = async (
       writeFile(data, signedData.signature, "utf-8"),
       writeFile(root, timestampAnchor, "utf-8"),
     ]);
-    await execFileAsync(
-      "openssl",
-      ["ts", "-verify", "-data", data, "-in", token, "-CAfile", root],
-      { timeout: timeoutMs },
-    );
+    const at = await genTimeOf(token, timeoutMs);
+    const argv = ["ts", "-verify", "-data", data, "-in", token, "-CAfile", root];
+    if (at !== undefined) argv.push("-attime", String(at));
+    await execFileAsync("openssl", argv, { timeout: timeoutMs });
     return true;
   } catch {
     // A non-zero exit, a missing binary and a timeout all mean the same thing

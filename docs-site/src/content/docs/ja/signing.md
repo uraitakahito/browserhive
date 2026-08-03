@@ -101,6 +101,15 @@ chain と timestamp は照合先の信頼アンカーが要り、どちらも未
 成功したキャプチャの `checks` には `ok` と `skipped` しか現れず、
 **それを読むことで自分の構成が実際に何を検証したか**が分かります。
 
+`timestamp` 検査は**現在時刻ではなく、トークンが発行されたと主張する時点**で行います。
+時刻認証局の証明書の期限切れは「これ以上新しく署名しない」という宣言であって、
+有効だった間にその認証局が署名したものについては何も語りません。そしてアーカイブとは
+まさに**あとから読まれるもの**です。現在時刻で検証すると、証明書が切れた日に、
+保存済みのアーカイブが 1 バイトも変わっていないのに全部検証に失敗します。
+一方で**主張された時刻が真であることは示せません** ——
+[証拠としての設計](/ja/evidence/#the-timestamp-is-checked-against-the-time-it-asserts)
+を参照してください。
+
 ### <span id="署名が取得できないキャプチャは失敗します">署名が取得できないキャプチャは失敗します</span>
 
 サービスが停止している、遅い、トークンを拒否する、あるいは**検証を通らないものを
@@ -213,6 +222,15 @@ waxlens が見るのは「`datapackage-digest.json` が存在し、その `hash`
 dev スタックでは方針以外を `docker-compose.yml` が設定し、**両方のアンカーは
 capping が署名に使う identity を指しています** —— 開発時も 2 つではなく
 4 つの検査を通すためです。capping が起動するのは `--profile signing` のときだけです。
+
+タイムスタンプは同じプロファイルで動く別のサービスから来ます ——
+sigstore の [timestamp-authority](https://github.com/sigstore/timestamp-authority) が
+`tsa.browserhive:3004` にいます。**capping は自分ではタイムスタンプを発行しません。**
+以前は発行していましたが、その代役は署名のたびにシリアルを `01` に戻していました ——
+RFC 3161 はシリアルが認証局ごとに一意で**なければならない**と定めているので、
+返ってきたものはタイムスタンプに見えてタイムスタンプではありませんでした。
+この TSA は同じ `insecure-dev-tsa` identity で署名するので、
+`BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` は動かさずに済んでいます。
 
 :::caution[開発用 CA を弾くのはアンカーです]
 本番サーバが `BROWSERHIVE_SIGNING_TRUST_ANCHOR` に実在の root を設定していれば、
