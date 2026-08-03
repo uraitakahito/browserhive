@@ -121,6 +121,13 @@ services:
       # route between the VMs — resolve v4 first or worker WS URLs land on
       # unreachable v6 addresses.
       - NODE_OPTIONS=--dns-result-order=ipv4first
+    volumes:
+      # The two anchors above name paths inside this container, so the identity
+      # capping signs with has to be readable from here as well. Without the
+      # mount the anchors resolve to nothing, `readTrustAnchors` returns empty,
+      # and the chain and timestamp checks report `skipped` — which is exactly
+      # the half-verified state setting them was meant to end.
+      - ./test/fixtures/dev-ca:/dev-ca:ro
     depends_on:
       - seaweedfs
       - chromium-1
