@@ -154,6 +154,43 @@ services:
       - ./test/fixtures/dev-ca:/id:ro
     profiles: ["signing"]
 
+  # RFC 3161 timestamps, from sigstore/timestamp-authority rather than the
+  # stand-in capping used to carry. What changes is not the shape of the token
+  # but whether it obeys the spec: capping restarted its serial at 01 for every
+  # signature, and RFC 3161 says serials MUST be unique per TSA.
+  #
+  # Built from source because ghcr.io answers anonymous pulls with 401. The
+  # submodule is what pins the version, and being under browserhive/ is also
+  # what keeps the build context inside $HOME — Apple Container hands the
+  # builder an empty context otherwise.
+  #
+  # The key and chain are the ones already committed for capping. A dev TSA
+  # identity that met sigstore's requirements turned out to exist already:
+  # timeStamping EKU, critical, sole EKU, non-CA leaf under a CA root.
+  tsa:
+    build:
+      context: ./timestamp-authority
+      target: "deploy"
+    # The image sets CMD, not ENTRYPOINT, so the binary is named here.
+    command:
+      ["timestamp-server", "serve",
+       "--host=0.0.0.0", "--port=3004",
+       "--timestamp-signer=file",
+       "--file-signer-key-path=/id/insecure-dev-tsa.key",
+       "--certificate-chain-path=/id/insecure-dev-tsa-chain.pem",
+       # Defaults to false, which would put only the leaf in the token and
+       # leave every timestampCert missing its root. Nothing here would fail:
+       # BrowserHive checks against a configured anchor and would still say
+       # `ok`. What breaks is reading the archive on its own, which is what
+       # `capping verify` does.
+       "--include-chain-in-response=true",
+       # No route to public NTP from this network. Not fatal — the monitor
+       # only logs — but it logs on every cycle.
+       "--disable-ntp-monitoring=true"]
+    volumes:
+      - ./test/fixtures/dev-ca:/id:ro
+    profiles: ["signing"]
+
   # E2E fixture-origin ("the synthetic internet"). One URL serves both
   # directions: Chromium visits http://meadow.browserhive:8080 via the
   # platform DNS, and the host-side test process resolves the SAME name

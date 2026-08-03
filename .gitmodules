@@ -7,3 +7,6 @@
 [submodule "capping"]
 	path = capping
 	url = https://github.com/uraitakahito/capping.git
+[submodule "timestamp-authority"]
+	path = timestamp-authority
+	url = https://github.com/sigstore/timestamp-authority.git
