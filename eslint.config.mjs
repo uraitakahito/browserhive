@@ -9,8 +9,10 @@ export default defineConfig(
   // Global ignores
   //
   {
-    // chromium-server-docker/ and meadow/ are git submodules with their own
-    // lint setups and CI; this repo's rules must not police their source. The
+    // chromium-server-docker/, meadow/, capping/ and timestamp-authority/ are
+    // git submodules with their own lint setups and CI; this repo's rules must
+    // not police their source. timestamp-authority/ is upstream sigstore, whose
+    // k6 load-test .js no tsconfig here covers at all. The
     // rule versions differ too: linting meadow from here judged its code with
     // whichever typescript-eslint happened to hoist to the root, which passed
     // locally and failed in CI on the same commit.
@@ -22,7 +24,7 @@ export default defineConfig(
     // html/** and html-e2e/** are @vitest/ui report output (`--reporter=html`).
     // They are gitignored, but ESLint has its own ignore list and would try to
     // type-check the bundled Vue app, which no tsconfig project covers.
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**', 'meadow/**', 'capping/**', 'html/**', 'html-e2e/**'],
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.mts', 'openapi-ts.config.ts', 'src/http/generated/**', 'src/generated/**', 'src/behaviors/runtime/**', 'examples/behaviors/**', 'test/examples/fixtures/behaviors/**', 'scripts/**', '.Trash-*/**', 'docs-site/**', 'chromium-server-docker/**', 'meadow/**', 'capping/**', 'timestamp-authority/**', 'html/**', 'html-e2e/**'],
   },
 
   //
