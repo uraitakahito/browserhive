@@ -49,6 +49,7 @@ DNS 名で配線されます。ホストに公開されるのは BrowserHive の
 | SeaweedFS S3 / Filer | `http://seaweedfs.browserhive:8333` / `:8888` | 成果物の保存先 |
 | chromium worker | `http://chromium-N.browserhive:9222` | CDP。目視は `chrome://inspect` |
 | capping | `http://capping.browserhive:8080` | キャプチャが要求したとき WACZ に署名する(`--profile signing`) |
+| 時刻認証局 | `http://tsa.browserhive:3004` | capping の署名に RFC 3161 タイムスタンプを付与する(`--profile signing`) |
 
 状態を確認します(まだ起動していなければ curl がそのまま失敗を報告します):
 

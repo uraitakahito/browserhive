@@ -243,6 +243,14 @@ The dev stack sets all but the policy in `docker-compose.yml`, with both
 anchors pointing at the identity capping signs with — so development exercises
 all four checks rather than two. capping only starts under `--profile signing`.
 
+The timestamps come from a second service under the same profile: sigstore's
+[timestamp-authority](https://github.com/sigstore/timestamp-authority), at
+`tsa.browserhive:3004`. capping issues none of its own. It used to, and that
+stand-in restarted its serial at `01` for every signature — RFC 3161 says
+serials MUST be unique per authority, so what came back looked like a timestamp
+and was not one. The TSA signs with the same `insecure-dev-tsa` identity, which
+is why `BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` did not have to move.
+
 :::caution[The anchors are what reject the development CA]
 A production server that sets `BROWSERHIVE_SIGNING_TRUST_ANCHOR` to a real root
 rejects anything the `insecure-dev-` CA signed: the chain check fails, and with

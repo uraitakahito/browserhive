@@ -223,6 +223,15 @@ dev スタックでは方針以外を `docker-compose.yml` が設定し、**両�
 capping が署名に使う identity を指しています** —— 開発時も 2 つではなく
 4 つの検査を通すためです。capping が起動するのは `--profile signing` のときだけです。
 
+タイムスタンプは同じプロファイルで動く別のサービスから来ます ——
+sigstore の [timestamp-authority](https://github.com/sigstore/timestamp-authority) が
+`tsa.browserhive:3004` にいます。**capping は自分ではタイムスタンプを発行しません。**
+以前は発行していましたが、その代役は署名のたびにシリアルを `01` に戻していました ——
+RFC 3161 はシリアルが認証局ごとに一意で**なければならない**と定めているので、
+返ってきたものはタイムスタンプに見えてタイムスタンプではありませんでした。
+この TSA は同じ `insecure-dev-tsa` identity で署名するので、
+`BROWSERHIVE_SIGNING_TIMESTAMP_ANCHOR` は動かさずに済んでいます。
+
 :::caution[開発用 CA を弾くのはアンカーです]
 本番サーバが `BROWSERHIVE_SIGNING_TRUST_ANCHOR` に実在の root を設定していれば、
 `insecure-dev-` の CA が署名したものは chain 検査で落ち、署名必須ならキャプチャが
